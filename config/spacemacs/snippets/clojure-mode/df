@@ -1,0 +1,7 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+#name: df
+#key: df
+# --
+(defn $1
+  [$2]
+  )$0

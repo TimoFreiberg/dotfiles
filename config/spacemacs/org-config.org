@@ -1,0 +1,351 @@
+* Config
+** Util/Bootstrap
+*** Macros
+#+begin_src emacs-lisp
+  (defmacro after! (features &rest body)
+    "Run BODY after loading FEATURE.
+  Same as `with-eval-after-load', but there is no need to quote FEATURES."
+    (declare (debug (sexp body)) (indent 1))
+    (setf features (if (listp features) (nreverse features) (list features)))
+    (let* ((module (pop features))
+
+           (form `(with-eval-after-load
+                      ,(if (stringp module)
+                           module
+                         `(quote ,module))
+                    ,@body)))
+      (while features
+        (-let [module (pop features)]
+          (setf form `(with-eval-after-load
+                          ,(if (stringp module)
+                               module
+                             `(quote ,module))
+                        ,form))))
+      form))
+#+end_src
+*** std::static-assert
+
+#+BEGIN_SRC emacs-lisp
+  (defmacro std::static-assert (predicate &optional error-msg &rest error-args)
+    (declare (indent 1))
+    `(unless ,predicate
+       (error (apply #'format
+                     (or ,error-msg "Assertion Failure")
+                     (list ,@error-args)))))
+#+END_SRC
+
+   
+~keybind!~
+#+BEGIN_SRC emacs-lisp
+  (defmacro keybind! (keymaps &rest keybinds)
+    (declare (indent 1))
+    (cl-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+    (unless (listp keymaps)
+      (setq keymaps (list keymaps)))
+    (-let [bind-forms nil]
+      (while keybinds
+        (-let [(key func . rest) keybinds]
+          (-let [key (if (vectorp key) key `(kbd ,key))]
+            (dolist (keymap keymaps)
+              (push `(define-key ,keymap ,key ,func) bind-forms)))
+          (setq keybinds rest)))
+      `(progn ,@(nreverse bind-forms))))
+#+END_SRC
+
+~evil-keybind!~
+#+BEGIN_SRC emacs-lisp
+  (defmacro evil-keybind! (state keymaps &rest keybinds)
+    (declare (indent 2))
+    (cl-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+    (unless (listp keymaps)
+      (setq keymaps (list keymaps)))
+    (-let [bind-forms nil]
+      (while keybinds
+        (-let [(key func . rest) keybinds]
+          (-let [key (if (vectorp key) key `(kbd ,key))]
+            (dolist (keymap keymaps)
+              (push `(evil-define-key ,state ,keymap ,key ,func) bind-forms)))
+          (setq keybinds rest)))
+      `(progn ,@(nreverse bind-forms))))
+#+END_SRC
+
+~leader-keybind!~
+#+BEGIN_SRC emacs-lisp
+  (defmacro leader-keybind! (&rest keybinds)
+    (cl-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+    `(spacemacs/set-leader-keys
+       ,@keybinds))
+#+END_SRC
+
+~mode-leader-keybind!~
+#+BEGIN_SRC emacs-lisp
+  (defmacro mode-leader-keybind! (mode &rest keybinds)
+    (declare (indent 1))
+    (cl-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+    `(spacemacs/set-leader-keys-for-major-mode ,mode
+       ,@keybinds))
+#+END_SRC
+
+~std::leader-keybind~
+#+BEGIN_SRC emacs-lisp
+  (defmacro std::leader-keybind (&rest keybinds)
+    (std::static-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+    `(spacemacs/set-leader-keys
+       ,@keybinds))
+#+END_SRC
+*** Keybinds
+#+BEGIN_SRC emacs-lisp
+  (defun std::edit-org-user-config ()
+    "Edit the org user config file, in the current window."
+    (interactive)
+    (find-file-existing (expand-file-name "~/dotfiles/.config/spacemacs/org-config.org")))
+  (leader-keybind! "feo" #'std::edit-org-user-config)
+#+END_SRC
+** Editing
+Always enable smartparens mode when I can type
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'text-mode-hook #'smartparens-mode)
+#+END_SRC
+
+Disable hl-line mode because sometimes it's ugly
+#+BEGIN_SRC emacs-lisp
+  (global-hl-line-mode -1)
+#+END_SRC
+** Company/Autocompletion
+#+BEGIN_SRC emacs-lisp
+  (setf company-minimum-prefix-length 3)
+#+END_SRC
+** YASnippet
+*** Config
+Smartparens is disabled while yasnippet is expanding and editing a snippet. Whatever this was a workaround for
+I don't seem affected, and I'd rather keep my electric pairs inside my snippets.
+#+BEGIN_SRC emacs-lisp
+  (after! (yasnippet smartparens)
+    (unless (bound-and-true-p std::yasnippet::smartparens-restored)
+      (defvar std::yasnippet::smartparens-restored t)
+      (if (member #'spacemacs//smartparens-disable-before-expand-snippet yas-before-expand-snippet-hook)
+          (remove-hook 'yas-before-expand-snippet-hook #'spacemacs//smartparens-disable-before-expand-snippet)
+        (error "Smartparens no longer disabled before yasnippet starts."))
+      (if (member #'spacemacs//smartparens-restore-after-exit-snippet yas-after-exit-snippet-hook)
+          (remove-hook 'yas-after-exit-snippet-hook #'spacemacs//smartparens-restore-after-exit-snippet)
+        (error "Smartparens no longer restored after yasnippet ends."))))
+#+END_SRC
+    
+Add this directory to snippets-dir
+#+BEGIN_SRC emacs-lisp 
+  (after! yasnippet (add-to-list 'yas-snippet-dirs (expand-file-name "~/.config/spacemacs/snippets/")))
+#+END_SRC
+*** Keybinds
+#+BEGIN_SRC emacs-lisp 
+  (after! yasnippet
+    (keybind! evil-insert-state-map "C-l" #'yas-expand))
+#+END_SRC
+   
+** Faces
+#+BEGIN_SRC emacs-lisp
+  (custom-set-faces
+   `(org-block ((t (:foreground nil)))))
+#+END_SRC
+** evil-goggles
+#+BEGIN_SRC emacs-lisp
+  (spacemacs-evil/init-evil-goggles)
+  (evil-goggles-mode t)
+  (setq evil-goggles-duration                     0.15
+        evil-goggles-pulse                        t
+        evil-goggles-enable-change                t
+        evil-goggles-enable-delete                t
+        evil-goggles-enable-indent                t
+        evil-goggles-enable-yank                  t
+        evil-goggles-enable-join                  t
+        evil-goggles-enable-fill-and-move         t
+        evil-goggles-enable-paste                 t
+        evil-goggles-enable-shift                 t
+        evil-goggles-enable-surround              t
+        evil-goggles-enable-commentary            t
+        evil-goggles-enable-nerd-commenter        t
+        evil-goggles-enable-replace-with-register t
+        evil-goggles-enable-set-marker            t
+        evil-goggles-enable-undo                  t
+        evil-goggles-enable-redo                  t)
+
+  (custom-set-faces
+   `(evil-goggles-default-face               ((t (:background "#7c6f64"))))
+   `(evil-goggles-delete-face                ((t (:background "#cc241d"))))
+   `(evil-goggles-indent-face                ((t (:background "#b16286"))))
+   `(evil-goggles-yank-face                  ((t (:background "#458588"))))
+   `(evil-goggles-join-face                  ((t (:background "#cc241d"))));; TODO
+   `(evil-goggles-fill-and-move-face         ((t (:background "#cc241d"))));; TODO
+   `(evil-goggles-paste-face                 ((t (:background "#98971a"))))
+   `(evil-goggles-shift-face                 ((t (:background "#b16286"))))
+   `(evil-goggles-surround-face              ((t (:background "#7c6f64"))))
+   `(evil-goggles-commentary-face            ((t (:background "#7c6f64"))))
+   `(evil-goggles-nerd-commenter-face        ((t (:background "#7c6f64"))))
+   `(evil-goggles-replace-with-register-face ((t (:background "#cc241d"))));; TODO
+   `(evil-goggles-set-marker-face            ((t (:background "#458588"))))
+   `(evil-goggles-undo-redo-add-face         ((t (:background "#98971a"))))
+   `(evil-goggles-undo-redo-remove-face      ((t (:background "#cc241d"))))
+   `(evil-goggles-undo-redo-change-face      ((t (:background "#458588")))))
+#+END_SRC
+   
+** org-mode config
+   
+#+begin_src emacs-lisp
+  (setq org-list-indent-offset 1)
+  (font-lock-add-keywords
+   'org-mode
+   '(("^ +\\([-*]\\) " (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+  (add-hook 'org-mode-hook
+            #'org-indent-mode)
+#+end_src
+
+** Window management
+*** Shackle
+
+Replace popwin
+#+BEGIN_SRC emacs-lisp
+  (shackle-mode t)
+
+  (setq helm-display-function 'pop-to-buffer)
+
+  (setq shackle-rules
+        '(
+          ;; ("*helm-ag*"              :select t   :align right :size 0.5)
+          ;; ("*helm semantic/imenu*"  :select t   :align right :size 0.4)
+          ;; ("*helm org inbuffer*"    :select t   :align right :size 0.4)
+          (flycheck-error-list-mode :select nil :align below :size 0.25)
+          (compilation-mode         :select nil :align below :size 0.25)
+          (messages-buffer-mode     :select t   :align below :size 0.25)
+          (inferior-emacs-lisp-mode :select t   :align below :size 0.25)
+          (ert-results-mode         :select t   :align below :size 0.5)
+          (calendar-mode            :select t   :align below :size 0.25)
+          (racer-help-mode          :select t   :align right :size 0.5)
+          ;; (help-mode                :select t   :align right :size 0.5)
+          ;; (helpful-mode             :select t   :align right :size 0.5)
+          (" *Deletions*"           :select t   :align below :size 0.25)
+          (" *Marked Files*"        :select t   :align below :size 0.25)
+          ("*Org Select*"           :select t   :align below :size 0.33)
+          ("*Org Note*"             :select t   :align below :size 0.33)
+          ("*Org Links*"            :select t   :align below :size 0.2)
+          (" *Org todo*"            :select t   :align below :size 0.2)
+          ("*Man.*"                 :select t   :align below :size 0.5  :regexp t)
+          ("*helm.*"                :select t   :align below :size 0.33 :regexp t)
+          ("*Org Src.*"             :select t   :align right :size 0.5  :regexp t)))
+#+END_SRC
+
+*** Framey
+    *Attention!*
+Framey must initialize after shackle-mode because it modifies the shackle-rules
+#+BEGIN_SRC emacs-lisp
+  ;; (framey-mode 1)
+  ;; (setq framey-show-modeline nil)
+  ;; (set-face-background 'internal-border "#767676")
+
+#+END_SRC
+*** Purpose
+**** Settings
+***** Shackle Integration
+
+#+BEGIN_SRC emacs-lisp
+  (after! window-purpose
+    (defun maybe-display-shackle (buffer alist)
+      (and (shackle-display-buffer-condition buffer alist)
+           (shackle-display-buffer-action buffer alist)))
+
+    (setq purpose-action-sequences
+          '((switch-to-buffer
+             . (purpose-display-reuse-window-buffer
+                purpose-display-reuse-window-purpose
+                maybe-display-shackle
+                purpose-display-maybe-same-window
+                purpose-display-maybe-other-window
+                purpose-display-maybe-other-frame
+                purpose-display-maybe-pop-up-window
+                purpose-display-maybe-pop-up-frame))
+
+            (prefer-same-window
+             . (purpose-display-maybe-same-window
+                maybe-display-shackle
+                purpose-display-reuse-window-buffer
+                purpose-display-reuse-window-purpose
+                purpose-display-maybe-other-window
+                purpose-display-maybe-other-frame
+                purpose-display-maybe-pop-up-window
+                purpose-display-maybe-pop-up-frame))
+
+            (force-same-window
+             . (purpose-display-maybe-same-window
+                maybe-display-shackle))
+
+            (prefer-other-window
+
+             . (purpose-display-reuse-window-buffer
+                purpose-display-reuse-window-purpose
+                maybe-display-shackle
+                purpose-display-maybe-other-window
+                purpose-display-maybe-pop-up-window
+                purpose-display-maybe-other-frame
+                purpose-display-maybe-pop-up-frame
+                purpose-display-maybe-same-window))
+
+            (prefer-other-frame
+             . (purpose-display-reuse-window-buffer-other-frame
+                purpose-display-reuse-window-purpose-other-frame
+                maybe-display-shackle
+                purpose-display-maybe-other-frame
+                purpose-display-maybe-pop-up-frame
+                purpose-display-maybe-other-window
+                purpose-display-maybe-pop-up-window
+                purpose-display-reuse-window-buffer
+                purpose-display-reuse-window-purpose
+                purpose-display-maybe-same-window)))))
+#+END_SRC
+
+***** Custom Purposes
+
+#+BEGIN_SRC emacs-lisp
+  (after! window-purpose
+    (setq purpose-user-mode-purposes
+          '((flycheck-error-list-mode . bottom)
+            (messages-buffer-mode     . bottom)
+            (compilation-mode         . bottom)
+            (inferior-emacs-lisp-mode . bottom)))
+
+    (purpose-compile-user-configuration))
+#+END_SRC
+
+***** Shackle-friendly Functions
+
+~std::pop-to-messages-buffer~
+#+BEGIN_SRC emacs-lisp
+  (defun std::pop-to-messages-buffer (&optional arg)
+    "Same as the spacemacs builtin, but uses `pop-to-buffer'.
+    This ensures that shackle's (or purpose's) rules apply to the new window."
+    (interactive "P")
+    (-let [buf (messages-buffer)]
+      (--if-let (get-buffer-window buf)
+          (delete-window it)
+        (with-current-buffer (messages-buffer)
+          (goto-char (point-max))
+          (if arg
+              (switch-to-buffer-other-window (current-buffer))
+            (pop-to-buffer (current-buffer)))))))
+
+  (leader-keybind! "bm" #'std::pop-to-messages-buffer)
+#+END_SRC
+*** Eyebrowse
+Switch desktops via SPC + num
+#+BEGIN_SRC emacs-lisp
+  (eyebrowse-mode t)
+  (std::leader-keybind
+   "1" #'eyebrowse-switch-to-window-config-1
+   "2" #'eyebrowse-switch-to-window-config-2
+   "3" #'eyebrowse-switch-to-window-config-3
+   "4" #'eyebrowse-switch-to-window-config-4
+   "5" #'eyebrowse-switch-to-window-config-5
+   "6" #'eyebrowse-switch-to-window-config-6
+   "7" #'eyebrowse-switch-to-window-config-7
+   "8" #'eyebrowse-switch-to-window-config-8
+   "9" #'eyebrowse-switch-to-window-config-9
+   "0" #'eyebrowse-switch-to-window-config-0)
+#+END_SRC
+

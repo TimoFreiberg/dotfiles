@@ -1,0 +1,43 @@
+window {
+margin: 5px;
+border: 1px solid #ebdbb2;
+}
+
+#input {
+margin: 5px;
+border: 1px solid #ebdbb2;
+background-color: #282828;
+}
+
+#inner-box {
+margin: 5px;
+border: 1px solid #ebdbb2;
+background-color: #282828;
+}
+
+#outer-box {
+margin: none;
+border: 0px solid green;
+background-color: #282828;
+}
+
+#scroll {
+margin: 5px;
+border: 0px solid orange;
+background-color: #282828;
+}
+
+#entry {
+background-color: #282828;
+}
+
+#entry:selected {
+background-color: #689D6A;
+}
+
+#text {
+margin: 5px;
+border: none;
+color: #ebdbb2;
+background-color: inherit;
+}

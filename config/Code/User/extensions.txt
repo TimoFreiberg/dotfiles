@@ -1,0 +1,7 @@
+bungcip.better-toml
+dracula-theme.theme-dracula
+eamodio.gitlens
+ms-vsliveshare.vsliveshare
+rust-lang.rust-analyzer
+ryu1kn.partial-diff
+vscodevim.vim

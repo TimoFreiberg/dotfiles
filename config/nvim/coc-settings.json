@@ -1,0 +1,11 @@
+{
+    "diagnostic.virtualText": true,
+    "coc.preferences.formatOnType": true,
+    "coc.preferences.promptWorkspaceEdit": false,
+    "coc.preferences.messageLevel": "warning",
+    "diagnostic.enableMessage": "jump",
+    "codeLens.enable": true,
+    "rust-analyzer.updates.channel": "nightly",
+    "#rust-analyzer.serverPath": "~/.cargo/bin/rust-analyzer",
+    "#rust-analyzer.trace.server": "verbose"
+}

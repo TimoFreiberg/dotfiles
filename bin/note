@@ -1,0 +1,16 @@
+#!/usr/bin/env fish
+
+set today "# "(date -Idate)
+
+if ! rg --quiet "$today" $NOTE_FILE
+    echo >> $NOTE_FILE
+    echo "$today" >> $NOTE_FILE
+end
+
+if count $argv > /dev/null
+    echo >> $NOTE_FILE
+    echo $argv >> $NOTE_FILE
+else 
+    vim "+normal G"  $NOTE_FILE
+end
+

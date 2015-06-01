@@ -1,0 +1,166 @@
+{
+    "window.enableMenuBarMnemonics": false,
+    "window.menuBarVisibility": "hidden",
+    "window.newWindowDimensions": "maximized",
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 250,
+    "editor.fontFamily": "'Iosevka', 'Jetbrains Mono', 'Fira Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
+    "editor.dragAndDrop": false,
+    "editor.accessibilitySupport": "off",
+    "editor.mouseWheelZoom": true,
+    "workbench.colorTheme": "Gruvbox Dark Medium",
+    "explorer.confirmDragAndDrop": false,
+    "git.enableSmartCommit": true,
+    "rust-analyzer.updates.channel": "nightly",
+    "explorer.confirmDelete": false,
+    "rust-analyzer.procMacro.enable": true,
+    "rust-analyzer.cargo.loadOutDirsFromCheck": true,
+    "editor.formatOnSave": true,
+    "editor.formatOnType": true,
+    "files.insertFinalNewline": true,
+    "vim.normalModeKeyBindingsNonRecursive": [
+        {
+            "before": [
+                "gd"
+            ],
+            "commands": [
+                "editor.action.revealDefinition"
+            ]
+        },
+        {
+            "before": [
+                "gy"
+            ],
+            "commands": [
+                "editor.action.goToTypeDefinition"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "s"
+            ],
+            "commands": [
+                "workbench.action.showAllSymbols"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "a"
+            ],
+            "commands": [
+                "editor.action.quickFix"
+            ],
+            "when": [
+                "editorHasCodeActionsProvider && editorTextFocus && !editorReadonly"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "r"
+            ],
+            "commands": [
+                "editor.action.rename"
+            ],
+            "when": [
+                "editorHasRenameProvider && editorTextFocus && !editorReadonly"
+            ]
+        },
+        {
+            "before": [
+                "]",
+                "g"
+            ],
+            "commands": [
+                "editor.action.marker.next"
+            ]
+        },
+        {
+            "before": [
+                "[",
+                "g"
+            ],
+            "commands": [
+                "editor.action.marker.prev"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "e"
+            ],
+            "commands": [
+                "workbench.panel.markers.view.focus"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "p"
+            ],
+            "commands": [
+                "workbench.action.quickOpen"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "P"
+            ],
+            "commands": [
+                "workbench.action.openRecent"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "w"
+            ],
+            "commands": [
+                "workbench.action.files.save"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "o"
+            ],
+            "commands": [
+                "workbench.action.gotoSymbol"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "t"
+            ],
+            "commands": [
+                "rust-analyzer.run"
+            ]
+        }
+    ],
+    "vim.leader": "<space>",
+    "vim.highlightedyank.enable": true,
+    "window.zoomLevel": 1,
+    "editor.fontSize": 17,
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "editor.minimap.enabled": false,
+    "workbench.editor.showTabs": false,
+    "workbench.editor.tabCloseButton": "off",
+    "workbench.activityBar.visible": false,
+    "editor.semanticHighlighting.enabled": true,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true,
+    "redhat.telemetry.enabled": false,
+    "javascript.updateImportsOnFileMove.enabled": "always",
+    "typescript.updateImportsOnFileMove.enabled": "always",
+    "editor.inlayHints.fontFamily": "'Iosevka', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
+    //"rust-analyzer.trace.server": "verbose",
+    // "rust-analyzer.trace.extension": true,
+    // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux",
+    // "rust-analyzer.serverPath": "~/.cargo/bin/rust-analyzer",
+}

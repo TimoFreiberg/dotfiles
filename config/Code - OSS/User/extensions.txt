@@ -1,0 +1,15 @@
+asciidoctor.asciidoctor-vscode
+eamodio.gitlens
+emeraldwalk.RunOnSave
+jdinhlife.gruvbox
+kaiwood.center-editor-window
+lucax88x.codeacejumper
+matklad.rust-analyzer
+selbh.keyboard-scroll
+slevesque.vscode-multiclip
+stkb.rewrap
+vadimcn.vscode-lldb
+vscodevim.vim
+wmaurer.change-case
+ms-kubernetes-tools.vscode-kubernetes-tools
+redhat.vscode-yaml

@@ -1,0 +1,77 @@
+#!/bin/bash
+# Source: https://github.com/de-arl/slurpshot/blob/master/slurpshot
+# Simple screenshot script, dependencies: grim, bemenu, imv, jq, slurp
+# Choose directory to save screenshots and viewer
+
+SHOTPATH=~/Pictures
+VIEWER=/usr/bin/imv
+
+WINDOWS=$(swaymsg -t get_tree | jq '.. | (.nodes? // empty)[] | select(.visible and .pid) | "\(.app_id) \(.rect.x),\(.rect.y) \(.rect.width)x\(.rect.height)"')
+FOCUSED=$(swaymsg -t get_tree | jq '.. | (.nodes? // empty)[] | select(.focused and .pid) | .rect | "\(.x),\(.y) \(.width)x\(.height)"')
+
+CHOICE=$(bemenu -b -H 29 --tf=#ffffff --ff=#ffffff --hf=#4c7899 --fb=#000000 --tb=#000000 --nb=#000000 --hb=#000000 -p "Please select screenshot area:" << EOF
+Selection
+Fullscreen
+Focus
+$WINDOWS
+EOF
+)
+
+FILENAME="${SHOTPATH}/screenshot-$(date +'%Y-%m-%d-%H%M%S.png')"
+GRID=\"$(echo "$CHOICE" | awk ' {print $2,$3} ')
+
+# Name printed when viewing screenshot, adjust if you edit FILENAME
+FILENAME_SHORT=${FILENAME: -32}
+
+if [ "$CHOICE" = Fullscreen ]
+then
+    grim "$FILENAME"
+elif [ "$CHOICE" = Selection ]
+then
+    grim -g "$(slurp)" "$FILENAME"
+elif [ "$CHOICE" = Focus ]
+then
+    grim -g "$(eval echo "$FOCUSED")" "$FILENAME"
+else
+    grim -g "$(eval echo "$GRID")" "$FILENAME"
+fi
+
+
+ACTION=$(bemenu -b -H 29 --tf=#ffffff --ff=#ffffff --hf=#4c7899 --fb=#000000 --tb=#000000 --nb=#000000 --hb=#000000 -p "Screenshot taken" << EOF
+View
+Copy to clipboard
+Save
+Discard
+EOF
+)
+
+if [ "$ACTION" = View ]
+then	
+    $VIEWER "$FILENAME" &
+    VIEW_ACTION=$(bemenu -b -H 29 --tf=#ffffff --ff=#ffffff --hf=#4c7899 --fb=#000000 --tb=#000000 --nb=#000000 --hb=#000000  -p "${FILENAME_SHORT}" << EOF
+Copy to clipboard
+Save
+Discard
+EOF
+)
+    VIEWER_PID=$!
+    if [ "$VIEW_ACTION" = 'Copy to clipboard' ]
+    then
+        wl-copy --type=image/png < "$FILENAME"
+        rm "$FILENAME"
+    elif [ "$VIEW_ACTION" = Discard ]
+    then
+        rm "$FILENAME"
+    fi
+    kill -9 "$VIEWER_PID"
+elif [ "$ACTION" = 'Copy to clipboard' ]
+then
+    wl-copy --type=image/png < "$FILENAME"
+    rm "$FILENAME"
+elif [ "$ACTION" = Discard ]
+then
+    rm "$FILENAME"
+else
+    true
+fi
+exit 0

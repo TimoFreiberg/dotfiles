@@ -1,0 +1,167 @@
+{
+    "files.autoSave": "onFocusChange",
+    "files.autoSaveDelay": 5000,
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "editor.formatOnType": true,
+    "editor.fontFamily": "'Comic Code', Iosevka, Consolas, 'Courier New', monospace",
+    "workbench.startupEditor": "none",
+    "explorer.confirmDragAndDrop": false,
+    "editor.minimap.enabled": false,
+    "vim.highlightedyank.enable": true,
+    "vim.leader": " ",
+    "vim.normalModeKeyBindingsNonRecursive": [
+        {
+            "before": [
+                "g",
+                "y"
+            ],
+            "commands": [
+                "editor.action.goToTypeDefinition"
+            ]
+        },
+        {
+            "before": [
+                "g",
+                "i"
+            ],
+            "commands": [
+                "editor.action.goToImplementation"
+            ]
+        },
+        {
+            "before": [
+                "g",
+                "r"
+            ],
+            "commands": [
+                "editor.action.goToReferences"
+            ]
+        },
+        {
+            "before": [
+                "[",
+                "d"
+            ],
+            "commands": [
+                "editor.action.marker.prevInFiles"
+            ]
+        },
+        {
+            "before": [
+                "]",
+                "d"
+            ],
+            "commands": [
+                "editor.action.marker.nextInFiles"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "w"
+            ],
+            "commands": [
+                "workbench.action.files.save"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "r"
+            ],
+            "commands": [
+                "editor.action.rename"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "o"
+            ],
+            "commands": [
+                "workbench.action.gotoSymbol"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "s"
+            ],
+            "commands": [
+                "workbench.action.showAllSymbols"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "K"
+            ],
+            "commands": [
+                "rust-analyzer.moveItemUp"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "J"
+            ],
+            "commands": [
+                "rust-analyzer.moveItemDown"
+            ]
+        },
+    ],
+    "vim.handleKeys": {
+        "<C-d>": true,
+        "<C-g>": false
+    },
+    "editor.fontSize": 16,
+    "files.insertFinalNewline": true,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true,
+    "terminal.integrated.fontSize": 16,
+    "terminal.integrated.profiles.osx": {
+        "bash": null,
+        "fish": {
+            "path": "/opt/homebrew/bin/fish",
+            "args": [
+                "-l"
+            ]
+        },
+    },
+    "terminal.integrated.defaultProfile.osx": "fish",
+    "explorer.confirmDelete": false,
+    "files.trimTrailingWhitespace": true,
+    "editor.quickSuggestionsDelay": 100,
+    "editor.wordBasedSuggestions": "off",
+    "workbench.colorTheme": "Dracula Theme",
+    "git.mergeEditor": true,
+    "editor.inlayHints.enabled": "offUnlessPressed",
+    "editor.dragAndDrop": false,
+    "_git.path": "/opt/homebrew/bin/git",
+    "editor.stickyScroll.enabled": true,
+    "window.nativeFullScreen": false,
+    "rust-analyzer.imports.granularity.enforce": true,
+    "rust-analyzer.imports.prefix": "crate",
+    "rust-analyzer.references.excludeImports": true,
+    "window.zoomLevel": 1,
+    "rust-analyzer.procMacro.ignored": {
+        "tracing-attributes": [
+            "instrument"
+        ]
+    },
+    "git.openRepositoryInParentFolders": "never",
+    "editor.accessibilitySupport": "off",
+    "diffEditor.maxComputationTime": 1000,
+    "diffEditor.hideUnchangedRegions.enabled": true,
+    "rust-analyzer.cargo.sysrootQueryMetadata": true,
+    "redhat.telemetry.enabled": false,
+    "workbench.editorAssociations": {
+        "*.bin": "hexEditor.hexedit"
+    },
+    "rust-analyzer.imports.granularity.group": "item",
+    "rust-analyzer.imports.merge.glob": false,
+    "cmake.showOptionsMovedNotification": false,
+    "cmake.configureOnOpen": false,
+    "makefile.configureOnOpen": false,
+}

@@ -1,0 +1,54 @@
+// Place your key bindings in this file to override the defaults
+[
+    {
+        "key": "alt+w",
+        "command": "editor.action.smartSelect.expand",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "ctrl+shift+cmd+right",
+        "command": "-editor.action.smartSelect.expand",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "ctrl+o",
+        "command": "workbench.action.navigateBack"
+    },
+    {
+        "key": "ctrl+-",
+        "command": "-workbench.action.navigateBack"
+    },
+    {
+        "key": "ctrl+i",
+        "command": "workbench.action.navigateForward"
+    },
+    {
+        "key": "ctrl+shift+-",
+        "command": "-workbench.action.navigateForward"
+    },
+    {
+        "key": "ctrl+o",
+        "command": "-lineBreakInsert",
+        "when": "textInputFocus && !editorReadonly"
+    },
+    {
+        "key": "ctrl+o",
+        "command": "-extension.vim_ctrl+o",
+        "when": "editorTextFocus && vim.active && vim.use<C-o> && !inDebugRepl"
+    },
+    {
+        "key": "ctrl+i",
+        "command": "-extension.vim_ctrl+i",
+        "when": "editorTextFocus && vim.active && vim.use<C-i> && !inDebugRepl"
+    },
+    {
+        "key": "shift+alt+w",
+        "command": "editor.action.smartSelect.shrink",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "ctrl+shift+cmd+left",
+        "command": "-editor.action.smartSelect.shrink",
+        "when": "editorTextFocus"
+    }
+]

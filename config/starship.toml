@@ -1,0 +1,38 @@
+format = """
+$username\
+$hostname\
+$shlvl\
+$directory\
+$git_branch\
+$git_commit\
+$git_state\
+$git_status\
+$cmd_duration\
+$line_break\
+$time \
+$jobs\
+$battery\
+$character"""
+
+[character]
+success_symbol = "[\\$](bold green)"
+error_symbol = "[\\$](bold red)"
+
+[directory]
+fish_style_pwd_dir_length = 2
+
+[package]
+disabled = true
+
+[rust]
+disabled = true
+
+[python]
+disabled = true
+
+[java]
+disabled = true
+
+[time]
+format = "[$time]($style)"
+disabled = false
