@@ -1,0 +1,13 @@
+/*
+!/.gitignore
+!/.vimrc
+!/.zshrc
+!/.xinit
+!/.config
+.config/*
+!.config/xfce4
+!.config/Thunar
+!.config/mimeapps.list
+!.config/menus
+!.config/gtk-3.0
+!.config/autostart
