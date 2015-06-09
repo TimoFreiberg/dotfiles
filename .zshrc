@@ -81,3 +81,6 @@ source $ZSH/oh-my-zsh.sh
 export EDITOR=/usr/bin/vim
 export VISUAL=/usr/bin/vim
 if [ -f /usr/bin/screenfetch ]; then screenfetch; fi
+
+eval $(ssh-agent)
+ssh-add
