@@ -5,8 +5,3 @@
 !/.xinit
 !/.config
 .config/*
-!.config/xfce4
-!.config/Thunar
-!.config/menus
-!.config/gtk-3.0
-!.config/autostart
