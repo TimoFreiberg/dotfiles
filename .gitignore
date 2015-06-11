@@ -3,3 +3,6 @@
 !/.vimrc
 !/.zshrc
 !/.xinit
+!/.config
+.config/*
+!/.config/fish
