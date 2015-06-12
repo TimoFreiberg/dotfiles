@@ -1,0 +1,234 @@
+set $mod Mod4
+
+# Lock Screen
+bindsym $mod+shift+x exec ~/.config/i3/i3lock_wrapper
+
+# Volume up and down
+bindsym XF86AudioRaiseVolume exec amixer -D pulse sset Master 5%+
+bindsym XF86AudioLowerVolume exec amixer -D pulse sset Master 5%-
+
+# screen brightness up and down
+bindsym XF86MonBrightnessUp exec --no-startup-id xbacklight -dec 10
+bindsym XF86MonBrightnessDown exec --no-startup-id xbacklight -inc 10
+
+# Start common applications
+bindsym $mod+Return exec --no-startup-id urxvt -e fish
+bindsym $mod+t exec --no-startup-id urxvt -e fish
+bindsym $mod+F1 exec --no-startup-id firefox
+bindsym $mod+F2 exec --no-startup-id thunderbird
+bindsym $mod+F3 exec --no-startup-id i3-sensible-terminal -e ranger
+
+# Scratchpad
+bindsym $mod+Shift+minus move scratchpad
+bindsym $mod+minus scratchpad show
+
+# kill
+bindsym $mod+q kill
+bindsym $mod+shift+z exec xkill
+
+# Rofi run and window switch dialogues
+bindsym $mod+Tab exec rofi -show run
+bindsym $mod+l exec rofi -show window
+
+# screenshot
+bindsym --release Print exec scrot -d 3 ~/Pictures/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png
+bindsym --release Shift+Print exec scrot -d 3 -s ~/Pictures/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png
+
+# Use Mouse+$mod to drag floating windows to their wanted position
+floating_modifier $mod
+
+# Split in horizontal orientation
+bindsym $mod+y split h
+
+# Split in vertical orientation
+bindsym $mod+x split v
+
+# Enter fullscreen mode for the focused container
+bindsym $mod+f fullscreen
+
+# Change focus
+bindsym $mod+a focus left
+bindsym $mod+s focus down
+bindsym $mod+w focus up
+bindsym $mod+d focus right
+bindsym $mod+u [urgent=latest] focus
+
+# Alternatively, you can use the cursor keys:
+bindsym $mod+Left focus left
+bindsym $mod+Down focus down
+bindsym $mod+Up focus up
+bindsym $mod+Right focus right
+
+# Move focused window
+bindsym $mod+Shift+a move left
+bindsym $mod+Shift+s move down
+bindsym $mod+Shift+w move up
+bindsym $mod+Shift+d move right
+
+# Alternatively, you can use the cursor keys:
+bindsym $mod+Shift+Left move left
+bindsym $mod+Shift+Down move down
+bindsym $mod+Shift+Up move up
+bindsym $mod+Shift+Right move right
+
+# Change container layout (stacked, tabbed, toggle split)
+# bindsym $mod+s layout stacking
+bindsym $mod+c layout tabbed
+bindsym $mod+e layout toggle split
+
+# Toggle tiling / floating
+bindsym $mod+Shift+space floating toggle
+
+# Change focus between tiling / floating windows
+bindsym $mod+space focus mode_toggle
+
+# focus the parent container
+bindsym $mod+m focus parent
+
+# focus the child container
+bindsym $mod+n focus child
+
+# switch to workspace
+bindsym $mod+1 workspace 1
+bindsym $mod+2 workspace 2
+bindsym $mod+3 workspace 3
+bindsym $mod+4 workspace 4
+bindsym $mod+5 workspace 5
+bindsym $mod+6 workspace 6
+bindsym $mod+7 workspace 7
+bindsym $mod+8 workspace 8
+bindsym $mod+9 workspace 9
+bindsym $mod+0 workspace 10
+
+# move focused container to workspace
+bindsym $mod+Shift+1 move container to workspace 1
+bindsym $mod+Shift+2 move container to workspace 2
+bindsym $mod+Shift+3 move container to workspace 3
+bindsym $mod+Shift+4 move container to workspace 4
+bindsym $mod+Shift+5 move container to workspace 5
+bindsym $mod+Shift+6 move container to workspace 6
+bindsym $mod+Shift+7 move container to workspace 7
+bindsym $mod+Shift+8 move container to workspace 8
+bindsym $mod+Shift+9 move container to workspace 9
+bindsym $mod+Shift+0 move container to workspace 10
+
+# Reload the configuration file
+bindsym $mod+Shift+c reload
+
+# Restart i3 inplace (preserves your layout/session, can be used to upgrade i3)
+bindsym $mod+Shift+r restart
+
+# Exit i3 (logs you out of your X session)
+bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'You pressed the exit shortcut. Do you really want to exit i3? This will end your X session.' -b 'Yes, exit i3' 'i3-msg exit'"
+
+# Resize window (you can also use the mouse for that)
+bindsym $mod+r mode "resize"
+mode "resize" {
+        # These bindings trigger as soon as you enter the resize mode
+
+        # Pressing left will shrink the window’s width.
+        # Pressing right will grow the window’s width.
+        # Pressing up will shrink the window’s height.
+        # Pressing down will grow the window’s height.
+        bindsym j resize shrink width 10 px or 10 ppt
+        bindsym k resize grow height 10 px or 10 ppt
+        bindsym l resize shrink height 10 px or 10 ppt
+        bindsym odiaeresis resize grow width 10 px or 10 ppt
+
+        # same bindings, but for the arrow keys
+        bindsym Left resize shrink width 10 px or 10 ppt
+        bindsym Down resize grow height 10 px or 10 ppt
+        bindsym Up resize shrink height 10 px or 10 ppt
+        bindsym Right resize grow width 10 px or 10 ppt
+
+        # back to normal: Enter or Escape
+        bindsym Return mode "default"
+        bindsym Escape mode "default"
+}
+# 
+# set $mode_gaps Gaps: (o) outer, (i) inner
+# set $mode_gaps_outer Outer Gaps: +|-|0 (global)
+# set $mode_gaps_inner Inner Gaps: +|-|0 (global)
+# bindsym $mod+Shift+g mode "$mode_gaps"
+# 
+# mode "$mode_gaps" {
+#         bindsym o      mode "$mode_gaps_outer"
+#         bindsym i      mode "$mode_gaps_inner"
+#         bindsym Return mode "default"
+#         bindsym Escape mode "default"
+# }
+# 
+# mode "$mode_gaps_inner" {
+#         bindsym plus  gaps inner all plus 1
+#         bindsym minus gaps inner all minus 1
+#         bindsym 0     gaps inner all set 0
+# 
+#         bindsym Return mode "default"
+#         bindsym Escape mode "default"
+# }
+# mode "$mode_gaps_outer" {
+#         bindsym plus  gaps outer all plus 1
+#         bindsym minus gaps outer all minus 1
+#         bindsym 0     gaps outer all set 0
+# 
+#         bindsym Return mode "default"
+#         bindsym Escape mode "default"
+# }
+
+bar {
+        status_command python ~/.config/i3/i3status.py 0.5
+        font pango: Source Code Pro for Powerline 10
+        position top
+        mode dock
+        workspace_buttons yes
+        strip_workspace_numbers yes
+        binding_mode_indicator yes
+
+        colors {
+            background         #3d3d3d
+            statusline         #00ffff
+            separator          #33D04E
+            ################## border  bground text
+            focused_workspace  #6699cc #6699cc #111111
+            active_workspace   #000000 #888888 #222222
+            inactive_workspace #000000 #888888 #222222
+            urgent_workspace   #900000 #900000 #ffffff
+        }
+}
+
+exec --no-startup-id dropbox start
+# exec --no-startup-id setxkbmap -layout 10
+exec --no-startup-id setxkbmap -option ctrl:nocaps
+exec --no-startup-id xrdb ~/.Xdefaults
+exec --no-startup-id compton -b
+for_window [class="Wicd"] floating enable
+for_window [class="Xfce4-notifyd"] floating enable
+for_window [window_role="pop-up"] floating enable
+for_window [window_role="task_dialog"] floating enable
+workspace_auto_back_and_forth yes
+focus_follows_mouse no
+smart_borders on
+mouse_warping none
+force_display_urgency_hint 1000 ms
+new_window pixel 5
+new_float none
+gaps inner 10
+
+assign [class="Firefox"] → 2
+
+# Font for window titles.
+font pango: Source Code Pro for Powerline 12
+
+# class                 border  backgr. text    indicator
+client.focused          #333333 #4c78c9 #000000 #2e9ef4
+client.focused_inactive #333333 #90adc8 #000000 #666666
+client.unfocused        #333333 #90adc8 #555555 #292d2e
+client.urgent           #2f343a #900000 #ffffff #900000
+
+# Original
+# class                  border  backgr. text    indicator
+#client.focused          #4c7899 #2855aa #ffffff #2e9ef4
+#client.focused_inactive #333333 #5f676a #ffffff #484e50
+#client.unfocused        #333333 #222222 #888888 #292d2e
+#client.urgent           #2f343a #900000 #ffffff #900000
+#client.placeholder      #000000 #0c0c0c #ffffff #000000
