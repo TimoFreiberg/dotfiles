@@ -7,9 +7,9 @@ set autoread                    " automatically reload files changed outside of 
 
 let mapleader=","       " leader is comma
 
-set tabstop=4           " number of visual spaces per tab
-set softtabstop=4       " number of spaces per tab when editing
-set shiftwidth=4
+set tabstop=2           " number of visual spaces per tab
+set softtabstop=2       " number of spaces per tab when editing
+set shiftwidth=2
 set expandtab           " tabs are spaces
 
 set autoindent    " always set autoindenting on

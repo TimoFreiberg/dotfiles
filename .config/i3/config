@@ -12,8 +12,8 @@ bindsym XF86MonBrightnessUp exec --no-startup-id xbacklight -dec 10
 bindsym XF86MonBrightnessDown exec --no-startup-id xbacklight -inc 10
 
 # Start common applications
-bindsym $mod+Return exec --no-startup-id urxvt -e fish
-bindsym $mod+t exec --no-startup-id urxvt -e fish
+bindsym $mod+Return exec --no-startup-id i3-sensible-terminal
+bindsym $mod+t exec --no-startup-id i3-sensible-terminal
 bindsym $mod+F1 exec --no-startup-id firefox
 bindsym $mod+F2 exec --no-startup-id thunderbird
 bindsym $mod+F3 exec --no-startup-id i3-sensible-terminal -e ranger
@@ -177,7 +177,7 @@ mode "resize" {
 
 bar {
         status_command python ~/.config/i3/i3status.py 0.5
-        font pango: Source Code Pro for Powerline 10
+        font pango: terminus 10
         position top
         mode dock
         workspace_buttons yes
