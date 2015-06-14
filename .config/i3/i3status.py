@@ -83,7 +83,7 @@ def charge():
     perc_left = tokens[3] if len(tokens) == 4 else tokens[3][:-1]
     time_left = tokens[4] if len(tokens) != 4 else 'Full'
     txt_color = COLOR_URGENT if int(perc_left[:-1]) <= 25 else COLOR_STD
-    block(ICON_BATTERY if tokens[2] == 'Discharging,' else ICON_PLUG, time_left, txt_color)
+    block(ICON_BATTERY if tokens[2] == 'Discharging,' else ICON_PLUG, perc_left, time_left, txt_color)
 
 
 def date_time():
