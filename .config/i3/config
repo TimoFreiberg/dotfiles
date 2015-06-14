@@ -199,7 +199,7 @@ bar {
 exec --no-startup-id dropbox start
 # exec --no-startup-id setxkbmap -layout 10
 exec --no-startup-id setxkbmap -option ctrl:nocaps
-exec --no-startup-id xrdb ~/.Xdefaults
+exec --no-startup-id xrdb ~/.Xresources
 exec --no-startup-id compton -b
 for_window [class="Wicd"] floating enable
 for_window [class="Xfce4-notifyd"] floating enable
@@ -232,3 +232,5 @@ client.urgent           #2f343a #900000 #ffffff #900000
 #client.unfocused        #333333 #222222 #888888 #292d2e
 #client.urgent           #2f343a #900000 #ffffff #900000
 #client.placeholder      #000000 #0c0c0c #ffffff #000000
+
+exec ~/.fehbg
