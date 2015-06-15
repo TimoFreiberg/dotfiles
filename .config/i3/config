@@ -71,6 +71,10 @@ bindsym $mod+Shift+Down move down
 bindsym $mod+Shift+Up move up
 bindsym $mod+Shift+Right move right
 
+# Move workspaces between windows
+bindcode $mod+112 move workspace to output left
+bindcode $mod+117 move workspace to output right
+
 # Change container layout (stacked, tabbed, toggle split)
 # bindsym $mod+s layout stacking
 bindsym $mod+c layout tabbed
