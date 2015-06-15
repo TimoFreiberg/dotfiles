@@ -149,35 +149,35 @@ mode "resize" {
         bindsym Return mode "default"
         bindsym Escape mode "default"
 }
-# 
-# set $mode_gaps Gaps: (o) outer, (i) inner
-# set $mode_gaps_outer Outer Gaps: +|-|0 (global)
-# set $mode_gaps_inner Inner Gaps: +|-|0 (global)
-# bindsym $mod+Shift+g mode "$mode_gaps"
-# 
-# mode "$mode_gaps" {
-#         bindsym o      mode "$mode_gaps_outer"
-#         bindsym i      mode "$mode_gaps_inner"
-#         bindsym Return mode "default"
-#         bindsym Escape mode "default"
-# }
-# 
-# mode "$mode_gaps_inner" {
-#         bindsym plus  gaps inner all plus 1
-#         bindsym minus gaps inner all minus 1
-#         bindsym 0     gaps inner all set 0
-# 
-#         bindsym Return mode "default"
-#         bindsym Escape mode "default"
-# }
-# mode "$mode_gaps_outer" {
-#         bindsym plus  gaps outer all plus 1
-#         bindsym minus gaps outer all minus 1
-#         bindsym 0     gaps outer all set 0
-# 
-#         bindsym Return mode "default"
-#         bindsym Escape mode "default"
-# }
+
+set $mode_gaps Gaps: (o) outer, (i) inner
+set $mode_gaps_outer Outer Gaps: +|-|0 (global)
+set $mode_gaps_inner Inner Gaps: +|-|0 (global)
+bindsym $mod+Shift+g mode "$mode_gaps"
+
+mode "$mode_gaps" {
+        bindsym o      mode "$mode_gaps_outer"
+        bindsym i      mode "$mode_gaps_inner"
+        bindsym Return mode "default"
+        bindsym Escape mode "default"
+}
+
+mode "$mode_gaps_inner" {
+        bindsym plus  gaps inner all plus 1
+        bindsym minus gaps inner all minus 1
+        bindsym 0     gaps inner all set 0
+
+        bindsym Return mode "default"
+        bindsym Escape mode "default"
+}
+mode "$mode_gaps_outer" {
+        bindsym plus  gaps outer all plus 1
+        bindsym minus gaps outer all minus 1
+        bindsym 0     gaps outer all set 0
+
+        bindsym Return mode "default"
+        bindsym Escape mode "default"
+}
 
 bar {
         status_command python ~/.config/i3/i3status.py 0.5
@@ -237,5 +237,8 @@ client.urgent           #2f343a #900000 #ffffff #900000
 #client.urgent           #2f343a #900000 #ffffff #900000
 #client.placeholder      #000000 #0c0c0c #ffffff #000000
 
-exec ~/.fehbg
-exec xrandr --auto
+exec --no-startup-id ~/.fehbg
+exec --no-startup-id xrandr --auto
+
+# autostart
+exec --no-startup-id i3-msg 'workspace 1; exec chromium; workspace 3; exec thunderbird; exec ~/bin/chrome.sh; workspace 1;'
