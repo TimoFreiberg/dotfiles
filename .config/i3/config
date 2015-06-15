@@ -242,4 +242,4 @@ exec --no-startup-id xrandr --auto
 exec --no-startup-id syndaemon -t -k -i 2 -d
 
 # autostart
-exec --no-startup-id i3-msg 'workspace 1; exec chromium; workspace 3; exec thunderbird; exec ~/bin/chrome.sh; workspace 1;'
+exec --no-startup-id i3-msg 'workspace 1; exec chromium; workspace 3; exec thunderbird; workspace 1;'
