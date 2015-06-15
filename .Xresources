@@ -1,0 +1,58 @@
+URxvt*cursorBlink:     true
+URxvt*cursorUnderline: true
+URxvt*font:            xft:Inconsolata for Powerline:size=13
+URxvt*boldFont:        xft:Inconsolata for Powerline:size=13
+URxvt*scrollBar:       false
+URxvt.perl-ext-common: default,matcher,clipboard
+URxvt.url-launcher:    firefox
+URxvt.matcher.button:  1
+URxvt.internalBorder:  5
+URxvt.lineSpace:       1
+URxvt.letterSpace:     0
+URxvt.iso14755: False
+URxvt.keysym.Shift-Control-C: perl:clipboard:copy
+URxvt.keysym.Shift-Control-V: perl:clipboard:paste
+URxvt.clipboard.copycmd:  xsel -ib
+URxvt.clipboard.pastecmd: xsel -ob
+
+*.foreground: #ccb18b
+*.cursorcolor:#ccb18b
+*.colorbd:    #ccb18b
+*.colorul:    #ccb18b
+*.colorit:    #ccb18b
+*background:  #282828
+*color0:      #1a1a1a
+*color1:      #cc6666
+*color2:      #66aa66
+*color3:      #f0c674
+*color4:      #446688
+*color5:      #a374a8
+*color6:      #339999
+*color7:      #666666
+*color8:      #a3a3a3
+*color9:      #dd7777
+*color10:     #77bb77
+*color11:     #f2d785
+*color12:     #557799
+*color13:     #b485b9
+*color14:     #2fa7a7
+*color15:     #a3a3a3
+
+rofi.width:           75
+rofi.lines:           10
+rofi.columns:         1
+rofi.font:            Inconsolata for Powerline 13
+rofi.fg:              #ccb18b
+rofi.bg:              #282828
+rofi.hlfg:            #000000
+rofi.hlbg:            #446688
+rofi.bc:              #282828
+rofi.bw:              1
+rofi.loc:             0
+rofi.padding:         20
+rofi.yoffset:         0
+rofi.xoffset:         0
+rofi.fixed-num-lines: false
+rofi.hmode:           false
+rofi.terminal:        rxvt-unicode
+rofi.ssh-set-title:   true
