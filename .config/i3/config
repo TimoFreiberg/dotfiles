@@ -14,7 +14,6 @@ bindsym XF86MonBrightnessDown exec --no-startup-id xbacklight -inc 10
 # Start common applications
 bindsym $mod+Return exec --no-startup-id i3-sensible-terminal
 bindsym $mod+t exec --no-startup-id i3-sensible-terminal
-bindsym $mod+F1 exec --no-startup-id firefox
 bindsym $mod+F2 exec --no-startup-id thunderbird
 bindsym $mod+F3 exec --no-startup-id i3-sensible-terminal -e ranger
 
@@ -216,9 +215,7 @@ mouse_warping none
 force_display_urgency_hint 1000 ms
 new_window pixel 5
 new_float none
-gaps inner 10
-
-assign [class="Firefox"] → 2
+gaps inner 7
 
 # Font for window titles.
 font pango: Source Code Pro for Powerline 12
