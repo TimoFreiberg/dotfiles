@@ -180,7 +180,7 @@ mode "$mode_gaps_outer" {
 
 bar {
         status_command python ~/.config/i3/i3status.py 0.5
-        font pango: Inconsolata for Powerline 13
+        font pango: Inconsolata for Powerline 12
         position top
         mode dock
         workspace_buttons yes
