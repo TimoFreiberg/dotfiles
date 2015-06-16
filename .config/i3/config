@@ -214,7 +214,7 @@ focus_follows_mouse no
 smart_borders on
 mouse_warping none
 force_display_urgency_hint 1000 ms
-new_window pixel 5
+new_window pixel 1
 new_float none
 gaps inner 7
 

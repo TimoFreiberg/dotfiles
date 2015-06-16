@@ -1,19 +1,14 @@
 URxvt*cursorBlink:     true
-URxvt*cursorUnderline: true
 URxvt*font:            xft:Inconsolata for Powerline:size=13
 URxvt*boldFont:        xft:Inconsolata for Powerline:size=13
 URxvt*scrollBar:       false
-URxvt.perl-ext-common: default,matcher,clipboard
-URxvt.url-launcher:    firefox
+URxvt.perl-ext-common: default,matcher
+URxvt.url-launcher:    chrome
 URxvt.matcher.button:  1
 URxvt.internalBorder:  5
 URxvt.lineSpace:       1
 URxvt.letterSpace:     0
 URxvt.iso14755: False
-URxvt.keysym.Shift-Control-C: perl:clipboard:copy
-URxvt.keysym.Shift-Control-V: perl:clipboard:paste
-URxvt.clipboard.copycmd:  xsel -ib
-URxvt.clipboard.pastecmd: xsel -ob
 
 *.foreground: #ccb18b
 *.cursorcolor:#ccb18b
