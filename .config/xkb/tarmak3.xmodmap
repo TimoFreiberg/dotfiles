@@ -1,0 +1,13 @@
+! Tarmak 1
+keycode 44 = n N n N
+keycode 45 = e E EuroSign
+keycode 57 = k K k K
+! Tarmak 2
+keycode 26 = f F f F
+keycode 41 = t T t T
+keycode 28 = g G g G
+! Tarmak 3
+keycode 39 = r R r R
+keycode 40 = s s ssharp
+keycode 27 = j J j J
+keycode 42 = d D d D

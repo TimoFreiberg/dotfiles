@@ -1,0 +1,11 @@
+keycode 108 = Mode_switch
+keysym 5 = 5 percent EuroSign 
+keysym minus = minus underscore ssharp
+keysym q = q Q adiaeresis Adiaeresis
+keysym e = e E EuroSign 
+keysym y = y Y udiaeresis Udiaeresis
+keysym p = p P odiaeresis Odiaeresis
+keysym s = s s ssharp
+keysym bracketleft = bracketleft braceleft udiaeresis Udiaeresis
+keysym semicolon = semicolon colon odiaeresis Odiaeresis
+keysym apostrophe = apostrophe quotedbl adiaeresis Adiaeresis
