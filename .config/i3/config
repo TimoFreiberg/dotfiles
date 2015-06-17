@@ -239,5 +239,7 @@ exec --no-startup-id ~/.fehbg
 exec --no-startup-id xrandr --auto
 exec --no-startup-id syndaemon -t -k -i 2 -d
 
+exec --no-startup-id xmodmap ~/.config/xkb/tarmak1.xmodmap
+
 # autostart
-exec --no-startup-id i3-msg 'workspace 1; exec chromium; workspace 3; exec thunderbird; exec skype; workspace 1;'
+exec --no-startup-id i3-msg 'workspace 3; exec thunderbird; exec skype; workspace 1; exec chromium;'
