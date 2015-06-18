@@ -59,3 +59,5 @@ augroup last_edit
        \   exe "normal! g`\"" |
        \ endif
 augroup END
+
+nnoremap K i<CR><Esc>
