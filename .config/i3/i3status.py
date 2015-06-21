@@ -27,7 +27,7 @@ ICON_RAM       = ' '
 ICON_CPU       = ' '
 
 CMD_DATE    = 'date +"%a %d %b %T"'
-CMD_VOLUME  = 'amixer -D pulse get Master | ag -o "[0-9]*%" | head -n1'
+CMD_VOLUME  = 'amixer -D pulse get Master | ag -o "([0-9]*%|(\[on\]|\[off\]))" | head -n2'
 CMD_BATTERY = 'acpi'
 CMD_WIFI    = 'iwconfig wlp4s0 | ag -o "ESSID:\".*\"|Quality=[0-9]{1,3}"'
 CMD_RAM     = 'free -m | ag "Mem:"'
@@ -99,8 +99,11 @@ def date_time():
 
 
 def volume():
-    line = run(CMD_VOLUME)
-    text = 'n/a' if line == '' else line
+    line = run(CMD_VOLUME).split('\n')
+    val = line[0]
+    mute = line[1]
+    text = 'n/a' if val == '' else val
+    text = 'mute' if mute == '[off]' else text
     block(ICON_VOLUME, text, COLOR_STD)
 
 

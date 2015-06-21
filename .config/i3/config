@@ -4,8 +4,9 @@ set $mod Mod4
 bindsym $mod+shift+x exec ~/.config/i3/i3lock_wrapper
 
 # Volume up and down
-bindsym XF86AudioRaiseVolume exec amixer -D pulse sset Master 5%+
-bindsym XF86AudioLowerVolume exec amixer -D pulse sset Master 5%-
+bindsym XF86AudioRaiseVolume exec pactl set-sink-mute 0 false ; exec amixer -D pulse sset Master 5%+
+bindsym XF86AudioLowerVolume exec pactl set-sink-mute 0 false ; exec amixer -D pulse sset Master 5%-
+bindsym XF86AudioMute exec pactl set-sink-mute 0 toggle
 
 # screen brightness up and down
 bindsym XF86MonBrightnessUp exec --no-startup-id xbacklight -dec 10
