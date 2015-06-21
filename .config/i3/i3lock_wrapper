@@ -1,8 +1,8 @@
-#!/usr/bin/fish
+#!/bin/sh
 
-set tmpfile (mktemp --tmpdir i3lock-wrapper-XXXXXXXXXX.png)
-set outfile (mktemp --tmpdir i3lock-wrapper-XXXXXXXXXX.png)
-scrot $tmpfile
-convert $tmpfile -scale 5% -scale 2000% $outfile
-i3lock -i $outfile -d
-rm $tmpfile $outfile
+TMPFILE=$(mktemp --tmpdir i3lock-wrapper-XXXXXXXXXX.png)
+OUTFILE=$(mktemp --tmpdir i3lock-wrapper-XXXXXXXXXX.png)
+scrot $TMPFILE
+convert $TMPFILE -scale 5% -scale 2000% $OUTFILE
+i3lock -i $OUTFILE -d
+rm $TMPFILE $OUTFILE
