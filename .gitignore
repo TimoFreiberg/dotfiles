@@ -5,6 +5,6 @@
 !/.xinit
 !/.config
 .config/*
-!/.config/fish
+!.themes
 !/.config/i3
 !/.config/xkb
