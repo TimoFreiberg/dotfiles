@@ -38,7 +38,7 @@ bindsym --release Shift+Print exec scrot -d 3 -s ~/Pictures/screenshot-$(date +%
 floating_modifier $mod
 
 # Split in horizontal orientation
-bindsym $mod+y split h
+bindsym $mod+z split h
 
 # Split in vertical orientation
 bindsym $mod+x split v
