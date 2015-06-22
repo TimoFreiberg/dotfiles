@@ -83,3 +83,4 @@ export EDITOR=/usr/bin/vim
 export VISUAL=/usr/bin/vim
 if [ -f /usr/bin/screenfetch ]; then screenfetch; fi
 
+unsetopt share_history

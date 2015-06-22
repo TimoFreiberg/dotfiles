@@ -4,6 +4,7 @@
 !/.zshrc
 !/.xinit
 !/.config
+!/.nvimrc
 .config/*
 !.themes
 !/.config/i3

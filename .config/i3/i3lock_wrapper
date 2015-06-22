@@ -1,4 +1,4 @@
 #!/bin/sh
 
-wallpaper=$(cat .fehbg | ag -o "\'.*\..*\'" | cut -c2- | rev | cut -c2- | rev)
-i3lock -i $wallpaper -d
+currentWP=$(cat ~/.fehbg | ag -o "\'.*\..*\'" | cut -c2- | rev | cut -c2- | rev)
+i3lock -i "$currentWP" -d
