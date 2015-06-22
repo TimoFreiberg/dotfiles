@@ -5,6 +5,7 @@
 !/.xinit
 !/.config
 !/.nvimrc
+!/bin
 .config/*
 !.themes
 !/.config/i3

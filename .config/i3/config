@@ -241,6 +241,7 @@ exec --no-startup-id xrandr --auto
 exec --no-startup-id syndaemon -t -k -i 2 -d
 exec --no-startup-id ~/.config/i3/screenAutoLock.sh
 exec --no-startup-id nm-applet
+exec --no-startup-id ~/bin/padXORmouse.sh
 
 exec --no-startup-id xmodmap ~/.config/xkb/tarmak1.xmodmap
 
