@@ -1,8 +1,4 @@
 #!/bin/sh
 
-TMPFILE=$(mktemp --tmpdir i3lock-wrapper-XXXXXXXXXX.png)
-OUTFILE=$(mktemp --tmpdir i3lock-wrapper-XXXXXXXXXX.png)
-scrot $TMPFILE
-convert $TMPFILE -scale 5% -scale 2000% $OUTFILE
-i3lock -i $OUTFILE -d
-rm $TMPFILE $OUTFILE
+wallpaper=$(cat .fehbg | ag -o "\'.*\..*\'" | cut -c2- | rev | cut -c2- | rev)
+i3lock -i $wallpaper -d
