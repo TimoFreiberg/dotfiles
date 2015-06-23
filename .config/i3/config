@@ -201,11 +201,8 @@ bar {
 }
 
 exec --no-startup-id dropbox start
-# exec --no-startup-id setxkbmap -layout 10
-exec --no-startup-id setxkbmap -option ctrl:nocaps,lv3:ralt_switch
-exec --no-startup-id xmodmap ~/.config/xkb/umlauts.xmodmap
 exec --no-startup-id xrdb ~/.Xresources
-exec --no-startup-id compton -b
+exec --no-startup-id compton -b --config ~/.config/compton.conf
 for_window [class="Wicd"] floating enable
 for_window [class="Xfce4-notifyd"] floating enable
 for_window [window_role="pop-up"] floating enable
@@ -242,8 +239,8 @@ exec --no-startup-id syndaemon -t -k -i 2 -d
 exec --no-startup-id ~/.config/i3/screenAutoLock.sh
 exec --no-startup-id nm-applet
 exec --no-startup-id ~/bin/padXORmouse.sh
+exec --no-startup-id ~/bin/xkb.sh
 
-exec --no-startup-id xmodmap ~/.config/xkb/tarmak1.xmodmap
 
 # autostart
 exec --no-startup-id i3-msg 'workspace 3; exec thunderbird; exec skype; workspace 1; exec chromium;'

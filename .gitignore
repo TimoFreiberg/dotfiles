@@ -6,6 +6,7 @@
 !/.config
 !/.nvimrc
 !/bin
+!/.config/compton.conf
 .config/*
 !.themes
 !/.config/i3
