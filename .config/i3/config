@@ -240,6 +240,7 @@ exec --no-startup-id syndaemon -t -k -i 2 -d
 exec --no-startup-id ~/.config/i3/screenAutoLock.sh
 exec --no-startup-id ~/bin/padXORmouse.sh
 exec --no-startup-id ~/bin/xkb.sh
+exec --no-startup-id nm-applet
 
 
 # autostart
