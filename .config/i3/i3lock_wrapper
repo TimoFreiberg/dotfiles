@@ -1,4 +1,4 @@
 #!/bin/sh
 
 currentWP=$(cat ~/.fehbg | ag -o "\'.*\..*\'" | cut -c2- | rev | cut -c2- | rev)
-i3lock --color 46252d --dpms  --nofork
+i3lock --image "$currentWP" --dpms --tiling
