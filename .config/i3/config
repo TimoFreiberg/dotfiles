@@ -21,7 +21,8 @@ bindsym $mod+F3 exec --no-startup-id i3-sensible-terminal -e ranger
 # Scratchpad
 bindsym $mod+Shift+minus move scratchpad
 bindsym $mod+minus scratchpad show
-
+bindsym $mod+Shift+equal move scratchpad
+bindsym $mod+equal scratchpad show
 # kill
 bindsym $mod+q kill
 bindsym $mod+shift+z exec xkill
@@ -181,8 +182,8 @@ mode "$mode_gaps_outer" {
 
 bar {
         status_command python ~/.config/i3/i3status.py 0.5
-        font pango: Inconsolata for Powerline 12
-        position top
+        font pango: Inconsolata-dz for Powerline 12
+        position bottom
         mode dock
         workspace_buttons yes
         strip_workspace_numbers yes
@@ -237,7 +238,6 @@ exec --no-startup-id ~/.fehbg
 exec --no-startup-id xrandr --auto
 exec --no-startup-id syndaemon -t -k -i 2 -d
 exec --no-startup-id ~/.config/i3/screenAutoLock.sh
-exec --no-startup-id nm-applet
 exec --no-startup-id ~/bin/padXORmouse.sh
 exec --no-startup-id ~/bin/xkb.sh
 
