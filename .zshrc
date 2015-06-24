@@ -85,3 +85,6 @@ if [ -f /usr/bin/screenfetch ]; then screenfetch; fi
 
 unsetopt share_history
 bindkey -v
+alias sc=systemctl
+alias scX=systemctl start
+alias scx=systemctl stop
