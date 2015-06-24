@@ -1,6 +1,6 @@
 URxvt*cursorBlink:     true
-URxvt*font:            xft:Inconsolata for Powerline:size=13
-URxvt*boldFont:        xft:Inconsolata for Powerline:size=13
+URxvt*font:            xft:DejaVu Sans Mono for Powerline:size=13
+URxvt*boldFont:        xft:DejaVu Sans Mono for Powerline:size=13
 URxvt*scrollBar:       false
 URxvt.perl-ext-common: default,matcher
 URxvt.url-launcher:    chrome
@@ -36,7 +36,7 @@ URxvt.iso14755: False
 rofi.width:           75
 rofi.lines:           10
 rofi.columns:         1
-rofi.font:            Inconsolata for Powerline 13
+rofi.font:            DejaVu Sans Mono for Powerline 13
 rofi.fg:              #ccb18b
 rofi.bg:              #282828
 rofi.hlfg:            #000000

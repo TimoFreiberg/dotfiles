@@ -182,7 +182,7 @@ mode "$mode_gaps_outer" {
 
 bar {
         status_command python ~/.config/i3/i3status.py 0.5
-        font pango: Inconsolata-dz for Powerline 12
+        font pango: DejaVu Sans Mono for Powerline 12
         position bottom
         mode dock
         workspace_buttons yes
@@ -194,7 +194,8 @@ bar {
             statusline         #00ffff
             separator          #33D04E
             ################## border  bground text
-            focused_workspace  #6699cc #6699cc #111111
+            focused_workspace  #1793d0 #1793d0 #111111
+#            focused_workspace  #6699cc #6699cc #111111
             active_workspace   #000000 #888888 #222222
             inactive_workspace #000000 #888888 #222222
             urgent_workspace   #900000 #900000 #ffffff
