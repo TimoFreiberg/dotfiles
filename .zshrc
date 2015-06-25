@@ -81,7 +81,7 @@ source $ZSH/oh-my-zsh.sh
 alias vim=nvim
 export EDITOR=/usr/bin/vim
 export VISUAL=/usr/bin/vim
-if [ -f /usr/bin/screenfetch ]; then screenfetch; fi
+if [ -f /usr/bin/screenfetch ]; then screenfetch -t; fi
 
 unsetopt share_history
 bindkey -v
