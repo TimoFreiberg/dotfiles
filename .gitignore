@@ -6,6 +6,8 @@
 !/.config
 !/.nvimrc
 !/bin
+/bin/*
+!/bin/*.sh
 !/.config/compton.conf
 .config/*
 !.themes

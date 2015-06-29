@@ -219,7 +219,7 @@ new_float none
 gaps inner 5
 
 # Font for window titles.
-font pango: Source Code Pro for Powerline 12
+font pango: DejaVu Sans Mono 12
 
 # class                 border  backgr. text    indicator
 client.focused          #333333 #4c78c9 #000000 #2e9ef4
