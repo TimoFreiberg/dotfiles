@@ -1,47 +1,82 @@
+#define S_base03        #002b36
+#define S_base02        #073642
+#define S_base01        #586e75
+#define S_base00        #657b83
+#define S_base0         #839496
+#define S_base1         #93a1a1
+#define S_base2         #eee8d5
+#define S_base3         #fdf6e3
+
+*background:            S_base03
+*foreground:            S_base0
+*fadeColor:             S_base03
+*cursorColor:           S_base1
+*pointerColorBackground:S_base01
+*pointerColorForeground:S_base1
+
+#define S_yellow        #b58900
+#define S_orange        #cb4b16
+#define S_red           #dc322f
+#define S_magenta       #d33682
+#define S_violet        #6c71c4
+#define S_blue          #268bd2
+#define S_cyan          #2aa198
+#define S_green         #859900
+
+!! black dark/light
+*color0:                S_base02
+*color8:                S_base03
+
+!! red dark/light
+*color1:                S_red
+*color9:                S_orange
+
+!! green dark/light
+*color2:                S_green
+*color10:               S_base01
+
+!! yellow dark/light
+*color3:                S_yellow
+*color11:               S_base00
+
+!! blue dark/light
+*color4:                S_blue
+*color12:               S_base0
+
+!! magenta dark/light
+*color5:                S_magenta
+*color13:               S_violet
+
+!! cyan dark/light
+*color6:                S_cyan
+*color14:               S_base1
+
+!! white dark/light
+*color7:                S_base2
+*color15:               S_base3
+
+
 URxvt*cursorBlink:     true
 URxvt*font:            xft:DejaVu Sans Mono for Powerline:size=11
 URxvt*boldFont:        xft:DejaVu Sans Mono for Powerline:size=11
 URxvt*scrollBar:       false
-URxvt.perl-ext-common: default,matcher
-URxvt.url-launcher:    chrome
+URxvt.perl-ext-common: default,matcher,font-size
+URxvt.url-launcher:    chromium
 URxvt.matcher.button:  1
 URxvt.internalBorder:  2
 URxvt.lineSpace:       0
-URxvt.letterSpace:     0
+URxvt.letterSpace:     -2
 URxvt.iso14755: False
-
-*.foreground: #ccb18b
-*.cursorcolor:#ccb18b
-*.colorbd:    #ccb18b
-*.colorul:    #ccb18b
-*.colorit:    #ccb18b
-*background:  #282828
-*color0:      #1a1a1a
-*color1:      #cc6666
-*color2:      #66aa66
-*color3:      #f0c674
-*color4:      #446688
-*color5:      #a374a8
-*color6:      #339999
-*color7:      #666666
-*color8:      #a3a3a3
-*color9:      #dd7777
-*color10:     #77bb77
-*color11:     #f2d785
-*color12:     #557799
-*color13:     #b485b9
-*color14:     #2fa7a7
-*color15:     #a3a3a3
 
 rofi.width:           75
 rofi.lines:           10
 rofi.columns:         1
 rofi.font:            DejaVu Sans Mono for Powerline 13
-rofi.fg:              #ccb18b
-rofi.bg:              #282828
-rofi.hlfg:            #000000
-rofi.hlbg:            #446688
-rofi.bc:              #282828
+! rofi.fg:              #ccb18b
+! rofi.bg:              #282828
+! rofi.hlfg:            #000000
+! rofi.hlbg:            #446688
+! rofi.bc:              #282828
 rofi.bw:              1
 rofi.loc:             0
 rofi.padding:         20
