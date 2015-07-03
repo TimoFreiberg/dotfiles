@@ -1,7 +1,7 @@
 set $mod Mod4
 
 # Exit window
-bindsym $mod+F4 exec ~/bin/logout.sh
+bindsym $mod+F4 exec ~/bin/powerwidget.sh
 
 # Lock Screen
 bindsym $mod+shift+x exec ~/.config/i3/i3lock_wrapper
