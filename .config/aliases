@@ -1,0 +1,5 @@
+alias g=git
+alias sc=systemctl
+alias scX="systemctl start"
+alias scx="systemctl stop"
+alias vim=nvim

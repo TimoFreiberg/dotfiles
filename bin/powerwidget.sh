@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/bin/env python
  
 # based on cb-exit used in CrunchBang Linux <http://crunchbanglinux.org/>
  

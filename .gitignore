@@ -6,10 +6,14 @@
 !/.config
 !/.nvimrc
 !/bin
-/bin/*
 !/bin/*.sh
 !/.config/compton.conf
 .config/*
 !.themes
 !/.config/i3
 !/.config/xkb
+!/.config/aliases
+!/.config/fish
+/.config/fish/fish_history
+!/.zprestorc
+!/.spacemacs
