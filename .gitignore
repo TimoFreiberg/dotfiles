@@ -13,7 +13,5 @@
 !/.config/i3
 !/.config/xkb
 !/.config/aliases
-!/.config/fish
-/.config/fish/fish_history
 !/.zprestorc
 !/.spacemacs
