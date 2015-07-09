@@ -1,4 +1,4 @@
-#!/bin/env python
+#!/bin/env python2
  
 # based on cb-exit used in CrunchBang Linux <http://crunchbanglinux.org/>
  
@@ -13,6 +13,7 @@ class i3_exit:
         self.cancel.set_sensitive(False)
         self.logout.set_sensitive(False)
         self.suspend.set_sensitive(False)
+        self.hibernate.set_sensitive(False)
         self.reboot.set_sensitive(False)
         self.shutdown.set_sensitive(False)
  
@@ -28,7 +29,14 @@ class i3_exit:
     def suspend_action(self,btn):
         self.disable_buttons()
         self.status.set_label("Suspending, please standby...")
-        os.system("systemctl suspend")
+        os.system("systemctl hybrid-sleep")
+        os.system("~/.config/i3/i3lock_wrapper")
+        gtk.main_quit()
+
+    def hibernate_action(self,btn):
+        self.disable_buttons()
+        self.status.set_label("Hibernating, please standby")
+        os.system("systemctl hibernate")
         os.system("~/.config/i3/i3lock_wrapper")
         gtk.main_quit()
  
@@ -80,6 +88,13 @@ class i3_exit:
         self.suspend.connect("clicked", self.suspend_action)
         self.button_box.pack_start(self.suspend)
         self.suspend.show()
+
+        #Hibernate button
+        self.hibernate = gtk.Button("_Hibernate")
+        self.hibernate.set_border_width(4)
+        self.hibernate.connect("clicked", self.hibernate_action)
+        self.button_box.pack_start(self.hibernate)
+        self.hibernate.show()
         
         #Reboot button
         self.reboot = gtk.Button("_Reboot")

@@ -4,7 +4,7 @@ set $mod Mod4
 bindsym $mod+F4 exec ~/bin/powerwidget.sh
 
 # Lock Screen
-bindsym $mod+shift+x exec ~/.config/i3/i3lock_wrapper
+bindsym $mod+shift+x exec i3lock --color 073642 --dpms --inactivity-timeout 15
 
 # Volume up and down
 bindsym XF86AudioRaiseVolume exec pactl set-sink-mute 0 false ; exec amixer -D pulse sset Master 5%+
@@ -18,7 +18,6 @@ bindsym XF86MonBrightnessDown exec --no-startup-id xbacklight -inc 10
 # Start common applications
 bindsym $mod+Return exec --no-startup-id i3-sensible-terminal
 bindsym $mod+t exec --no-startup-id i3-sensible-terminal
-bindsym $mod+F2 exec --no-startup-id thunderbird
 bindsym $mod+F3 exec --no-startup-id i3-sensible-terminal -e ranger
 
 # Scratchpad
