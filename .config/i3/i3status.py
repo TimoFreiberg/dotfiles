@@ -17,7 +17,7 @@ COLOR_SEPARATOR = '#66cc66'
 COLOR_WARNING    = '#db5b26'
 COLOR_ALERT     = '#dc322f'
 
-ICON_SEPARATOR = '    '
+ICON_SEPARATOR = '‖'  #    ⏐
 ICON_TIME      = ' '
 ICON_CALENDAR  = '  '
 ICON_VOLUME    = ' '
