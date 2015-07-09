@@ -14,7 +14,8 @@ BLOCKS = []
 COLOR_STD       = '#dddddd'
 COLOR_ICON      = '#1fc5ff'
 COLOR_SEPARATOR = '#66cc66'
-COLOR_URGENT    = '#f24444'
+COLOR_WARNING    = '#db5b26'
+COLOR_ALERT     = '#dc322f'
 
 ICON_SEPARATOR = '    '
 ICON_TIME      = ' '
@@ -45,7 +46,7 @@ def try_catch(func):
         func()
     except Exception as ex:
         msg = 'Error {0} @ {1}'.format(str(ex), func.__name__)
-        pack(msg, COLOR_URGENT)
+        pack(msg, COLOR_WARNING)
 
 
 # def cpu():
@@ -57,17 +58,21 @@ def try_catch(func):
 #         perc = float(line[2].replace(',', '.'))
 #         load = '{:5.2f}%'.format(perc)
 #         load = '{:05.2f}%'.format(perc)
-#         pack(load, COLOR_STD if perc <= 80.0 else COLOR_URGENT)
+#         pack(load, COLOR_STD if perc <= 80.0 else COLOR_WARNING)
 #         if i < len(cpus) - 1:
 #             pack(' | ', COLOR_STD)
  
 
 def ram():
     line  = run(CMD_RAM).split()
-    total = line[1]
-    used  = line[2]
-    text  = '{0}/{1}MB'.format(used, total)
-    block(ICON_RAM, text, COLOR_STD)
+    total = round(float(line[1]) / 1000, 1)
+    used = round(float(line[2]) / 1000, 1)
+    text  = '{0}/{1}GB'.format(used, total)
+
+    usedPerc = used / total * 100
+    color = COLOR_STD if usedPerc < 75 else (COLOR_WARNING if usedPerc < 90 else COLOR_ALERT)
+
+    block(ICON_RAM, text, color)
 
 
 def online():
@@ -82,11 +87,12 @@ def charge():
     tokens    = run(CMD_BATTERY).split()
     perc_left = tokens[3] if len(tokens) == 4 else tokens[3][:-1]
     time_left = tokens[4] if len(tokens) != 4 else 'Full'
-    txt_color = COLOR_URGENT if int(perc_left[:-1]) <= 25 else COLOR_STD
+    txt_color = COLOR_WARNING if int(perc_left[:-1]) <= 25 else COLOR_STD
     discharging = tokens[2] == 'Discharging,' 
     icon = ICON_BATTERY if discharging else ICON_PLUG
     timeprefix = '-' if discharging else '+'
-    block(icon, perc_left + ' - ' + timeprefix + time_left, txt_color)
+    chargeInfoString = '' if time_left == 'Full' else ' - ' + timeprefix + time_left
+    block(icon, perc_left + chargeInfoString, txt_color)
 
 
 def date_time():
