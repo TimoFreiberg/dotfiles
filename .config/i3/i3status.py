@@ -87,11 +87,11 @@ def charge():
     tokens    = run(CMD_BATTERY).split()
     perc_left = tokens[3] if len(tokens) == 4 else tokens[3][:-1]
     time_left = tokens[4] if len(tokens) != 4 else 'Full'
-    txt_color = COLOR_WARNING if int(perc_left[:-1]) <= 25 else COLOR_STD
+    perc = int(perc_left[:-1])
+    txt_color = COLOR_ALERT if perc <= 10 else COLOR_WARNING if perc <= 25 else COLOR_STD
     discharging = tokens[2] == 'Discharging,' 
     icon = ICON_BATTERY if discharging else ICON_PLUG
-    timeprefix = '-' if discharging else '+'
-    chargeInfoString = '' if time_left == 'Full' else ' - ' + timeprefix + time_left
+    chargeInfoString = time_left if discharging else ''
     block(icon, perc_left + chargeInfoString, txt_color)
 
 

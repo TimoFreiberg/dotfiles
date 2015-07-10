@@ -4,3 +4,4 @@ keysym e = e E EuroSign
 keysym u = u U udiaeresis Udiaeresis
 keysym o = o O odiaeresis Odiaeresis
 keysym s = s S ssharp
+keysym grave = grave asciitilde degree 
