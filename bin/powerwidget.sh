@@ -7,6 +7,7 @@ pygtk.require('2.0')
 import gtk
 import os
 import getpass
+import time
  
 class i3_exit:
     def disable_buttons(self):
@@ -29,8 +30,9 @@ class i3_exit:
     def suspend_action(self,btn):
         self.disable_buttons()
         self.status.set_label("Suspending, please standby...")
-        os.system("systemctl hybrid-sleep")
-        os.system("~/.config/i3/i3lock_wrapper")
+        os.system("i3lock --color 073642 --dpms --inactivity-timeout 15")
+        time.sleep(1)
+        os.system("systemctl suspend")
         gtk.main_quit()
 
     def hibernate_action(self,btn):
