@@ -6,7 +6,6 @@
 !/.config
 !/.nvimrc
 !/bin
-!/bin/*.sh
 !/.config/compton.conf
 .config/*
 !.themes
@@ -16,3 +15,7 @@
 !/.zprestorc
 !/.spacemacs
 !/.zprezto
+!/.config/fish/config.fish
+!/.config/fish/functions/*
+.config/fish/fish_history
+.config/fish/fishd.nbooktf

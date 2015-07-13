@@ -16,8 +16,8 @@ bindsym XF86MonBrightnessUp exec --no-startup-id xbacklight -dec 10
 bindsym XF86MonBrightnessDown exec --no-startup-id xbacklight -inc 10
 
 # Start common applications
-bindsym $mod+Return exec --no-startup-id i3-sensible-terminal
-bindsym $mod+t exec --no-startup-id i3-sensible-terminal
+bindsym $mod+Return exec --no-startup-id urxvt -e fish
+bindsym $mod+t exec --no-startup-id urxvt -e fish
 bindsym $mod+F3 exec --no-startup-id i3-sensible-terminal -e ranger
 
 # Scratchpad
