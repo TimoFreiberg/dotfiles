@@ -1,3 +1,3 @@
 #! /bin/sh
 
-exec xautolock -detectsleep -time 3 -locker "i3lock_wrapper"
+exec xautolock -detectsleep -time 1 -locker "i3lock_wrapper"
