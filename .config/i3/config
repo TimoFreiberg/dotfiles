@@ -4,7 +4,7 @@ set $mod Mod4
 bindsym $mod+F4 exec ~/bin/powerwidget.sh
 
 # Lock Screen
-bindsym $mod+shift+x exec i3lock --color 073642 --dpms --inactivity-timeout 15
+bindsym $mod+shift+x exec ~/.config/i3/lock
 
 # Volume up and down
 bindsym XF86AudioRaiseVolume exec pactl set-sink-mute 0 false ; exec amixer -D pulse sset Master 5%+
@@ -238,12 +238,12 @@ client.urgent           #2f343a #900000 #ffffff #900000
 #client.placeholder      #000000 #0c0c0c #ffffff #000000
 
 exec --no-startup-id ~/.fehbg
-exec --no-startup-id xrandr --auto
 exec --no-startup-id syndaemon -t -k -i 2 -d
 exec --no-startup-id ~/.config/i3/screenAutoLock.sh
 exec --no-startup-id ~/bin/padXORmouse.sh
 exec --no-startup-id ~/bin/xkb.sh
 exec --no-startup-id nm-applet
+exec --no-startup-id dunst
 
 
 # autostart

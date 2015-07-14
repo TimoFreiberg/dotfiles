@@ -30,9 +30,7 @@ class i3_exit:
     def suspend_action(self,btn):
         self.disable_buttons()
         self.status.set_label("Suspending, please standby...")
-        os.system("i3lock --color 073642 --dpms --inactivity-timeout 15")
-        time.sleep(1)
-        os.system("systemctl suspend")
+        os.system("lock && systemctl suspend")
         gtk.main_quit()
 
     def hibernate_action(self,btn):
