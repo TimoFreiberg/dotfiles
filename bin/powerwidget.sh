@@ -30,14 +30,13 @@ class i3_exit:
     def suspend_action(self,btn):
         self.disable_buttons()
         self.status.set_label("Suspending, please standby...")
-        os.system("lock && systemctl suspend")
+        os.system("~/bin/suspend")
         gtk.main_quit()
 
     def hibernate_action(self,btn):
         self.disable_buttons()
         self.status.set_label("Hibernating, please standby")
-        os.system("systemctl hibernate")
-        os.system("~/.config/i3/i3lock_wrapper")
+        os.system("~/bin/lock && systemctl hibernate")
         gtk.main_quit()
  
     def reboot_action(self,btn):

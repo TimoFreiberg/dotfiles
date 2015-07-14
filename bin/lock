@@ -1,0 +1,10 @@
+#!/usr/bin/fish
+
+#suspend dunst
+pkill -u "$USER" -USR1 dunst
+
+#lock 
+i3lock --color 073642 --dpms --inactivity-timeout 15 
+
+# resume message display
+pkill -u "$USER" -USR2 dunst
