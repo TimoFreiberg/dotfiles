@@ -15,6 +15,7 @@
 !/.config/xkb
 !/.config/aliases
 !/.config/fish
+.config/fish/fish_history
 !/.config/dunst
 !/.config/git
 !/.config/gtk-2.0
