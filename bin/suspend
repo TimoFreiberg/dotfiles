@@ -1,2 +1,2 @@
 #!/usr/bin/fish
-~/bin/lock && systemctl suspend
+~/bin/lock; and systemctl suspend

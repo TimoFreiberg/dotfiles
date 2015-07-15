@@ -2,9 +2,11 @@
 
 #suspend dunst
 pkill -u "$USER" -USR1 dunst
+pkill -u "$USER" -USR1 compton
 
 #lock 
-i3lock --color 073642 --dpms --inactivity-timeout 15 
+i3lock --color 073642
 
 # resume message display
 pkill -u "$USER" -USR2 dunst
+compton -b --config ~/.config/compton.conf

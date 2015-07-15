@@ -4,7 +4,7 @@ set $mod Mod4
 bindsym $mod+F4 exec ~/bin/powerwidget.sh
 
 # Lock Screen
-bindsym $mod+shift+x exec ~/.config/i3/lock
+bindsym $mod+shift+x exec ~/bin/lock
 
 # Volume up and down
 bindsym XF86AudioRaiseVolume exec pactl set-sink-mute 0 false ; exec amixer -D pulse sset Master 5%+
