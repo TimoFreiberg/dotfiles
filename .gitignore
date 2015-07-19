@@ -8,6 +8,7 @@
 !/.xinit
 !/.config
 !/.nvimrc
+!/.gitconfig
 !/bin
 .config/*
 !.themes
