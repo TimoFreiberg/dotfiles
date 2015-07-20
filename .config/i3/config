@@ -205,6 +205,7 @@ bar {
 }
 
 exec --no-startup-id dropbox start
+exec --no-startup-id clipit
 exec --no-startup-id xrdb ~/.Xresources
 exec --no-startup-id compton -b --config ~/.config/compton.conf
 for_window [class="Wicd"] floating enable
