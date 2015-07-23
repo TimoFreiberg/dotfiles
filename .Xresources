@@ -80,6 +80,7 @@ URxvt.internalBorder:  2
 URxvt.lineSpace:       0
 URxvt.letterSpace:     -2
 URxvt.iso14755: False
+URxvt.geometry: 130x35
 
 rofi.width:           75
 rofi.lines:           10

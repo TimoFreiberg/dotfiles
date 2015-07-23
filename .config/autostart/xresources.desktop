@@ -1,0 +1,4 @@
+[Desktop Entry]
+Name=Load .Xresources
+Exec=xrdb ~/.Xresources
+Type=Application

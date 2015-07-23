@@ -30,5 +30,5 @@ SET fish_pager_color_completion:normal
 SET fish_pager_color_description:555\x1eyellow
 SET fish_pager_color_prefix:cyan
 SET fish_pager_color_progress:cyan
-SET fish_user_abbreviations:g\x3dgit\x1esc\x3dsystemctl\x1escX\x3dsystemctl\x20start\x1escx\x3dsystemctl\x20stop\x1esps\x3dsudo\x20pacman\x20\x2dS\x1el\x3dls\x20\x2dA\x1el1\x3dls\x2d1A\x1espmsyu\x20sudo\x20pacmatic\x20\x2dSyu\x20\x2d\x2dignore\x20docker\x1ell\x20ls\x20\x2dl
+SET fish_user_abbreviations:g\x3dgit\x1esc\x3dsystemctl\x1escX\x3dsystemctl\x20start\x1escx\x3dsystemctl\x20stop\x1esps\x3dsudo\x20pacman\x20\x2dS\x1el\x3dls\x20\x2dA\x1el1\x3dls\x2d1A\x1espmsyu\x20sudo\x20pacmatic\x20\x2dSyu\x20\x2d\x2dignore\x20docker\x1ell\x20ls\x20\x2dl\x1ev\x20vim
 SET fish_user_paths:/home/tf/bin\x1e/home/tf/\x2elocal/bin

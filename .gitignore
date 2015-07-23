@@ -13,6 +13,7 @@
 !/bin
 .config/*
 !.themes
+!/.config/autostart
 !/.config/i3
 !/.config/xkb
 !/.config/aliases
