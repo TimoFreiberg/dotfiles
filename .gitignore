@@ -5,10 +5,11 @@
 
 !/.vimrc
 !/.zshrc
-!/.xinit
 !/.config
 !/.nvimrc
 !/.gitconfig
+!/.tmux.conf
+!/.xinitrc
 !/bin
 .config/*
 !.themes
