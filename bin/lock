@@ -1,13 +1,14 @@
 #!/usr/bin/fish
 
 #suspend dunst
-kill -STOP dunst
+kill -KILL dunst
 kill -KILL compton
 
 #lock 
 i3lock --color 073642
 
 # resume message display
-kill -CONT dunst
+dunst &
 compton -b
+# kill -CONT dunst
 # kill -CONT compton
