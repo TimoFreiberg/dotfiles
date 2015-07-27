@@ -86,12 +86,10 @@ rofi.width:           75
 rofi.lines:           10
 rofi.columns:         1
 rofi.font:            DejaVu Sans Mono for Powerline 13
-! rofi.fg:              #ccb18b
-! rofi.bg:              #282828
-! rofi.hlfg:            #000000
-! rofi.hlbg:            #446688
-! rofi.bc:              #282828
-rofi.bw:              1
+
+! State:           bg             fg             bgalt          hlbg           hlfg
+rofi.color-normal: argb:22002b36, argb:aa839496, argb:22002b36, argb:77002b36, argb:ff839496
+rofi.color-window: argb:00000000, argb:00000000
 rofi.loc:             0
 rofi.padding:         20
 rofi.yoffset:         0

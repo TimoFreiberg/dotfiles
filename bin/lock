@@ -5,7 +5,7 @@ kill -KILL dunst
 kill -KILL compton
 
 #lock 
-i3lock --color 073642
+i3lock --color 073642 && sleep 1
 
 # resume message display
 dunst &
