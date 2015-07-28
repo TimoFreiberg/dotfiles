@@ -1,8 +1,8 @@
 #!/usr/bin/fish
 
 #suspend dunst
-kill -KILL dunst
-kill -KILL compton
+kill -TERM dunst
+kill -TERM compton
 
 #lock 
 i3lock --color 073642; and  sleep 1
