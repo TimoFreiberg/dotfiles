@@ -30,8 +30,8 @@ bindsym $mod+q kill
 bindsym $mod+shift+z exec xkill
 
 # Rofi run and window switch dialogues
-bindsym $mod+Tab exec rofi -show run
-bindsym $mod+l exec rofi -show window
+bindsym $mod+Tab exec rofi -show run -no-levenshtein-sort
+bindsym $mod+l exec rofi -show window -no-levenshtein-sort
 
 # screenshot
 bindsym --release Print exec scrot -d 3 ~/Pictures/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png
