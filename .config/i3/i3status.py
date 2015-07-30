@@ -27,7 +27,7 @@ ICON_WIFI      = ' '
 ICON_RAM       = ' '
 ICON_CPU       = ' '
 
-CMD_DATE    = 'date +"%a %d %b %T"'
+CMD_DATE    = 'date +"%Y-%m-%d %T"'
 CMD_VOLUME  = 'amixer -D pulse get Master | ag -o "([0-9]*%|(\[on\]|\[off\]))" | head -n2'
 CMD_BATTERY = 'acpi'
 CMD_WIFI    = 'iwconfig wlp4s0 | ag -o "ESSID:\".*\"|Quality=[0-9]{1,3}"'
