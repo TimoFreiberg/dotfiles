@@ -11,6 +11,7 @@
 !/.tmux.conf
 !/.xinitrc
 !/bin
+bin/nogit
 .config/*
 !.themes
 !/.config/autostart

@@ -1,4 +1,0 @@
-#!/bin/sh
-alias=$*
-echo "$alias" >> ~/.config/aliases
-echo "$alias"
