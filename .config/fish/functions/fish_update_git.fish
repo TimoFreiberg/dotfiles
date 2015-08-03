@@ -1,4 +1,4 @@
-function update_fish
+function fish_update_git
 	cd ~/.local/fish-shell/
   set gitStatus (git pull)
   if echo $gitStatus | ag 'Already up-to-date' --nocolor
@@ -16,4 +16,5 @@ function update_fish
     make
     sudo make install
   end
+  cd -
 end
