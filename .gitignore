@@ -12,6 +12,7 @@
 !/.xinitrc
 !/bin
 bin/nogit
+!/Wallpapers
 .config/*
 !.themes
 !/.config/autostart
