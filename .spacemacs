@@ -30,9 +30,8 @@
      shell
      syntax-checking
      company-mode
-     auctex
-     company-auctex
      latex
+     company-latex
      company
      )
    ;; List of additional packages that will be installed wihout being

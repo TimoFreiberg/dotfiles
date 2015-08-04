@@ -5,7 +5,7 @@ syntax on               " enable syntax processing
 
 set autoread                    " automatically reload files changed outside of Vim
 
-let mapleader=","       " leader is comma
+let mapleader="\<Space>"       " leader is comma
 
 set tabstop=2           " number of visual spaces per tab
 set softtabstop=2       " number of spaces per tab when editing
@@ -61,3 +61,13 @@ augroup last_edit
 augroup END
 
 nnoremap K i<CR><Esc>
+
+vmap <Leader>y "+y
+vmap <Leader>d "+d
+nmap <Leader>p "+p
+nmap <Leader>P "+P
+vmap <Leader>p "+p
+vmap <Leader>P "+P
+nmap <Leader>e :e 
+nmap <Leader>wq :wq<CR>
+nmap <Leader>q :q<CR>
