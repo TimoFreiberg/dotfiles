@@ -19,7 +19,7 @@ COLOR_ALERT     = '#dc322f'
 
 ICON_SEPARATOR = '‖'  #    ⏐
 ICON_TIME      = ' '
-ICON_CALENDAR  = '  '
+ICON_CALENDAR  = ' '
 ICON_VOLUME    = ' '
 ICON_BATTERY   = ' '
 ICON_PLUG      = ' '

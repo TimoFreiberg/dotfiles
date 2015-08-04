@@ -184,7 +184,7 @@ mode "$mode_gaps_outer" {
 
 bar {
         status_command python ~/.config/i3/i3status.py 0.5
-        font pango: DejaVu Sans Mono for Powerline 12
+        font pango: DejaVu Sans 13
         position bottom
         mode dock
         workspace_buttons yes
