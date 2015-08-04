@@ -32,3 +32,4 @@
 	d = diff --stat
 	dd = diff
   st = stash
+  re = remote

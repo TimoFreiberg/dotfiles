@@ -82,19 +82,21 @@ URxvt.letterSpace:     -2
 URxvt.iso14755: False
 URxvt.geometry: 130x35
 
-rofi.width:           75
-rofi.lines:           10
-rofi.columns:         1
-rofi.font:            DejaVu Sans Mono for Powerline 13
+rofi.width:           100
+rofi.lines:           6
+rofi.opacity:         95
+rofi.font:            DejaVu Sans Mono 13
+rofi.terminal:        rxvt-unicode
+rofi.padding:         600
+rofi.bw:              0
 
 ! State:           bg             fg             bgalt          hlbg           hlfg
-rofi.color-normal: argb:22002b36, argb:aa839496, argb:22002b36, argb:77002b36, argb:ff839496
-rofi.color-window: argb:00000000, argb:00000000
-rofi.loc:             0
-rofi.padding:         20
-rofi.yoffset:         0
-rofi.xoffset:         0
-rofi.fixed-num-lines: false
-rofi.hmode:           false
-rofi.terminal:        rxvt-unicode
-rofi.ssh-set-title:   true
+! rofi.color-normal: argb:22002b36, argb:aa839496, argb:22002b36, argb:77002b36, argb:ff839496
+! rofi.color-window: argb:00000000, argb:00000000
+! rofi.columns:         1
+! rofi.loc:             0
+! rofi.yoffset:         0
+! rofi.xoffset:         0
+! rofi.fixed-num-lines: false
+! rofi.hmode:           false
+! rofi.ssh-set-title:   true

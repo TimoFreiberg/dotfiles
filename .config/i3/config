@@ -30,8 +30,8 @@ bindsym $mod+q kill
 bindsym $mod+shift+z exec xkill
 
 # Rofi run and window switch dialogues
-bindsym $mod+Tab exec rofi -show run -no-levenshtein-sort
-bindsym $mod+l exec rofi -show window -no-levenshtein-sort
+bindsym $mod+Tab exec --no-startup-id rofi -show run -no-levenshtein-sort
+bindsym $mod+l exec --no-startup-id rofi -show window -no-levenshtein-sort
 
 # screenshot
 bindsym --release Print exec scrot -d 3 ~/Pictures/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png
@@ -219,16 +219,16 @@ mouse_warping none
 force_display_urgency_hint 1000 ms
 new_window pixel 2
 new_float none
-gaps inner 5
+gaps inner 10
 
 # Font for window titles.
-font pango: DejaVu Sans Mono 12
+font pango: DejaVu Sans 13
 
 # class                 border  backgr. text    indicator
-client.focused          #333333 #4c78c9 #000000 #2e9ef4
-client.focused_inactive #333333 #90adc8 #000000 #666666
-client.unfocused        #333333 #90adc8 #555555 #292d2e
-client.urgent           #2f343a #900000 #ffffff #900000
+client.focused          #073642 #073642 #93a1a1 #073642
+client.focused_inactive #073642 #073642 #586e75 #073642
+client.unfocused        #002b36 #002b36 #586e75 #002b36
+client.urgent           #002b36 #002b36 #dc322f #002b36
 
 # Original
 # class                  border  backgr. text    indicator
