@@ -1,6 +1,8 @@
 # remove ansi term prompt issues
-function fish_title;end
+# function fish_title;end
 
 fish_vi_mode
 
 screenfetch
+
+source abbreviations

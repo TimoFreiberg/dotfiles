@@ -1,0 +1,17 @@
+abbr g git
+abbr sc systemctl
+abbr scX 'systemctl start'
+abbr scx 'systemctl stop'
+abbr sps 'sudo pacman -S'
+abbr l1 'ls-1A'
+abbr spmsyu 'sudo pacmatic -Syu --ignore docker'
+abbr v vim
+abbr l 'ls -l'
+abbr ll 'ls -A'
+abbr pm pacman
+abbr spr 'sudo pacman -R'
+abbr yaourt 'yaourt --aur-url https://aur4.archlinux.org'
+abbr ':q' exit
+abbr spsyu 'sudo pacman -Syu --ignore docker'
+abbr mnt 'udevil mount'
+abbr scr 'systemctl restart'

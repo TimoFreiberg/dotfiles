@@ -21,6 +21,7 @@ bin/nogit
 !/.config/xkb
 !/.config/fish
 .config/fish/fish_history
+.config/fish/fishd*
 !/.config/dunst
 !/.config/git
 !/.config/gtk-2.0
