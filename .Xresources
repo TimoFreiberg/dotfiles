@@ -69,6 +69,7 @@
 *color14:                 S_base1
 *color15:                 S_base3
 
+URxvt*.intensityStyles: false
 URxvt*cursorBlink:     true
 URxvt*font:            xft:DejaVu Sans Mono for Powerline:size=11
 URxvt*boldFont:        xft:DejaVu Sans Mono for Powerline:size=11

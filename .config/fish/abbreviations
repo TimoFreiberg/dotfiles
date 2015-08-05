@@ -5,7 +5,6 @@ abbr scx 'systemctl stop'
 abbr sps 'sudo pacman -S'
 abbr l1 'ls-1A'
 abbr spmsyu 'sudo pacmatic -Syu --ignore docker'
-abbr v vim
 abbr l 'ls -l'
 abbr ll 'ls -A'
 abbr pm pacman
@@ -15,3 +14,7 @@ abbr ':q' exit
 abbr spsyu 'sudo pacman -Syu --ignore docker'
 abbr mnt 'udevil mount'
 abbr scr 'systemctl restart'
+abbr abbred 'vim ~/.config/fish/abbreviations'
+abbr abbrw 'abbr > ~/.config/fish/abbreviations'
+abbr gs 'git ss'
+abbr vim ec
