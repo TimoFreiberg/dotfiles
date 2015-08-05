@@ -13,7 +13,6 @@
 !/bin
 bin/nogit
 !/Wallpapers
-!/.fehbg
 .config/*
 !.themes
 !/.config/autostart
