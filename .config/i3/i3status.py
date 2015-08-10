@@ -92,7 +92,7 @@ def charge():
     discharging = tokens[2] == 'Discharging,' 
     icon = ICON_BATTERY if discharging else ICON_PLUG
     chargeInfoString = time_left if discharging else ''
-    block(icon, perc_left + chargeInfoString, txt_color)
+    block(icon, perc_left + ' ' + chargeInfoString, txt_color)
 
 
 def date_time():
