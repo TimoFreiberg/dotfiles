@@ -17,4 +17,3 @@ abbr scr 'systemctl restart'
 abbr abbred 'vim ~/.config/fish/abbreviations'
 abbr abbrw 'abbr > ~/.config/fish/abbreviations'
 abbr gs 'git ss'
-abbr vim ec

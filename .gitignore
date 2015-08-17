@@ -23,7 +23,7 @@ bin/nogit
 .config/fish/fishd*
 !/.config/dunst
 !/.config/git
-!/.config/gtk-2.0
+/.config/gtk-2.0
 !/.config/gtk-3.0
 !/.config/ranger
 .config/ranger/colorschemes
