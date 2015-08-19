@@ -9,7 +9,6 @@ abbr l 'ls -l'
 abbr ll 'ls -A'
 abbr pm pacman
 abbr spr 'sudo pacman -R'
-abbr yaourt 'yaourt --aur-url https://aur4.archlinux.org'
 abbr ':q' exit
 abbr spsyu 'sudo pacman -Syu --ignore docker'
 abbr mnt 'udevil mount'
@@ -17,3 +16,4 @@ abbr scr 'systemctl restart'
 abbr abbred 'vim ~/.config/fish/abbreviations'
 abbr abbrw 'abbr > ~/.config/fish/abbreviations'
 abbr gs 'git ss'
+abbr cal 'cal -3 -w -m'
