@@ -16,4 +16,3 @@ abbr abbrw 'abbr > ~/.config/fish/abbreviations'
 abbr gs 'git ss'
 abbr cal 'cal -3 -w -m'
 abbr syu 'sudo pacman -Syu'
-abbr e emacsclient

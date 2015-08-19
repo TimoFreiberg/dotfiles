@@ -24,7 +24,9 @@
      emacs-lisp
      (git :variables
           git-gutter-use-fringe t)
-     haskell
+     (haskell :variables
+              haskell-enable-ghc-mod-support t
+              haskell-enable-ghci-ng-support t)
      markdown
      org
      shell
