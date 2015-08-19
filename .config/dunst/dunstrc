@@ -210,13 +210,13 @@
 # to find fitting options for rules.
 
 [firefox]
-    appname = "firefox"
+    appname = Firefox
     background = "#E85C0E"
 
 
 
 [thunderbird]
-    appname = "thunderbird"
+    appname = thunderbird
     background = "#396094"
 
 #[espeak]
