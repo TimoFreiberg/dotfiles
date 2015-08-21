@@ -5,10 +5,8 @@ kill -TERM dunst
 kill -TERM compton
 
 #lock 
-i3lock --color 073642; and  sleep 1
+i3lock --color 073642 --nofork
 
 # resume message display
 dunst &
 compton -b
-# kill -CONT dunst
-# kill -CONT compton
