@@ -1,20 +1,23 @@
 /*
 !/.gitignore
-
 !/.zprofile
-
 !/.vimrc
 !/.zshrc
-!/.config
 !/.nvimrc
 !/.gitconfig
 !/.tmux.conf
 !/.xinitrc
+!/.spacemacs
+!/.ghci
+
 !/bin
 bin/nogit
+
 !/Wallpapers
-.config/*
 !.themes
+
+!/.config
+.config/*
 !/.config/autostart
 !/.config/i3
 !/.config/xkb
@@ -32,4 +35,3 @@ bin/nogit
 
 !/.zprestorc
 !/.zprezto
-!/.spacemacs
