@@ -217,7 +217,7 @@ focus_follows_mouse no
 smart_borders on
 mouse_warping none
 force_display_urgency_hint 1000 ms
-new_window pixel 2
+new_window pixel 4
 new_float none
 gaps inner 10
 
@@ -225,8 +225,8 @@ gaps inner 10
 font pango: DejaVu Sans 13
 
 # class                 border  backgr. text    indicator
-client.focused          #073642 #073642 #93a1a1 #073642
-client.focused_inactive #073642 #073642 #586e75 #073642
+client.focused          #2aa198 #073642 #93a1a1 #073642
+client.focused_inactive #2aa198 #073642 #586e75 #073642
 client.unfocused        #002b36 #002b36 #586e75 #002b36
 client.urgent           #002b36 #002b36 #dc322f #002b36
 
