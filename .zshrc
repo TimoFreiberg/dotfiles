@@ -1,1 +1,1 @@
-/home/tf/.zprezto/runcoms/zshrc
+export PATH=$HOME/bin:$HOME/.local/bin:$HOME/.cabal/bin:$PATH
