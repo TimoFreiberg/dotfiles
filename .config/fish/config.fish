@@ -3,6 +3,4 @@
 
 fish_vi_mode
 
-screenfetch
-
 source abbreviations
