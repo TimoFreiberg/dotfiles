@@ -195,9 +195,9 @@ mode "$mode_options" {
 }
 set $mode_keyboard_layout Keyboard layout: (u) us, (d) de, (c) colemak
 mode "$mode_keyboard_layout" {
-        bindsym u     exec --no-startup-id xkb.fish us, mode "default"
-        bindsym d     exec --no-startup-id xkb.fish de, mode "default"
-        bindsym c     exec --no-startup-id xkb.fish colemak, mode "default"
+        bindsym u     exec ~/bin/xkb.fish us; mode "default"
+        bindsym d     exec ~/bin/xkb.fish de; mode "default"
+        bindsym c     exec ~/bin/xkb.fish colemak; mode "default"
         bindsym Return mode "default"
         bindsym Escape mode "default"
 }
@@ -260,7 +260,7 @@ exec --no-startup-id ~/.fehbg
 exec --no-startup-id syndaemon -t -k -i 2 -d
 exec --no-startup-id ~/.config/i3/screenAutoLock.sh
 exec --no-startup-id ~/bin/padXORmouse.sh
-exec --no-startup-id ~/bin/xkb.sh
+exec --no-startup-id ~/bin/xkb.fish
 exec --no-startup-id nm-applet
 exec --no-startup-id dunst
 exec --no-startup-id dropbox start
