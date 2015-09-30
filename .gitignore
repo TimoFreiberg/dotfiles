@@ -29,6 +29,7 @@ bin/nogit
 /.config/gtk-2.0
 !/.config/gtk-3.0
 !/.config/ranger
+.config/ranger/bookmarks
 .config/ranger/colorschemes
 .config/ranger/tagged
 !/.config/compton.conf

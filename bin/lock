@@ -2,11 +2,9 @@
 
 #suspend dunst
 kill -TERM dunst
-kill -TERM compton
 
 #lock 
 i3lock --color 073642 --nofork --dpms
 
 # resume message display
 dunst &
-compton -b
