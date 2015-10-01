@@ -2,5 +2,3 @@
 # function fish_title;end
 
 fish_vi_mode
-
-source abbreviations

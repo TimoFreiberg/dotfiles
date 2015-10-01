@@ -1,3 +1,4 @@
+abbr tp 'trash-put'
 abbr g git
 abbr sc systemctl
 abbr scX 'systemctl start'
@@ -17,3 +18,4 @@ abbr cal 'cal -3 -w -m'
 abbr syu 'sudo pacman -Syu'
 abbr la 'ls -lAh'
 abbr l 'ls -lh'
+abbr getabbr 'source /home/tf/.config/fish/abbreviations'
