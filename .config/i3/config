@@ -242,9 +242,9 @@ gaps inner 10
 font pango: DejaVu Sans 13
 # class                 border  backgr. text    indicator
 client.focused          #A52A2A #A52A2A #e0e0e0 #A52A2A
-client.focused_inactive #353535 #353535 #e0e0e0 #e0e0e0
-client.unfocused        #353535 #353535 #e0e0e0 #e0e0e0
-client.urgent           #353535 #353535 #e0e0e0 #e0e0e0
+client.focused_inactive #333333 #333333 #e0e0e0 #e0e0e0
+client.unfocused        #333333 #333333 #e0e0e0 #e0e0e0
+client.urgent           #333333 #333333 #e0e0e0 #e0e0e0
 
 # class                 border  backgr. text    indicator
 # client.focused          #2aa198 #073642 #93a1a1 #073642
@@ -272,5 +272,7 @@ exec --no-startup-id dunst
 exec --no-startup-id dropbox start
 exec --no-startup-id clipit
 exec --no-startup-id xrdb ~/.Xresources
-exec --no-startup-id i3-msg 'workspace 3; exec thunderbird; exec skype; workspace 1; exec firefox;'
+exec --no-startup-id skype
+exec --no-startup-id firefox
+exec --no-startup-id thunderbird
 
