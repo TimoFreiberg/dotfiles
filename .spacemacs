@@ -8,6 +8,7 @@
 (setq linum-relative-toggle t)
 
 (setq-default dotspacemacs-persistent-server t)
+(setq haskell-interactive-popup-errors nil)
 
 (defun dotspacemacs/layers ()
   "Configuration Layers declaration."
