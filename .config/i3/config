@@ -34,7 +34,6 @@ bindsym $mod+shift+z exec xkill
 
 # Rofi run and window switch dialogues
 bindsym $mod+Tab exec --no-startup-id rofi -show run -no-levenshtein-sort
-bindsym $mod+l exec --no-startup-id rofi -show window -no-levenshtein-sort
 
 # screenshot
 bindsym --release Print exec scrot -d 3 ~/Pictures/screenshot-$(date +%Y-%m-%d_%H-%M-%S).png
@@ -157,7 +156,6 @@ mode "resize" {
 set $mode_gaps Gaps: (o) outer, (i) inner
 set $mode_gaps_outer Outer Gaps: +|-|0 (global)
 set $mode_gaps_inner Inner Gaps: +|-|0 (global)
-bindsym $mod+Shift+g mode "$mode_gaps"
 
 mode "$mode_gaps" {
         bindsym o      mode "$mode_gaps_outer"
@@ -224,6 +222,9 @@ bar {
         }
 }
 
+assign [class="Firefox"] 1
+assign [class="Thunderbird"] 3
+
 for_window [class="Wicd"] floating enable
 for_window [class="Xfce4-notifyd"] floating enable
 for_window [window_role="pop-up"] floating enable
@@ -239,6 +240,11 @@ gaps inner 10
 
 # Font for window titles.
 font pango: DejaVu Sans 13
+# class                 border  backgr. text    indicator
+client.focused          #A52A2A #A52A2A #e0e0e0 #A52A2A
+client.focused_inactive #353535 #353535 #e0e0e0 #e0e0e0
+client.unfocused        #353535 #353535 #e0e0e0 #e0e0e0
+client.urgent           #353535 #353535 #e0e0e0 #e0e0e0
 
 # class                 border  backgr. text    indicator
 client.focused          #2aa198 #073642 #93a1a1 #073642
