@@ -247,10 +247,10 @@ client.unfocused        #353535 #353535 #e0e0e0 #e0e0e0
 client.urgent           #353535 #353535 #e0e0e0 #e0e0e0
 
 # class                 border  backgr. text    indicator
-client.focused          #2aa198 #073642 #93a1a1 #073642
-client.focused_inactive #2aa198 #073642 #586e75 #073642
-client.unfocused        #002b36 #002b36 #586e75 #002b36
-client.urgent           #002b36 #002b36 #dc322f #002b36
+# client.focused          #2aa198 #073642 #93a1a1 #073642
+# client.focused_inactive #2aa198 #073642 #586e75 #073642
+# client.unfocused        #002b36 #002b36 #586e75 #002b36
+# client.urgent           #002b36 #002b36 #dc322f #002b36
 
 # Original
 # class                  border  backgr. text    indicator
