@@ -54,7 +54,7 @@ class i3_exit:
         title = "Log out " + getpass.getuser() + "? Choose an option:"
         self.window.set_title(title)
         self.window.set_border_width(5)
-        self.window.set_size_request(500, 80)
+        self.window.set_size_request(600, 75)
         self.window.set_resizable(False)
         self.window.set_keep_above(True)
         self.window.stick
