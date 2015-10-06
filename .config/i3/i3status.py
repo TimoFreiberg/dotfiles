@@ -12,7 +12,7 @@ if len(argv) > 1:
 BLOCKS = []
 
 COLOR_STD       = '#dddddd'
-COLOR_ICON      = '#1fc5ff'
+COLOR_ICON      = '#458588'
 COLOR_SEPARATOR = '#66cc66'
 COLOR_WARNING    = '#db5b26'
 COLOR_ALERT     = '#dc322f'
