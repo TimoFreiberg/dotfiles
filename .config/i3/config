@@ -214,7 +214,7 @@ bar {
             statusline         #00ffff
             separator          #33D04E
             ################## border  bground text
-            focused_workspace  #458588 #458588 #282828
+            focused_workspace  #6699cc #6699cc #282828
 #            focused_workspace  #6699cc #6699cc #111111
             active_workspace   #928374 #928374 #222222
             inactive_workspace #928374 #928374 #222222
@@ -241,7 +241,7 @@ gaps inner 10
 # Font for window titles.
 font pango: DejaVu Sans 13
 # class                 border  backgr. text    indicator
-client.focused          #a52a2a #a52a2a #e0e0e0 #a52a2a
+client.focused          #d27b53 #d27b53 #e0e0e0 #d27b53
 client.focused_inactive #333333 #333333 #e0e0e0 #e0e0e0
 client.unfocused        #333333 #333333 #e0e0e0 #e0e0e0
 client.urgent           #333333 #333333 #e0e0e0 #e0e0e0

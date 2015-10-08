@@ -4,7 +4,7 @@
 kill -TERM dunst
 
 #lock 
-i3lock --color 073642 --nofork --dpms
+i3lock --color 2d2d2d --nofork --dpms
 
 # resume message display
 dunst &

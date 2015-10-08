@@ -32,18 +32,14 @@
           git-gutter-use-fringe t)
      (haskell :variables
               haskell-enable-ghc-mod-support t
-              haskell-enable-shm-support t
-              ;; haskell-enable-hindent-style "chris-done"
               )
      markdown
      org
      shell
      syntax-checking
-     company-mode
      latex
-     company-latex
-     company
      common-lisp
+     themes-megapack
      )
    ;; List of additional packages that will be installed wihout being
    ;; wrapped in a layer. If you need some configuration for these
