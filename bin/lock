@@ -1,10 +1,11 @@
 #!/usr/bin/fish
 
 #suspend dunst
-kill -TERM dunst
+kill --signal STOP dunst
 
 #lock 
 i3lock --color 2d2d2d --nofork --dpms
 
 # resume message display
-dunst &
+kill --signal CONT dunst
+# dunst &
