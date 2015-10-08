@@ -13,9 +13,6 @@
 !/bin
 bin/nogit
 
-!/Wallpapers
-!.themes
-
 !/.config
 .config/*
 !/.config/autostart
