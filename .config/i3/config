@@ -98,8 +98,8 @@ bindsym $mod+9 workspace 9
 bindsym $mod+0 workspace 10
 
 # Alternatively, you can use the cursor keys:
-bindsym $mod+Left workspace next_on_output
-bindsym $mod+Right workspace prev_on_output
+bindsym $mod+Left workspace prev_on_output
+bindsym $mod+Right workspace next_on_output
 bindsym $mod+Down focus output left
 bindsym $mod+Up focus output right
 
