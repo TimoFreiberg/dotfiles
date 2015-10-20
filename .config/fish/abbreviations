@@ -1,6 +1,5 @@
 abbr tp 'trash-put'
 abbr g git
-abbr sc systemctl
 abbr sps 'sudo pacman -S'
 abbr l1 'ls-1A'
 abbr ll 'ls -A'
@@ -20,3 +19,4 @@ abbr Au 'sudo aura -Au'
 abbr scX 'sudo systemctl start'
 abbr scx 'sudo systemctl stop'
 abbr scr 'sudo systemctl restart'
+abbr sc 'sudo systemctl'
