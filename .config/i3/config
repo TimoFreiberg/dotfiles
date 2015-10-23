@@ -224,6 +224,8 @@ bar {
 
 assign [class="Firefox"] 1
 assign [class="Thunderbird"] 3
+assign [class="Skype"] 3
+assign [class="eclipse"] 2
 
 for_window [class="Wicd"] floating enable
 for_window [class="Xfce4-notifyd"] floating enable

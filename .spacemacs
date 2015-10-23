@@ -4,11 +4,6 @@
 
 
 
-(setq linum-mode t)
-(setq linum-relative-toggle t)
-
-(setq-default dotspacemacs-persistent-server t)
-(setq haskell-interactive-popup-errors nil)
 
 (defun dotspacemacs/layers ()
   "Configuration Layers declaration."
@@ -165,8 +160,18 @@ before layers configuration."
 layers configuration."
 
   (add-to-list 'exec-path "~/.local/bin")
-  )
 
+  (global-linum-mode)
+  (with-eval-after-load 'linum
+    (linum-relative-toggle))
+
+  ;; makes spacemacs start as a server
+  (setq-default dotspacemacs-persistent-server t)
+
+  ;; additional hotkeys
+  (spacemacs/declare-prefix-for-mode 'haskell-mode "mi" "imports")
+  (evil-leader/set-key-for-mode 'haskell-mode "mia" 'haskell-add-import)
+  )
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
 (custom-set-variables
@@ -186,13 +191,14 @@ layers configuration."
  '(custom-safe-themes
    (quote
     ("99fce0c01e01cb934f373a3e8c3224f80be568c6d9a548975a5cb0a0910f0a60" "3f630e9f343200ce27cfeb44f01c9046a4b2687a4751ba2b30e503da307cd27b" "7545d3bb77926908aadbd525dcb70256558ba05d7c478db6386bfb37fb6c9120" "9f3a4edb56d094366afed2a9ba3311bbced0f32ca44a47a765d8ef4ce5b8e4ea" "eafda598b275a9d68cc1fbe1689925f503cab719ee16be23b10a9f2cc5872069" "8aebf25556399b58091e533e455dd50a6a9cba958cc4ebb0aab175863c25b9a4" "d677ef584c6dfc0697901a44b885cc18e206f05114c8a3b7fde674fce6180879" "a8245b7cc985a0610d71f9852e9f2767ad1b852c2bdea6f4aadc12cce9c4d6d0" "1cbac607111335beb32fa0a551c071c45bbd33b03db3baf2c370b9a2920c7e2a" "62fec67653fc2d336af76882e6d6ceea5a1397e84de7c18b63423d9a57a9d234" default)))
+ '(golden-ratio-mode t)
  '(haskell-interactive-popup-errors nil)
  '(haskell-process-log t)
  '(package-selected-packages
    (quote
     (helm-projectile magit evil-terminal-cursor-changer s shm hindent haskell-snippets flycheck-haskell company-ghc company-cabal cmm-mode ghc haskell-mode slime helm helm-core parent-mode magit-popup git-commit with-editor helm-make avy window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spray spacemacs-theme smooth-scrolling smeargle shell-pop rfringe rainbow-delimiters quelpa powerline popwin pcre2el paradox page-break-lines org-repo-todo org-present org-pomodoro org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize highlight-parentheses highlight-numbers highlight-indentation helm-unicode helm-themes helm-swoop helm-mode-manager helm-gitignore helm-descbinds helm-c-yasnippet helm-ag google-translate golden-ratio gitconfig-mode gitattributes-mode git-timemachine git-messenger gh-md fringe-helper flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-org evil-numbers evil-nerd-commenter evil-matchit evil-lisp-state evil-jumper evil-indent-textobject evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav define-word company-statistics company-quickhelp company-auctex clean-aindent-mode buffer-move auto-yasnippet auto-highlight-symbol auto-dictionary aggressive-indent adaptive-wrap ace-window ace-link ac-ispell)))
  '(paradox-github-token t)
- '(ring-bell-function (quote ignore)))
+ '(ring-bell-function (quote ignore) t))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
