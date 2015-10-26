@@ -19,4 +19,5 @@ abbr Au 'sudo aura -Au'
 abbr scX 'sudo systemctl start'
 abbr scx 'sudo systemctl stop'
 abbr scr 'sudo systemctl restart'
-abbr sc 'sudo systemctl'
+abbr sc systemctl
+abbr ssc 'sudo systemctl'
