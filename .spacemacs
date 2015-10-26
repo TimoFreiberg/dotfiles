@@ -165,10 +165,6 @@ layers configuration."
 
   (add-to-list 'exec-path "~/.local/bin")
 
-  (global-linum-mode)
-  (with-eval-after-load 'linum
-    (linum-relative-toggle))
-
   ;; makes spacemacs start as a server
   (setq-default dotspacemacs-persistent-server t)
 
