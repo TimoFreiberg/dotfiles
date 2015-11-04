@@ -28,8 +28,6 @@
      (haskell
        :variables
               haskell-enable-ghc-mod-support t
-              haskell-enable-hindent-style "chris-done"
-              ;; haskell-enable-shm-support t
                             )
      markdown
      org
