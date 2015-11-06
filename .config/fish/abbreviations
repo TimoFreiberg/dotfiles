@@ -21,4 +21,4 @@ abbr scx 'sudo systemctl stop'
 abbr scr 'sudo systemctl restart'
 abbr sc systemctl
 abbr ssc 'sudo systemctl'
-abbr upgrayedd 'sudo pacman -Syu; sudo aura -Au; spacemacs-update; cabal update'
+abbr upgrayedd 'sudo pacman -Syu; sudo aura -Au; spacemacs-update; cabal update; cabal install ghc-mod hasktags hlint stylish-haskell'
