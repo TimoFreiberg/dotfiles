@@ -33,3 +33,5 @@
 	dd = diff
   st = stash
   re = remote
+[branch]
+	autosetuprebase = always
