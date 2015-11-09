@@ -90,8 +90,8 @@ rofi.lines:           6
 rofi.opacity:         95
 rofi.font:            DejaVu Sans Mono 13
 rofi.terminal:        rxvt-unicode
-rofi.padding:         100
 rofi.bw:              0
+rofi.padding:         450
 rofi.fullscreen:      true
 
 ! State:           bg             fg             bgalt          hlbg           hlfg
