@@ -37,8 +37,8 @@
 
 
 URxvt*cursorBlink:     true
-URxvt*font:            xft:DejaVu Sans Mono for Powerline:size=11
-URxvt*boldFont:        xft:DejaVu Sans Mono for Powerline:size=11
+URxvt*font:            xft:Inconsolata-dz for Powerline:size=12
+URxvt*boldFont:        xft:Inconsolata-dz for Powerline:size=12
 URxvt*scrollBar:       false
 URxvt.perl-ext-common: default,matcher,font-size
 URxvt.url-launcher:    chromium
