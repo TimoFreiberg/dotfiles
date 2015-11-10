@@ -243,7 +243,7 @@ gaps inner 10
 # Font for window titles.
 font pango: DejaVu Sans 13
 # class                 border  backgr. text    indicator
-client.focused          #d27b53 #d27b53 #e0e0e0 #d27b53
+client.focused          #d65d0e #d65d0e #e0e0e0 #d65d0e
 client.focused_inactive #333333 #333333 #e0e0e0 #e0e0e0
 client.unfocused        #333333 #333333 #e0e0e0 #e0e0e0
 client.urgent           #333333 #333333 #e0e0e0 #e0e0e0
