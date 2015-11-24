@@ -3,6 +3,7 @@
 !/.zprofile
 !/.vimrc
 !/.zshrc
+!/.zshenv
 !/.nvimrc
 !/.gitconfig
 !/.tmux.conf
