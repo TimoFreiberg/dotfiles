@@ -1,2 +1,0 @@
-- cmd: function words\ntr ' ' '\\n' | ag --nocolor '^\\w'\nend
-  when: 1436858844

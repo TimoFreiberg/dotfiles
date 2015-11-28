@@ -22,7 +22,7 @@ bin/nogit
 !/.config/i3
 !/.config/xkb
 !/.config/fish
-.config/fish/fish_history
+.config/fish/fish*history
 .config/fish/fishd*
 !/.config/dunst
 !/.config/git
