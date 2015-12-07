@@ -165,8 +165,8 @@ layers configuration."
   (setq-default dotspacemacs-persistent-server t)
 
   ;; additional hotkeys
-  (spacemacs/declare-prefix-for-mode 'haskell-mode "mi" "imports")
-  (evil-leader/set-key-for-mode 'haskell-mode "mia" 'haskell-add-import)
+  (spacemacs/declare-prefix-for-mode 'haskell-mode "i" "imports")
+  (evil-leader/set-key-for-mode 'haskell-mode "ia" 'haskell-add-import)
   )
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
