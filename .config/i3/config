@@ -7,8 +7,8 @@ bindsym $mod+F4 exec ~/bin/powerwidget.sh
 bindsym $mod+shift+x exec ~/bin/lock
 
 # Volume up and down
-bindsym XF86AudioRaiseVolume exec pactl set-sink-mute 0 false ; exec amixer -D pulse sset Master 5%+
-bindsym XF86AudioLowerVolume exec pactl set-sink-mute 0 false ; exec amixer -D pulse sset Master 5%-
+bindsym XF86AudioRaiseVolume exec amixer -D pulse sset Master unmute ; exec amixer -D pulse sset Master 5%+
+bindsym XF86AudioLowerVolume exec amixer -D pulse sset Master unmute ; exec amixer -D pulse sset Master 5%-
 bindsym XF86AudioMute exec amixer -D pulse sset Master toggle
 
 # screen brightness up and down
