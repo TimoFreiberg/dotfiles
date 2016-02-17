@@ -21,5 +21,5 @@ abbr scx 'sudo systemctl stop'
 abbr scr 'sudo systemctl restart'
 abbr sc systemctl
 abbr ssc 'sudo systemctl'
-abbr upgrayedd 'sudo pacman -Syu --ignore docker; and sudo aura -Au; spacemacs-update; cabal update; and cabal install ghc-mod hasktags hlint stylish-haskell'
+abbr upgrayedd 'sudo pacman -Syu --ignore docker; and sudo aura -Au; spacemacs-update; stack install ghc-mod hasktags hlint stylish-haskell'
 abbr 'virtualbox-drivers' 'sudo modprobe vboxdrv vboxnetadp vboxnetflt'
