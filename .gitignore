@@ -33,4 +33,5 @@ bin/nogit
 .config/ranger/colorschemes
 .config/ranger/tagged
 !/.config/compton.conf
+!/.config/redshift.conf
 
