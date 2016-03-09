@@ -18,6 +18,7 @@ bin/nogit
 
 !/.config
 .config/*
+!/.config/minimal.css
 !/.config/autostart
 !/.config/i3
 !/.config/xkb
