@@ -1,6 +1,6 @@
 [Desktop Entry]
-Name=Thunderbird
-Comment=Send and receive mail with Thunderbird
+Name=thunderbird
+Comment=
 Comment[ast]=Lleer y escribir corréu electrónicu
 Comment[ca]=Llegiu i escriviu correu
 Comment[cs]=Čtení a psaní pošty
@@ -55,7 +55,7 @@ GenericName[uk]=Поштова програма
 GenericName[vi]=Phần mềm khách quản lý thư điện tử
 GenericName[zh_CN]=邮件新闻客户端
 GenericName[zh_TW]=郵件用戶端
-Exec=thunderbird %u 
+Exec=thunderbird
 Terminal=false
 Type=Application
 Icon=thunderbird
@@ -116,7 +116,7 @@ Name[uk]=Написати нового листа
 Name[vi]=Viết thư mới
 Name[zh_CN]=编写新消息
 Name[zh_TW]=寫一封新訊息
-Exec=thunderbird -compose 
+Exec=thunderbird -compose
 
 [Desktop Action OpenAddressBook]
 Name=Open address book
@@ -170,4 +170,5 @@ Name[uk]=Відкрити адресну книгу
 Name[vi]=Mở sổ địa chỉ
 Name[zh_CN]=打开通讯录
 Name[zh_TW]=開啟通訊錄
-Exec=thunderbird -addressbook 
+Exec=thunderbird -addressbook
+

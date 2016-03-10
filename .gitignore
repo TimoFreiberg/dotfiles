@@ -16,8 +16,11 @@ bin/nogit
 
 !/Wallpapers
 
+
 !/.config
 .config/*
+!/.config/xfce4
+.config/xfce4/desktop
 !/.config/minimal.css
 !/.config/autostart
 !/.config/i3
