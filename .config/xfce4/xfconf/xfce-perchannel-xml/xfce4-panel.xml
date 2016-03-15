@@ -100,7 +100,7 @@
       <property name="miniature-view" type="bool" value="true"/>
     </property>
     <property name="plugin-5" type="string" value="clock">
-      <property name="digital-format" type="string" value="%T"/>
+      <property name="digital-format" type="string" value="%d.%m.%y - %T"/>
       <property name="tooltip-format" type="string" value="%A %d %B %Y, Week %V"/>
     </property>
     <property name="plugin-6" type="string" value="systray">

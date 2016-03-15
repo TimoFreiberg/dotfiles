@@ -1,4 +1,6 @@
 [Desktop Entry]
 Name=Load keyboard config
-Exec=~/bin/xkb.sh
+Exec=/home/tf/bin/xkb.fish
 Type=Application
+Comment=
+
