@@ -10,6 +10,7 @@
 !/.xinitrc
 !/.spacemacs
 !/.ghci
+!/.Xmodmap
 
 !/bin
 bin/nogit
