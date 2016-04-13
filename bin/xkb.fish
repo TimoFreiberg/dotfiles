@@ -2,7 +2,7 @@
 
 function setUs
   setxkbmap -option ctrl:nocaps,lv3:ralt_switch us
-  xmodmap ~/.config/xkb/umlauts.xmodmap
+  xmodmap ~/.Xmodmap
 end 
 
 if test -z $argv 
