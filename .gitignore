@@ -20,8 +20,14 @@ bin/nogit
 
 !/.config
 .config/*
-!/.config/xfce4
-.config/xfce4/desktop
+!/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-notifyd.xml
+!/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
+!/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
+!/.config/xfce4/xfconf/xfce-perchannel-xml/xfsettings.xml
+!/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml
+!/.config/xfce4/xfconf/xfce-perchannel-xml/xfsettings.xml
+
+
 !/.config/minimal.css
 !/.config/autostart
 !/.config/i3
