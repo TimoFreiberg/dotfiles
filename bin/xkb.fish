@@ -1,7 +1,7 @@
 #!/bin/env fish
 
 function setUs
-  setxkbmap -option ctrl:nocaps,lv3:ralt_switch us
+  setxkbmap -option -option ctrl:nocaps,lv3:ralt_switch us
   xmodmap ~/.Xmodmap
 end 
 
