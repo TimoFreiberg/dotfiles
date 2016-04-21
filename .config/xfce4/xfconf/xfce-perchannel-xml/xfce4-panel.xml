@@ -114,8 +114,8 @@
       <property name="size-max" type="uint" value="24"/>
     </property>
     <property name="plugin-1" type="string" value="mixer">
-      <property name="sound-card" type="string" value="HDAIntelHDMIAlsamixer"/>
-      <property name="track" type="string" value=""/>
+      <property name="sound-card" type="string" value="HDAIntelPCHAlsamixer"/>
+      <property name="track" type="string" value="Master"/>
       <property name="command" type="string" value="xfce4-mixer"/>
       <property name="enable-keyboard-shortcuts" type="bool" value="true"/>
     </property>
