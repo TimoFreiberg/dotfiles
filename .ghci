@@ -1,3 +1,4 @@
 :set prompt "λ> "
 :set prompt2 "λ| "
 :set +m
+:set +c
