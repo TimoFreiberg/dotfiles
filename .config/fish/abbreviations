@@ -22,6 +22,6 @@ abbr scx 'sudo systemctl stop'
 abbr scr 'sudo systemctl restart'
 abbr sc systemctl
 abbr ssc 'sudo systemctl'
-abbr upgrayedd 'sudo pacman -Syu --ignore docker; and sudo aura -Au; spacemacs-update; stack upgrade; stack --resolver lts install ghc-mod hasktags hlint stylish-haskell'
+abbr upgrayedd 'sudo pacman -Syu --ignore docker; and sudo aura -Au; spacemacs-update; stack upgrade; stack --resolver lts install ghc-mod hasktags hlint stylish-haskell ghci-ng'
 abbr 'virtualbox-drivers' 'sudo modprobe vboxdrv vboxnetadp vboxnetflt'
 abbr log-as 'sudo tail -f /var/lib/docker/volumes/56b7d03d3180759af79a272703d6414e1540629f06c81a63ea35324cc764a508/_data/server1/SystemOut.log | less'

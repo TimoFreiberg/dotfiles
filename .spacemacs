@@ -25,9 +25,9 @@
      emacs-lisp
      (git :variables
           git-gutter-use-fringe t)
-     (haskell
-       :variables
-              haskell-enable-ghc-mod-support t
+     (haskell :variables
+              haskell-enable-ghci-ng-support t
+              haskell-enable-hindent-style "chris-done"
                             )
      markdown
      org
@@ -114,7 +114,7 @@ before layers configuration."
    dotspacemacs-loading-progress-bar t
    ;; If non nil the frame is fullscreen when Emacs starts up.
    ;; (Emacs 24.4+ only)
-   dotspacemacs-fullscreen-at-startup nil
+   dotspacemacs-fullscreen-at-startup t
    ;; If non nil `spacemacs/toggle-fullscreen' will not use native fullscreen.
    ;; Use to disable fullscreen animations in OSX."
    dotspacemacs-fullscreen-use-non-native nil
@@ -152,6 +152,7 @@ before layers configuration."
    dotspacemacs-default-package-repository nil
    )
   ;; User initialization goes here
+  (add-to-list 'exec-path "~/.local/bin")
   )
 
 (defun dotspacemacs/user-config ()
@@ -159,7 +160,6 @@ before layers configuration."
  This function is called at the very end of Spacemacs initialization after
 layers configuration."
 
-  (add-to-list 'exec-path "~/.local/bin")
 
   ;; makes spacemacs start as a server
   (setq-default dotspacemacs-persistent-server t)
