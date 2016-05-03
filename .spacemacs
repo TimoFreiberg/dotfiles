@@ -3,8 +3,6 @@
 ;; It must be stored in your home directory.
 
 
-
-
 (defun dotspacemacs/layers ()
   "Configuration Layers declaration."
   (setq-default
@@ -26,7 +24,6 @@
      (git :variables
           git-gutter-use-fringe t)
      (haskell :variables
-              haskell-enable-ghci-ng-support t
               haskell-enable-hindent-style "chris-done"
                             )
      markdown
@@ -152,7 +149,12 @@ before layers configuration."
    dotspacemacs-default-package-repository nil
    )
   ;; User initialization goes here
-  (add-to-list 'exec-path "~/.local/bin")
+  )
+
+(defun haskell-process-reload-and-switch ()
+  (interactive)
+  (haskell-process-reload)
+  (haskell-interactive-switch)
   )
 
 (defun dotspacemacs/user-config ()
@@ -160,6 +162,7 @@ before layers configuration."
  This function is called at the very end of Spacemacs initialization after
 layers configuration."
 
+  (add-to-list 'exec-path "~/.local/bin")
 
   ;; makes spacemacs start as a server
   (setq-default dotspacemacs-persistent-server t)
@@ -167,6 +170,8 @@ layers configuration."
   ;; additional hotkeys
   (spacemacs/declare-prefix-for-mode 'haskell-mode "i" "imports")
   (evil-leader/set-key-for-mode 'haskell-mode "ia" 'haskell-add-import)
+  (evil-leader/set-key-for-mode 'haskell-mode "sb" nil)
+  (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-reload-and-switch)
   )
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
