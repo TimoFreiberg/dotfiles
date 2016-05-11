@@ -151,12 +151,6 @@ before layers configuration."
   ;; User initialization goes here
   )
 
-(defun haskell-process-reload-and-switch ()
-  (interactive)
-  (haskell-process-reload)
-  (haskell-interactive-switch)
-  )
-
 (defun dotspacemacs/user-config ()
   "Configuration function.
  This function is called at the very end of Spacemacs initialization after
@@ -171,7 +165,7 @@ layers configuration."
   (spacemacs/declare-prefix-for-mode 'haskell-mode "i" "imports")
   (evil-leader/set-key-for-mode 'haskell-mode "ia" 'haskell-add-import)
   (evil-leader/set-key-for-mode 'haskell-mode "sb" nil)
-  (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-reload-and-switch)
+  (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-load-or-reload)
   )
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
@@ -198,8 +192,11 @@ layers configuration."
  '(evil-want-C-i-jump nil)
  '(evil-want-C-u-scroll t)
  '(evil-want-Y-yank-to-eol t)
+ '(haskell-align-imports-pad-after-name t)
  '(haskell-interactive-popup-errors nil)
+ '(haskell-process-args-cabal-repl (quote ("--ghc-option=-ferror-spans -fobject-code")))
  '(haskell-process-log nil)
+ '(haskell-process-reload-with-fbytecode t)
  '(haskell-process-suggest-hoogle-imports t)
  '(haskell-process-type (quote stack-ghci))
  '(haskell-stylish-on-save t)
