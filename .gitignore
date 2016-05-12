@@ -17,7 +17,6 @@ bin/nogit
 
 !/Wallpapers
 
-
 !/.config
 .config/*
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-notifyd.xml

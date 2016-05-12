@@ -3,13 +3,11 @@
   #user and credential block
 [push]
 	default = simple
-[core]
-	editor = /usr/bin/vim
 [diff]
 	tool = vimdiff
 	guitool = meld
 [core]
-	editor = vim
+	editor = nvim
 	autocrlf = input
 [merge]
 	tool = meld
