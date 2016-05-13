@@ -21,8 +21,6 @@
      auto-completion
      better-defaults
      emacs-lisp
-     (git :variables
-          git-gutter-use-fringe t)
      (haskell :variables
               haskell-enable-hindent-style "chris-done"
                             )
@@ -30,9 +28,6 @@
      org
      shell
      syntax-checking
-     latex
-     common-lisp
-     themes-megapack
      )
    ;; List of additional packages that will be installed wihout being
    ;; wrapped in a layer. If you need some configuration for these
