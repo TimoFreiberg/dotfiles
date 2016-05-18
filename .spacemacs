@@ -106,14 +106,14 @@ before layers configuration."
    dotspacemacs-loading-progress-bar t
    ;; If non nil the frame is fullscreen when Emacs starts up.
    ;; (Emacs 24.4+ only)
-   dotspacemacs-fullscreen-at-startup t
+   dotspacemacs-fullscreen-at-startup nil
    ;; If non nil `spacemacs/toggle-fullscreen' will not use native fullscreen.
    ;; Use to disable fullscreen animations in OSX."
    dotspacemacs-fullscreen-use-non-native nil
    ;; If non nil the frame is maximized when Emacs starts up.
    ;; Takes effect only if `dotspacemacs-fullscreen-at-startup' is nil.
    ;; (Emacs 24.4+ only)
-   dotspacemacs-maximized-at-startup nil
+   dotspacemacs-maximized-at-startup t
    ;; A value from the range (0..100), in increasing opacity, which describes
    ;; the transparency level of a frame when it's active or selected.
    ;; Transparency can be toggled through `toggle-transparency'.
@@ -190,7 +190,6 @@ layers configuration."
  '(haskell-align-imports-pad-after-name t)
  '(haskell-interactive-popup-errors nil)
  '(haskell-process-args-cabal-repl (quote ("--ghc-option=-ferror-spans -fobject-code")))
- '(haskell-process-log nil)
  '(haskell-process-reload-with-fbytecode t)
  '(haskell-process-suggest-hoogle-imports t)
  '(haskell-process-type (quote stack-ghci))
