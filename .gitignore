@@ -11,6 +11,7 @@
 !/.spacemacs
 !/.ghci
 !/.Xmodmap
+!/.profile
 
 !/bin
 bin/nogit
