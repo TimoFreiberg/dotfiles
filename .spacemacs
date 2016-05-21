@@ -22,7 +22,7 @@
      better-defaults
      emacs-lisp
      (haskell :variables
-              haskell-enable-hindent-style "chris-done"
+              haskell-enable-hindent-style "johan-tibell"
                             )
      markdown
      org
