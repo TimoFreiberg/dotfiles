@@ -24,6 +24,7 @@
      (haskell :variables
               haskell-enable-hindent-style "johan-tibell"
                             )
+     git
      markdown
      org
      shell
