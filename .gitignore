@@ -28,7 +28,8 @@ bin/nogit
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfsettings.xml
 
 
-!/.config/nvim/*
+!/.config/nvim
+!/.config/termite
 !/.config/minimal.css
 !/.config/autostart
 !/.config/i3
