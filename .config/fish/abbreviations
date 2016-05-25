@@ -8,9 +8,9 @@ abbr pm pacman
 abbr spr 'sudo pacman -R'
 abbr ':q' exit
 abbr mnt 'udevil mount'
-abbr abbred 'vim ~/.config/fish/abbreviations; and source $HOME/.config/fish/abbreviations'
+abbr abbred 'vim ~/.config/fish/abbreviations; and clearabbr; and source $HOME/.config/fish/abbreviations'
 abbr abbrw 'abbr > ~/.config/fish/abbreviations'
-abbr getabbr 'source $HOME/.config/fish/abbreviations'
+abbr getabbr 'clearabbr; and source $HOME/.config/fish/abbreviations'
 abbr gs 'git ss'
 abbr cal 'cal -3 -w -m'
 abbr syu 'sudo pacman -Syu'
@@ -22,6 +22,5 @@ abbr scx 'sudo systemctl stop'
 abbr scr 'sudo systemctl restart'
 abbr sc systemctl
 abbr ssc 'sudo systemctl'
-abbr upgrayedd 'sudo pacman -Syu --ignore docker; and sudo aura -Au; spacemacs-update; spacemacs-update; stack upgrade; stack --resolver lts install ghc-mod hasktags hlint hindent stylish-haskell'
 abbr 'virtualbox-drivers' 'sudo modprobe vboxdrv vboxnetadp vboxnetflt'
 abbr log-as 'sudo tail -f /var/lib/docker/volumes/56b7d03d3180759af79a272703d6414e1540629f06c81a63ea35324cc764a508/_data/server1/SystemOut.log | less'
