@@ -7,4 +7,5 @@ function upgrayedd
 	echo $resolver >> /tmp/stack-resolver
 	mv $HOME/.stack/global-project/stack.yaml $HOME/.stack/global-project/stack.yaml.backup
 	mv /tmp/stack-resolver $HOME/.stack/global-project/stack.yaml
+	echo "updated stack $resolver"
 end
