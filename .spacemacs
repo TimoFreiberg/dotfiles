@@ -191,6 +191,8 @@ layers configuration."
  '(haskell-align-imports-pad-after-name t)
  '(haskell-interactive-popup-errors nil)
  '(haskell-process-args-cabal-repl (quote ("--ghc-option=-ferror-spans -fobject-code")))
+ '(haskell-process-auto-import-loaded-modules t)
+ '(haskell-process-log t)
  '(haskell-process-reload-with-fbytecode t)
  '(haskell-process-suggest-hoogle-imports t)
  '(haskell-process-type (quote stack-ghci))
