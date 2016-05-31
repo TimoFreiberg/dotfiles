@@ -190,13 +190,21 @@ layers configuration."
  '(evil-want-Y-yank-to-eol t)
  '(haskell-align-imports-pad-after-name t)
  '(haskell-interactive-popup-errors nil)
+ '(haskell-mode-hook
+   (quote
+    (capitalized-words-mode haskell-indentation-mode highlight-uses-mode interactive-haskell-mode spacemacs/init-haskell-mode hindent-mode ghc-init flycheck-mode spacemacs//init-company-haskell-mode company-mode)))
  '(haskell-process-args-cabal-repl (quote ("--ghc-option=-ferror-spans -fobject-code")))
+ '(haskell-process-args-stack-ghci (quote ("--test")))
  '(haskell-process-auto-import-loaded-modules t)
  '(haskell-process-log t)
  '(haskell-process-reload-with-fbytecode t)
  '(haskell-process-suggest-hoogle-imports t)
+ '(haskell-process-suggest-remove-import-lines t)
  '(haskell-process-type (quote stack-ghci))
+ '(haskell-process-use-presentation-mode t)
  '(haskell-stylish-on-save t)
+ '(haskell-tags-on-save t)
+ '(hindent-style "johan-tibell")
  '(markdown-command "pandoc --smart --standalone -c ~/.config/minimal.css")
  '(package-selected-packages
    (quote
