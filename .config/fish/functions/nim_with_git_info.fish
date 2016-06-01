@@ -11,7 +11,7 @@ function fish_prompt
     if [ (_git_branch_name) ]
         set -l git_branch (set_color -o blue)(_git_branch_name)
         if [ (_is_git_dirty) ]
-            for i in (git branch -qv --no-color| string match \*|cut -d' ' -f4-|cut -d] -f1|tr , \n)\
+            for i in (git branch -qv --no-color| ag -Q \*|cut -d' ' -f4-|cut -d] -f1|tr , \n)\
                 (git status --porcelain | cut -c 1-2 | uniq)
                 switch $i
                     case "*[ahead *"
