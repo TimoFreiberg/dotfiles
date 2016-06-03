@@ -1,6 +1,6 @@
 function upgrayedd
 	sudo pacman -Syu --ignore docker; and sudo aura -Au;
-	spacemacs-update; and spacemacs-update;
+	spacemacs-update;
 	stack upgrade;
 	
 	set resolver (stack --resolver lts install ghc-mod hasktags hlint hindent stylish-haskell 2>&1 | tee (tty) | ag -o 'resolver:(.*)$')
