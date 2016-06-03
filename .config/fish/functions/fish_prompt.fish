@@ -94,7 +94,7 @@ function fish_prompt
     echo -n '['
     set_color normal
     set_color $retc
-    echo -n (date +%X)
+    echo -n (date +%T)
     set_color -o green
     echo -n ]
     
