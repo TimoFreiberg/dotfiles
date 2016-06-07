@@ -161,8 +161,8 @@ layers configuration."
   ;; additional hotkeys
   (spacemacs/declare-prefix-for-mode 'haskell-mode "i" "imports")
   (evil-leader/set-key-for-mode 'haskell-mode "ia" 'haskell-add-import)
-  (evil-leader/set-key-for-mode 'haskell-mode "sb" nil)
-  (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-load-or-reload)
+  (evil-leader/set-key-for-mode 'haskell-mode "sb" 'haskell-process-load-file)
+  (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-reload)
   )
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
