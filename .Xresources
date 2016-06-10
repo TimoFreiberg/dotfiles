@@ -39,8 +39,8 @@
 URxvt.cursorBlink:     true
 URxvt.scrollBar:       false
 URxvt.letterSpace:     -1
-URxvt.font:            xft:hack:size=14
-URxvt.boldFont:        xft:hack:bold:size=14
+URxvt.font:            xft:hack:size=13
+URxvt.boldFont:        xft:hack:bold:size=13
 
 rofi.width:           100
 rofi.lines:           6
