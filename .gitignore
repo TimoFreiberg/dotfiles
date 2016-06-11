@@ -18,33 +18,22 @@ bin/nogit
 
 !/Wallpapers
 
-!/.config
-.config/*
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-notifyd.xml
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfsettings.xml
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml
-!/.config/xfce4/xfconf/xfce-perchannel-xml/xfsettings.xml
+!/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
 
 
 !/.config/nvim
 !/.config/termite
 !/.config/minimal.css
 !/.config/autostart
-!/.config/i3
-!/.config/xkb
 !/.config/fish
 .config/fish/fish*history
 .config/fish/fishd*
 !/.config/dunst
 !/.config/git
-/.config/gtk-2.0
-!/.config/gtk-3.0
-!/.config/ranger
-.config/ranger/bookmarks
-.config/ranger/colorschemes
-.config/ranger/tagged
-!/.config/compton.conf
 !/.config/redshift.conf
 
