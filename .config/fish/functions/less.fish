@@ -1,3 +1,3 @@
 function less
-	command less -RSMsi $argv;
+	vimpager  $argv;
 end
