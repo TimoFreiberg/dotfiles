@@ -110,6 +110,7 @@
         <value type="string" value="xfce4-power-manager"/>
         <value type="string" value="skype"/>
         <value type="string" value="redshift-gtk"/>
+        <value type="string" value="qtox"/>
       </property>
       <property name="size-max" type="uint" value="24"/>
     </property>

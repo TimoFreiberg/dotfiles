@@ -31,7 +31,7 @@
     <property name="MenuImages" type="bool" value="false"/>
     <property name="ButtonImages" type="bool" value="false"/>
     <property name="MenuBarAccel" type="empty"/>
-    <property name="CursorThemeName" type="string" value="Vanilla-DMZ"/>
+    <property name="CursorThemeName" type="string" value="Adwaita"/>
     <property name="CursorThemeSize" type="int" value="20"/>
     <property name="DecorationLayout" type="string" value=":"/>
   </property>
