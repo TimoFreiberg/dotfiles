@@ -156,6 +156,7 @@ before layers configuration."
 layers configuration."
 
   (add-to-list 'exec-path "~/.local/bin")
+  (setq eshell-path-env (concat "~/.local/bin:" eshell-path-env))
 
   ;; makes spacemacs start as a server
   (setq-default dotspacemacs-persistent-server t)
