@@ -30,14 +30,12 @@
       <property name="&lt;Super&gt;p" type="string" value="xfce4-display-settings --minimal"/>
       <property name="&lt;Primary&gt;Escape" type="string" value="xfdesktop --menu"/>
       <property name="override" type="bool" value="true"/>
-      <property name="&lt;Super&gt;Tab" type="string" value="xfce4-appfinder --collapsed">
-        <property name="startup-notify" type="bool" value="true"/>
-      </property>
       <property name="&lt;Super&gt;o" type="string" value="/usr/bin/xfce4-settings-manager"/>
       <property name="&lt;Shift&gt;&lt;Super&gt;x" type="string" value="xflock4"/>
       <property name="&lt;Super&gt;t" type="string" value="urxvt -e fish -c tmux"/>
       <property name="&lt;Super&gt;Return" type="string" value="urxvt -e fish -c tmux"/>
       <property name="&lt;Super&gt;e" type="string" value="pcmanfm"/>
+      <property name="&lt;Super&gt;Tab" type="string" value="xfce4-popup-whiskermenu"/>
     </property>
   </property>
   <property name="xfwm4" type="empty">
