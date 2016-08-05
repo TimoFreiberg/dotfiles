@@ -7,7 +7,7 @@
 	tool = vimdiff
 	guitool = meld
 [core]
-	editor = nvim
+	editor = vim
 	autocrlf = input
 [merge]
 	tool = meld
