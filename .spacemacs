@@ -156,16 +156,16 @@ before layers configuration."
 layers configuration."
 
   (add-to-list 'exec-path "~/.local/bin")
-  (setq eshell-path-env (concat "~/.local/bin:" eshell-path-env))
+  (setq-default eshell-path-env (concat "~/.local/bin:" eshell-path-env))
+  (setq-default dotspacemacs-configuration-layers
+                '(auto-completion (haskell :variables haskell-completion-backend 'intero)))
 
   ;; makes spacemacs start as a server
   (setq-default dotspacemacs-persistent-server t)
 
   ;; additional hotkeys
-  (spacemacs/declare-prefix-for-mode 'haskell-mode "i" "imports")
-  (evil-leader/set-key-for-mode 'haskell-mode "ia" 'haskell-add-import)
-  (evil-leader/set-key-for-mode 'haskell-mode "sb" 'haskell-process-load-file)
-  (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-reload)
+  ;; (evil-leader/set-key-for-mode 'haskell-mode "sb" 'haskell-process-load-file)
+  ;; (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-reload)
   )
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
