@@ -210,8 +210,9 @@ layers configuration."
  '(haskell-process-suggest-remove-import-lines t)
  '(haskell-process-type (quote stack-ghci))
  '(haskell-process-use-presentation-mode t)
- '(haskell-stylish-on-save t)
+ '(haskell-stylish-on-save nil)
  '(haskell-tags-on-save t)
+ '(hindent-reformat-buffer-on-save t)
  '(hindent-style "johan-tibell")
  '(markdown-command "pandoc --smart --standalone -c ~/.config/minimal.css")
  '(package-selected-packages
