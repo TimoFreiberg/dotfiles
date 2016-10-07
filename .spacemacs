@@ -165,8 +165,8 @@ layers configuration."
 
   ;; additional hotkeys
   (evil-leader/set-key-for-mode 'haskell-mode "f" 'hindent-reformat-buffer)
-  ;; (evil-leader/set-key-for-mode 'haskell-mode "sb" 'haskell-process-load-file)
-  ;; (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-reload)
+  (evil-leader/set-key-for-mode 'haskell-mode "sb" 'haskell-process-load-file)
+  (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-reload)
   )
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
