@@ -30,13 +30,14 @@
      org
      shell
      syntax-checking
-     eyebrowse
+     shell-scripts
      )
    ;; List of additional packages that will be installed wihout being
    ;; wrapped in a layer. If you need some configuration for these
    ;; packages then consider to create a layer, you can also put the
    ;; configuration in `dotspacemacs/config'.
-   dotspacemacs-additional-packages '()
+   dotspacemacs-additional-packages '(company-quickhelp
+                                      company-flx)
    ;; A list of packages and/or extensions that will not be install and loaded.
    dotspacemacs-excluded-packages '()
    ;; If non-nil spacemacs will delete any orphan packages, i.e. packages that
@@ -160,10 +161,10 @@ layers configuration."
   (setq-default dotspacemacs-configuration-layers
                 '(auto-completion (haskell :variables haskell-completion-backend 'intero)))
 
-  ;; makes spacemacs start as a server
-  (setq-default dotspacemacs-persistent-server t)
+  (global-set-key (kbd "C-SPC") #'company-complete)
 
   ;; additional hotkeys
+  (evil-leader/set-key-for-mode 'haskell-mode "f" 'hindent-reformat-buffer)
   ;; (evil-leader/set-key-for-mode 'haskell-mode "sb" 'haskell-process-load-file)
   ;; (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-reload)
   )
@@ -212,7 +213,7 @@ layers configuration."
  '(markdown-command "pandoc --smart --standalone -c ~/.config/minimal.css")
  '(package-selected-packages
    (quote
-    (helm-projectile magit evil-terminal-cursor-changer s shm hindent haskell-snippets flycheck-haskell company-ghc company-cabal cmm-mode ghc haskell-mode slime helm helm-core parent-mode magit-popup git-commit with-editor helm-make avy window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spray spacemacs-theme smooth-scrolling smeargle shell-pop rfringe rainbow-delimiters quelpa powerline popwin pcre2el paradox page-break-lines org-repo-todo org-present org-pomodoro org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize highlight-parentheses highlight-numbers highlight-indentation helm-unicode helm-themes helm-swoop helm-mode-manager helm-gitignore helm-descbinds helm-c-yasnippet helm-ag google-translate golden-ratio gitconfig-mode gitattributes-mode git-timemachine git-messenger gh-md fringe-helper flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-org evil-numbers evil-nerd-commenter evil-matchit evil-lisp-state evil-jumper evil-indent-textobject evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav define-word company-statistics company-quickhelp company-auctex clean-aindent-mode buffer-move auto-yasnippet auto-highlight-symbol auto-dictionary aggressive-indent adaptive-wrap ace-window ace-link ac-ispell)))
+    (company-flx fish-mode company-shell helm-projectile magit evil-terminal-cursor-changer s shm hindent haskell-snippets flycheck-haskell company-ghc company-cabal cmm-mode ghc haskell-mode slime helm helm-core parent-mode magit-popup git-commit with-editor helm-make avy window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spray spacemacs-theme smooth-scrolling smeargle shell-pop rfringe rainbow-delimiters quelpa powerline popwin pcre2el paradox page-break-lines org-repo-todo org-present org-pomodoro org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize highlight-parentheses highlight-numbers highlight-indentation helm-unicode helm-themes helm-swoop helm-mode-manager helm-gitignore helm-descbinds helm-c-yasnippet helm-ag google-translate golden-ratio gitconfig-mode gitattributes-mode git-timemachine git-messenger gh-md fringe-helper flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-org evil-numbers evil-nerd-commenter evil-matchit evil-lisp-state evil-jumper evil-indent-textobject evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav define-word company-statistics company-quickhelp company-auctex clean-aindent-mode buffer-move auto-yasnippet auto-highlight-symbol auto-dictionary aggressive-indent adaptive-wrap ace-window ace-link ac-ispell)))
  '(paradox-github-token t)
  '(ring-bell-function (quote ignore) t))
 (custom-set-faces
