@@ -3,7 +3,7 @@ function upgrayedd
 	spacemacs-update;
 	stack upgrade;
 	
-	set resolver (stack --resolver nightly install ghc-mod hasktags hlint hindent stylish-haskell 2>&1 | tee (tty) | ag -o 'resolver:(.*)$')
+	set resolver (stack --resolver nightly install hasktags hlint hindent stylish-haskell 2>&1 | tee (tty) | ag -o 'resolver:(.*)$')
 	
 	if test $resolver = (tail -n 1 $HOME/.stack/global-project/stack.yaml)
 		echo "$resolver up to date"
