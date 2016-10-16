@@ -12,6 +12,7 @@
 !/.ghci
 !/.Xmodmap
 !/.profile
+!/.xprofile
 
 !/bin
 bin/nogit
