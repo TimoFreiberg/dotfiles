@@ -1,6 +1,5 @@
 function upgrayedd
 	sudo pacman -Syu --ignore docker; and sudo aura -Au;
-	spacemacs-update;
 	stack upgrade;
 	
 	set resolver (stack --resolver nightly install hasktags hlint hindent stylish-haskell hoogle apply-refact 2>&1 | tee (tty) | ag -o 'resolver:(.*)$')
