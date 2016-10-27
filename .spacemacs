@@ -25,7 +25,7 @@
      (haskell :variables
               haskell-enable-hindent-style "johan-tibell"
               haskell-enable-ghc-mod-support nil
-              haskell-completion-backend 'intero
+              ;; haskell-completion-backend 'intero
                             )
      git
      markdown
