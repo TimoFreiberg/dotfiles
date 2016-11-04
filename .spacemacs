@@ -170,6 +170,7 @@ layers configuration."
   (evil-leader/set-key-for-mode 'haskell-mode "sb" 'haskell-process-load-file)
   (evil-leader/set-key-for-mode 'haskell-mode "b" 'haskell-process-reload)
   (with-eval-after-load 'company (add-hook 'evil-normal-state-entry-hook 'company-abort))
+  (ido-mode -1)
   )
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
