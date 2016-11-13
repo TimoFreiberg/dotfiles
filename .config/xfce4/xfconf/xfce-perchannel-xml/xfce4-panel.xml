@@ -106,13 +106,14 @@
     </property>
     <property name="plugin-6" type="string" value="systray">
       <property name="names-visible" type="array">
-        <value type="string" value="clipit"/>
-        <value type="string" value="networkmanager applet"/>
-        <value type="string" value="xfce4-power-manager"/>
-        <value type="string" value="skype"/>
         <value type="string" value="redshift-gtk"/>
         <value type="string" value="discordcanary"/>
+        <value type="string" value="networkmanager applet"/>
+        <value type="string" value="skype"/>
         <value type="string" value="qtox"/>
+        <value type="string" value="clipit"/>
+        <value type="string" value="caffeine"/>
+        <value type="string" value="xfce4-power-manager"/>
       </property>
       <property name="size-max" type="uint" value="24"/>
     </property>
