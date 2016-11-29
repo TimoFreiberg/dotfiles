@@ -11,6 +11,7 @@
       <property name="size" type="uint" value="35"/>
       <property name="plugin-ids" type="array">
         <value type="int" value="7"/>
+        <value type="int" value="9"/>
         <value type="int" value="8"/>
         <value type="int" value="3"/>
         <value type="int" value="15"/>
@@ -113,13 +114,16 @@
       <property name="names-visible" type="array">
         <value type="string" value="thunar"/>
         <value type="string" value="redshift-gtk"/>
+        <value type="string" value="amarok"/>
         <value type="string" value="discordcanary"/>
+        <value type="string" value="clementine"/>
         <value type="string" value="networkmanager applet"/>
-        <value type="string" value="skype"/>
         <value type="string" value="qtox"/>
+        <value type="string" value="skype"/>
         <value type="string" value="clipit"/>
         <value type="string" value="caffeine"/>
         <value type="string" value="xfce4-power-manager"/>
+        <value type="string" value="scp-dbus-service.py"/>
       </property>
       <property name="size-max" type="uint" value="24"/>
     </property>
@@ -133,5 +137,6 @@
     <property name="plugin-8" type="string" value="separator">
       <property name="expand" type="bool" value="false"/>
     </property>
+    <property name="plugin-9" type="string" value="xfce4-timer"/>
   </property>
 </channel>
