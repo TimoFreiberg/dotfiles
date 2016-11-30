@@ -114,7 +114,6 @@
       <property name="names-visible" type="array">
         <value type="string" value="thunar"/>
         <value type="string" value="redshift-gtk"/>
-        <value type="string" value="amarok"/>
         <value type="string" value="discordcanary"/>
         <value type="string" value="clementine"/>
         <value type="string" value="networkmanager applet"/>
