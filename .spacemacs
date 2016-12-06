@@ -25,7 +25,7 @@
      (haskell :variables
               haskell-enable-hindent-style "johan-tibell"
               haskell-enable-ghc-mod-support nil
-              ;; haskell-completion-backend 'intero
+              haskell-completion-backend 'intero
                             )
      git
      markdown
@@ -217,6 +217,7 @@ layers configuration."
  '(haskell-tags-on-save t)
  '(hindent-reformat-buffer-on-save t)
  '(hindent-style "johan-tibell")
+ '(intero-repl-no-load nil)
  '(markdown-command "pandoc --smart --standalone -c ~/.config/minimal.css")
  '(package-selected-packages
    (quote
