@@ -115,8 +115,8 @@
         <value type="string" value="thunar"/>
         <value type="string" value="redshift-gtk"/>
         <value type="string" value="discordcanary"/>
-        <value type="string" value="clementine"/>
         <value type="string" value="networkmanager applet"/>
+        <value type="string" value="clementine"/>
         <value type="string" value="qtox"/>
         <value type="string" value="skype"/>
         <value type="string" value="clipit"/>
