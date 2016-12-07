@@ -2,7 +2,7 @@ function upgrayedd
 	sudo pacman -Syu --ignore docker; and sudo aura -Au;
 	stack upgrade;
 	
-	set resolver (stack --resolver lts install hasktags hlint hindent stylish-haskell hoogle 2>&1 | tee (tty) | ag -o 'resolver:(.*)$')
+	set resolver (stack --resolver lts install hasktags hlint hindent stylish-haskell hoogle intero 2>&1 | tee (tty) | ag -o 'resolver:(.*)$')
 	
 	if test $resolver = (tail -n 1 $HOME/.stack/global-project/stack.yaml)
 		echo "$resolver up to date"
