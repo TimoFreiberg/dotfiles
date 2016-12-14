@@ -13,6 +13,7 @@
 !/.Xmodmap
 !/.profile
 !/.xprofile
+!/.tigrc
 
 !/bin
 bin/nogit
