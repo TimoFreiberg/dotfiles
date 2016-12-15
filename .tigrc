@@ -1,1 +1,2 @@
 bind main B !git rebase -i %(commit)
+bind main F !git commit --fixup=%(commit)
