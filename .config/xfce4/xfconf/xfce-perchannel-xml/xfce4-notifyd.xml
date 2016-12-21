@@ -10,6 +10,7 @@
       <value type="string" value="Firefox"/>
       <value type="string" value="nm-applet"/>
       <value type="string" value="System Config Printer Notification"/>
+      <value type="string" value="Thunar"/>
       <value type="string" value="thunar-volman"/>
       <value type="string" value="thunderbird"/>
       <value type="string" value="xfce4-power-manager"/>
