@@ -121,6 +121,7 @@
         <value type="string" value="qtox"/>
         <value type="string" value="steam"/>
         <value type="string" value="clipit"/>
+        <value type="string" value="qjackctl"/>
         <value type="string" value="caffeine"/>
         <value type="string" value="xfce4-power-manager"/>
         <value type="string" value="scp-dbus-service.py"/>
