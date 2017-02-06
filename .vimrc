@@ -2,6 +2,7 @@ let mapleader="\<Space>"
 
 set tabstop=2           " number of visual spaces per tab
 set shiftwidth=2
+set expandtab
 
 set copyindent    " copy the previous indentation on autoindenting
 set number        " always show line numbers
