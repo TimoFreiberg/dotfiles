@@ -1,5 +1,5 @@
 function upgrayedd
-	sudo pacman -Syu --ignore docker; and sudo aura -Au;
+	sudo pacaur -Syu --ignore docker
 	stack upgrade;
 	
 	set resolver (stack --resolver lts install hasktags hlint hoogle 2>&1 | tee (tty) | ag -o 'resolver:(.*)$')
