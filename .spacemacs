@@ -160,6 +160,7 @@ before layers configuration."
   "Configuration function.
  This function is called at the very end of Spacemacs initialization after
 layers configuration."
+  (setq powerline-default-separator nil)
 
   (add-to-list 'exec-path "~/.local/bin")
   (setq-default eshell-path-env (concat "~/.local/bin:" eshell-path-env))
