@@ -39,14 +39,14 @@ function fish_prompt
     end
 
     set_color $retc
-    if [ $tty = tty ]
-        echo -n .-
-    else
+    # if [ $tty = tty ]
+    #     echo -n .-
+    # else
         echo -n '┬─'
-    end
+    # end
 
     set_color -o green
-    echo -n [
+    echo -n '('
     if test $USER = root -o $USER = toor
         set_color -o red
     else
@@ -65,46 +65,46 @@ function fish_prompt
     #echo -n :(prompt_pwd)
     echo -n :(pwd|sed "s=$HOME=~=")
     set_color -o green
-    echo -n ']'
+    echo -n ')'
 
     set_color normal
     set_color $retc
-    if [ $tty = tty ]
-        echo -n '-'
-    else
+    # if [ $tty = tty ]
+    #     echo -n '-'
+    # else
         echo -n '─'
-    end
+    # end
 
     set_color -o green
-    echo -n [
+    echo -n '('
     set_color -o white
     echo -n $git_info
     set_color -o green
-    echo -n ']'
+    echo -n ')'
 
     set_color normal
     set_color $retc
-    if [ $tty = tty ]
-        echo -n '-'
-    else
+    # if [ $tty = tty ]
+    #     echo -n '-'
+    # else
         echo -n '─'
-    end
+    # end
 
     set_color -o green
-    echo -n '['
+    echo -n '('
     set_color normal
     set_color $retc
     echo -n (date +%T)
     set_color -o green
-    echo -n ]
+    echo -n ')'
     
     if type -q acpi
 		if [ (acpi -a 2> /dev/null | string match -r off) ]
-			echo -n '─['
+			echo -n '─('
 			set_color -o red
 			echo -n (acpi -b|cut -d' ' -f 4-)
 			set_color -o green
-			echo -n ']'
+			echo -n ')'
 		end
 	end
     echo
@@ -112,22 +112,22 @@ function fish_prompt
     set_color normal
     for job in (jobs)
         set_color $retc
-        if [ $tty = tty ]
-            echo -n '; '
-        else
+        # if [ $tty = tty ]
+        #     echo -n '; '
+        # else
             echo -n '│ '
-        end
+        # end
         set_color brown
         echo $job
     end
 
     set_color normal
     set_color $retc
-    if [ $tty = tty ]
-        echo -n "'->"
-    else
-        echo -n '╰─>'
-    end
+    # if [ $tty = tty ]
+    #     echo -n "'->"
+    # else
+        echo -n '    ╰─>'
+    # end
     set_color -o red
     echo -n '$ '
     set_color normal
