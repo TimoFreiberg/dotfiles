@@ -118,6 +118,7 @@
         <value type="string" value="discordcanary"/>
         <value type="string" value="clementine"/>
         <value type="string" value="networkmanager applet"/>
+        <value type="string" value="discord"/>
         <value type="string" value="qtox"/>
         <value type="string" value="steam"/>
         <value type="string" value="clipit"/>
