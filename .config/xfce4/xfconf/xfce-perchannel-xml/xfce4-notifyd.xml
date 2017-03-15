@@ -8,6 +8,7 @@
       <value type="string" value="Clementine"/>
       <value type="string" value="Discord"/>
       <value type="string" value="Dropbox"/>
+      <value type="string" value="Electron"/>
       <value type="string" value="Firefox"/>
       <value type="string" value="nm-applet"/>
       <value type="string" value="System Config Printer Notification"/>
