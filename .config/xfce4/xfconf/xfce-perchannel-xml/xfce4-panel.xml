@@ -124,6 +124,7 @@
         <value type="string" value="clipit"/>
         <value type="string" value="qjackctl"/>
         <value type="string" value="task manager"/>
+        <value type="string" value="clipman"/>
         <value type="string" value="caffeine"/>
         <value type="string" value="xfce4-power-manager"/>
         <value type="string" value="scp-dbus-service.py"/>
@@ -138,6 +139,14 @@
     <property name="plugin-9" type="string" value="xfce4-timer"/>
     <property name="plugin-10" type="string" value="pulseaudio">
       <property name="enable-keyboard-shortcuts" type="bool" value="true"/>
+    </property>
+    <property name="clipman" type="empty">
+      <property name="settings" type="empty">
+        <property name="enable-actions" type="bool" value="false"/>
+      </property>
+      <property name="tweaks" type="empty">
+        <property name="popup-at-pointer" type="bool" value="true"/>
+      </property>
     </property>
   </property>
 </channel>
