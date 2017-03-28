@@ -1,6 +1,6 @@
 function fish_prompt
 	and set retc green; or set retc red
-    tty|grep -q -r tty; and set tty tty; or set tty pts
+    tty|grep -q tty; and set tty tty; or set tty pts
 
     function _git_branch_name
         echo (git symbolic-ref HEAD ^/dev/null | sed -e 's|^refs/heads/||')
