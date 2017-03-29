@@ -34,10 +34,12 @@
       <property name="&lt;Shift&gt;&lt;Super&gt;x" type="string" value="xflock4"/>
       <property name="&lt;Super&gt;t" type="string" value="urxvt -e fish -c tmux"/>
       <property name="&lt;Super&gt;Return" type="string" value="urxvt -e fish -c tmux"/>
-      <property name="&lt;Super&gt;Tab" type="string" value="xfce4-popup-whiskermenu"/>
       <property name="&lt;Super&gt;e" type="string" value="thunar"/>
-      <property name="&lt;Shift&gt;&lt;Super&gt;Right" type="string" value="move-to-next-monitor"/>
+      <property name="&lt;Super&gt;space" type="string" value="xfce4-popup-whiskermenu"/>
+      <property name="&lt;Super&gt;j" type="string" value="xfce4-popup-clipman"/>
+      <property name="&lt;Super&gt;Tab" type="string" value="xfce4-popup-whiskermenu"/>
       <property name="&lt;Shift&gt;&lt;Super&gt;Left" type="string" value="move-to-last-monitor"/>
+      <property name="&lt;Shift&gt;&lt;Super&gt;Right" type="string" value="move-to-next-monitor"/>
     </property>
   </property>
   <property name="xfwm4" type="empty">

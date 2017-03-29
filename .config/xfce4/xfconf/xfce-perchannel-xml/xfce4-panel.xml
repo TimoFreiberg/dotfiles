@@ -144,9 +144,15 @@
       <property name="tweaks" type="empty">
         <property name="never-confirm-history-clear" type="bool" value="false"/>
         <property name="popup-at-pointer" type="bool" value="true"/>
+        <property name="inhibit" type="bool" value="false"/>
+        <property name="paste-on-activate" type="uint" value="1"/>
+        <property name="reverse-menu-order" type="bool" value="false"/>
       </property>
       <property name="settings" type="empty">
         <property name="enable-actions" type="bool" value="false"/>
+        <property name="add-primary-clipboard" type="bool" value="true"/>
+        <property name="show-qr-code" type="bool" value="false"/>
+        <property name="max-texts-in-history" type="uint" value="20"/>
       </property>
     </property>
   </property>
