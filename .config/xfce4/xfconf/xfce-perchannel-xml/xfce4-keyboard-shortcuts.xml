@@ -40,6 +40,7 @@
       <property name="&lt;Super&gt;Tab" type="string" value="xfce4-popup-whiskermenu"/>
       <property name="&lt;Shift&gt;&lt;Super&gt;Left" type="string" value="move-to-last-monitor"/>
       <property name="&lt;Shift&gt;&lt;Super&gt;Right" type="string" value="move-to-next-monitor"/>
+      <property name="&lt;Super&gt;k" type="string" value="rotateKeyboardLayouts.fish"/>
     </property>
   </property>
   <property name="xfwm4" type="empty">
