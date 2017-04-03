@@ -150,7 +150,7 @@
       </property>
       <property name="settings" type="empty">
         <property name="enable-actions" type="bool" value="false"/>
-        <property name="add-primary-clipboard" type="bool" value="true"/>
+        <property name="add-primary-clipboard" type="bool" value="false"/>
         <property name="show-qr-code" type="bool" value="false"/>
         <property name="max-texts-in-history" type="uint" value="20"/>
       </property>
