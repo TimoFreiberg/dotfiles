@@ -173,6 +173,12 @@ layers configuration."
 
   ;; additional hotkeys
   (with-eval-after-load 'company (add-hook 'evil-normal-state-entry-hook 'company-abort))
+  (defun xml-pretty-print ()
+    (interactive)
+    (save-excursion
+      (shell-command-on-region (mark) (point) "xmllint --format -" (buffer-name) t)
+      )
+    )
   )
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
