@@ -1,3 +1,3 @@
 function e --description 'alias e=emacsclient -n -c'
-	emacsclient -nw $argv;
+	emacsclient -n -c $argv;
 end
