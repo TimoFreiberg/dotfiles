@@ -188,7 +188,9 @@
       <property name="enable-keyboard-shortcuts" type="bool" value="true"/>
     </property>
     <property name="plugin-16" type="string" value="actions"/>
-    <property name="plugin-17" type="string" value="clock"/>
+    <property name="plugin-17" type="string" value="clock">
+      <property name="digital-format" type="string" value="%d.%m.%y - %T"/>
+    </property>
     <property name="plugin-18" type="string" value="xfce4-timer"/>
     <property name="plugin-20" type="string" value="pager">
       <property name="rows" type="uint" value="2"/>
@@ -208,7 +210,9 @@
       <property name="enable-keyboard-shortcuts" type="bool" value="true"/>
     </property>
     <property name="plugin-26" type="string" value="actions"/>
-    <property name="plugin-27" type="string" value="clock"/>
+    <property name="plugin-27" type="string" value="clock">
+      <property name="digital-format" type="string" value="%d.%m.%y - %T"/>
+    </property>
     <property name="plugin-28" type="string" value="xfce4-timer"/>
     <property name="plugin-30" type="string" value="pager">
       <property name="rows" type="uint" value="2"/>
