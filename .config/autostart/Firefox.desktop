@@ -5,8 +5,6 @@ Type=Application
 Name=Firefox
 Comment=Browser
 Exec=firefox
-OnlyShowIn=XFCE;
 StartupNotify=false
 Terminal=false
-Hidden=false
 
