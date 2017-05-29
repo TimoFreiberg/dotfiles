@@ -30,6 +30,7 @@ bin/nogit
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml
 !/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
 
+!/.config/dconf-root-backup
 
 !/.config/nvim
 !/.config/termite

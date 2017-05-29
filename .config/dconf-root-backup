@@ -1,0 +1,314 @@
+[org/xfce/mousepad/preferences/view]
+indent-width=-1
+show-line-marks=false
+highlight-current-line=false
+word-wrap=false
+show-right-margin=false
+font-name='Monospace'
+color-scheme='[Invalid UTF-8]'
+show-line-numbers=false
+insert-spaces=false
+match-braces=false
+indent-on-tab=true
+right-margin-position=80
+show-line-endings=false
+tab-width=8
+show-whitespace=false
+smart-home-end='disabled'
+auto-indent=false
+
+[org/xfce/mousepad/preferences/window]
+menubar-visible=true
+
+[org/xfce/mousepad/state/window]
+width=1039
+fullscreen=false
+maximized=true
+height=668
+
+[org/gnome/GWeather]
+temperature-unit='centigrade'
+
+[org/gnome/settings-daemon/plugins/power]
+sleep-inactive-battery-type='nothing'
+sleep-inactive-ac-timeout=3600
+sleep-inactive-ac-type='nothing'
+sleep-inactive-battery-timeout=1800
+
+[org/gnome/settings-daemon/plugins/color]
+night-light-schedule-automatic=true
+night-light-schedule-to=15.0
+night-light-schedule-from=10.0
+night-light-enabled=true
+night-light-last-coordinates=(48.7667, 9.1832999999999991)
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1]
+binding='<Super>t'
+command='gnome-terminal'
+name='Terminal'
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+binding='<Super>Return'
+command='gnome-terminal'
+name='Terminal'
+
+[org/gnome/settings-daemon/peripherals/keyboard]
+numlock-state='off'
+
+[org/gnome/shell]
+command-history=['gconf-editor', 'dconf-editor', 'gnome-terminal']
+enabled-extensions=['pixel-saver@deadalnix.me', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'alternate-tab@gnome-shell-extensions.gcampax.github.com', 'workspace-indicator@gnome-shell-extensions.gcampax.github.com', 'TopIcons@phocean.net', 'nohotcorner@azuri.free.fr']
+favorite-apps=['org.gnome.Nautilus.desktop']
+
+[org/gnome/shell/keybindings]
+toggle-overview=['<Super>minus']
+
+[org/gnome/shell/extensions/user-theme]
+name='Arc'
+
+[org/gnome/shell/extensions/topicons]
+icon-opacity=255
+icon-saturation=0.40000000000000002
+
+[org/gnome/shell/overrides]
+workspaces-only-on-primary=false
+
+[org/gnome/shell/window-switcher]
+app-icon-mode='both'
+
+[org/gnome/gedit/preferences/ui]
+show-tabs-mode='auto'
+
+[org/gnome/gedit/plugins]
+active-plugins=['modelines', 'docinfo', 'time', 'spell', 'filebrowser']
+
+[org/gnome/gedit/state/window]
+size=(1920, 1002)
+state=4
+bottom-panel-size=140
+side-panel-size=200
+side-panel-active-page='GeditWindowDocumentsPanel'
+
+[org/gnome/Weather/Application]
+locations=[<(uint32 2, <('Stuttgart', 'EDDS', true, [(0.84968445169480855, 0.16086118520990819)], [(0.85113890437366546, 0.16027939715704839)])>)>]
+
+[org/gnome/evolution-data-server]
+network-monitor-gio-name=''
+migrated=true
+
+[org/gnome/meld]
+window-size=(1920, 1164)
+insert-spaces-instead-of-tabs=false
+window-state='maximized'
+draw-spaces=@as []
+indent-width=8
+
+[org/gnome/desktop/interface]
+gtk-enable-primary-paste=false
+font-name='DejaVu Sans 11'
+document-font-name='DejaVu Sans 11'
+gtk-im-module='gtk-im-context-simple'
+clock-show-seconds=true
+cursor-theme='Paper'
+icon-theme='Paper'
+monospace-font-name='Hack 12'
+gtk-theme='Arc'
+clock-show-date=true
+
+[org/gnome/desktop/notifications]
+application-children=['firefox', 'ca-desrt-dconf-editor']
+
+[org/gnome/desktop/notifications/application/firefox]
+application-id='firefox.desktop'
+
+[org/gnome/desktop/notifications/application/ca-desrt-dconf-editor]
+application-id='ca.desrt.dconf-editor.desktop'
+
+[org/gnome/desktop/screensaver]
+picture-uri='file:///home/tf/Wallpapers/light.png'
+
+[org/gnome/desktop/peripherals/mouse]
+speed=0.20284697508896787
+accel-profile='flat'
+
+[org/gnome/desktop/calendar]
+show-weekdate=true
+
+[org/gnome/desktop/wm/preferences]
+button-layout='appmenu:minimize,maximize,close'
+titlebar-font='DejaVu Sans Bold 12'
+
+[org/gnome/desktop/wm/keybindings]
+switch-to-workspace-up=['<Super>w', '<Control><Alt>Up']
+switch-to-workspace-down=['<Super>s', '<Control><Alt>Down']
+move-to-workspace-down=['<Shift><Super>s', '<Control><Shift><Alt>Down']
+move-to-workspace-up=['<Shift><Super>w', '<Control><Shift><Alt>Up']
+
+[org/gnome/desktop/background]
+picture-uri='file:///home/tf/Wallpapers/light.png'
+
+[org/gnome/desktop/input-sources]
+sources=[('xkb', 'us+altgr-intl')]
+xkb-options=['eurosign:e', 'caps:ctrl_modifier']
+
+[org/gnome/gitg/preferences/history]
+reference-sort-order='last-activity'
+
+[org/gnome/gitg/preferences/interface]
+enable-monitoring=true
+
+[org/gnome/gitg/preferences/commit/message]
+spell-checking-language=''
+enable-spell-checking=true
+
+[org/gnome/gitg/preferences/commit/diff]
+context-lines=0
+tab-width=4
+
+[org/gnome/gitg/state/history]
+paned-sidebar-position=200
+paned-panels-position=126
+
+[org/gnome/gitg/state/commit]
+sign-off=false
+paned-sidebar-position=453
+
+[org/gnome/gitg/state/window]
+size=(1900, 1130)
+state=128
+
+[org/gnome/terminal/legacy/keybindings]
+zoom-in='<Primary>equal'
+
+[org/gnome/terminal/legacy]
+menu-accelerator-enabled=false
+schema-version=uint32 3
+default-show-menubar=false
+theme-variant='system'
+
+[org/gnome/terminal/legacy/profiles:]
+list=['8c3b05cd-d621-4a73-b9f1-d95f90492ba6']
+default=''
+
+[org/gnome/terminal/legacy/profiles:/:8c3b05cd-d621-4a73-b9f1-d95f90492ba6]
+foreground-color='rgb(235,219,178)'
+visible-name='Gruvbox'
+palette=['rgb(40,40,40)', 'rgb(204,36,29)', 'rgb(152,151,26)', 'rgb(215,153,33)', 'rgb(69,133,136)', 'rgb(177,98,134)', 'rgb(104,157,106)', 'rgb(189,174,147)', 'rgb(124,111,100)', 'rgb(251,73,52)', 'rgb(184,187,38)', 'rgb(250,189,47)', 'rgb(131,165,152)', 'rgb(211,134,155)', 'rgb(142,192,124)', 'rgb(235,219,178)']
+custom-command='fish -c tmux'
+use-system-font=false
+use-custom-command=true
+use-theme-colors=false
+font='Hack 12'
+bold-color-same-as-fg=true
+bold-color='rgb(0,0,0)'
+background-color='rgb(40,40,40)'
+audible-bell=false
+scrollbar-policy='never'
+
+[org/gnome/evolution/mail]
+junk-empty-on-exit-days=0
+junk-check-incoming=true
+junk-lookup-addressbook=false
+browser-close-on-reply-policy='ask'
+headers=['<?xml version="1.0"?>\n<header name="From" enabled=""/>\n', '<?xml version="1.0"?>\n<header name="Reply-To" enabled=""/>\n', '<?xml version="1.0"?>\n<header name="To" enabled=""/>\n', '<?xml version="1.0"?>\n<header name="Cc" enabled=""/>\n', '<?xml version="1.0"?>\n<header name="Bcc" enabled=""/>\n', '<?xml version="1.0"?>\n<header name="Subject" enabled=""/>\n', '<?xml version="1.0"?>\n<header name="Date" enabled=""/>\n', '<?xml version="1.0"?>\n<header name="Newsgroups" enabled=""/>\n', '<?xml version="1.0"?>\n<header name="Face" enabled=""/>\n', '<?xml version="1.0"?>\n<header name="x-evolution-mailer"/>\n']
+reply-style-name='quoted'
+junk-check-custom-header=true
+trash-empty-on-exit-days=0
+forward-style-name='attached'
+image-loading-policy='never'
+search-gravatar-for-photo=false
+show-headers=[('From', true), ('Reply-To', true), ('To', true), ('Cc', true), ('Bcc', true), ('Subject', true), ('Date', true), ('Newsgroups', true), ('Face', true), ('x-evolution-mailer', false)]
+
+[org/gnome/evolution/calendar]
+work-day-friday=true
+confirm-purge=true
+work-day-wednesday=true
+work-day-sunday=false
+work-day-thursday=true
+recur-events-italic=false
+prefer-new-item=''
+work-day-saturday=false
+time-divisions=30
+work-day-tuesday=true
+date-navigator-pane-position=166
+week-start-day-name='monday'
+primary-memos='system-memo-list'
+work-day-monday=true
+tag-vpane-position=0.0044843049327354259
+primary-tasks='system-task-list'
+
+[org/gnome/evolution/shell]
+buttons-visible=true
+default-component-id='mail'
+statusbar-visible=true
+toolbar-visible=true
+folder-bar-width=294
+sidebar-visible=true
+
+[org/gnome/evolution/shell/window]
+width=1900
+maximized=false
+height=1034
+x=3850
+y=10
+
+[org/gnome/evolution]
+version='3.18.3'
+
+[org/gnome/nm-applet]
+suppress-wireless-networks-available=true
+disable-connected-notifications=true
+
+[org/gnome/nm-applet/eap/bdf0db84-603a-4b04-99a0-89a7e097ed67]
+ignore-phase2-ca-cert=false
+ignore-ca-cert=false
+
+[org/gnome/nm-applet/eap/2fd663af-38bd-45e7-85b8-b644eb098f95]
+ignore-phase2-ca-cert=false
+ignore-ca-cert=false
+
+[org/gnome/nm-applet/eap/3d859df0-35f0-4e00-89fc-f89fcd4d89ec]
+ignore-phase2-ca-cert=false
+ignore-ca-cert=false
+
+[org/gnome/nm-applet/eap/f70dca50-33c8-412a-a9ae-bab525bacd46]
+ignore-phase2-ca-cert=false
+ignore-ca-cert=false
+
+[org/gnome/nm-applet/eap/8243e65c-ebc6-4026-8c6f-b2680cc86136]
+ignore-phase2-ca-cert=false
+ignore-ca-cert=false
+
+[org/gnome/nm-applet/eap/16cae933-0cce-49e4-96e5-9bdeff8a69ef]
+ignore-phase2-ca-cert=false
+ignore-ca-cert=true
+
+[org/gnome/nm-applet/eap/22102f5c-b3fd-4c2f-8152-33466e389a03]
+ignore-phase2-ca-cert=false
+ignore-ca-cert=false
+
+[org/gtk/settings/file-chooser]
+sort-column='name'
+sidebar-width=165
+window-position=(23, 15)
+show-size-column=true
+show-hidden=false
+window-size=(991, 743)
+sort-directories-first=false
+date-format='regular'
+sort-order='descending'
+location-mode='path-bar'
+
+[org/gtk/settings/color-chooser]
+selected-color=(true, 0.92156862745098034, 0.85882352941176465, 0.69803921568627447, 1.0)
+custom-colors=[(0.92156862745098034, 0.85882352941176465, 0.69803921568627447, 1.0), (0.99215686274509807, 0.96470588235294119, 0.8901960784313725, 1.0), (0.55686274509803924, 0.75294117647058822, 0.48627450980392151, 1.0), (0.57647058823529407, 0.63137254901960782, 0.63137254901960782, 1.0), (0.82745098039215681, 0.52549019607843139, 0.60784313725490191, 1.0), (0.42352941176470588, 0.44313725490196076, 0.7686274509803922, 1.0), (0.51372549019607838, 0.6470588235294118, 0.59607843137254901, 1.0), (0.51372549019607838, 0.58039215686274515, 0.58823529411764708, 1.0)]
+
+[ca/desrt/dconf-editor]
+saved-view='/org/gnome/terminal/legacy/profiles:/:8c3b05cd-d621-4a73-b9f1-d95f90492ba6/palette'
+show-warning=false
+window-height=600
+window-width=800
+window-is-maximized=false
