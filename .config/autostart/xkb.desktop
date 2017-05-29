@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=Load keyboard config
-Exec=xkb.fish
-Type=Application
-Comment=
-Hidden=false
-
