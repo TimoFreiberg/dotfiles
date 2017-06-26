@@ -423,7 +423,6 @@ This function is called at the very end of Spacemacs initialization."
  '(haskell-stylish-on-save nil)
  '(haskell-tags-on-save t)
  '(hindent-reformat-buffer-on-save t)
- '(hindent-style "johan-tibell")
  '(intero-repl-no-load nil)
  '(markdown-command
    "$HOME/.local/bin/pandoc --smart --standalone -c ~/.config/minimal.css")
