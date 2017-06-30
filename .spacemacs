@@ -352,25 +352,7 @@ layers configuration.
 This is the place where most of your configurations should be done. Unless it is
 explicitly specified that a variable should be set before a package is loaded,
 you should place your code here."
-  (setq powerline-default-separator nil)
-
-  (add-to-list 'exec-path "~/.local/bin")
-  (setq-default eshell-path-env (concat "~/.local/bin:" eshell-path-env))
-  ;; (setq-default dotspacemacs-configuration-layers
-  ;;               '(auto-completion (haskell :variables haskell-completion-backend 'intero)))
-
-  (global-set-key (kbd "C-SPC") #'company-complete)
-  (spaceline-toggle-minor-modes-off)
-  (with-eval-after-load "haskell-mode"
-    (add-hook 'haskell-mode-hook #'evil-smartparens-mode))
-  ;; additional hotkeys
-  (with-eval-after-load 'company (add-hook 'evil-normal-state-entry-hook 'company-abort))
-  (defun xml-pretty-print ()
-    (interactive)
-    (save-excursion
-      (shell-command-on-region (mark) (point) "xmllint --format -" (buffer-name) t)
-      )
-    )
+  (load-file "~/.config/spacemacs/config.el")
   )
 
 ;; Do not write anything past this comment. This is where Emacs will

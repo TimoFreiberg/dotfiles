@@ -32,6 +32,8 @@ bin/nogit
 
 !/.config/dconf-root-backup
 
+!/.config/spacemacs
+
 !/.config/nvim
 !/.config/termite
 !/.config/minimal.css
