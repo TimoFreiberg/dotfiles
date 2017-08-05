@@ -29,55 +29,58 @@ height=668
 [org/gnome/GWeather]
 temperature-unit='centigrade'
 
-[org/gnome/settings-daemon/plugins/power]
-sleep-inactive-battery-type='nothing'
-sleep-inactive-ac-timeout=3600
-sleep-inactive-ac-type='nothing'
-sleep-inactive-battery-timeout=1800
+[org/gnome/builder]
+window-position=(0, 0)
+window-maximized=true
+window-size=(1920, 1130)
 
-[org/gnome/settings-daemon/plugins/color]
-night-light-schedule-automatic=true
-night-light-schedule-to=15.0
-night-light-schedule-from=10.0
-night-light-enabled=true
-night-light-last-coordinates=(48.7667, 9.1832999999999991)
+[org/gnome/builder/workbench]
+bottom-position=200
+right-visible=true
+bottom-visible=true
+left-position=250
+left-visible=true
+right-position=250
 
-[org/gnome/settings-daemon/plugins/media-keys]
-custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/']
+[org/gnome/builder/build]
+parallel=-1
 
-[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1]
-binding='<Super>t'
-command='gnome-terminal'
-name='Terminal'
+[org/gnome/builder/project-tree]
+show-ignored-files=false
+show-icons=true
 
-[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
-binding='<Super>Return'
-command='gnome-terminal'
-name='Terminal'
-
-[org/gnome/settings-daemon/peripherals/keyboard]
-numlock-state='off'
-
-[org/gnome/shell]
-command-history=['gconf-editor', 'dconf-editor', 'gnome-terminal']
-enabled-extensions=['pixel-saver@deadalnix.me', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'alternate-tab@gnome-shell-extensions.gcampax.github.com', 'workspace-indicator@gnome-shell-extensions.gcampax.github.com', 'TopIcons@phocean.net', 'nohotcorner@azuri.free.fr']
-favorite-apps=['org.gnome.Nautilus.desktop']
+[org/gnome/builder/editor]
+overscroll=10
 
 [org/gnome/shell/keybindings]
 toggle-overview=['<Super>minus']
 
-[org/gnome/shell/extensions/user-theme]
-name='Arc'
-
-[org/gnome/shell/extensions/topicons]
-icon-opacity=255
-icon-saturation=0.40000000000000002
+[org/gnome/shell]
+enabled-extensions=['pixel-saver@deadalnix.me', 'TopIcons@phocean.net', 'nohotcorner@azuri.free.fr', 'alternate-tab@gnome-shell-extensions.gcampax.github.com', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'workspace-indicator@gnome-shell-extensions.gcampax.github.com', 'clipboard-indicator@tudmotu.com', 'GPaste@gnome-shell-extensions.gnome.org', 'gpaste_integration@awamper.gmail.com']
+command-history=['gconf-editor', 'dconf-editor', 'gnome-terminal', "exec 'rofi -show run'", 'exec rofi -show run', 'rofi -show run', '']
+disable-user-extensions=false
+favorite-apps=@as []
 
 [org/gnome/shell/overrides]
 workspaces-only-on-primary=false
 
 [org/gnome/shell/window-switcher]
 app-icon-mode='both'
+
+[org/gnome/shell/extensions/user-theme]
+name='Arc'
+
+[org/gnome/shell/extensions/clipboard-indicator]
+clear-history=['<Super>F12']
+notify-on-copy=false
+toggle-menu=['<Super>c']
+next-entry=['<Alt><Super>c']
+prev-entry=['<Shift><Super>c']
+refresh-interval=500
+
+[org/gnome/shell/extensions/topicons]
+icon-opacity=255
+icon-saturation=0.40000000000000002
 
 [org/gnome/gedit/preferences/ui]
 show-tabs-mode='auto'
@@ -92,8 +95,30 @@ bottom-panel-size=140
 side-panel-size=200
 side-panel-active-page='GeditWindowDocumentsPanel'
 
+[org/gnome/gnome-screenshot]
+include-pointer=false
+include-border=true
+border-effect='none'
+last-save-directory='file:///tmp'
+
 [org/gnome/Weather/Application]
 locations=[<(uint32 2, <('Stuttgart', 'EDDS', true, [(0.84968445169480855, 0.16086118520990819)], [(0.85113890437366546, 0.16027939715704839)])>)>]
+
+[org/gnome/nautilus/preferences]
+default-folder-viewer='list-view'
+search-filter-time-type='last_modified'
+
+[org/gnome/nautilus/window-state]
+geometry='1176x687+23+15'
+maximized=false
+
+[org/gnome/nautilus/icon-view]
+default-zoom-level='larger'
+
+[org/gnome/nautilus/list-view]
+default-visible-columns=['name', 'size', 'date_modified']
+default-zoom-level='small'
+default-column-order=['name', 'size', 'type', 'owner', 'group', 'permissions', 'mime_type', 'where', 'date_modified', 'date_modified_with_time', 'date_accessed', 'recency']
 
 [org/gnome/evolution-data-server]
 network-monitor-gio-name=''
@@ -108,8 +133,8 @@ indent-width=8
 
 [org/gnome/desktop/interface]
 gtk-enable-primary-paste=false
-font-name='DejaVu Sans 11'
-document-font-name='DejaVu Sans 11'
+font-name='Noto Sans 12'
+document-font-name='Noto Sans 12'
 gtk-im-module='gtk-im-context-simple'
 clock-show-seconds=true
 cursor-theme='Paper'
@@ -119,18 +144,41 @@ gtk-theme='Arc'
 clock-show-date=true
 
 [org/gnome/desktop/notifications]
-application-children=['firefox', 'ca-desrt-dconf-editor']
+application-children=['firefox', 'ca-desrt-dconf-editor', 'org-gnome-nautilus', 'spotify', 'org-gnome-chromegnomeshell', 'sococo', 'thunderbird', 'gnome-network-panel']
+
+[org/gnome/desktop/notifications/application/org-gnome-nautilus]
+application-id='org.gnome.Nautilus.desktop'
 
 [org/gnome/desktop/notifications/application/firefox]
 application-id='firefox.desktop'
 
+[org/gnome/desktop/notifications/application/sococo]
+application-id='sococo.desktop'
+
+[org/gnome/desktop/notifications/application/gnome-network-panel]
+application-id='gnome-network-panel.desktop'
+
+[org/gnome/desktop/notifications/application/spotify]
+application-id='spotify.desktop'
+
+[org/gnome/desktop/notifications/application/org-gnome-chromegnomeshell]
+application-id='org.gnome.ChromeGnomeShell.desktop'
+
 [org/gnome/desktop/notifications/application/ca-desrt-dconf-editor]
 application-id='ca.desrt.dconf-editor.desktop'
+
+[org/gnome/desktop/notifications/application/thunderbird]
+application-id='thunderbird.desktop'
 
 [org/gnome/desktop/screensaver]
 picture-uri='file:///home/tf/Wallpapers/light.png'
 
+[org/gnome/desktop/peripherals/touchpad]
+edge-scrolling-enabled=false
+two-finger-scrolling-enabled=true
+
 [org/gnome/desktop/peripherals/mouse]
+natural-scroll=false
 speed=0.20284697508896787
 accel-profile='flat'
 
@@ -139,20 +187,73 @@ show-weekdate=true
 
 [org/gnome/desktop/wm/preferences]
 button-layout='appmenu:minimize,maximize,close'
-titlebar-font='DejaVu Sans Bold 12'
+titlebar-font='Noto Sans Bold 13'
 
 [org/gnome/desktop/wm/keybindings]
-switch-to-workspace-up=['<Super>w', '<Control><Alt>Up']
-switch-to-workspace-down=['<Super>s', '<Control><Alt>Down']
-move-to-workspace-down=['<Shift><Super>s', '<Control><Shift><Alt>Down']
-move-to-workspace-up=['<Shift><Super>w', '<Control><Shift><Alt>Up']
+cycle-group-backward=['<Shift><Super>F6']
+toggle-maximized=['<Super>F10']
+cycle-panels-backward=@as []
+unmaximize=['<Super>Down']
+move-to-workspace-up=['<Shift><Super>w']
+switch-to-workspace-left=@as []
+begin-resize=['<Super>F8']
+switch-to-workspace-down=['<Super>s']
+move-to-workspace-right=@as []
+cycle-windows=@as []
+cycle-windows-backward=@as []
+switch-to-workspace-right=@as []
+cycle-panels=@as []
+move-to-workspace-left=@as []
+begin-move=['<Super>F7']
+move-to-workspace-down=['<Shift><Super>s']
+switch-to-workspace-up=['<Super>w']
+cycle-group=['<Super>F6']
 
 [org/gnome/desktop/background]
 picture-uri='file:///home/tf/Wallpapers/light.png'
 
 [org/gnome/desktop/input-sources]
-sources=[('xkb', 'us+altgr-intl')]
+sources=[('xkb', 'us+altgr-intl'), ('xkb', 'de')]
 xkb-options=['eurosign:e', 'caps:ctrl_modifier']
+
+[org/gnome/settings-daemon/plugins/power]
+sleep-inactive-battery-type='nothing'
+sleep-inactive-ac-timeout=3600
+sleep-inactive-ac-type='nothing'
+sleep-inactive-battery-timeout=1800
+
+[org/gnome/settings-daemon/plugins/color]
+night-light-schedule-automatic=true
+night-light-schedule-to=15.0
+night-light-schedule-from=10.0
+night-light-enabled=true
+night-light-last-coordinates=(51.299300000000002, 9.4909999999999997)
+
+[org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom3/']
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2]
+binding='<Super>F2'
+command='rofi -show run'
+name='Rofi'
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1]
+binding='<Super>t'
+command='gnome-terminal'
+name='Terminal'
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+binding='<Super>Return'
+command='gnome-terminal'
+name='Terminal'
+
+[org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom3]
+binding='<Super>e'
+command='nautilus'
+name='File Manager'
+
+[org/gnome/settings-daemon/peripherals/keyboard]
+numlock-state='on'
 
 [org/gnome/gitg/preferences/history]
 reference-sort-order='last-activity'
@@ -179,6 +280,29 @@ paned-sidebar-position=453
 [org/gnome/gitg/state/window]
 size=(1900, 1130)
 state=128
+
+[org/gnome/epiphany/state]
+window-position=(0, 0)
+is-maximized=false
+window-size=(1920, 1130)
+
+[org/gnome/eog/view]
+background-color='rgb(0,0,0)'
+use-background-color=true
+
+[org/gnome/GPaste]
+track-changes=true
+track-extension-state=true
+upload=''
+launch-ui='<Super><Shift>c'
+make-password=''
+sync-primary-to-clipboard=''
+sync-clipboard-to-primary=''
+show-history='<Super>c'
+pop=''
+
+[org/gnome/devhelp/state/main/contents]
+group-books-by-language=false
 
 [org/gnome/terminal/legacy/keybindings]
 zoom-in='<Primary>equal'
@@ -262,7 +386,11 @@ version='3.18.3'
 suppress-wireless-networks-available=true
 disable-connected-notifications=true
 
-[org/gnome/nm-applet/eap/bdf0db84-603a-4b04-99a0-89a7e097ed67]
+[org/gnome/nm-applet/eap/16cae933-0cce-49e4-96e5-9bdeff8a69ef]
+ignore-phase2-ca-cert=false
+ignore-ca-cert=true
+
+[org/gnome/nm-applet/eap/22102f5c-b3fd-4c2f-8152-33466e389a03]
 ignore-phase2-ca-cert=false
 ignore-ca-cert=false
 
@@ -274,7 +402,7 @@ ignore-ca-cert=false
 ignore-phase2-ca-cert=false
 ignore-ca-cert=false
 
-[org/gnome/nm-applet/eap/f70dca50-33c8-412a-a9ae-bab525bacd46]
+[org/gnome/nm-applet/eap/bdf0db84-603a-4b04-99a0-89a7e097ed67]
 ignore-phase2-ca-cert=false
 ignore-ca-cert=false
 
@@ -282,22 +410,37 @@ ignore-ca-cert=false
 ignore-phase2-ca-cert=false
 ignore-ca-cert=false
 
-[org/gnome/nm-applet/eap/16cae933-0cce-49e4-96e5-9bdeff8a69ef]
+[org/gnome/nm-applet/eap/559a38ff-0d4e-4599-92d0-2a34d6a16015]
 ignore-phase2-ca-cert=false
 ignore-ca-cert=true
 
-[org/gnome/nm-applet/eap/22102f5c-b3fd-4c2f-8152-33466e389a03]
+[org/gnome/nm-applet/eap/b3266a20-bbee-4017-a29c-dc679ff0afa7]
+ignore-phase2-ca-cert=false
+ignore-ca-cert=true
+
+[org/gnome/nm-applet/eap/f70dca50-33c8-412a-a9ae-bab525bacd46]
 ignore-phase2-ca-cert=false
 ignore-ca-cert=false
 
+[org/gnome/gnome-system-monitor]
+show-dependencies=false
+cpu-colors=[(uint32 0, '#FF6E00'), (1, '#CB0C29'), (2, '#49A835'), (3, '#2D7DB3'), (4, '#f25915e815e8'), (5, '#f25915e815e8'), (6, '#f25915e815e8'), (7, '#f25915e815e8')]
+maximized=false
+window-state=(700, 500, 23, 15)
+show-whose-processes='user'
+
+[org/gnome/gnome-system-monitor/disktreenew]
+col-6-visible=true
+col-6-width=0
+
 [org/gtk/settings/file-chooser]
 sort-column='name'
-sidebar-width=165
-window-position=(23, 15)
+sidebar-width=168
+window-position=(465, 158)
 show-size-column=true
 show-hidden=false
 window-size=(991, 743)
-sort-directories-first=false
+sort-directories-first=true
 date-format='regular'
 sort-order='descending'
 location-mode='path-bar'
@@ -306,8 +449,15 @@ location-mode='path-bar'
 selected-color=(true, 0.92156862745098034, 0.85882352941176465, 0.69803921568627447, 1.0)
 custom-colors=[(0.92156862745098034, 0.85882352941176465, 0.69803921568627447, 1.0), (0.99215686274509807, 0.96470588235294119, 0.8901960784313725, 1.0), (0.55686274509803924, 0.75294117647058822, 0.48627450980392151, 1.0), (0.57647058823529407, 0.63137254901960782, 0.63137254901960782, 1.0), (0.82745098039215681, 0.52549019607843139, 0.60784313725490191, 1.0), (0.42352941176470588, 0.44313725490196076, 0.7686274509803922, 1.0), (0.51372549019607838, 0.6470588235294118, 0.59607843137254901, 1.0), (0.51372549019607838, 0.58039215686274515, 0.58823529411764708, 1.0)]
 
+[apps/seahorse/windows/key-manager]
+width=686
+height=522
+
+[apps/seahorse/listing]
+sidebar-width=148
+
 [ca/desrt/dconf-editor]
-saved-view='/org/gnome/terminal/legacy/profiles:/:8c3b05cd-d621-4a73-b9f1-d95f90492ba6/palette'
+saved-view='/org/gnome/desktop/wm/keybindings/'
 show-warning=false
 window-height=600
 window-width=800
