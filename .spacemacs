@@ -68,7 +68,8 @@ values."
                                       company-flx
                                       evil-smartparens
                                       treemacs
-                                      treemacs-evil)
+                                      treemacs-evil
+                                      ag)
 
    ;; A list of packages that cannot be updated.
    dotspacemacs-frozen-packages '()
