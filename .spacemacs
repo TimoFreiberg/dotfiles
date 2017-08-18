@@ -32,7 +32,6 @@ values."
    dotspacemacs-configuration-layers
    '(
      csv
-     javascript
      html
      ;; ----------------------------------------------------------------
      ;; Example of useful layers you may want to use right away.
@@ -40,9 +39,7 @@ values."
      ;; `M-m f e R' (Emacs style) to install them.
      ;; ----------------------------------------------------------------
      helm
-     idris
      sql
-     rust
      yaml
      (auto-completion :variables
                       auto-completion-enable-help-tooltip 'manual)
