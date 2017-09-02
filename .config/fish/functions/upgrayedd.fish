@@ -1,9 +1,10 @@
+# Defined in /tmp/fish.nyVr3F/upgrayedd.fish @ line 2
 function upgrayedd
 	pacaur -Syu --ignore docker
   stack upgrade
 	
   set resolver (stack --resolver lts install hasktags hlint hoogle 2>&1 | tee (tty) | ag -o 'resolver:(.*)$')
-  stack --resolver nightly install intero hindent
+  stack --resolver nightly install hindent
 	
 	if test -n "$resolver"
     if test "$resolver" = (tail -n 1 $HOME/.stack/global-project/stack.yaml)
