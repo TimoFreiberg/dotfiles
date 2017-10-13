@@ -55,6 +55,7 @@ This function should only modify configuration layer settings."
      shell
      syntax-checking
      shell-scripts
+     treemacs
      )
    ;; List of additional packages that will be installed without being
    ;; wrapped in a layer. If you need some configuration for these
@@ -63,8 +64,6 @@ This function should only modify configuration layer settings."
    dotspacemacs-additional-packages '(company-quickhelp
                                       company-flx
                                       evil-smartparens
-                                      treemacs
-                                      treemacs-evil
                                       ag)
 
    ;; A list of packages that cannot be updated.
