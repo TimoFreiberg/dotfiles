@@ -1,6 +1,6 @@
-# Defined in /tmp/fish.Beq7eT/upgrayedd.fish @ line 2
+# Defined in /tmp/fish.GM6sWc/upgrayedd.fish @ line 2
 function upgrayedd
-	pacaur -Syu --ignore docker
+	pacaur -Syu
   stack upgrade
 	
   set resolver (stack --resolver lts --install-ghc install hasktags hlint hoogle 2>&1 | tee (tty) | ag -o 'resolver:(.*)$')
