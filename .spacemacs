@@ -373,47 +373,9 @@ This function is called at the very end of Spacemacs initialization."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(ahs-case-fold-search nil)
- '(ahs-default-range (quote ahs-range-whole-buffer))
- '(ahs-idle-interval 0.25)
- '(ahs-idle-timer 0 t)
- '(ahs-inhibit-face-list nil)
- '(company-idle-delay 999)
- '(company-tooltip-align-annotations t)
- '(evil-esc-delay 0.0)
- '(evil-escape-mode t)
- '(evil-shift-width 2)
- '(evil-want-C-i-jump nil)
- '(evil-want-C-u-scroll t)
- '(evil-want-Y-yank-to-eol nil)
- '(haskell-align-imports-pad-after-name t)
- '(haskell-interactive-popup-errors nil)
- '(haskell-mode-hook
-   (quote
-    (capitalized-words-mode haskell-indentation-mode highlight-uses-mode interactive-haskell-mode spacemacs/init-haskell-mode hindent-mode ghc-init flycheck-mode spacemacs//init-company-haskell-mode company-mode)))
- '(haskell-process-args-cabal-repl (quote ("--ghc-option=-ferror-spans -fobject-code")))
- '(haskell-process-args-stack-ghci (quote ("--test")))
- '(haskell-process-auto-import-loaded-modules t)
- '(haskell-process-log t)
- '(haskell-process-reload-with-fbytecode t)
- '(haskell-process-suggest-hoogle-imports t)
- '(haskell-process-suggest-remove-import-lines t)
- '(haskell-process-type (quote stack-ghci))
- '(haskell-process-use-presentation-mode t)
- '(haskell-stylish-on-save nil)
- '(haskell-tags-on-save t)
- '(hindent-reformat-buffer-on-save t)
- '(intero-repl-no-load nil)
- '(markdown-command
-   "$HOME/.local/bin/pandoc --smart --standalone -c ~/.config/minimal.css")
  '(package-selected-packages
    (quote
-    (org-brain impatient-mode hl-todo evil-magit treemacs-evil treemacs evil-smartparens org-download dante spaceline dash flycheck-bashate org-projectile helm-company evil-lion editorconfig password-generator gruvbox-theme autothemer evil-unimpaired symon string-inflection helm-purpose window-purpose imenu-list git-link web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc company-tern dash-functional tern coffee-mode org-plus-contrib web-mode tagedit slim-mode scss-mode sass-mode pug-mode less-css-mode helm-css-scss haml-mode emmet-mode company-web web-completion-data link-hint packed async orgit alert diminish restart-emacs persp-mode intero helm-flx eyebrowse evil-mc dumb-jump smartparens evil flycheck yasnippet company markdown-mode log4e projectile hydra f winum unfill fuzzy idris-mode prop-menu groovy-mode toml-mode racer flycheck-rust seq cargo rust-mode yaml-mode company-flx fish-mode company-shell helm-projectile magit evil-terminal-cursor-changer s shm hindent haskell-snippets flycheck-haskell company-ghc company-cabal cmm-mode ghc haskell-mode slime helm helm-core parent-mode magit-popup git-commit with-editor helm-make avy window-numbering which-key volatile-highlights vi-tilde-fringe use-package toc-org spray spacemacs-theme smooth-scrolling smeargle shell-pop rfringe rainbow-delimiters quelpa powerline popwin pcre2el paradox page-break-lines org-repo-todo org-present org-pomodoro org-bullets open-junk-file neotree multi-term move-text mmm-mode markdown-toc magit-gitflow macrostep linum-relative leuven-theme info+ indent-guide ido-vertical-mode hungry-delete htmlize highlight-parentheses highlight-numbers highlight-indentation helm-unicode helm-themes helm-swoop helm-mode-manager helm-gitignore helm-descbinds helm-c-yasnippet helm-ag google-translate golden-ratio gitconfig-mode gitattributes-mode git-timemachine git-messenger gh-md fringe-helper flycheck-pos-tip flx-ido fill-column-indicator fancy-battery expand-region exec-path-from-shell evil-visualstar evil-tutor evil-surround evil-search-highlight-persist evil-org evil-numbers evil-nerd-commenter evil-matchit evil-lisp-state evil-jumper evil-indent-textobject evil-iedit-state evil-exchange evil-escape evil-args evil-anzu eval-sexp-fu eshell-prompt-extras esh-help elisp-slime-nav define-word company-statistics company-quickhelp company-auctex clean-aindent-mode buffer-move auto-yasnippet auto-highlight-symbol auto-dictionary aggressive-indent adaptive-wrap ace-window ace-link ac-ispell)))
- '(paradox-github-token t)
- '(ring-bell-function (quote ignore))
- '(safe-local-variable-values
-   (quote
-    ((intero-targets "gilded-rose:lib" "gilded-rose:exe:gilded-rose" "gilded-rose:test:spec")))))
+    (yapfify yaml-mode xterm-color ws-butler winum which-key web-mode web-beautify volatile-highlights vi-tilde-fringe uuidgen use-package unfill treemacs-projectile treemacs-evil treemacs pfuture toc-org tagedit symon string-inflection sql-indent spaceline powerline smeargle slim-mode shell-pop scss-mode sass-mode restart-emacs rainbow-delimiters pyvenv pytest pyenv-mode py-isort pug-mode popwin pip-requirements persp-mode pcre2el password-generator paradox spinner orgit org-projectile org-category-capture org-present org-pomodoro alert log4e gntp org-download org-bullets org-brain org-plus-contrib open-junk-file mwim multi-term move-text mmm-mode markdown-toc markdown-mode magit-gitflow macrostep lorem-ipsum livid-mode skewer-mode live-py-mode linum-relative link-hint less-css-mode json-mode json-snatcher json-reformat js2-refactor multiple-cursors js2-mode js-doc intero insert-shebang info+ indent-guide impatient-mode simple-httpd hydra hy-mode hungry-delete htmlize hlint-refactor hl-todo hindent highlight-parentheses highlight-numbers parent-mode highlight-indentation hide-comnt help-fns+ helm-themes helm-swoop helm-pydoc helm-purpose window-purpose imenu-list helm-projectile helm-mode-manager helm-make projectile helm-hoogle helm-gitignore request helm-flx helm-descbinds helm-css-scss helm-company helm-c-yasnippet helm-ag haskell-snippets haml-mode gruvbox-theme autothemer google-translate golden-ratio gnuplot gitignore-mode gitconfig-mode gitattributes-mode git-timemachine git-messenger git-link gh-md fuzzy flycheck-pos-tip flycheck-haskell flycheck-bashate flx-ido flx fish-mode fill-column-indicator fancy-battery eyebrowse expand-region exec-path-from-shell evil-visualstar evil-visual-mark-mode evil-unimpaired evil-tutor evil-surround evil-search-highlight-persist evil-org evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-magit magit magit-popup git-commit with-editor evil-lisp-state smartparens evil-lion evil-indent-plus evil-iedit-state iedit evil-exchange evil-escape evil-ediff evil-args evil-anzu anzu evil goto-chg undo-tree eval-sexp-fu highlight eshell-z eshell-prompt-extras esh-help emmet-mode elisp-slime-nav editorconfig dumb-jump diminish define-word dante flycheck pkg-info epl cython-mode csv-mode company-web web-completion-data company-tern dash-functional tern company-statistics company-shell company-quickhelp pos-tip company-ghci company-ghc ghc haskell-mode company-cabal company-anaconda company column-enforce-mode coffee-mode cmm-mode clean-aindent-mode bind-map bind-key auto-yasnippet yasnippet auto-highlight-symbol auto-compile packed anaconda-mode pythonic f dash s aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line helm avy helm-core async ac-ispell auto-complete popup))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
