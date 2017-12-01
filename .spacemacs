@@ -45,6 +45,7 @@ This function should only modify configuration layer settings."
                       auto-completion-enable-help-tooltip 'manual)
      better-defaults
      emacs-lisp
+     clojure
      (haskell :variables
               haskell-enable-hindent-style "johan-tibell"
               haskell-enable-ghc-mod-support nil
