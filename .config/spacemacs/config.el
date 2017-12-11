@@ -11,11 +11,6 @@
 (spaceline-toggle-minor-modes-off)
 
 
-(with-eval-after-load "haskell-mode"
-  (defun std::haskell-hook ()
-    (haskell-decl-scan-mode t)
-    (evil-smartparens-mode t))
-  (add-hook 'haskell-mode-hook #'std::haskell-hook))
 ;; additional hotkeys
 
 (with-eval-after-load 'company (add-hook 'evil-normal-state-entry-hook 'company-abort))
