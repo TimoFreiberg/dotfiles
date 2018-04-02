@@ -1,6 +1,6 @@
-# Defined in /tmp/fish.w1zK1j/upgrayedd.fish @ line 2
+# Defined in /tmp/fish.d5rzs1/upgrayedd.fish @ line 2
 function upgrayedd
-	pacaur -Syu
+	trizen -Syu
 
 
 ## haskell part
