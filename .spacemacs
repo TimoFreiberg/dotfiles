@@ -29,8 +29,9 @@ This function should only modify configuration layer settings."
    dotspacemacs-configuration-layer-path '()
    ;; List of configuration layers to load.
    dotspacemacs-configuration-layers
-   '(python
-     javascript
+   '(
+     ;; python
+     ;; javascript
      csv
      html
      ;; ----------------------------------------------------------------
@@ -46,11 +47,11 @@ This function should only modify configuration layer settings."
      better-defaults
      emacs-lisp
      clojure
-     (haskell :variables
-              haskell-enable-hindent-style "johan-tibell"
-              haskell-enable-ghc-mod-support nil
-              haskell-completion-backend 'intero
-                            )
+     ;; (haskell :variables
+     ;;          haskell-enable-hindent-style "johan-tibell"
+     ;;          haskell-enable-ghc-mod-support nil
+     ;;          haskell-completion-backend 'intero
+     ;;                        )
      git
      markdown
      org
