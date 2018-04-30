@@ -388,7 +388,7 @@ This function is called at the very end of Spacemacs initialization."
   (quote
    ((cider-cljs-lein-repl . "(do (user/go) (user/cljs-repl))")
     (cider-refresh-after-fn . "reloaded.repl/resume")
-    (cider-refresh-before-fn . "reloaded.repl/suspend")))))
+    (cider-refresh-before-fn . "reloaded.repl/suspend"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
