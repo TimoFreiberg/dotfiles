@@ -3,7 +3,8 @@
 
 
 (add-to-list 'exec-path "~/.local/bin")
-(setq-default eshell-path-env (concat "~/.local/bin:" eshell-path-env))
+(with-eval-after-load 'esh-util
+ (setq-default eshell-path-env (concat "~/.local/bin:" eshell-path-env)))
 ;; (setq-default dotspacemacs-configuration-layers
 ;;               '(auto-completion (haskell :variables haskell-completion-backend 'intero)))
 
