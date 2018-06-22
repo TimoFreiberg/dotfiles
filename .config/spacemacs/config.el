@@ -2,6 +2,7 @@
 (setq powerline-default-separator nil)
 
 
+
 (add-to-list 'exec-path "~/.local/bin")
 (with-eval-after-load 'esh-util
  (setq-default eshell-path-env (concat "~/.local/bin:" eshell-path-env)))
@@ -27,6 +28,9 @@
     (mark-defun)
     (call-interactively 'anzu-query-replace)))
 
+(evil-define-key '(normal motion) global-map (kbd "gh") #'helm-semantic-or-imenu)
+(evil-define-key 'normal evil-normal-state-map (kbd "gh") #'helm-semantic-or-imenu)
+(evil-define-key 'motion evil-motion-state-map (kbd "gh") #'helm-semantic-or-imenu)
 
 
 (evil-leader/set-key
