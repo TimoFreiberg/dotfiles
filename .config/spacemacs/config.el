@@ -38,3 +38,10 @@
 (evil-leader/set-key
   "[[" #'anzu-query-replace
   "[f" #'std::defun-query-replace)
+
+(with-eval-after-load 'cider
+  (setq
+   cider-repl-pop-to-buffer-on-connect 'display-only
+   cider-repl-prompt-function 'cider-repl-prompt-abbreviated
+   cider-repl-use-pretty-printing t
+   cider-save-file-on-load t))
