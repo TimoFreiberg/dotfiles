@@ -32,7 +32,7 @@ bin/nogit
 
 !/.config/dconf-root-backup
 
-!/.config/spacemacs
+!/.config/spacemacs/config.el
 
 !/.config/nvim
 !/.config/termite
