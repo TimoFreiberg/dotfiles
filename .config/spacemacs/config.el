@@ -32,6 +32,8 @@
 (evil-define-key 'normal evil-normal-state-map (kbd "gh") #'helm-semantic-or-imenu)
 (evil-define-key 'motion evil-motion-state-map (kbd "gh") #'helm-semantic-or-imenu)
 
+;; make magit open as fullscreen buffer
+(setq magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
 
 (evil-leader/set-key
   "[[" #'anzu-query-replace
