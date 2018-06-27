@@ -66,7 +66,8 @@ This function should only modify configuration layer settings."
    dotspacemacs-additional-packages '(
                                       company-flx
                                       queue
-                                      clojure-mode)
+                                      clojure-mode
+                                      buttercup)
    ;; A list of packages that cannot be updated.
    dotspacemacs-frozen-packages '()
    ;; A list of packages that will not be installed and loaded.
