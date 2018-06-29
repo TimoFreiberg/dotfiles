@@ -45,3 +45,6 @@
    cider-repl-prompt-function 'cider-repl-prompt-abbreviated
    cider-repl-use-pretty-printing t
    cider-save-file-on-load t))
+
+(with-eval-after-load 'company
+ (company-flx-mode t))
