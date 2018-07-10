@@ -406,9 +406,9 @@ before packages are loaded."
     :after treemacs
     :load-path "~/projects/treemacs/src/elisp/"
     :defer t)
-  (set-frame-font "Hack 18")
   (require 'treemacs)
   (setq treemacs-file-event-delay 1000)
+  ;; (set-frame-font "Hack 18")
 
   )
 
