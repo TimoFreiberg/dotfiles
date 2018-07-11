@@ -408,7 +408,7 @@ before packages are loaded."
     :defer t)
   (require 'treemacs)
   (setq treemacs-file-event-delay 1000)
-  ;; (set-frame-font "Hack 18")
+  ;; (set-frame-font "Hack 16")
 
   )
 
