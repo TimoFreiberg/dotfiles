@@ -44,7 +44,10 @@
    cider-repl-pop-to-buffer-on-connect 'display-only
    cider-repl-prompt-function 'cider-repl-prompt-abbreviated
    cider-repl-use-pretty-printing t
-   cider-save-file-on-load t))
+   cider-save-file-on-load t)
+  ;; make eval-last-sexp work with evil normal mode cursor on closing paren
+  (advice-add 'cider-last-sexp :around 'evil--preceding-sexp '((name . evil)))
+  )
 
 (with-eval-after-load 'company
  (company-flx-mode t))
