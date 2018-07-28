@@ -1,11 +1,5 @@
 #!/bin/bash
 
-reaper_folder="$HOME/.wine/drive_c/REAPER/"
-reaper_exe="${reaper_folder}reaper.exe"
+reaper5
 
-qjackctl &
-jackpid=$!
-
-wine "$reaper_exe"
-
-kill "$jackpid"
+jack_control exit
