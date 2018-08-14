@@ -34,6 +34,7 @@ bin/nogit
 
 !/.config/spacemacs/config.el
 
+!/.config/vim
 !/.config/nvim
 !/.config/termite
 !/.config/minimal.css
