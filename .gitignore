@@ -43,5 +43,6 @@ bin/nogit
 .config/fish/fishd*
 !/.config/dunst
 !/.config/git
+!/.config/tig
 !/.config/redshift.conf
 
