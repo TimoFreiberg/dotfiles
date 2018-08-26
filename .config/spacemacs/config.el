@@ -39,6 +39,8 @@
   "[[" #'anzu-query-replace
   "[f" #'std::defun-query-replace)
 
+(advice-add 'backward-kill-sexp :around 'evil--preceding-sexp '((name . evil)))
+
 (with-eval-after-load 'cider
   (setq
    cider-repl-pop-to-buffer-on-connect 'display-only
