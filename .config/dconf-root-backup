@@ -156,6 +156,9 @@ numlock-state='on'
 [org/gnome/settings-daemon/peripherals/mouse]
 locate-pointer=false
 
+[org/gnome/system/location]
+enabled=true
+
 [org/gnome/clocks]
 timer=uint32 1500
 
@@ -204,8 +207,238 @@ schema-version=uint32 3
 default-show-menubar=false
 theme-variant='system'
 
-[org/gnome/terminal/legacy/profiles:]
+[org/gnome/terminal/legacy/profiles:/system/locale]
+region='de_DE.UTF-8'
+
+[org/gnome/terminal/legacy/profiles:/net/launchpad/caffeine]
+show-notification=false
+
+[org/gnome/terminal/legacy/profiles:/:0c2af924-a068-4467-9e10-dbdb1d7e0d27]
+foreground-color='rgb(101,123,131)'
+visible-name='Solarized Light'
+palette=['rgb(40,40,40)', 'rgb(204,36,29)', 'rgb(152,151,26)', 'rgb(215,153,33)', 'rgb(69,133,136)', 'rgb(177,98,134)', 'rgb(104,157,106)', 'rgb(189,174,147)', 'rgb(124,111,100)', 'rgb(251,73,52)', 'rgb(184,187,38)', 'rgb(250,189,47)', 'rgb(131,165,152)', 'rgb(211,134,155)', 'rgb(142,192,124)', 'rgb(235,219,178)']
+custom-command='fish'
+use-system-font=false
+use-custom-command=true
+use-theme-colors=false
+font='Hack 15'
+bold-color-same-as-fg=true
+bold-color='rgb(0,0,0)'
+background-color='rgb(253,246,227)'
+audible-bell=false
+scrollbar-policy='never'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/Weather/Application]
+locations=[<(uint32 2, <('Stuttgart', 'EDDS', true, [(0.84968445169480855, 0.16086118520990819)], [(0.85113890437366546, 0.16027939715704839)])>)>]
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/GPaste]
+history-name='history'
+track-changes=true
+track-extension-state=true
+upload=''
+launch-ui='<Super><Shift>c'
+sync-primary-to-clipboard=''
+make-password=''
+sync-clipboard-to-primary=''
+show-history='<Super>c'
+pop=''
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/evolution/calendar]
+work-day-friday=true
+confirm-purge=true
+work-day-wednesday=true
+work-day-sunday=false
+work-day-thursday=true
+recur-events-italic=false
+prefer-new-item=''
+work-day-saturday=false
+time-divisions=30
+work-day-tuesday=true
+date-navigator-pane-position=166
+week-start-day-name='monday'
+primary-memos='system-memo-list'
+work-day-monday=true
+tag-vpane-position=0.0044843049327354259
+primary-tasks='system-task-list'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/settings-daemon/plugins/power]
+sleep-inactive-battery-type='nothing'
+sleep-inactive-ac-timeout=1800
+sleep-inactive-ac-type='suspend'
+sleep-inactive-battery-timeout=1800
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/settings-daemon/plugins/color]
+night-light-schedule-automatic=true
+night-light-schedule-to=15.0
+night-light-schedule-from=10.0
+night-light-enabled=false
+night-light-last-coordinates=(48.7667, 9.1832999999999991)
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/settings-daemon/plugins/media-keys]
+custom-keybindings=['/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom2/', '/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom3/']
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom1]
+binding='<Super>t'
+command='gnome-terminal'
+name='Terminal'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom0]
+binding='<Super>Return'
+command='gnome-terminal'
+name='Terminal'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/custom3]
+binding='<Super>e'
+command='nautilus'
+name='File Manager'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/settings-daemon/plugins/xsettings]
+overrides={'Gdk/WindowScalingFactor': <1>}
+antialiasing='grayscale'
+hinting='slight'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/settings-daemon/peripherals/keyboard]
+numlock-state='on'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/settings-daemon/peripherals/mouse]
+locate-pointer=false
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/clocks]
+timer=uint32 1500
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/clocks/state/window]
+size=(870, 690)
+state=128
+panel-id='timer'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/terminal/legacy/keybindings]
+next-tab='<Alt>Right'
+move-tab-right='<Shift><Alt>Right'
+prev-tab='<Alt>Left'
+zoom-in='<Primary>equal'
+close-tab='<Alt>w'
+move-tab-left='<Shift><Alt>Left'
+new-tab='<Alt>t'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/terminal/legacy]
+menu-accelerator-enabled=false
+schema-version=uint32 3
+default-show-menubar=false
+theme-variant='system'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/terminal/legacy/profiles:]
 list=['8c3b05cd-d621-4a73-b9f1-d95f90492ba6']
+default=''
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/terminal/legacy/profiles:/:8c3b05cd-d621-4a73-b9f1-d95f90492ba6]
+foreground-color='rgb(235,219,178)'
+visible-name='Gruvbox'
+palette=['rgb(40,40,40)', 'rgb(204,36,29)', 'rgb(152,151,26)', 'rgb(215,153,33)', 'rgb(69,133,136)', 'rgb(177,98,134)', 'rgb(104,157,106)', 'rgb(189,174,147)', 'rgb(124,111,100)', 'rgb(251,73,52)', 'rgb(184,187,38)', 'rgb(250,189,47)', 'rgb(131,165,152)', 'rgb(211,134,155)', 'rgb(142,192,124)', 'rgb(235,219,178)']
+custom-command='fish'
+use-system-font=false
+use-custom-command=true
+use-theme-colors=false
+font='Hack 12'
+bold-color-same-as-fg=true
+bold-color='rgb(0,0,0)'
+background-color='rgb(40,40,40)'
+audible-bell=false
+scrollbar-policy='never'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/desktop/interface]
+gtk-enable-primary-paste=false
+font-name='Noto Sans 12'
+document-font-name='Noto Sans 12'
+toolkit-accessibility=false
+gtk-im-module='gtk-im-context-simple'
+clock-show-seconds=true
+cursor-theme='Paper'
+icon-theme='Paper'
+monospace-font-name='Hack 12'
+gtk-theme='Arc'
+clock-show-date=true
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/desktop/peripherals/mouse]
+natural-scroll=false
+speed=0.20284697508896787
+accel-profile='flat'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/desktop/calendar]
+show-weekdate=true
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/desktop/search-providers]
+sort-order=['org.gnome.Contacts.desktop', 'org.gnome.Documents.desktop', 'org.gnome.Nautilus.desktop']
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/desktop/wm/preferences]
+button-layout='appmenu:minimize,maximize,close'
+resize-with-right-button=false
+workspace-names=@as []
+titlebar-font='Noto Sans Bold 13'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/desktop/wm/keybindings]
+cycle-group-backward=['<Shift><Super>F6']
+toggle-maximized=['<Super>F10']
+cycle-panels-backward=@as []
+unmaximize=['<Super>Down']
+move-to-workspace-up=['<Shift><Super>w']
+switch-to-workspace-left=@as []
+begin-resize=['<Super>F8']
+switch-to-workspace-down=['<Super>s']
+move-to-workspace-right=@as []
+cycle-windows=@as []
+cycle-windows-backward=@as []
+switch-to-workspace-right=@as []
+cycle-panels=@as []
+move-to-workspace-left=@as []
+begin-move=['<Super>F7']
+move-to-workspace-down=['<Shift><Super>s']
+switch-to-workspace-up=['<Super>w']
+cycle-group=['<Super>F6']
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/desktop/input-sources]
+show-all-sources=false
+sources=[('xkb', 'us+altgr-intl'), ('xkb', 'de')]
+xkb-options=['eurosign:e', 'caps:ctrl_modifier']
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/shell/keybindings]
+toggle-overview=['<Super>minus']
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/shell]
+enabled-extensions=['gpaste_integration@awamper.gmail.com', 'maximus-two@wilfinitlike.gmail.com', 'GPaste@gnome-shell-extensions.gnome.org', 'alternate-tab@gnome-shell-extensions.gcampax.github.com', 'pixel-saver@deadalnix.me', 'user-theme@gnome-shell-extensions.gcampax.github.com', 'clipboard-indicator@tudmotu.com', 'caffeine@patapon.info', 'nohotcorner@azuri.free.fr', 'TopIcons@phocean.net']
+command-history=['gconf-editor', 'dconf-editor', 'gnome-terminal', "exec 'rofi -show run'", 'exec rofi -show run', 'rofi -show run', '', 'emacs --daemon', 'gnome-terminal', 'lg']
+disable-user-extensions=false
+favorite-apps=['org.gnome.Terminal.desktop', 'firefox.desktop', 'thunderbird.desktop', 'steam-native.desktop', 'Discord.desktop', 'spotify.desktop']
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/shell/overrides]
+dynamic-workspaces=true
+workspaces-only-on-primary=false
+attach-modal-dialogs=true
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/shell/window-switcher]
+app-icon-mode='both'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/shell/extensions/user-theme]
+name='Arc'
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/shell/extensions/caffeine]
+user-enabled=false
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/shell/extensions/clipboard-indicator]
+next-entry=['<Alt><Super>c']
+clear-history=['<Super>F12']
+toggle-menu=['<Super>c']
+history-size=30
+prev-entry=['<Shift><Super>c']
+preview-size=40
+notify-on-copy=false
+refresh-interval=500
+
+[org/gnome/terminal/legacy/profiles:/org/gnome/nm-applet]
+suppress-wireless-networks-available=true
+disable-connected-notifications=true
+
+[org/gnome/terminal/legacy/profiles:]
+list=['8c3b05cd-d621-4a73-b9f1-d95f90492ba6', '0c2af924-a068-4467-9e10-dbdb1d7e0d27']
 default=''
 
 [org/gnome/terminal/legacy/profiles:/:8c3b05cd-d621-4a73-b9f1-d95f90492ba6]
@@ -216,7 +449,7 @@ custom-command='fish'
 use-system-font=false
 use-custom-command=true
 use-theme-colors=false
-font='Hack 12'
+font='Hack 15'
 bold-color-same-as-fg=true
 bold-color='rgb(0,0,0)'
 background-color='rgb(40,40,40)'
@@ -318,6 +551,7 @@ picture-options='zoom'
 [org/gnome/desktop/peripherals/touchpad]
 edge-scrolling-enabled=false
 two-finger-scrolling-enabled=true
+tap-to-click=true
 
 [org/gnome/desktop/peripherals/mouse]
 natural-scroll=false
