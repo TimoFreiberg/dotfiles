@@ -468,48 +468,7 @@ configuration.
 Put your configuration code here, except for variables that should be set
 before packages are loaded."
   (load-file "~/.config/spacemacs/config.el")
-  (use-package treemacs
-    :commands (treemacs-select-window treemacs--window-number-ten)
-    :defer t
-    :load-path "~/projects/treemacs/src/elisp/"
-    :init
-    (progn
-      (setq treemacs-follow-after-init t
-            treemacs-width 35
-            treemacs-position 'left
-            treemacs-is-never-other-window nil
-            treemacs-silent-refresh nil
-            treemacs-indentation 2
-            treemacs-change-root-without-asking nil
-            treemacs-sorting 'alphabetic-desc
-            treemacs-show-hidden-files t
-            treemacs-never-persist nil
-            treemacs-goto-tag-strategy 'refetch-index
-            treemacs-collapse-dirs 3)
-      (spacemacs/set-leader-keys
-        "ft"    #'treemacs
-        "fB"    #'treemacs-bookmark
-        "fT"    #'treemacs-find-file
-        "f M-t" #'treemacs-find-tag))
-    :config
-    (progn
-      (spacemacs/define-evil-state-face "treemacs" "MediumPurple1")
-      (treemacs-follow-mode t)
-      (treemacs-filewatch-mode t)
-      (treemacs-git-mode 'extended)
-      (add-to-list 'spacemacs-window-split-ignore-prefixes treemacs--buffer-name-prefix)))
-  (use-package treemacs-evil
-    :after treemacs
-    :load-path "~/projects/treemacs/src/elisp/"
-    :if (memq dotspacemacs-editing-style '(vim hybrid)))
-  (use-package treemacs-projectile
-    :after treemacs
-    :load-path "~/projects/treemacs/src/elisp/"
-    :defer t)
-  (require 'treemacs)
-  (setq treemacs-file-event-delay 1000)
   ;; (set-frame-font "Hack 16")
-
   )
 
 ;; Do not write anything past this comment. This is where Emacs will
