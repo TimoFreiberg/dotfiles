@@ -74,7 +74,6 @@ This function should only modify configuration layer settings."
    dotspacemacs-additional-packages '(
                                       company-flx
                                       queue
-                                      clojure-mode
                                       buttercup
                                       pfuture
                                       )
