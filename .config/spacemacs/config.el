@@ -41,6 +41,14 @@
 
 (advice-add 'backward-kill-sexp :around 'evil--preceding-sexp '((name . evil)))
 
+;; mouse wheel scrolling
+(setq
+ ;; constant mouse speed
+ mouse-wheel-progressive-speed nil
+ ;; slightly slower scrolling than default
+ mouse-wheel-scroll-amount (quote (3 ((shift) . 1) ((control))))
+ )
+
 (with-eval-after-load 'cider
   (setq
    cider-repl-pop-to-buffer-on-connect 'display-only
