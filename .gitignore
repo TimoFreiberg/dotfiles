@@ -12,6 +12,7 @@
 !/.profile
 !/.xprofile
 !/.tigrc
+!/bootstrap.fish
 
 !/bin
 bin/nogit
