@@ -62,6 +62,7 @@ This function should only modify configuration layer settings."
      shell
      syntax-checking
      shell-scripts
+     treemacs
      )
 
    ;; List of additional packages that will be installed without being
