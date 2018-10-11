@@ -49,6 +49,10 @@
  mouse-wheel-scroll-amount (quote (3 ((shift) . 1) ((control))))
  )
 
+(setq
+ ;; Makes C-i work. Without this, it is interpreted as tab
+ dotspacemacs-distinguish-gui-tab t)
+
 (with-eval-after-load 'cider
   (setq
    cider-repl-pop-to-buffer-on-connect 'display-only
