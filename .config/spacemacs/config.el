@@ -12,7 +12,6 @@
 (global-set-key (kbd "C-SPC") #'company-complete)
 (spaceline-toggle-minor-modes-off)
 
-
 ;; additional hotkeys
 
 (with-eval-after-load 'company (add-hook 'evil-normal-state-entry-hook 'company-abort))
@@ -40,6 +39,10 @@
   "[f" #'std::defun-query-replace)
 
 (advice-add 'backward-kill-sexp :around 'evil--preceding-sexp '((name . evil)))
+
+;; always follow symlinks to dotfiles
+(setq
+ vc-follow-symlinks t)
 
 ;; mouse wheel scrolling
 (setq
