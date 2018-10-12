@@ -31,7 +31,8 @@ bin/nogit
 
 !/.config/dconf-root-backup
 
-!/.config/spacemacs/config.el
+!/.config/spacemacs/
+.config/spacemacs/custom-file.el
 
 !/.config/vim
 !/.config/nvim

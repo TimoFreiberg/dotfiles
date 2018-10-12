@@ -38,6 +38,8 @@ This function should only modify configuration layer settings."
      ;; javascript
      csv
      html
+     (spacemacs-evil :variables
+                     vim-style-visual-feedback t)
      ;; ----------------------------------------------------------------
      ;; Example of useful layers you may want to use right away.
      ;; Uncomment some layer names and press `SPC f e R' (Vim style) or
@@ -63,6 +65,7 @@ This function should only modify configuration layer settings."
      syntax-checking
      shell-scripts
      treemacs
+     colors
      )
 
    ;; List of additional packages that will be installed without being
@@ -468,6 +471,7 @@ configuration.
 Put your configuration code here, except for variables that should be set
 before packages are loaded."
   (load-file "~/.config/spacemacs/config.el")
+  (org-babel-load-file  "~/.config/spacemacs/config.org")
   ;; (set-frame-font "Hack 16")
   )
 
