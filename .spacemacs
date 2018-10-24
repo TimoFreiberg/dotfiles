@@ -471,7 +471,7 @@ configuration.
 Put your configuration code here, except for variables that should be set
 before packages are loaded."
   (load-file "~/.config/spacemacs/config.el")
-  (org-babel-load-file  "~/.config/spacemacs/config.org")
+  (org-babel-load-file  "~/.config/spacemacs/org-config.org")
   ;; (set-frame-font "Hack 16")
   )
 
