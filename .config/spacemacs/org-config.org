@@ -1,12 +1,12 @@
 * Config
 ** Faces
-   #+BEGIN_SRC elisp
+   #+BEGIN_SRC emacs-lisp
      (custom-set-faces
       `(org-block ((t (:foreground nil)))))
    #+END_SRC
 
 ** evil-goggles
-   #+BEGIN_SRC elisp
+   #+BEGIN_SRC emacs-lisp
      (spacemacs-evil/init-evil-goggles)
      (evil-goggles-mode t)
      (setq evil-goggles-duration                     0.15
