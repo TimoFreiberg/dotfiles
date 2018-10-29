@@ -33,6 +33,7 @@ bin/nogit
 
 !/.config/spacemacs/
 .config/spacemacs/custom-file.el
+.config/spacemacs/org-config.el
 
 !/.config/vim
 !/.config/nvim
