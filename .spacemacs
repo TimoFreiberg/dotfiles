@@ -53,7 +53,6 @@ This function should only modify configuration layer settings."
      better-defaults
      emacs-lisp
      (clojure :variables
-              clojure-enable-sayid t
               clojure-enable-clj-refactor t)
      ;; (haskell :variables
      ;;          haskell-enable-hindent-style "johan-tibell"
