@@ -1,10 +1,111 @@
 * Config
+** Util/Bootstrap
+
+   #+begin_src emacs-lisp
+     (defmacro after! (features &rest body)
+       "Run BODY after loading FEATURE.
+     Same as `with-eval-after-load', but there is no need to quote FEATURES."
+       (declare (debug (sexp body)) (indent 1))
+       (setf features (if (listp features) (nreverse features) (list features)))
+       (let* ((module (pop features))
+
+              (form `(with-eval-after-load
+                         ,(if (stringp module)
+                              module
+                            `(quote ,module))
+                       ,@body)))
+         (while features
+           (-let [module (pop features)]
+             (setf form `(with-eval-after-load
+                             ,(if (stringp module)
+                                  module
+                                `(quote ,module))
+                           ,form))))
+         form))
+   #+end_src
+   
+   ~keybind!~
+   #+BEGIN_SRC emacs-lisp
+     (defmacro keybind! (keymaps &rest keybinds)
+       (declare (indent 1))
+       (cl-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+       (unless (listp keymaps)
+         (setq keymaps (list keymaps)))
+       (-let [bind-forms nil]
+         (while keybinds
+           (-let [(key func . rest) keybinds]
+             (-let [key (if (vectorp key) key `(kbd ,key))]
+               (dolist (keymap keymaps)
+                 (push `(define-key ,keymap ,key ,func) bind-forms)))
+             (setq keybinds rest)))
+         `(progn ,@(nreverse bind-forms))))
+   #+END_SRC
+
+   ~evil-keybind!~
+   #+BEGIN_SRC emacs-lisp
+     (defmacro evil-keybind! (state keymaps &rest keybinds)
+       (declare (indent 2))
+       (cl-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+       (unless (listp keymaps)
+         (setq keymaps (list keymaps)))
+       (-let [bind-forms nil]
+         (while keybinds
+           (-let [(key func . rest) keybinds]
+             (-let [key (if (vectorp key) key `(kbd ,key))]
+               (dolist (keymap keymaps)
+                 (push `(evil-define-key ,state ,keymap ,key ,func) bind-forms)))
+             (setq keybinds rest)))
+         `(progn ,@(nreverse bind-forms))))
+   #+END_SRC
+
+   ~leader-keybind!~
+   #+BEGIN_SRC emacs-lisp
+     (defmacro leader-keybind! (&rest keybinds)
+       (cl-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+       `(spacemacs/set-leader-keys
+          ,@keybinds))
+   #+END_SRC
+
+   ~mode-leader-keybind!~
+   #+BEGIN_SRC emacs-lisp
+     (defmacro mode-leader-keybind! (mode &rest keybinds)
+       (declare (indent 1))
+       (cl-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+       `(spacemacs/set-leader-keys-for-major-mode ,mode
+          ,@keybinds))
+   #+END_SRC
+
+** YASnippet
+*** Config
+    Smartparens is disabled while yasnippet is expanding and editing a snippet. Whatever this was a workaround for
+    I don't seem affected, and I'd rather keep my electric pairs inside my snippets.
+    #+BEGIN_SRC emacs-lisp
+      (after! (yasnippet smartparens)
+        (unless (bound-and-true-p std::yasnippet::smartparens-restored)
+          (defvar std::yasnippet::smartparens-restored t)
+          (if (member #'spacemacs//smartparens-disable-before-expand-snippet yas-before-expand-snippet-hook)
+              (remove-hook 'yas-before-expand-snippet-hook #'spacemacs//smartparens-disable-before-expand-snippet)
+            (error "Smartparens no longer disabled before yasnippet starts."))
+          (if (member #'spacemacs//smartparens-restore-after-exit-snippet yas-after-exit-snippet-hook)
+              (remove-hook 'yas-after-exit-snippet-hook #'spacemacs//smartparens-restore-after-exit-snippet)
+            (error "Smartparens no longer restored after yasnippet ends."))))
+    #+END_SRC
+    
+    Add this directory to snippets-dir
+    #+BEGIN_SRC emacs-lisp :tangle yes
+      (after! yasnippet (add-to-list 'yas-snippet-dirs (expand-file-name "~/.config/spacemacs/snippets/")))
+    #+END_SRC
+*** Keybinds
+    #+BEGIN_SRC emacs-lisp :tangle yes
+      (after! yasnippet
+        (keybind! evil-insert-state-map "C-l" #'yas-expand))
+    #+END_SRC
+   
 ** Faces
    #+BEGIN_SRC emacs-lisp
      (custom-set-faces
       `(org-block ((t (:foreground nil)))))
    #+END_SRC
-
 ** evil-goggles
    #+BEGIN_SRC emacs-lisp
      (spacemacs-evil/init-evil-goggles)
@@ -46,3 +147,12 @@
       `(evil-goggles-undo-redo-change-face      ((t (:background "#458588")))))
    #+END_SRC
    
+** org-mode config
+   
+   #+begin_src emacs-lisp
+     (setq org-list-indent-offset 1)
+     (font-lock-add-keywords
+      'org-mode
+      '(("^ +\\([-*]\\) " (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
+   #+end_src
+
