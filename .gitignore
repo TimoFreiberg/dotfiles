@@ -43,6 +43,7 @@ bin/nogit
 !/.config/fish
 .config/fish/fish*history
 .config/fish/fishd*
+.config/fish/fish_variables
 !/.config/dunst
 !/.config/git
 !/.config/tig
