@@ -92,11 +92,11 @@
     #+END_SRC
     
     Add this directory to snippets-dir
-    #+BEGIN_SRC emacs-lisp :tangle yes
+    #+BEGIN_SRC emacs-lisp 
       (after! yasnippet (add-to-list 'yas-snippet-dirs (expand-file-name "~/.config/spacemacs/snippets/")))
     #+END_SRC
 *** Keybinds
-    #+BEGIN_SRC emacs-lisp :tangle yes
+    #+BEGIN_SRC emacs-lisp 
       (after! yasnippet
         (keybind! evil-insert-state-map "C-l" #'yas-expand))
     #+END_SRC
