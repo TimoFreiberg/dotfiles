@@ -1,6 +1,8 @@
 # -*- mode: snippet; require-final-newline: nil -*-
-#name: defn
-#key: defn
+#name: dfd
+#key: dfd
 # --
-(defn ${1:fn-name} [${2:fn-args}]
+(defn $1
+  "$2"
+  [$3]
   )$0
