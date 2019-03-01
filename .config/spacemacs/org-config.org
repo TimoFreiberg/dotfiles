@@ -1,6 +1,6 @@
 * Config
 ** Util/Bootstrap
-
+*** Macros
    #+begin_src emacs-lisp
      (defmacro after! (features &rest body)
        "Run BODY after loading FEATURE.
@@ -75,6 +75,14 @@
           ,@keybinds))
    #+END_SRC
 
+*** Keybinds
+    #+BEGIN_SRC emacs-lisp
+      (defun std::edit-org-user-config ()
+        "Edit the org user config file, in the current window."
+        (interactive)
+        (find-file-existing (expand-file-name "~/dotfiles/.config/spacemacs/org-config.org")))
+      (leader-keybind! "feo" #'std::edit-org-user-config)
+    #+END_SRC
 ** YASnippet
 *** Config
     Smartparens is disabled while yasnippet is expanding and editing a snippet. Whatever this was a workaround for
