@@ -77,18 +77,23 @@ This function should only modify configuration layer settings."
    ;; To use a local version of a package, use the `:location' property:
    ;; '(your-package :location "~/path/to/your-package/")
    ;; Also include the dependencies as they will not be resolved automatically.
-   dotspacemacs-additional-packages '(
-                                      company-flx
-                                      queue
-                                      buttercup
-                                      pfuture
-                                      )
+   dotspacemacs-additional-packages
+   '(
+     company-flx
+     queue
+     buttercup
+     pfuture
+     shackle
+     (framey :location (recipe :fetcher github
+                               :repo "Alexander-Miller/framey"))
+     )
 
    ;; A list of packages that cannot be updated.
    dotspacemacs-frozen-packages '()
 
    ;; A list of packages that will not be installed and loaded.
-   dotspacemacs-excluded-packages '(neotree)
+   dotspacemacs-excluded-packages '(neotree
+                                    popwin)
 
    ;; Defines the behaviour of Spacemacs when installing packages.
    ;; Possible values are `used-only', `used-but-keep-unused' and `all'.

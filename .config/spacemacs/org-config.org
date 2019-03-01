@@ -165,6 +165,15 @@
    #+end_src
 
 ** Window management
+   
+*** Framey
+Popup frames for e.g. helm buffers
+#+BEGIN_SRC emacs-lisp
+  (framey-mode 1)
+  (setq framey-show-modeline nil)
+  (set-face-background 'internal-border "#767676")
+
+#+END_SRC
 *** Shackle
 
  Replace popwin
