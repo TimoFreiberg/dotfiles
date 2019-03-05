@@ -83,6 +83,10 @@
     (find-file-existing (expand-file-name "~/dotfiles/.config/spacemacs/org-config.org")))
   (leader-keybind! "feo" #'std::edit-org-user-config)
 #+END_SRC
+** Editing
+#+BEGIN_SRC emacs-lisp
+  (add-hook 'text-mode-hook #'smartparens-mode)
+#+END_SRC
 ** YASnippet
 *** Config
 Smartparens is disabled while yasnippet is expanding and editing a snippet. Whatever this was a workaround for
