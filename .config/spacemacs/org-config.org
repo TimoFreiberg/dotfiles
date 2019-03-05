@@ -167,15 +167,6 @@ Add this directory to snippets-dir
 #+end_src
 
 ** Window management
-   
-*** Framey
-Popup frames for e.g. helm buffers
-#+BEGIN_SRC emacs-lisp
-  (framey-mode 1)
-  (setq framey-show-modeline nil)
-  (set-face-background 'internal-border "#767676")
-
-#+END_SRC
 *** Shackle
 
 Replace popwin
@@ -185,9 +176,10 @@ Replace popwin
   (setq helm-display-function 'pop-to-buffer)
 
   (setq shackle-rules
-        '(("*helm-ag*"              :select t   :align right :size 0.5)
-          ("*helm semantic/imenu*"  :select t   :align right :size 0.4)
-          ("*helm org inbuffer*"    :select t   :align right :size 0.4)
+        '(
+          ;; ("*helm-ag*"              :select t   :align right :size 0.5)
+          ;; ("*helm semantic/imenu*"  :select t   :align right :size 0.4)
+          ;; ("*helm org inbuffer*"    :select t   :align right :size 0.4)
           (flycheck-error-list-mode :select nil :align below :size 0.25)
           (compilation-mode         :select nil :align below :size 0.25)
           (messages-buffer-mode     :select t   :align below :size 0.25)
@@ -195,8 +187,8 @@ Replace popwin
           (ert-results-mode         :select t   :align below :size 0.5)
           (calendar-mode            :select t   :align below :size 0.25)
           (racer-help-mode          :select t   :align right :size 0.5)
-          (help-mode                :select t   :align right :size 0.5)
-          (helpful-mode             :select t   :align right :size 0.5)
+          ;; (help-mode                :select t   :align right :size 0.5)
+          ;; (helpful-mode             :select t   :align right :size 0.5)
           (" *Deletions*"           :select t   :align below :size 0.25)
           (" *Marked Files*"        :select t   :align below :size 0.25)
           ("*Org Select*"           :select t   :align below :size 0.33)
@@ -208,6 +200,15 @@ Replace popwin
           ("*Org Src.*"             :select t   :align right :size 0.5  :regexp t)))
 #+END_SRC
 
+*** Framey
+    *Attention!*
+Framey must initialize after shackle-mode because it modifies the shackle-rules
+#+BEGIN_SRC emacs-lisp
+  (framey-mode 1)
+  (setq framey-show-modeline nil)
+  (set-face-background 'internal-border "#767676")
+
+#+END_SRC
 *** Purpose
 **** Settings
 ***** Shackle Integration
