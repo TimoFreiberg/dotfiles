@@ -54,8 +54,7 @@ This function should only modify configuration layer settings."
      better-defaults
      emacs-lisp
      (clojure :variables
-              clojure-enable-clj-refactor t
-              clojure-indent-style 'always-indent)
+              clojure-enable-clj-refactor t)
      ;; (haskell :variables
      ;;          haskell-enable-hindent-style "johan-tibell"
      ;;          haskell-enable-ghc-mod-support nil
