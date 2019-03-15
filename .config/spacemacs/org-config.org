@@ -166,8 +166,8 @@ Add this directory to snippets-dir
   (font-lock-add-keywords
    'org-mode
    '(("^ +\\([-*]\\) " (0 (prog1 () (compose-region (match-beginning 1) (match-end 1) "•"))))))
-  (after! org
-    (org-indent-mode 1))
+  (add-hook 'org-mode-hook
+            #'org-indent-mode)
 #+end_src
 
 ** Window management
