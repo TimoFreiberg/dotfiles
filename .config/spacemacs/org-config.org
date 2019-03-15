@@ -84,6 +84,7 @@
   (leader-keybind! "feo" #'std::edit-org-user-config)
 #+END_SRC
 ** Editing
+Always enable smartparens mode when I can type
 #+BEGIN_SRC emacs-lisp
   (add-hook 'text-mode-hook #'smartparens-mode)
 #+END_SRC
