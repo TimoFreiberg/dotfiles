@@ -92,6 +92,10 @@ Disable hl-line mode because sometimes it's ugly
 #+BEGIN_SRC emacs-lisp
   (global-hl-line-mode -1)
 #+END_SRC
+** Company/Autocompletion
+#+BEGIN_SRC emacs-lisp
+  (setf company-minimum-prefix-length 3)
+#+END_SRC
 ** YASnippet
 *** Config
 Smartparens is disabled while yasnippet is expanding and editing a snippet. Whatever this was a workaround for
