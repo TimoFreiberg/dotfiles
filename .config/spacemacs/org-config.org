@@ -87,6 +87,11 @@
 #+BEGIN_SRC emacs-lisp
   (add-hook 'text-mode-hook #'smartparens-mode)
 #+END_SRC
+
+Disable hl-line mode because sometimes it's ugly
+#+BEGIN_SRC emacs-lisp
+  (global-hl-line-mode -1)
+#+END_SRC
 ** YASnippet
 *** Config
 Smartparens is disabled while yasnippet is expanding and editing a snippet. Whatever this was a workaround for
