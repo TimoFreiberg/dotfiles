@@ -69,6 +69,7 @@ This function should only modify configuration layer settings."
      shell-scripts
      treemacs
      colors
+     github
      )
 
    ;; List of additional packages that will be installed without being
