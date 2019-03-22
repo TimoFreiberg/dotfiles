@@ -61,6 +61,7 @@ This function should only modify configuration layer settings."
      ;;          haskell-enable-ghc-mod-support nil
      ;;          haskell-completion-backend 'intero
      ;;                        )
+     rust
      git
      markdown
      org
