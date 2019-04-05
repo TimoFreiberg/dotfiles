@@ -23,6 +23,17 @@
                         ,form))))
       form))
 #+end_src
+*** std::static-assert
+
+#+BEGIN_SRC emacs-lisp
+  (defmacro std::static-assert (predicate &optional error-msg &rest error-args)
+    (declare (indent 1))
+    `(unless ,predicate
+       (error (apply #'format
+                     (or ,error-msg "Assertion Failure")
+                     (list ,@error-args)))))
+#+END_SRC
+
    
 ~keybind!~
 #+BEGIN_SRC emacs-lisp
@@ -75,6 +86,13 @@
        ,@keybinds))
 #+END_SRC
 
+~std::leader-keybind~
+#+BEGIN_SRC emacs-lisp
+  (defmacro std::leader-keybind (&rest keybinds)
+    (std::static-assert (= 0 (% (length keybinds) 2)) "Uneven number of keybinds!")
+    `(spacemacs/set-leader-keys
+       ,@keybinds))
+#+END_SRC
 *** Keybinds
 #+BEGIN_SRC emacs-lisp
   (defun std::edit-org-user-config ()
@@ -314,3 +332,20 @@ Framey must initialize after shackle-mode because it modifies the shackle-rules
 
   (leader-keybind! "bm" #'std::pop-to-messages-buffer)
 #+END_SRC
+*** Eyebrowse
+Switch desktops via SPC + num
+#+BEGIN_SRC emacs-lisp
+  (eyebrowse-mode t)
+  (std::leader-keybind
+   "1" #'eyebrowse-switch-to-window-config-1
+   "2" #'eyebrowse-switch-to-window-config-2
+   "3" #'eyebrowse-switch-to-window-config-3
+   "4" #'eyebrowse-switch-to-window-config-4
+   "5" #'eyebrowse-switch-to-window-config-5
+   "6" #'eyebrowse-switch-to-window-config-6
+   "7" #'eyebrowse-switch-to-window-config-7
+   "8" #'eyebrowse-switch-to-window-config-8
+   "9" #'eyebrowse-switch-to-window-config-9
+   "0" #'eyebrowse-switch-to-window-config-0)
+#+END_SRC
+
