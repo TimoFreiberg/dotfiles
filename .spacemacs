@@ -90,8 +90,8 @@ This function should only modify configuration layer settings."
      buttercup
      pfuture
      shackle
-     (framey :location (recipe :fetcher github
-                               :repo "Alexander-Miller/framey"))
+     ;; (framey :location (recipe :fetcher github
+     ;;                           :repo "Alexander-Miller/framey"))
      )
 
    ;; A list of packages that cannot be updated.
