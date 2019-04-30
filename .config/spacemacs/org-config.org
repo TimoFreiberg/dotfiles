@@ -236,9 +236,9 @@ Replace popwin
     *Attention!*
 Framey must initialize after shackle-mode because it modifies the shackle-rules
 #+BEGIN_SRC emacs-lisp
-  (framey-mode 1)
-  (setq framey-show-modeline nil)
-  (set-face-background 'internal-border "#767676")
+  ;; (framey-mode 1)
+  ;; (setq framey-show-modeline nil)
+  ;; (set-face-background 'internal-border "#767676")
 
 #+END_SRC
 *** Purpose
