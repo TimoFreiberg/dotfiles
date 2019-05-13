@@ -38,6 +38,7 @@ bin/nogit
 !/.config/vim
 !/.config/nvim
 !/.config/termite
+!/.config/bat
 !/.config/minimal.css
 !/.config/autostart
 !/.config/fish
