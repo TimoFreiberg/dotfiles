@@ -84,6 +84,7 @@ kwin4_effect_squashEnabled=false
 kwin4_effect_translucencyEnabled=false
 kwin4_effect_windowapertureEnabled=false
 mouseclickEnabled[$d]
+resizeEnabled=true
 slidingpopupsEnabled=false
 windowgeometryEnabled=false
 zoomEnabled=false
