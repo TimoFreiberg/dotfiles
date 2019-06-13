@@ -1,5 +1,6 @@
 [ActivityManager]
 _k_friendly_name=Activity Manager
+switch-to-activity-0a02c563-05ff-4d0c-8d66-76d0519ef090=none,none,Switch to activity "Default"
 switch-to-activity-c36101e3-3cfd-45f9-a195-a20e8c83ce3f=none,none,Switch to activity "Default"
 
 [KDE Keyboard Layout Switcher]
@@ -8,7 +9,7 @@ Switch keyboard layout to English (US, international AltGr Unicode combining)=no
 Switch keyboard layout to English (US, intl., with dead keys)=none,none,Switch keyboard layout to English (US\\, intl.\\, with dead keys)
 Switch keyboard layout to German=none,none,Switch keyboard layout to German
 Switch to Next Keyboard Layout=none,none,Switch to Next Keyboard Layout
-_k_friendly_name=System Settings
+_k_friendly_name=KDE Daemon
 
 [kaccess]
 Toggle Screen Reader On and Off=none,Meta+Alt+S,Toggle Screen Reader On and Off
@@ -26,8 +27,9 @@ _k_friendly_name=KDE Daemon
 display=Display\tMeta+P,Display\tMeta+P,Switch Display
 
 [khotkeys]
-_k_friendly_name=System Settings
+_k_friendly_name=KDE Daemon
 {2b5e4373-6d6e-4e2b-8c85-80826193968a}=Print,none,Start Screenshot Tool
+{57a132b2-ed08-4345-abec-f59322c2ac14}=Meta+E,none,Open Dolphin
 {5d4e1444-bdf4-4723-82f6-ef6e5e7ac438}=Meta+Print,none,Take Active Window Screenshot
 {93dbddc8-490a-4186-aa24-e39aeffd327d}=,none,New Action
 {9587a7fd-59b8-4732-ad03-30e45580b521}=Shift+Print,none,Take Full Screen Screenshot
@@ -59,7 +61,7 @@ _k_friendly_name=System Settings
 [kwin]
 Activate Window Demanding Attention=Ctrl+Alt+A,Ctrl+Alt+A,Activate Window Demanding Attention
 Decrease Opacity=none,none,Decrease Opacity of Active Window by 5 %
-Expose=Alt+F1\tMeta+Z,Ctrl+F9,Toggle Present Windows (Current desktop)
+Expose=Meta+Z,Ctrl+F9,Toggle Present Windows (Current desktop)
 ExposeAll=\tLaunch (C),Ctrl+F10\tLaunch (C),Toggle Present Windows (All desktops)
 ExposeClass=Ctrl+F7,Ctrl+F7,Toggle Present Windows (Window class)
 FlipSwitchAll=none,none,Toggle Flip Switch (All desktops)
@@ -211,7 +213,7 @@ view_zoom_out=Meta+-,Meta+-,Zoom Out
 
 [org.kde.dolphin.desktop]
 _k_friendly_name=Launch Dolphin
-_launch=Meta+E,none,Launch Dolphin
+_launch=,none,Launch Dolphin
 
 [org.kde.konsole.desktop]
 NewTab=,none,Open a New Tab
@@ -231,7 +233,7 @@ Toggle Keyboard Backlight=Keyboard Light On/Off,Keyboard Light On/Off,Toggle Key
 _k_friendly_name=Power Management
 
 [plasmashell]
-_k_friendly_name=Activity switching
+_k_friendly_name=Plasma
 activate task manager entry 1=none,Meta+1,Activate Task Manager Entry 1
 activate task manager entry 10=,Meta+0,Activate Task Manager Entry 10
 activate task manager entry 2=none,Meta+2,Activate Task Manager Entry 2
@@ -243,7 +245,8 @@ activate task manager entry 7=none,Meta+7,Activate Task Manager Entry 7
 activate task manager entry 8=none,Meta+8,Activate Task Manager Entry 8
 activate task manager entry 9=none,Meta+9,Activate Task Manager Entry 9
 activate widget 31=none,none,Activate Digital Clock Widget
-activate widget 83=,none,Activate Application Launcher Widget
+activate widget 86=none,none,Activate Icons-only Task Manager Widget
+activate widget 99=Alt+F1,none,Activate Application Launcher Widget
 clear-history=none,none,Clear Clipboard History
 clipboard_action=none,Ctrl+Alt+X,Enable Clipboard Actions
 cycleNextAction=none,none,Next History Item
