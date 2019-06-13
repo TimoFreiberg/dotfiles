@@ -22,6 +22,7 @@ bin/nogit
 !/.config
 .config/*
 
+# XFCE 
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-notifyd.xml
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
@@ -29,11 +30,35 @@ bin/nogit
 !/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml
 !/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
 
+# Gnome
 !/.config/dconf-root-backup
 
+# Spacemacs
 !/.config/spacemacs/
 .config/spacemacs/custom-file.el
 .config/spacemacs/org-config.el
+
+# KDE
+!/.config/kactivitymanagerd-pluginsrc
+!/.config/kactivitymanagerd-statsrc
+!/.config/kcmdisplayrc
+!/.config/kcmfonts
+!/.config/kcminputrc
+!/.config/kconf_updaterc
+!/.config/kded5rc
+!/.config/kdeglobals
+!/.config/kglobalshortcutsrc
+!/.config/khotkeysrc
+!/.config/klaunchrc
+!/.config/klipperrc
+!/.config/konsolerc
+!/.config/ksplashrc
+!/.config/kwinrc
+!/.config/kxkbrc
+!/.config/plasma-locale-settings.sh
+!/.config/plasma-localerc
+!/.config/plasma-org.kde.plasma.desktop-appletsrc
+!/.config/plasmarc
 
 !/.config/vim
 !/.config/nvim
