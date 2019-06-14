@@ -16,7 +16,7 @@ function symlink_dotfile
     ln -s $DOTFILEDIR/$argv $HOMEDIR/$argv
 end
 
-set DOTFILES bin Wallpapers .config .ghci .gitconfig .gitignore .profile .spacemacs .tmux.conf
+set DOTFILES bin Wallpapers .config .ghci .gitconfig .gitignore .profile .spacemacs .tmux.conf .kde4
 
 for dotfile in $DOTFILES
     backup_dotfile $dotfile

@@ -59,6 +59,7 @@ bin/nogit
 !/.config/plasma-localerc
 !/.config/plasma-org.kde.plasma.desktop-appletsrc
 !/.config/plasmarc
+!/.kde4
 
 !/.config/vim
 !/.config/nvim
