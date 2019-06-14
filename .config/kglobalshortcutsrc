@@ -29,7 +29,6 @@ display=Display\tMeta+P,Display\tMeta+P,Switch Display
 [khotkeys]
 _k_friendly_name=KDE Daemon
 {2b5e4373-6d6e-4e2b-8c85-80826193968a}=Print,none,Start Screenshot Tool
-{57a132b2-ed08-4345-abec-f59322c2ac14}=Meta+E,none,Open Dolphin
 {5d4e1444-bdf4-4723-82f6-ef6e5e7ac438}=Meta+Print,none,Take Active Window Screenshot
 {93dbddc8-490a-4186-aa24-e39aeffd327d}=,none,New Action
 {9587a7fd-59b8-4732-ad03-30e45580b521}=Shift+Print,none,Take Full Screen Screenshot
@@ -61,7 +60,7 @@ _k_friendly_name=System Settings
 [kwin]
 Activate Window Demanding Attention=Ctrl+Alt+A,Ctrl+Alt+A,Activate Window Demanding Attention
 Decrease Opacity=none,none,Decrease Opacity of Active Window by 5 %
-Expose=Meta+Z,Ctrl+F9,Toggle Present Windows (Current desktop)
+Expose=Meta+Z\t,Ctrl+F9,Toggle Present Windows (Current desktop)
 ExposeAll=\tLaunch (C),Ctrl+F10\tLaunch (C),Toggle Present Windows (All desktops)
 ExposeClass=Ctrl+F7,Ctrl+F7,Toggle Present Windows (Window class)
 FlipSwitchAll=none,none,Toggle Flip Switch (All desktops)
@@ -75,6 +74,7 @@ MoveZoomDown=none,none,Move Zoomed Area Downwards
 MoveZoomLeft=none,none,Move Zoomed Area to Left
 MoveZoomRight=none,none,Move Zoomed Area to Right
 MoveZoomUp=none,none,Move Zoomed Area Upwards
+OVERVIEW: Show kwinOverview=Meta+A,none,Show kwinOverview
 Remove Window From Group=none,none,Remove Window From Group
 Setup Window Shortcut=none,none,Setup Window Shortcut
 Show Desktop=none,Meta+D,Show Desktop
@@ -207,13 +207,15 @@ Window to Screen 6=none,none,Window to Screen 6
 Window to Screen 7=none,none,Window to Screen 7
 WindowGeometry=Ctrl+Shift+F11,Ctrl+Shift+F11,Toggle window geometry display (effect only)
 _k_friendly_name=KWin
+next activity=Meta+Tab,none,Walk through activities
+previous activity=Meta+Shift+Tab,none,Walk through activities (Reverse)
 view_actual_size=Meta+0,Meta+0,Actual Size
 view_zoom_in=Meta+=,Meta+=,Zoom In
 view_zoom_out=Meta+-,Meta+-,Zoom Out
 
 [org.kde.dolphin.desktop]
 _k_friendly_name=Launch Dolphin
-_launch=,none,Launch Dolphin
+_launch=Meta+E,none,Launch Dolphin
 
 [org.kde.konsole.desktop]
 NewTab=,none,Open a New Tab
@@ -233,7 +235,7 @@ Toggle Keyboard Backlight=Keyboard Light On/Off,Keyboard Light On/Off,Toggle Key
 _k_friendly_name=Power Management
 
 [plasmashell]
-_k_friendly_name=Plasma
+_k_friendly_name=Activity switching
 activate task manager entry 1=none,Meta+1,Activate Task Manager Entry 1
 activate task manager entry 10=,Meta+0,Activate Task Manager Entry 10
 activate task manager entry 2=none,Meta+2,Activate Task Manager Entry 2
@@ -244,9 +246,10 @@ activate task manager entry 6=none,Meta+6,Activate Task Manager Entry 6
 activate task manager entry 7=none,Meta+7,Activate Task Manager Entry 7
 activate task manager entry 8=none,Meta+8,Activate Task Manager Entry 8
 activate task manager entry 9=none,Meta+9,Activate Task Manager Entry 9
+activate widget 105=Alt+F1,none,Activate Application Launcher Widget
 activate widget 31=none,none,Activate Digital Clock Widget
 activate widget 86=none,none,Activate Icons-only Task Manager Widget
-activate widget 99=Alt+F1,none,Activate Application Launcher Widget
+activate widget 99=none,none,Activate Application Launcher Widget
 clear-history=none,none,Clear Clipboard History
 clipboard_action=none,Ctrl+Alt+X,Enable Clipboard Actions
 cycleNextAction=none,none,Next History Item
