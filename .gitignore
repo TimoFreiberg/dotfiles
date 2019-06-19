@@ -38,29 +38,6 @@ bin/nogit
 .config/spacemacs/custom-file.el
 .config/spacemacs/org-config.el
 
-# KDE
-!/.config/kactivitymanagerd-pluginsrc
-!/.config/kactivitymanagerd-statsrc
-!/.config/kcmdisplayrc
-!/.config/kcmfonts
-!/.config/kcminputrc
-!/.config/kconf_updaterc
-!/.config/kded5rc
-!/.config/kdeglobals
-!/.config/kglobalshortcutsrc
-!/.config/khotkeysrc
-!/.config/klaunchrc
-!/.config/klipperrc
-!/.config/konsolerc
-!/.config/ksplashrc
-!/.config/kwinrc
-!/.config/kxkbrc
-!/.config/plasma-locale-settings.sh
-!/.config/plasma-localerc
-!/.config/plasma-org.kde.plasma.desktop-appletsrc
-!/.config/plasmarc
-!/.kde4
-
 !/.config/vim
 !/.config/nvim
 !/.config/termite
