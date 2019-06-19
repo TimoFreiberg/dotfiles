@@ -83,7 +83,7 @@ Comment[uk]=Перегляд сторінок Інтернету
 Comment[vi]=Để duyệt các trang web
 Comment[zh_CN]=浏览互联网
 Comment[zh_TW]=瀏覽網際網路
-Exec=/usr/lib/firefox/firefox %u
+Exec=GTK_USE_PORTAL=1 /usr/lib/firefox/firefox %u
 Icon=firefox
 Terminal=false
 Type=Application
