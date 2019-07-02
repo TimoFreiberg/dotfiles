@@ -62,7 +62,9 @@ This function should only modify configuration layer settings."
      ;;          haskell-completion-backend 'intero
      ;;                        )
      (rust :variables
-           rust-backend 'lsp)
+           rust-backend 'lsp
+           rust-format-on-save t
+           )
      lsp
      git
      markdown
