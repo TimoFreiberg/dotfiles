@@ -66,6 +66,7 @@ This function should only modify configuration layer settings."
            rust-format-on-save t
            )
      lsp
+     dap
      git
      markdown
      org
