@@ -33,3 +33,7 @@
   re = remote
 [branch]
 	autosetuprebase = always
+[pager]
+	log = diffr | less -R
+	show = diffr | less -R
+	diff = diffr | less -R
