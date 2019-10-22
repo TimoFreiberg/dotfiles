@@ -16,7 +16,8 @@ Plug 'stephpy/vim-yaml'
 Plug 'rust-lang/rust.vim'
 Plug 'dag/vim-fish'
 
-Plug 'tmsvg/pear-tree'
+" Lets try without this
+" Plug 'tmsvg/pear-tree'
 
 call plug#end()
 
