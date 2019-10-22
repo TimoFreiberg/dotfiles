@@ -9,3 +9,27 @@ else
     echo "Consider installing `starship`"
 end
 
+# Abbreviations
+abbr --add :q exit
+abbr --add cal 'cal -3 -w -m'
+abbr --add g git
+abbr --add gpl 'git pull'
+abbr --add gs 'git ss'
+abbr --add l exa 
+abbr --add ll exa -l
+abbr --add l1 ls-1A
+abbr --add la exa -la
+abbr --add ll 'ls -A'
+abbr --add pm pacman
+abbr --add sc systemctl
+abbr --add scX 'sudo systemctl start'
+abbr --add scr 'sudo systemctl restart'
+abbr --add scx 'sudo systemctl stop'
+abbr --add spr 'sudo pacman -R'
+abbr --add sps 'sudo pacman -S'
+abbr --add ssc 'sudo systemctl'
+abbr --add syu 'sudo pacman -Syu'
+abbr --add tp trash
+abbr --add t tmux
+abbr --add v vim
+abbr --add c cargo
