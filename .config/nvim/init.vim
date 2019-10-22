@@ -78,7 +78,7 @@ colorscheme gruvbox
 " FZF
 map <C-p> :Files<CR>
 map <leader>pf :Files<CR>
-nmap <silent> <leader>bb :Buffers<CR>
+nmap <silent> <leader>b :Buffers<CR>
 nnoremap <leader>/ :Rg 
 nnoremap <leader>* :Rg <C-R><C-W><CR>
 
