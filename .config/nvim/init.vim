@@ -5,11 +5,18 @@ Plug 'junegunn/fzf.vim'
 
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 
+Plug 'machakann/vim-highlightedyank'
 Plug 'morhetz/gruvbox'
 
 Plug 'tpope/vim-surround'
+Plug 'airblade/vim-rooter'
 
-Plug 'ctrlpvim/ctrlp.vim'
+Plug 'cespare/vim-toml'
+Plug 'stephpy/vim-yaml'
+Plug 'rust-lang/rust.vim'
+Plug 'dag/vim-fish'
+
+Plug 'tmsvg/pear-tree'
 
 call plug#end()
 
@@ -18,6 +25,9 @@ set hidden
 set hlsearch
 nnoremap <silent> <C-l> :nohlsearch<CR><C-l>
 set mouse=a
+filetype plugin indent on
+set autoindent
+set noshowmode
 
 set tabstop=4
 set shiftwidth=4
@@ -36,15 +46,24 @@ set shortmess+=c
 " always show signcolumns
 set signcolumn=yes
 
+set incsearch
 set ignorecase
 set smartcase
+set gdefault
+
+set lazyredraw
+
+" Permanent undo
+set undodir=~/.vimdid
+set undofile
 
 let mapleader="\<SPACE>"
 
 " Custom keybinds
 
 " spacemacs style!
-nmap <silent> <leader>fs :update<CR>
+nmap <silent> <leader>w :update<CR>
+nnoremap <silent> <leader><leader> <c-^>
 
 """""""""""""""""""
 " Plugin settings "
@@ -55,11 +74,12 @@ nmap <silent> <leader>fs :update<CR>
 "
 colorscheme gruvbox
 
-" CtrlP
-"
-let g:ctrlp_map = '<SPACE>p'
-let g:ctrlp_cmd = 'CtrlP'
+" FZF
+map <C-p> :Files<CR>
+map <leader>pf :Files<CR>
 nmap <silent> <leader>bb :Buffers<CR>
+nnoremap <leader>/ :Rg 
+nnoremap <leader>* :Rg <C-R><C-W><CR>
 
 " CoC.nvim
 "
@@ -68,7 +88,7 @@ source ~/.config/nvim/coc-config.vim
 " Rust
 let g:rustfmt_autosave = 1 
 
+map <F1> <Esc>
+imap <F1> <Esc>
 
-
-
-
+autocmd BufRead *.csv let b:coc_enabled = 0
