@@ -33,3 +33,13 @@ abbr --add tp trash
 abbr --add t tmux
 abbr --add v vim
 abbr --add c cargo
+
+if command -v exa > /dev/null 
+    abbr --add l exa
+    abbr --add ll 'exa -l'
+    abbr --add la 'exa -la'
+end
+
+setenv FZF_DEFAULT_COMMAND 'fd --type file --follow'
+setenv FZF_CTRL_T_COMMAND 'fd --type file --follow'
+setenv FZF_DEFAULT_OPTS '--height 20%'
