@@ -31,6 +31,8 @@ abbr --add ssc 'sudo systemctl'
 abbr --add syu 'sudo pacman -Syu'
 abbr --add tp trash
 abbr --add t tmux
+abbr --add ta 'tmux attach'
+abbr --add td 'tmux detach'
 abbr --add v vim
 abbr --add c cargo
 
