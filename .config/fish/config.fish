@@ -33,6 +33,7 @@ abbr --add tp trash
 abbr --add t tmux
 abbr --add ta 'tmux attach'
 abbr --add td 'tmux detach'
+abbr --add tn 'tmux new'
 abbr --add v vim
 abbr --add c cargo
 
