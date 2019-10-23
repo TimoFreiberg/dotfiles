@@ -1,4 +1,4 @@
-bind main B !git rebase --autosquash -i %(commit)
+bind main B !git rebase --autosquash -i %(commit)^
 bind main F !git commit --fixup=%(commit)
 bind main H !@sh -c "echo %(commit) | xsel -b"
 bind status C !git commit --verbose
