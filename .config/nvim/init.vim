@@ -80,7 +80,7 @@ map <C-p> :Files<CR>
 map <leader>pf :Files<CR>
 nmap <silent> <leader>b :Buffers<CR>
 nnoremap <leader>/ :Rg 
-nnoremap <leader>* :Rg <C-R><C-W><CR>
+nnoremap <leader>* :Rg \b<C-R><C-W>\b<CR>
 
 " CoC.nvim
 "
