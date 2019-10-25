@@ -1,39 +1,40 @@
 [include]
-  path=~/.gitcredentials 
+    path=~/.gitcredentials 
   #user and credential block
 [push]
-	default = simple
+    default = simple
 [diff]
-	tool = vimdiff
-	guitool = meld
+    tool = vimdiff
+    guitool = meld
 [core]
-	editor = nvim
-	autocrlf = input
+    editor = nvim
+    autocrlf = input
 [merge]
-	tool = meld
+    tool = meld
 [alias]
-  l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
-	s = status -s
-	ss = status
-	a = add
-	ai = add -i
-	ps = push
-	pl = pull
-	f = fetch
-	c = commit -v
-  ca = commit -a -v
-	dt = difftool
-	dtg = difftool -g
-	b = branch
-	co = checkout
-	cb = checkout -b
-	d = diff --stat
-	dd = diff
-  st = stash
-  re = remote
+    l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
+    s = status -s
+    ss = status
+    a = add
+    ai = add -i
+    ps = push
+    pl = pull
+    f = fetch
+    c = commit -v
+    ca = commit -a -v
+    dt = difftool
+    dtg = difftool -g
+    b = branch
+    co = checkout
+    cb = checkout -b
+    d = diff --stat
+    dd = diff
+    st = stash
+    re = remote
+    unpushed = log --branches --not --remotes --no-walk --decorate --oneline
 [branch]
-	autosetuprebase = always
+    autosetuprebase = always
 [pager]
-	log = diffr | less -R
-	show = diffr | less -R
-	diff = diffr | less -R
+    log = diffr | less -R
+    show = diffr | less -R
+    diff = diffr | less -R
