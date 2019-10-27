@@ -52,11 +52,31 @@ set ignorecase
 set smartcase
 set gdefault
 
+" Search results centered please
+nnoremap <silent> n nzz
+nnoremap <silent> N Nzz
+nnoremap <silent> * *zz
+nnoremap <silent> # #zz
+nnoremap <silent> g* g*zz
+"
+" Very magic by default
+nnoremap ? ?\v
+nnoremap / /\v
+cnoremap %s/ %sm/
+
 set lazyredraw
+
+set diffopt+=iwhite " No whitespace in vimdiff
+" Make diffing better: https://vimways.org/2018/the-power-of-diff/
+set diffopt+=algorithm:patience
+set diffopt+=indent-heuristic
 
 " Permanent undo
 set undodir=~/.vimdid
 set undofile
+
+set relativenumber " Relative line numbers
+set number " Also show current absolute line
 
 let mapleader="\<SPACE>"
 
@@ -65,6 +85,35 @@ let mapleader="\<SPACE>"
 " spacemacs style!
 nmap <silent> <leader>w :update<CR>
 nnoremap <silent> <leader><leader> <c-^>
+
+" ; as :
+nnoremap ; :
+
+" Ctrl+c and Ctrl+j as Esc
+" Ctrl-j is a little awkward unfortunately:
+" https://github.com/neovim/neovim/issues/5916
+" So we also map Ctrl+k
+inoremap <C-j> <Esc>
+
+nnoremap <C-k> <Esc>
+inoremap <C-k> <Esc>
+vnoremap <C-k> <Esc>
+snoremap <C-k> <Esc>
+xnoremap <C-k> <Esc>
+cnoremap <C-k> <Esc>
+onoremap <C-k> <Esc>
+lnoremap <C-k> <Esc>
+tnoremap <C-k> <Esc>
+
+nnoremap <C-c> <Esc>
+inoremap <C-c> <Esc>
+vnoremap <C-c> <Esc>
+snoremap <C-c> <Esc>
+xnoremap <C-c> <Esc>
+cnoremap <C-c> <Esc>
+onoremap <C-c> <Esc>
+lnoremap <C-c> <Esc>
+tnoremap <C-c> <Esc>
 
 """""""""""""""""""
 " Plugin settings "
@@ -79,7 +128,10 @@ colorscheme gruvbox
 map <C-p> :Files<CR>
 map <leader>pf :Files<CR>
 nmap <silent> <leader>b :Buffers<CR>
+" Opens command prompt with `:Rg ` already typed -> project wide search
 nnoremap <leader>/ :Rg 
+" Calls `:Rg` with the current word under the cursor (<C-R><C-W> selects the
+" current word under cursor)
 nnoremap <leader>* :Rg \b<C-R><C-W>\b<CR>
 
 " CoC.nvim
