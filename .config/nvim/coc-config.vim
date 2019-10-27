@@ -45,3 +45,5 @@ nmap <leader>a  <Plug>(coc-codeaction-selected)
 nmap <leader>ac  <Plug>(coc-codeaction)
 " Fix autofix problem of current line
 nmap <leader>qf  <Plug>(coc-fix-current)
+
+nmap <leader>cc :CocCommand<CR>
