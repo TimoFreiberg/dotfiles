@@ -13,8 +13,6 @@ end
 abbr --add :q exit
 abbr --add cal 'cal -3 -w -m'
 abbr --add g git
-abbr --add gpl 'git pull'
-abbr --add gs 'git ss'
 abbr --add l exa 
 abbr --add ll exa -l
 abbr --add l1 ls-1A
@@ -31,9 +29,6 @@ abbr --add ssc 'sudo systemctl'
 abbr --add syu 'sudo pacman -Syu'
 abbr --add tp trash
 abbr --add t tmux
-abbr --add ta 'tmux attach'
-abbr --add td 'tmux detach'
-abbr --add tn 'tmux new'
 abbr --add v vim
 abbr --add c cargo
 
