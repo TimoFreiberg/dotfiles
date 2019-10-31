@@ -31,6 +31,7 @@ abbr --add tp trash
 abbr --add t tmux
 abbr --add v vim
 abbr --add c cargo
+abbr --add tn tmux-new
 
 if command -v exa > /dev/null 
     abbr --add l exa
