@@ -10,6 +10,7 @@ Plug 'morhetz/gruvbox'
 
 Plug 'tpope/vim-surround'
 Plug 'airblade/vim-rooter'
+Plug 'godlygeek/tabular'
 
 Plug 'cespare/vim-toml'
 Plug 'stephpy/vim-yaml'
