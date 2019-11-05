@@ -1,9 +1,9 @@
-# Defined in /tmp/fish.qDESFE/tmux-new.fish @ line 2
+# Defined in /tmp/fish.LFUCSv/tmux-new.fish @ line 2
 function tmux-new
 	if test -z $argv
         set dir (pwd)
     else
-        set dir $argv
+        set dir (realpath $argv)
     end
     set sessname (basename "$dir")
     if test -z $TMUX
