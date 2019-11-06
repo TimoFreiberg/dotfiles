@@ -1,4 +1,4 @@
-# Defined in /tmp/fish.LFUCSv/tmux-new.fish @ line 2
+# Defined in /tmp/fish.uf0Xkt/tmux-new.fish @ line 2
 function tmux-new
 	if test -z $argv
         set dir (pwd)
@@ -10,5 +10,6 @@ function tmux-new
         tmux new -c "$dir" -s "$sessname"
     else
         tmux new -c "$dir" -s "$sessname" -d
+        tmux switch-client -t "$sessname"
     end
 end
