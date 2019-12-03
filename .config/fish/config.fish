@@ -32,6 +32,7 @@ abbr --add t tmux
 abbr --add v vim
 abbr --add c cargo
 abbr --add tn tmux-new
+abbr --add xb xsel -b
 
 if command -v exa > /dev/null 
     abbr --add l exa
