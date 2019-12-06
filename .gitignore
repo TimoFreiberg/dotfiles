@@ -51,4 +51,4 @@ bin/nogit
 !/.config/git
 !/.config/tig
 !/.config/redshift.conf
-
+!/.config/starship.toml
