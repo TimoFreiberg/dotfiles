@@ -1,2 +1,17 @@
 [character]
 symbol = "$"
+
+[directory]
+fish_style_pwd_dir_length = 2
+
+[package]
+disabled = true
+
+[rust]
+disabled = true
+
+[python]
+disabled = true
+
+[java]
+disabled = true
