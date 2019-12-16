@@ -87,9 +87,6 @@ let mapleader="\<SPACE>"
 nmap <silent> <leader>w :update<CR>
 nnoremap <silent> <leader><leader> <c-^>
 
-" ; as :
-nnoremap ; :
-
 " Ctrl+c and Ctrl+j as Esc
 " Ctrl-j is a little awkward unfortunately:
 " https://github.com/neovim/neovim/issues/5916
