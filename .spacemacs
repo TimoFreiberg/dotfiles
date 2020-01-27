@@ -66,7 +66,8 @@ This function should only modify configuration layer settings."
            rust-backend 'lsp
            rust-format-on-save t
            )
-     lsp
+     (lsp :variables
+          lsp-rust-server 'rust-analyzer)
      dap
      git
      markdown
