@@ -53,6 +53,9 @@ set ignorecase
 set smartcase
 set gdefault
 
+set wildmenu
+set wildmode=longest:full,full
+
 " Search results centered please
 nnoremap <silent> n nzz
 nnoremap <silent> N Nzz
