@@ -140,6 +140,7 @@ nnoremap <leader>/ :Rg
 " Calls `:Rg` with the current word under the cursor (<C-R><C-W> selects the
 " current word under cursor)
 nnoremap <leader>* :Rg \b<C-R><C-W>\b<CR>
+map <leader>: :Commands<CR>
 
 " CoC.nvim
 "
