@@ -4,7 +4,6 @@ set NOTE_FILE ~/Nextcloud/notes.txt
 set today (date --iso-8601)
 
 if ! rg --quiet "$today" $NOTE_FILE
-    echo "adding $today to $NOTE_FILE"
     echo >> $NOTE_FILE
     echo "$today" >> $NOTE_FILE
 end
