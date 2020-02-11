@@ -1,0 +1,16 @@
+#!/bin/env fish
+
+set NOTE_FILE ~/Nextcloud/notes.txt
+set today (date --iso-8601)
+
+if ! rg --quiet "$today" $NOTE_FILE
+    echo "adding $today to $NOTE_FILE"
+    echo >> $NOTE_FILE
+    echo "$today" >> $NOTE_FILE
+end
+
+if count $argv > /dev/null
+    echo $argv >> $NOTE_FILE
+end
+
+vim "+normal G"  $NOTE_FILE
