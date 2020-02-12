@@ -7,8 +7,6 @@ set -x VISUAL vim
 
 if type starship > /dev/null 2>&1
     eval (starship init fish)
-else
-    echo "Consider installing `starship`"
 end
 
 # Abbreviations
