@@ -19,8 +19,6 @@ Plug 'dag/vim-fish'
 
 Plug 'tpope/vim-fugitive'
 
-Plug 'vimwiki/vimwiki'
-
 " Lets try without this
 " Plug 'tmsvg/pear-tree'
 
