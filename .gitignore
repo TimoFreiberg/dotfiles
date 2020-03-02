@@ -52,3 +52,4 @@ bin/nogit
 !/.config/tig
 !/.config/redshift.conf
 !/.config/starship.toml
+!/.doom.d
