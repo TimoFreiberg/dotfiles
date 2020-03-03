@@ -1,6 +1,7 @@
 " Use `[g` and `]g` to navigate diagnostics
 nmap <silent> [g <Plug>(coc-diagnostic-prev)
 nmap <silent> ]g <Plug>(coc-diagnostic-next)
+nmap <silent> <leader>l <Plug>(coc-diagnostic-info)
 
 " Remap keys for gotos
 nmap <silent> gd <Plug>(coc-definition)

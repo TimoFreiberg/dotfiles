@@ -151,7 +151,6 @@ source ~/.config/nvim/coc-config.vim
 " Rust
 let g:rustfmt_autosave = 1
 nnoremap <leader>= :RustFmt<cr>
-vnoremap <leader>= :'<,'>RustFmtRange<cr>
 
 map <F1> <Esc>
 imap <F1> <Esc>
