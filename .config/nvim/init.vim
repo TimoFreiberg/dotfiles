@@ -137,7 +137,7 @@ colorscheme gruvbox
 
 " FZF
 map <C-p> :Files<CR>
-map <leader>pf :Files<CR>
+map <leader>p :Files<CR>
 nmap <silent> <leader>b :Buffers<CR>
 " Opens command prompt with `:Rg ` already typed -> project wide search
 nnoremap <leader>/ :Rg 
