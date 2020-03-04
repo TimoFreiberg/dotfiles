@@ -4,6 +4,8 @@ Plug '/usr/bin/fzf'
 Plug 'junegunn/fzf.vim'
 
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
+" Run :CocInstall coc-rust-analyzer
+" Run :CocInstall coc-pairs
 
 Plug 'machakann/vim-highlightedyank'
 Plug 'morhetz/gruvbox'
@@ -19,7 +21,7 @@ Plug 'dag/vim-fish'
 
 Plug 'tpope/vim-fugitive'
 
-" Lets try without this
+" Autopairing plugin
 " Plug 'tmsvg/pear-tree'
 
 call plug#end()
