@@ -141,7 +141,9 @@ map <C-p> :Files<CR>
 map <leader>p :Files<CR>
 nmap <silent> <leader>b :Buffers<CR>
 " Opens command prompt with `:Rg ` already typed -> project wide search
-nnoremap <leader>/ :Rg 
+nmap <leader>/ :Rg 
+" Opens a search over the lines of the open buffer
+nmap <leader>l :BLines<CR>
 " Calls `:Rg` with the current word under the cursor (<C-R><C-W> selects the
 " current word under cursor)
 nnoremap <leader>* :Rg \b<C-R><C-W>\b<CR>
