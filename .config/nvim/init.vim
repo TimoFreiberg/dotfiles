@@ -13,6 +13,7 @@ Plug 'morhetz/gruvbox'
 Plug 'tpope/vim-surround'
 Plug 'airblade/vim-rooter'
 Plug 'godlygeek/tabular'
+Plug 'andymass/vim-matchup'
 
 Plug 'cespare/vim-toml'
 Plug 'stephpy/vim-yaml'
