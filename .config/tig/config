@@ -1,5 +1,5 @@
-bind main B !git rebase --autosquash -i %(commit)^
-bind diff B !git rebase --autosquash -i %(commit)^
+bind main B !git rebase --autosquash --autostash -i %(commit)^
+bind diff B !git rebase --autosquash --autostash -i %(commit)^
 
 bind main F !git commit --fixup=%(commit)
 bind main H !@sh -c "echo %(commit) | xsel -b"
