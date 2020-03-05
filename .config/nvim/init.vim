@@ -3,6 +3,8 @@ call plug#begin('~/.local/share/nvim/plugged')
 Plug '/usr/bin/fzf'
 Plug 'junegunn/fzf.vim'
 
+Plug 'justinmk/vim-sneak'
+
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 " Run :CocInstall coc-rust-analyzer
 " Run :CocInstall coc-pairs
@@ -148,6 +150,13 @@ nmap <leader>l :BLines<CR>
 " current word under cursor)
 nnoremap <leader>* :Rg \b<C-R><C-W>\b<CR>
 map <leader>: :Commands<CR>
+
+" sneak
+let g:sneak#s_next = 1
+map f <Plug>Sneak_f
+map F <Plug>Sneak_F
+map t <Plug>Sneak_t
+map T <Plug>Sneak_T
 
 " CoC.nvim
 "
