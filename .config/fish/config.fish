@@ -33,6 +33,7 @@ abbr --add v vim
 abbr --add c cargo
 abbr --add tn tmux-new
 abbr --add xb xsel -b
+abbr --add vimup 'nvim +PlugClean +PlugInstall +PlugUpdate'
 
 if command -v exa > /dev/null 
     abbr --add l exa
