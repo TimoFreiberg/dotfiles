@@ -35,6 +35,8 @@
 [branch]
     autosetuprebase = always
 [pager]
-    log = diffr | less -R
-    show = diffr | less -R
-    diff = diffr | less -R
+    log = diff-highlighter.fish | less -R
+    show = diff-highlighter.fish | less -R
+    diff = diff-highlighter.fish | less -R
+[interactive]
+    diffFilter = diff-highlighter.fish
