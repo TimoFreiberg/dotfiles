@@ -20,17 +20,6 @@ bin/nogit
 !/.config
 .config/*
 
-# XFCE 
-!/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-notifyd.xml
-!/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-panel.xml
-!/.config/xfce4/xfconf/xfce-perchannel-xml/xfwm4.xml
-!/.config/xfce4/xfconf/xfce-perchannel-xml/xfsettings.xml
-!/.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-keyboard-shortcuts.xml
-!/.config/xfce4/xfconf/xfce-perchannel-xml/keyboard-layout.xml
-
-# Gnome
-!/.config/dconf-root-backup
-
 # Spacemacs
 !/.config/spacemacs/
 .config/spacemacs/custom-file.el
@@ -38,16 +27,12 @@ bin/nogit
 
 !/.config/vim
 !/.config/nvim
-!/.config/alacritty
-!/.config/termite
 !/.config/bat
-!/.config/minimal.css
 !/.config/autostart
 !/.config/fish
 .config/fish/fish*history
 .config/fish/fishd*
 .config/fish/fish_variables
-!/.config/dunst
 !/.config/git
 !/.config/tig
 !/.config/redshift.conf
