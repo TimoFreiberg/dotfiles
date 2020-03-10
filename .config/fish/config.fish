@@ -34,6 +34,17 @@ abbr --add c cargo
 abbr --add tn tmux-new
 abbr --add xb xsel -b
 abbr --add vimup 'nvim +PlugClean +PlugInstall +PlugUpdate'
+abbr --add zi 'z -i'
+abbr --add za 'zoxide add'
+abbr --add zq 'zoxide query'
+abbr --add zr 'zoxide remove'
+
+if command -v zoxide > /dev/null
+    function zoxide-add --on-event fish_prompt
+        zoxide add
+    end
+end
+
 
 if command -v exa > /dev/null 
     abbr --add l exa
