@@ -1,6 +1,6 @@
 # set -x PATH $PATH ~/bin ~/bin/nogit ~/.local/bin ~/.cabal/bin
 # set -x PATH (echo $PATH | awk -v RS=' ' '!dedup[$1]++ {if (NR > 1) printf RS;  printf $1}')
-set -x fish_user_paths ~/bin ~/bin/nogit ~/.local/bin ~/.emacs.d/bin
+set -x fish_user_paths ~/bin ~/bin/nogit ~/.local/bin ~/.emacs.d/bin ~/.cargo/bin
 
 set -x EDITOR vim
 set -x VISUAL vim
