@@ -28,7 +28,6 @@ bin/nogit
 !/.config/vim
 !/.config/nvim
 !/.config/bat
-!/.config/autostart
 !/.config/fish
 .config/fish/fish*history
 .config/fish/fishd*
