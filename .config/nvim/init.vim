@@ -3,6 +3,8 @@ call plug#begin('~/.local/share/nvim/plugged')
 Plug '/usr/bin/fzf'
 Plug 'junegunn/fzf.vim'
 
+Plug 'junegunn/vim-peekaboo'
+
 Plug 'justinmk/vim-sneak'
 
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
@@ -23,6 +25,7 @@ Plug 'rust-lang/rust.vim'
 Plug 'dag/vim-fish'
 
 Plug 'tpope/vim-fugitive'
+Plug 'tpope/vim-commentary'
 
 " Autopairing plugin
 " Plug 'tmsvg/pear-tree'
