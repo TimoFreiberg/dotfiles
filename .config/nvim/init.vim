@@ -3,7 +3,8 @@ call plug#begin('~/.local/share/nvim/plugged')
 Plug '/usr/bin/fzf'
 Plug 'junegunn/fzf.vim'
 
-Plug 'junegunn/vim-peekaboo'
+" Disabled now because it's buggy
+" Plug 'junegunn/vim-peekaboo'
 
 Plug 'justinmk/vim-sneak'
 
