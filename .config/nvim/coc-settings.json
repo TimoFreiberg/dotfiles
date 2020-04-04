@@ -1,3 +1,4 @@
 {
-  "coc.preferences.formatOnType": true
+    "coc.preferences.formatOnType": true,
+    "rust-analyzer.updates.channel": "nightly"
 }

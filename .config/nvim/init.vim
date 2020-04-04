@@ -11,6 +11,7 @@ Plug 'justinmk/vim-sneak'
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 " Run :CocInstall coc-rust-analyzer
 " Run :CocInstall coc-pairs
+Plug 'TimoFreiberg/coc-rust-analyzer', {'branch': 'nightly-channel', 'do': 'yarn install --frozen-lockfile'}
 
 Plug 'machakann/vim-highlightedyank'
 Plug 'morhetz/gruvbox'
