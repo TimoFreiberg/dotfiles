@@ -4,7 +4,8 @@ nmap <silent> ]g <Plug>(coc-diagnostic-next)
 nmap <silent> <leader>l <Plug>(coc-diagnostic-info)
 
 " Remap keys for gotos
-nmap <silent> gd <Plug>(coc-definition)
+nmap <silent> gd :call CocActionAsync('jumpDefinition')<cr>
+"<Plug>(coc-definition)
 nmap <silent> gy <Plug>(coc-type-definition)
 nmap <silent> gi <Plug>(coc-implementation)
 nmap <silent> gr <Plug>(coc-references)
