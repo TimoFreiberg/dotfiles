@@ -1,4 +1,5 @@
 {
     "coc.preferences.formatOnType": true,
+    "codeLens.enable": true,
     "rust-analyzer.updates.channel": "nightly"
 }
