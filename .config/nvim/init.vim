@@ -7,11 +7,13 @@ Plug 'junegunn/fzf.vim'
 " Plug 'junegunn/vim-peekaboo'
 
 Plug 'justinmk/vim-sneak'
+Plug 'ciaranm/securemodelines'
 
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 " Run :CocInstall coc-rust-analyzer
 " Run :CocInstall coc-pairs
 
+Plug 'itchyny/lightline.vim'
 Plug 'machakann/vim-highlightedyank'
 Plug 'morhetz/gruvbox'
 
@@ -141,6 +143,36 @@ end
 " Gruvbox
 "
 colorscheme gruvbox
+
+let g:secure_modelines_allowed_items = [
+                \ "textwidth",   "tw",
+                \ "softtabstop", "sts",
+                \ "tabstop",     "ts",
+                \ "shiftwidth",  "sw",
+                \ "expandtab",   "et",   "noexpandtab", "noet",
+                \ "filetype",    "ft",
+                \ "foldmethod",  "fdm",
+                \ "readonly",    "ro",   "noreadonly", "noro",
+                \ "rightleft",   "rl",   "norightleft", "norl",
+                \ "colorcolumn"
+                \ ]
+
+" Lightline
+" let g:lightline = { 'colorscheme': 'wombat' }
+let g:lightline = {
+      \ 'component_function': {
+      \   'filename': 'LightlineFilename',
+      \   'cocstatus': 'coc#status',
+      \ },
+      \ 'active': {
+      \   'right': [ [ 'lineinfo' ],
+      \              [ 'percent' ],
+      \              [ 'cocstatus', 'fileformat', 'fileencoding', 'filetype']]
+      \ }
+\ }
+function! LightlineFilename()
+  return expand('%:t') !=# '' ? @% : '[No Name]'
+endfunction
 
 " FZF
 map <C-p> :Files<CR>
