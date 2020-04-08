@@ -32,6 +32,9 @@
     st = stash
     re = remote
     unpushed = log --branches --not --remotes --no-walk --decorate --oneline
+    psf = push --force-with-lease
+    fa = fetch --all
+    psu = push --set-upstream origin HEAD
 [branch]
     autosetuprebase = always
 [pager]
