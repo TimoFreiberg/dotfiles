@@ -44,6 +44,8 @@ nmap <leader>r <Plug>(coc-rename)
 nmap <M-w> v<Plug>(coc-range-select)
 vmap <M-w> <Plug>(coc-range-select)
 vmap <M-W> <Plug>(coc-range-select-backward)
+" Highlight the symbol and its references when holding the cursor.
+autocmd CursorHold * silent call CocActionAsync('highlight')
 
 " Remap for do codeAction of selected region, ex: `<leader>aap` for current paragraph
 xmap <leader>a  <Plug>(coc-codeaction-selected)
