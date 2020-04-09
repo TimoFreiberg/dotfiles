@@ -49,12 +49,11 @@ nnoremap <silent> K :call <SID>show_documentation()<CR>
 " Remap for rename current word
 nmap <leader>r <Plug>(coc-rename)
 
+nmap <M-w> v<Plug>(coc-range-select)
+vmap <M-w> <Plug>(coc-range-select)
+vmap <M-W> <Plug>(coc-range-select-backward)
 " Highlight the symbol and its references when holding the cursor.
 autocmd CursorHold * silent call CocActionAsync('highlight')
-
-nmap <silent> <TAB> v<Plug>(coc-range-select)
-vmap <silent> <TAB> <Plug>(coc-range-select)
-vmap <silent> <s-TAB> <Plug>(coc-range-select-backward)
 
 " Remap for do codeAction of selected region, ex: `<leader>aap` for current paragraph
 xmap <leader>a  <Plug>(coc-codeaction-selected)
