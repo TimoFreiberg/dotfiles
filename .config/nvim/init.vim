@@ -194,6 +194,12 @@ map F <Plug>Sneak_F
 map t <Plug>Sneak_t
 map T <Plug>Sneak_T
 
+" vim-matchup
+
+" Disable offscreen matching, i prefer seeing the statusline to seeing the
+" matched line
+let g:matchup_matchparen_offscreen = {}
+
 " CoC.nvim
 "
 source ~/.config/nvim/coc-config.vim
