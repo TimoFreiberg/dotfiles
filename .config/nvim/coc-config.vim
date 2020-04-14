@@ -49,9 +49,9 @@ nnoremap <silent> K :call <SID>show_documentation()<CR>
 " Remap for rename current word
 nmap <leader>r <Plug>(coc-rename)
 
-nmap <M-w> v<Plug>(coc-range-select)
-vmap <M-w> <Plug>(coc-range-select)
-vmap <M-W> <Plug>(coc-range-select-backward)
+nmap <silent> <M-w> v<Plug>(coc-range-select)
+vmap <silent> <M-w> <Plug>(coc-range-select)
+vmap <silent> <M-W> <Plug>(coc-range-select-backward)
 " Highlight the symbol and its references when holding the cursor.
 autocmd CursorHold * silent call CocActionAsync('highlight')
 
