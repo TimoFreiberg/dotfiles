@@ -10,9 +10,10 @@ Plug 'justinmk/vim-sneak'
 Plug 'ciaranm/securemodelines'
 
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
+" Plug 'TimoFreiberg/coc.nvim', {'branch': 'dev', 'do': 'yarn install --frozen-lockfile'}
 " Run :CocInstall coc-rust-analyzer
 " Run :CocInstall coc-pairs
-Plug 'TimoFreiberg/coc-rust-analyzer', {'branch': 'nightly-channel', 'do': 'yarn install --frozen-lockfile'}
+" Plug 'TimoFreiberg/coc-rust-analyzer', {'branch': 'dev', 'do': 'yarn install --frozen-lockfile'}
 
 Plug 'itchyny/lightline.vim'
 Plug 'machakann/vim-highlightedyank'
