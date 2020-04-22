@@ -1,4 +1,5 @@
-set tagfunc=CocTagFunc
+" TODO reenable this when nvim 0.5 is out
+" set tagfunc=CocTagFunc
 
 " Use `[g` and `]g` to navigate diagnostics
 nmap <silent> [g <Plug>(coc-diagnostic-prev)
