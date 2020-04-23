@@ -35,6 +35,7 @@
     psf = push --force-with-lease
     fa = fetch --all
     psu = push --set-upstream origin HEAD
+    sw = switch
 [branch]
     autosetuprebase = always
 [pager]
