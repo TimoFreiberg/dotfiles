@@ -38,6 +38,10 @@ Plug 'tpope/vim-commentary'
 call plug#end()
 
 " General
+
+" Taken from burntsushi
+syntax sync fromstart
+
 set hidden
 set hlsearch
 nnoremap <silent> <C-l> :nohlsearch<CR><C-l>
