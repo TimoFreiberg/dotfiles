@@ -34,6 +34,7 @@
     unpushed = log --branches --not --remotes --no-walk --decorate --oneline
     psf = push --force-with-lease
     fa = fetch --all
+    fpa = fetch --prune --all
     psu = push --set-upstream origin HEAD
     sw = switch
 [branch]
