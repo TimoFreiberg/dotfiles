@@ -1,19 +1,19 @@
 " TODO reenable this when nvim 0.5 is out
 " set tagfunc=CocTagFunc
 
-" Use `[g` and `]g` to navigate diagnostics
-nmap <silent> [g <Plug>(coc-diagnostic-prev)
-nmap <silent> ]g <Plug>(coc-diagnostic-next)
-nmap <silent> <leader>e :CocList diagnostics<cr>
+nnoremap <silent> [g <Plug>(coc-diagnostic-prev)
+nnoremap <silent> ]g <Plug>(coc-diagnostic-next)
+nnoremap <silent> <leader>e :CocList diagnostics<cr>
 
-" Remap keys for gotos
-nmap <silent> gd :call CocActionAsync('jumpDefinition')<cr>
-"<Plug>(coc-definition)
-nmap <silent> gy <Plug>(coc-type-definition)
-nmap <silent> gi <Plug>(coc-implementation)
-nmap <silent> gr <Plug>(coc-references)
-nmap gs :CocList symbols<cr>
-nmap gh :CocList outline<cr>
+nnoremap <silent> gd :call CocActionAsync('jumpDefinition')<cr>
+nnoremap <silent> gy <Plug>(coc-type-definition)
+nnoremap <silent> gi <Plug>(coc-implementation)
+nnoremap <silent> gr <Plug>(coc-references)
+nnoremap <silent> gs :<C-u>CocList -I symbols<cr>
+nnoremap <silent> <leader>o :<C-u>CocList outline<cr>
+nnoremap <silent> <leader>i :<C-u>CocListResume<cr>
+nnoremap <silent> <leader>j :<C-u>CocNext<cr>
+nnoremap <silent> <leader>k :<C-u>CocPrev<cr>
 
 " Use tab for trigger completion with characters ahead and navigate.
 " Use command ':verbose imap <tab>' to make sure tab is not mapped by other plugin.
