@@ -1,5 +1,8 @@
 {
+    "diagnostic.joinMessageLines": true,
     "coc.preferences.formatOnType": true,
     "codeLens.enable": true,
-    "rust-analyzer.updates.channel": "nightly"
+    "rust-analyzer.updates.channel": "nightly",
+    "#rust-analyzer.serverPath": "~/.cargo/bin/rust-analyzer",
+    "#rust-analyzer.trace.server": "verbose"
 }
