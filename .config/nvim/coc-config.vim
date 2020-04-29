@@ -9,7 +9,8 @@ nnoremap <silent> gd :call CocActionAsync('jumpDefinition')<cr>
 nnoremap <silent> gy <Plug>(coc-type-definition)
 nnoremap <silent> gi <Plug>(coc-implementation)
 nnoremap <silent> gr <Plug>(coc-references)
-nnoremap <silent> gs :<C-u>CocList -I symbols<cr>
+nnoremap <silent> <leader>t :<C-u>CocCommand rust-analyzer.run<cr>
+nnoremap <silent> <leader>s :<C-u>CocList -I symbols<cr>
 nnoremap <silent> <leader>o :<C-u>CocList outline<cr>
 nnoremap <silent> <leader>i :<C-u>CocListResume<cr>
 nnoremap <silent> <leader>j :<C-u>CocNext<cr>
