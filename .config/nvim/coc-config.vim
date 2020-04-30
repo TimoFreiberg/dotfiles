@@ -5,10 +5,10 @@ nnoremap <silent> [g <Plug>(coc-diagnostic-prev)
 nnoremap <silent> ]g <Plug>(coc-diagnostic-next)
 nnoremap <silent> <leader>e :CocList diagnostics<cr>
 
-nnoremap <silent> gd :call CocActionAsync('jumpDefinition')<cr>
-nnoremap <silent> gy <Plug>(coc-type-definition)
-nnoremap <silent> gi <Plug>(coc-implementation)
-nnoremap <silent> gr <Plug>(coc-references)
+nmap <silent> gd <Plug>(coc-definition)
+nmap <silent> gy <Plug>(coc-type-definition)
+nmap <silent> gi <Plug>(coc-implementation)
+nmap <silent> gr <Plug>(coc-references)
 nnoremap <silent> <leader>t :<C-u>CocCommand rust-analyzer.run<cr>
 nnoremap <silent> <leader>s :<C-u>CocList -I symbols<cr>
 nnoremap <silent> <leader>o :<C-u>CocList outline<cr>
