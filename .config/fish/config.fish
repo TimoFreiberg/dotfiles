@@ -4,6 +4,8 @@ set -x fish_user_paths ~/bin ~/bin/nogit ~/.local/bin ~/.emacs.d/bin ~/.cargo/bi
 
 set -x EDITOR vim
 set -x VISUAL vim
+set -x XDG_CONFIG_HOME $HOME/.config
+set -x EMACS_HOME $XDG_CONFIG_HOME/emacs/
 
 if type starship > /dev/null 2>&1
     eval (starship init fish)

@@ -1,0 +1,6 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+#name: -let
+#key: l
+# --
+(-let [${1:var} ${2:value}]
+$0)

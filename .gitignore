@@ -25,6 +25,9 @@ bin/nogit
 .config/spacemacs/custom-file.el
 .config/spacemacs/org-config.el
 
+# Emacs
+!/.config/emacs
+
 !/.config/vim
 !/.config/nvim
 !/.config/bat
