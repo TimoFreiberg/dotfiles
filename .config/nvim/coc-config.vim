@@ -1,8 +1,8 @@
 " TODO reenable this when nvim 0.5 is out
 " set tagfunc=CocTagFunc
 
-nnoremap <silent> [g <Plug>(coc-diagnostic-prev)
-nnoremap <silent> ]g <Plug>(coc-diagnostic-next)
+nmap <silent> [g <Plug>(coc-diagnostic-prev)
+nmap <silent> ]g <Plug>(coc-diagnostic-next)
 nnoremap <silent> <leader>e :CocList diagnostics<cr>
 
 nmap <silent> gd <Plug>(coc-definition)
