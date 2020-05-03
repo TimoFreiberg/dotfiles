@@ -2,6 +2,7 @@
     "diagnostic.joinMessageLines": true,
     "diagnostic.virtualText": true,
     "coc.preferences.formatOnType": true,
+    "coc.preferences.promptWorkspaceEdit": false,
     "coc.preferences.messageLevel": "warning",
     "codeLens.enable": true,
     "rust-analyzer.updates.channel": "nightly",
