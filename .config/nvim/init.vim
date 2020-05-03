@@ -195,6 +195,15 @@ map <leader>: :Commands<CR>
 
 " sneak
 let g:sneak#s_next = 1
+" 2-character Sneak (default)
+nmap <M-o> <Plug>Sneak_s
+nmap <M-i> <Plug>Sneak_S
+" visual-mode
+xmap <M-o> <Plug>Sneak_s
+xmap <M-i> <Plug>Sneak_S
+" operator-pending-mode
+omap <M-o> <Plug>Sneak_s
+omap <M-i> <Plug>Sneak_S
 map f <Plug>Sneak_f
 map F <Plug>Sneak_F
 map t <Plug>Sneak_t
