@@ -42,8 +42,8 @@
  :leader
  "qq" #'save-buffers-kill-terminal
  "t"  #'std::toggles/body
- "aw" #'std::weather
- "ac" #'calendar
+ ;; "aw" #'std::weather
+ ;; "ac" #'calendar
  :keymap evil-normal-state-map
  "M-." #'xref-find-definitions
  "M-," #'xref-pop-marker-stack)

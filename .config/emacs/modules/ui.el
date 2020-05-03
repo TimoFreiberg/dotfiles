@@ -20,12 +20,7 @@
 (setq-default
  fill-column                    80
  cursor-in-non-selected-windows nil
- truncate-lines                 t
- prettify-symbols-alist
- `(("lambda" . "λ")
-   ("!="     . "≠")
-   ("<-"     . "←")
-   ("->"     . "→")))
+ truncate-lines                 t)
 
 (setf
  display-line-numbers-widen       t
@@ -34,7 +29,10 @@
  scroll-margin                    10
  scroll-conservatively            10
  scroll-preserve-screen-position  t
+ ;; Fix scrolling for me
  mouse-wheel-progressive-speed nil
+ ;; Try to prevent focusing doc popups
+ mouse-autoselect-window 9001
  )
 
 ;; (load-theme 'morning-star :no-confirm)
@@ -96,3 +94,8 @@
   '((:default "Fantasque Sans Mono 12")
     (:large   "Fantasque Sans Mono 14")
     (:huge    "Fantasque Sans Mono 18")))
+
+(defun colorize-compilation ()
+  (let ((inhibit-read-only t))
+    (ansi-color-apply-on-region compilation-filter-start (point))))
+(add-hook 'compilation-filter-hook #'colorize-compilation)

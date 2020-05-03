@@ -31,7 +31,7 @@
  "fl" #'helm-locate-library
  "fL" #'helm-locate
  "bb" #'helm-mini
- "bi" #'std::helm::semantic-or-imenu
+ "o" #'std::helm::semantic-or-imenu
  "ry" #'helm-show-kill-ring
  "rr" #'helm-register
  "sr" #'helm-resume)

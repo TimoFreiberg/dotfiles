@@ -13,15 +13,15 @@
 
 (setq-default org-directory "~/Documents/Org/")
 
-(std::keybind
- :leader
- "feo" #'std::org::goto-org-file
- "aoc" #'org-capture
- "aol" #'org-store-link
- "aoi" #'org-insert-link
- "aoa" #'org-agenda
- :global
- "<f12>" #'org-agenda)
+;; (std::keybind
+;;  :leader
+;;  "feo" #'std::org::goto-org-file
+;;  "aoc" #'org-capture
+;;  "aol" #'org-store-link
+;;  "aoi" #'org-insert-link
+;;  "aoa" #'org-agenda
+;;  :global
+;;  "<f12>" #'org-agenda)
 
 ;; Settings
 (std::after org

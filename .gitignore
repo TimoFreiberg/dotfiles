@@ -27,6 +27,8 @@ bin/nogit
 
 # Emacs
 !/.config/emacs
+.config/emacs/modules/*.elc
+.config/emacs/modules/autoloads/*.elc
 
 !/.config/vim
 !/.config/nvim

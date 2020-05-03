@@ -18,9 +18,9 @@
   (require 'german-holidays)
   (require 'treemacs)
 
-  (add-to-list 'org-agenda-files (concat org-directory "NT.org"))
-  (when (string= "am-laptop" (system-name))
-    (add-to-list 'org-agenda-files (concat org-directory "Privat.org")))
+  ;; (add-to-list 'org-agenda-files (concat org-directory "NT.org"))
+  ;; (when (string= "am-laptop" (system-name))
+  ;;   (add-to-list 'org-agenda-files (concat org-directory "Privat.org")))
 
   (evil-set-initial-state 'org-agenda-mode 'motion)
 

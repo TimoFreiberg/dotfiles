@@ -9,7 +9,6 @@
 (std::after helpful
   (require 'framey-helpful))
 
-
 (std::keybind
  :keymap (evil-normal-state-map evil-visual-state-map evil-motion-state-map)
  "K"  #'helpful-at-point

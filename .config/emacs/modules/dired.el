@@ -3,7 +3,7 @@
 (std::using-packages
  dired+)
 
-(std::keybind :leader "ad" #'std::dired)
+;; (std::keybind :leader "ad" #'std::dired)
 
 (std::autoload dired
   #'std::dired
