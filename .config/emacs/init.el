@@ -27,7 +27,6 @@
 (std::load "org-capture")
 (std::load "org-agenda")
 (std::load "shell")
-(std::load "elfeed")
 (std::load "dired")
 (std::load "lsp")
 (std::load "rust")
