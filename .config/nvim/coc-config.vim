@@ -1,6 +1,8 @@
 " TODO reenable this when nvim 0.5 is out
 " set tagfunc=CocTagFunc
 
+" TODO coc.nvim PR to improve codeaction selection UI
+
 nmap <silent> [g <Plug>(coc-diagnostic-prev)
 nmap <silent> ]g <Plug>(coc-diagnostic-next)
 nnoremap <silent> <leader>e :CocList diagnostics<cr>
