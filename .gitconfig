@@ -1,6 +1,8 @@
 [include]
     path=~/.gitcredentials 
   #user and credential block
+[pull]
+    rebase = true
 [push]
     default = simple
 [diff]
