@@ -30,6 +30,10 @@ bin/nogit
 .config/emacs/modules/*.elc
 .config/emacs/modules/autoloads/*.elc
 
+# Sway
+!/.config/sway
+!/.config/swaylock
+
 !/.config/vim
 !/.config/nvim
 !/.config/bat
