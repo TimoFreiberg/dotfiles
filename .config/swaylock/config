@@ -15,7 +15,6 @@ separator-color=00000000
 indicator-idle-visible
 indicator-radius=150
 indicator-thickness=7
-font-size=16
 
 effect-blur=20x5
 effect-vignette=0.4:0.4

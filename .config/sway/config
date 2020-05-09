@@ -49,10 +49,10 @@ output * bg ~/Wallpapers/current fill
 # Example configuration:
 #
 exec swayidle -w \
-         timeout 300 'swaylock --daemonize --color 282828' \
+         timeout 300 'swaylock' \
          timeout 600 'swaymsg "output * dpms off"' \
               resume 'swaymsg "output * dpms on"' \
-         before-sleep 'swaylock -f -c 000000'
+         before-sleep 'swaylock --color 000000'
 #
 # This will lock your screen after 300 seconds of inactivity, then turn off
 # your displays after another 300 seconds, and turn your screens back on when
