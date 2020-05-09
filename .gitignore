@@ -37,6 +37,7 @@ Wallpapers/current
 !/.config/redshift
 !/.config/mako
 !/.config/kanshi
+!/.config/wofi
 
 !/.config/vim
 !/.config/nvim
