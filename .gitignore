@@ -16,6 +16,7 @@
 bin/nogit
 
 !/Wallpapers
+Wallpapers/current
 
 !/.config
 .config/*
