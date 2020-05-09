@@ -26,17 +26,16 @@ Wallpapers/current
 .config/spacemacs/custom-file.el
 .config/spacemacs/org-config.el
 
-# Emacs
 !/.config/emacs
 .config/emacs/modules/*.elc
 .config/emacs/modules/autoloads/*.elc
 
-# Sway
 !/.config/sway
 !/.config/swaylock
 
-# Alacritty
 !/.config/alacritty
+
+!/.config/redshift
 
 !/.config/vim
 !/.config/nvim
@@ -47,6 +46,4 @@ Wallpapers/current
 .config/fish/fish_variables
 !/.config/git
 !/.config/tig
-!/.config/redshift.conf
 !/.config/starship.toml
-!/.doom.d
