@@ -102,6 +102,11 @@ exec wl-paste --type text --watch clipman store
 
     # Exit sway (logs you out of your Wayland session)
     bindsym $mod+Shift+l exec swaynag -t warning -m 'Log out?' -b 'Yes' 'swaymsg exit'
+
+    bindsym --release Print exec grim -g "$(slurp)" - | wl-copy
+    bindsym --release $mod+Print exec slurpshot
+
+    bindsym --release $mod+c exec clipman pick --tool wofi -T'-i'
 #
 # Moving around:
 #
