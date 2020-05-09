@@ -65,6 +65,7 @@ exec swayidle -w \
 input type:keyboard {
   xkb_layout us(altgr-intl)
   xkb_options ctrl:nocaps
+  xkb_numlock enabled
   # Reenable this when german layout is ever needed
   # xkb_layout us(altgr-intl),de
   # xkb_options grp:ctrls_toggle,ctrl:nocaps
