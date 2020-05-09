@@ -77,7 +77,7 @@ input type:keyboard {
 exec firefox
 exec mako
 exec thunderbird
-exec redshift_gtk
+exec redshift
 exec wl-paste --type text --watch clipman store
 
 ### Key bindings
@@ -109,6 +109,8 @@ exec wl-paste --type text --watch clipman store
     bindsym --release $mod+Print exec slurpshot
 
     bindsym --release $mod+c exec clipman pick --tool wofi -T'-i'
+
+    bindsym $mod+e exec nautilus
 #
 # Moving around:
 #
@@ -170,10 +172,8 @@ exec wl-paste --type text --watch clipman store
     bindsym $mod+v splitv
 
     # Switch the current container between different layout styles
-    # TODO rebind this
-    bindsym $mod+t layout stacking
-    # TODO rebind this
-    bindsym $mod+e layout tabbed
+    bindsym $mod+y layout stacking
+    bindsym $mod+t layout tabbed
     bindsym $mod+r layout toggle split
 
     # Make the current focus fullscreen
@@ -183,8 +183,7 @@ exec wl-paste --type text --watch clipman store
     bindsym $mod+Shift+space floating toggle
 
     # Swap focus between the tiling area and the floating area
-    # commented out for launcher
-    # bindsym $mod+space focus mode_toggle
+    bindsym $mod+z focus mode_toggle
 
     # Move focus to the parent container
     bindsym $mod+p focus parent
