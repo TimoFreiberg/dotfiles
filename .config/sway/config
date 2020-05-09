@@ -231,15 +231,16 @@ bindsym $mod+shift+r mode "resize"
 bar {
     position top
 
+    tray_padding 4
+
+    swaybar_command waybar
+
+    # Found this in fourstepper's dotfiles, lets keep it off until i know i need it
+    # font -misc-fixed-medium-r-normal--13-120-75-75-C-70-iso10646-1
+
     # When the status_command prints a new line to stdout, swaybar updates.
     # The default just shows the current date and time.
-    status_command while date +'%Y-%m-%d %l:%M:%S %p'; do sleep 1; done
-
-    colors {
-        statusline #ffffff
-        background #323232
-        inactive_workspace #32323200 #32323200 #5c5c5c
-    }
+    # status_command while date +'%Y-%m-%d %l:%M:%S %p'; do sleep 1; done
 }
 
 include /etc/sway/config.d/*
