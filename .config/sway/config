@@ -53,7 +53,7 @@ output * bg ~/Wallpapers/current fill
 exec swayidle -w \
          timeout 300 'swaylock' \
          timeout 360 'swaymsg "output * dpms off"' \
-         timeout 400 'systemctl suspend' \
+         # timeout 420 'systemctl suspend' \
               resume 'swaymsg "output * dpms on"' \
          before-sleep 'swaylock --color 000000'
 #
