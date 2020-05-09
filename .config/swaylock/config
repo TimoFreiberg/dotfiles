@@ -3,6 +3,7 @@ clock
 datestr=%Y-%m-%d
 ignore-empty-password
 grace=1
+grace-no-mouse
 
 color=282828
 ring-color=B16286
@@ -11,14 +12,14 @@ line-color=282828
 inside-color=282828
 separator-color=00000000
 
-indicator
+indicator-idle-visible
 indicator-radius=150
 indicator-thickness=7
+font-size=16
 
-effect-blur=15x5
-effect-vignette=0.5:0.5
-effect-greyscale
-screenshots
-fade-in=0.5
-
+effect-blur=20x5
+effect-vignette=0.4:0.4
+image=~/Wallpapers/current
+scaling=fill
+fade-in=1
 
