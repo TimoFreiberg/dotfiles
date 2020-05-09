@@ -1,0 +1,4 @@
+profile home_desktop {
+    output "Dell Inc. DELL U2414H 292K472F044L" mode 1920x1080 position 0,0
+    output "Dell Inc. DELL U2414H 292K472E18DL" mode 1920x1080 position 1920,0
+}
