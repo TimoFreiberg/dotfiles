@@ -79,12 +79,9 @@ exec redshift_gtk
 exec wl-paste --type text --watch clipman store
 
 ### Key bindings
-#
-# Basics:
-#
     # Start a terminal
     bindsym $mod+Return exec $term
-
+    
     # Kill focused window
     bindsym $mod+Shift+q kill
 
@@ -104,7 +101,7 @@ exec wl-paste --type text --watch clipman store
     bindsym $mod+Shift+c reload
 
     # Exit sway (logs you out of your Wayland session)
-    bindsym $mod+Shift+e exec swaynag -t warning -m 'You pressed the exit shortcut. Do you really want to exit sway? This will end your Wayland session.' -b 'Yes, exit sway' 'swaymsg exit'
+    bindsym $mod+Shift+l exec swaynag -t warning -m 'Log out?' -b 'Yes' 'swaymsg exit'
 #
 # Moving around:
 #
@@ -167,10 +164,10 @@ exec wl-paste --type text --watch clipman store
 
     # Switch the current container between different layout styles
     # TODO rebind this
-    # bindsym $mod+s layout stacking
+    bindsym $mod+t layout stacking
     # TODO rebind this
-    # bindsym $mod+w layout tabbed
-    bindsym $mod+e layout toggle split
+    bindsym $mod+e layout tabbed
+    bindsym $mod+r layout toggle split
 
     # Make the current focus fullscreen
     bindsym $mod+f fullscreen
@@ -183,8 +180,7 @@ exec wl-paste --type text --watch clipman store
     # bindsym $mod+space focus mode_toggle
 
     # Move focus to the parent container
-    # TODO rebind this
-    # bindsym $mod+a focus parent
+    bindsym $mod+p focus parent
 #
 # Scratchpad:
 #
@@ -220,7 +216,7 @@ mode "resize" {
     bindsym Return mode "default"
     bindsym Escape mode "default"
 }
-bindsym $mod+r mode "resize"
+bindsym $mod+shift+r mode "resize"
 
 #
 # Status Bar:
