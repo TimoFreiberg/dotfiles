@@ -70,6 +70,14 @@ input type:keyboard {
   repeat_rate 50
 }
 
+### Autostart
+
+exec firefox
+exec mako
+exec thunderbird
+exec redshift_gtk
+exec wl-paste --type text --watch clipman store
+
 ### Key bindings
 #
 # Basics:
