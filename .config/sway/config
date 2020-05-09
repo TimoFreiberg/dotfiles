@@ -9,7 +9,7 @@
 # Logo key. Use Mod1 for Alt.
 set $mod Mod4
 
-font pango: Fira Sans Book 12
+font pango: Fira Sans
 
 include ~/.config/sway/themes/gruvbox
 
@@ -23,8 +23,10 @@ set $term alacritty
 
 smart_borders no_gaps
 smart_gaps on
+default_border none
+hide_edge_borders --i3 both
 
-# gaps outer -20
+gaps outer 5
 # gaps inner 2
 
 # Your preferred application launcher
