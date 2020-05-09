@@ -111,6 +111,8 @@ exec wl-paste --type text --watch clipman store
     bindsym --release $mod+c exec clipman pick --tool wofi -T'-i'
 
     bindsym $mod+e exec nautilus
+
+    bindsym $mod+comma exec makoctl dismiss
 #
 # Moving around:
 #

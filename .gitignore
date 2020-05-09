@@ -35,6 +35,7 @@ Wallpapers/current
 !/.config/waybar
 !/.config/alacritty
 !/.config/redshift
+!/.config/mako
 
 !/.config/vim
 !/.config/nvim
