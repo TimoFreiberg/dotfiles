@@ -32,9 +32,8 @@ Wallpapers/current
 
 !/.config/sway
 !/.config/swaylock
-
+!/.config/waybar
 !/.config/alacritty
-
 !/.config/redshift
 
 !/.config/vim
