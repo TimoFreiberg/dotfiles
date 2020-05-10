@@ -38,6 +38,7 @@ Wallpapers/current
 !/.config/mako
 !/.config/kanshi
 !/.config/wofi
+!/.config/environment.d
 
 !/.config/vim
 !/.config/nvim
