@@ -126,6 +126,8 @@ exec kanshi
     bindsym $mod+$down focus down
     bindsym $mod+$up focus up
     bindsym $mod+$right focus right
+    bindsym $mod+Shift+Tab workspace prev_on_output
+    bindsym $mod+Tab workspace next_on_output
     # Or use $mod+[up|down|left|right]
     bindsym $mod+Left focus left
     bindsym $mod+Down focus down
