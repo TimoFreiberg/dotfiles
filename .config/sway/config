@@ -76,15 +76,6 @@ input type:keyboard {
 
 ### Autostart
 
-exec firefox
-exec thunderbird
-exec nextcloud
-exec pulseeffects
-exec redshift
-exec mako
-exec wl-paste --type text --watch clipman store
-exec kanshi
-
 ### Key bindings
     # Start a terminal
     bindsym $mod+Return exec $term
