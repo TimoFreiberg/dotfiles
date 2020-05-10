@@ -51,7 +51,7 @@ output * bg ~/Wallpapers/current fill
 # Example configuration:
 #
 exec swayidle -w \
-         timeout 300 'swaylock' \
+         timeout 300 'swaylock --grace=5 --fade-in=5' \
          timeout 600 'swaymsg "output * dpms off"' \
          # timeout 420 'systemctl suspend' \
               resume 'swaymsg "output * dpms on"' \
