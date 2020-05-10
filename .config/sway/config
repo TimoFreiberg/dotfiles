@@ -248,10 +248,11 @@ bar {
     # status_command while date +'%Y-%m-%d %l:%M:%S %p'; do sleep 1; done
 }
 
-for_window [app_id="nautilus"] floating enable
+for_window [app_id="org.gnome.Nautilus"] floating enable
 for_window [class="Lxappearance"] floating enable
 for_window [class="Cadence"] floating enable
 for_window [app_id="pavucontrol"] floating enable
+for_window [class="REAPER"] floating enable
 
 # Don't turn on screensaver when watching videos
 for_window [class="Firefox"] inhibit_idle fullscreen
