@@ -50,11 +50,11 @@ output * bg ~/Wallpapers/current fill
 # Example configuration:
 #
          # timeout 420 'systemctl suspend' \
-exec swayidle -w \
-         timeout 300 'swaylock --grace=5 --fade-in=5' \
-         timeout 400 'swaymsg "output * dpms off"' \
-              resume 'swaymsg "output * dpms on"' \
-         before-sleep 'swaylock --config /dev/null --color 000000'
+ exec swayidle -w \
+          timeout 300 'swaylock -f -c 000000' \
+          timeout 600 'swaymsg "output * dpms off"' \
+               resume 'swaymsg "output * dpms on"' \
+          before-sleep 'swaylock -f -c 000000'
 #
 # This will lock your screen after 300 seconds of inactivity, then turn off
 # your displays after another 300 seconds, and turn your screens back on when
