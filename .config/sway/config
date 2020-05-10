@@ -77,12 +77,13 @@ input type:keyboard {
 ### Autostart
 
 exec firefox
-exec mako
 exec thunderbird
+exec nextcloud
+exec pulseeffects
 exec redshift
+exec mako
 exec wl-paste --type text --watch clipman store
 exec kanshi
-exec nextcloud
 
 ### Key bindings
     # Start a terminal
