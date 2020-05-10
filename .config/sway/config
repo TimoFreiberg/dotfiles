@@ -26,7 +26,6 @@ smart_borders no_gaps
 default_border none
 hide_edge_borders --i3 both
 
-gaps outer 5
 gaps inner 5
 
 # Your preferred application launcher
