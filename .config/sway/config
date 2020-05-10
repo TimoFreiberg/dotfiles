@@ -82,6 +82,7 @@ exec thunderbird
 exec redshift
 exec wl-paste --type text --watch clipman store
 exec kanshi
+exec nextcloud
 
 ### Key bindings
     # Start a terminal
