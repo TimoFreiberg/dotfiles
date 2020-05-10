@@ -22,12 +22,12 @@ set $right d
 set $term alacritty
 
 smart_borders no_gaps
-smart_gaps on
+# smart_gaps on
 default_border none
 hide_edge_borders --i3 both
 
 gaps outer 5
-# gaps inner 2
+gaps inner 5
 
 # Your preferred application launcher
 # Note: pass the final command to swaymsg so that the resulting window can be opened
