@@ -4,7 +4,7 @@
 
     // Choose the order of the modules
     "modules-left": ["sway/workspaces", "sway/mode"],
-    "modules-center": ["sway/window", "clock", "custom/dnd"],
+    "modules-center": ["sway/window", "clock"],
     "modules-right": [
         "pulseaudio",
         // Reenable this when i can control the player with this as well
@@ -16,6 +16,7 @@
         "backlight",
         "battery",
         "battery#bat2",
+        "custom/dnd",
         "idle_inhibitor",
         "tray"],
 
