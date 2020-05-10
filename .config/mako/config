@@ -13,3 +13,6 @@ margin=10,10,10,10
 # on-button-left=invoke-default-action
 # on-button-middle=dismiss-all
 # on-button-right=dismiss
+
+[app-name="Spotify"]
+default-timeout=2000
