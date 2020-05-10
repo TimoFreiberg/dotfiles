@@ -1,9 +1,0 @@
-exec firefox
-exec thunderbird
-exec nextcloud
-exec pulseeffects --gapplication-service
-exec jack_control start
-exec redshift
-exec mako
-exec wl-paste --type text --watch clipman store
-exec kanshi
