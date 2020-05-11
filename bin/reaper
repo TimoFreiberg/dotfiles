@@ -1,7 +1,0 @@
-#!/bin/bash
-
-
-trap "jack_control exit" EXIT ERR INT TERM
-
-reaper5
-

@@ -1,4 +1,0 @@
-#!/usr/bin/fish
-~/bin/lock&
-sleep 1
-systemctl suspend
