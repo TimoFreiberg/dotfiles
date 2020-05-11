@@ -107,7 +107,8 @@ exec kanshi
     floating_modifier $mod normal
 
     # Reload the configuration file
-    bindsym $mod+Shift+c reload
+    bindsym $mod+Shift+c nop # suppress the keystroke, otherwise it will be sent to applications
+    bindsym --release $mod+Shift+c reload
 
     # Exit sway (logs you out of your Wayland session)
     bindsym $mod+Shift+l exec swaynag -t warning -m 'Log out?' -b 'Yes' 'swaymsg exit'
