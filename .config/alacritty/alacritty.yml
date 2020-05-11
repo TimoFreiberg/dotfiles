@@ -6,6 +6,9 @@ font:
     family: Fira Mono
   size: 12
 
+window:
+  decorations: none
+
 # Colors (Gruvbox dark)
 colors:
   # Default colors
