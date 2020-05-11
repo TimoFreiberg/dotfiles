@@ -109,6 +109,7 @@ exec kanshi
     # Reload the configuration file
     bindsym $mod+Shift+c nop # suppress the keystroke, otherwise it will be sent to applications
     bindsym --release $mod+Shift+c reload
+    # FIXME remove the `nop` binding when https://github.com/swaywm/sway/issues/5029 is released
 
     # Exit sway (logs you out of your Wayland session)
     bindsym $mod+Shift+l exec swaynag -t warning -m 'Log out?' -b 'Yes' 'swaymsg exit'
