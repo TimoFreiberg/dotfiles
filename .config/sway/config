@@ -79,7 +79,7 @@ input type:keyboard {
 
 exec firefox
 exec thunderbird
-exec nextcloud
+exec nextcloud --background
 exec pulseeffects --gapplication-service
 exec jack_control start
 exec redshift
