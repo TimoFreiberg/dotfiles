@@ -79,10 +79,10 @@ input type:keyboard {
 
 exec firefox
 exec thunderbird
-exec nextcloud --background
-exec pulseeffects --gapplication-service
+exec env XDG_CURRENT_DESKTOP=Unity nextcloud --background
+exec env XDG_CURRENT_DESKTOP=Unity pulseeffects --gapplication-service
 exec jack_control start
-exec redshift
+exec env XDG_CURRENT_DESKTOP=Unity redshift
 exec mako
 exec wl-paste --type text --watch clipman store
 exec kanshi
