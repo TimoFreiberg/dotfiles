@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-set -x 
-if ! lsmod | grep v4l2loopback > /dev/null; then
-    echo "Adding v42loopback module to kernel"
-    sudo modprobe v4l2loopback
-fi
+
+LOG_FILE=~/.wayland-share-screen.log
 
 geometry(){
     windowGeometries=$(
@@ -24,26 +21,45 @@ geometry(){
             pkill wf-recorder > /dev/null
         fi
         notify-send -t 2000 "Wayland recording has been stopped"
-    elif [ "$1" == "is-recording" ]; then
+    elif [ "$1" == "show-state" ]; then
         if pgrep wf-recorder > /dev/null && pgrep ffplay > /dev/null; then
             notify-send -t 2000 "Wayland recording is up"
         else
             notify-send -t 2000 "No Wayland recording"
         fi
-    else
+    elif [ "$1" == "is-recording" ]; then
+        if pgrep wf-recorder > /dev/null && pgrep ffplay > /dev/null; then
+            true
+        else
+            false
+        fi
+    elif [ "$1" == "start" ]; then
+        if ! lsmod | grep v4l2loopback > /dev/null; then
+            echo "Adding v42loopback module to kernel"
+            sudo modprobe v4l2loopback
+        fi
+
+        echo -n '' 
         if ! pgrep wf-recorder > /dev/null; then
             geometry=$(geometry) || exit $?
-            wf-recorder --muxer=v4l2 --codec=rawvideo --pixel-format=yuv420p --file=/dev/video2 --geometry="$geometry" &
+            wf-recorder --muxer=v4l2 --codec=rawvideo --pixel-format=yuv420p --file=/dev/video2 --geometry="$geometry" > $LOG_FILE &
         fi
         if ! pgrep ffplay; then
             unset SDL_VIDEODRIVER
-            ffplay /dev/video2 -loglevel 24 &
+            ffplay /dev/video2 -loglevel 24 > $LOG_FILE &
             sleep 0.5
             # a hack so FPS is not dropping
-            swaymsg "[class=ffplay]" floating enable
-            swaymsg "[class=ffplay]" move position 1915 1050
+            swaymsg "[class=ffplay]" move workspace screencast
             swaymsg focus tiling
         fi
         notify-send -t 2000 "Wayland recording has been started"
+    else
+        cat << EOF
+Usage:
+$0 start
+$0 stop
+$0 is-recording
+$0 show-state
+EOF
     fi
-} > ~/.wayland-share-screen.log 2>&1
+}
