@@ -262,7 +262,6 @@ for_window [app_id="org.gnome.Nautilus"] floating enable
 for_window [class="Lxappearance"] floating enable
 for_window [class="Cadence"] floating enable
 for_window [app_id="pavucontrol"] floating enable
-for_window [class="REAPER"] floating enable
 for_window [class="zoom"] floating enable
 
 # Don't turn on screensaver when watching videos
