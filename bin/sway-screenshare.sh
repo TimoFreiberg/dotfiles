@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 
-LOG_FILE=~/.wayland-share-screen.log
-
 geometry(){
     windowGeometries=$(
     # `height - 1` is there because of: https://github.com/ammen99/wf-recorder/pull/56 (I could remove it if it's merged, maybe)
@@ -34,19 +32,13 @@ geometry(){
             false
         fi
     elif [ "$1" == "start" ]; then
-        if ! lsmod | grep v4l2loopback > /dev/null; then
-            echo "Adding v42loopback module to kernel"
-            sudo modprobe v4l2loopback
-        fi
-
-        echo -n '' 
         if ! pgrep wf-recorder > /dev/null; then
             geometry=$(geometry) || exit $?
-            wf-recorder --muxer=v4l2 --codec=rawvideo --pixel-format=yuv420p --file=/dev/video2 --geometry="$geometry" > $LOG_FILE &
+            wf-recorder --muxer=v4l2 --codec=rawvideo --pixel-format=yuv420p --file=/dev/video2 --geometry="$geometry" &
         fi
         if ! pgrep ffplay; then
             unset SDL_VIDEODRIVER
-            ffplay /dev/video2 -loglevel 24 > $LOG_FILE &
+            ffplay /dev/video2 -loglevel 24 &
             sleep 0.5
             # a hack so FPS is not dropping
             swaymsg "[class=ffplay]" move workspace screencast
