@@ -1,5 +1,4 @@
 {
-    "diagnostic.joinMessageLines": true,
     "diagnostic.virtualText": true,
     "coc.preferences.formatOnType": true,
     "coc.preferences.promptWorkspaceEdit": false,
