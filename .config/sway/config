@@ -122,6 +122,8 @@ exec kanshi
     bindsym $mod+n exec nautilus
 
     bindsym $mod+comma exec makoctl dismiss
+    bindsym $mod+Shift+comma exec makoctl restore
+    bindsym $mod+period exec makoctl invoke
 #
 # Moving around:
 #
