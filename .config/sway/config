@@ -158,8 +158,8 @@ exec kanshi
 
             Return      $nag_confirm
 
-            Tab         $nag_select next
-            Shift+Tab   $nag_select prev
+            Shift+Tab   $nag_select next
+            Tab         $nag_select prev
 
             Left        $nag_select next
             Right       $nag_select prev
@@ -169,6 +169,7 @@ exec kanshi
         }
     }
     bindsym $mod+Shift+l $nag \
+            --mode "exit" \
             --type warning \
             --message 'Exit?' \
             --button 'Reload' 'swaymsg reload' \
