@@ -24,6 +24,8 @@
     f = fetch
     c = commit -v
     ca = commit -a -v
+    cam = commit -a --amend
+    camn = commit -a --amend --no-edit
     dt = difftool
     dtg = difftool -g
     b = branch
