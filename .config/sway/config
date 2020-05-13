@@ -112,7 +112,41 @@ exec kanshi
     bindsym --release $mod+Shift+c reload
 
     # Exit sway (logs you out of your Wayland session)
-    bindsym $mod+Shift+l exec swaynag -t warning -m 'Log out?' -b 'Yes' 'swaymsg exit'
+    set {
+        $nag         exec swaynagmode
+        $nag_exit    $nag --exit
+        $nag_confirm $nag --confirm
+        $nag_select  $nag --select
+    }
+    mode "exit" {
+        bindsym {
+            Ctrl+d      mode "default"
+
+            Ctrl+c      $nag_exit
+            q           $nag_exit
+            Escape      $nag_exit
+
+            Return      $nag_confirm
+
+            Tab         $nag_select next
+            Shift+Tab   $nag_select prev
+
+            Left        $nag_select next
+            Right       $nag_select prev
+
+            Up          $nag_select next
+            Down        $nag_select prev
+        }
+    }
+    bindsym $mod+Shift+l $nag \
+            --type warning \
+            --message 'Exit?' \
+            --button 'Reload' 'swaymsg reload' \
+            --button 'Log out' 'swaymsg exit' \
+            --button 'Shut down' 'systemctl poweroff' \
+            --button 'Reboot' 'systemctl reboot' \
+            --dismiss-button 'Cancel'
+    swaynag_command $nag -R
 
     bindsym --release Print exec grim -g "$(slurp)" - | wl-copy
     bindsym --release $mod+Print exec slurpshot
