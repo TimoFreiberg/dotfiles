@@ -106,10 +106,10 @@ exec kanshi
     # mouse button for dragging.
     floating_modifier $mod normal
 
-    # Reload the configuration file
-    bindsym $mod+Shift+c nop # suppress the keystroke, otherwise it will be sent to applications
-    bindsym --release $mod+Shift+c reload
     # FIXME remove the `nop` binding when https://github.com/swaywm/sway/issues/5029 is released
+    bindsym $mod+Shift+c nop # suppress the keystroke, otherwise it will be sent to applications
+    # Reload the configuration file
+    bindsym --release $mod+Shift+c reload
 
     # Exit sway (logs you out of your Wayland session)
     bindsym $mod+Shift+l exec swaynag -t warning -m 'Log out?' -b 'Yes' 'swaymsg exit'
@@ -117,6 +117,8 @@ exec kanshi
     bindsym --release Print exec grim -g "$(slurp)" - | wl-copy
     bindsym --release $mod+Print exec slurpshot
 
+    # FIXME remove the `nop` binding when https://github.com/swaywm/sway/issues/5029 is released
+    bindsym $mod+c nop
     bindsym --release $mod+c exec clipman pick --tool wofi -T'-i'
 
     bindsym $mod+n exec nautilus
