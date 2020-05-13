@@ -41,7 +41,8 @@ abbr --add zi 'z -i'
 abbr --add za 'zoxide add'
 abbr --add zq 'zoxide query'
 abbr --add zr 'zoxide remove'
-abbr --add wp 'wl-paste'
+abbr --add wlp 'wl-paste'
+abbr --add wlc 'wl-copy'
 
 if command -v zoxide > /dev/null
     function zoxide-add --on-event fish_prompt
