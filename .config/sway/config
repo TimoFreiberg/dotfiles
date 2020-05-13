@@ -181,6 +181,7 @@ exec kanshi
             --mode "exit" \
             --type warning \
             --message 'Exit?' \
+            --initial 1 \
             --button 'Reload' 'swaymsg reload' \
             --button 'Log out' 'swaymsg exit' \
             --button 'Shut down' 'systemctl poweroff' \
