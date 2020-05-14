@@ -105,7 +105,7 @@ exec swayidle -w \
 # See `man 7 xkeyboard-config`
 input type:keyboard {
   xkb_layout us(altgr-intl)
-  xkb_options ctrl:nocaps
+  xkb_options ctrl:nocaps,compose:rwin
   xkb_numlock enabled
   # Reenable this when german layout is ever needed
   # xkb_layout us(altgr-intl),de
