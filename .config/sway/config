@@ -118,7 +118,8 @@ input type:keyboard {
 
 exec firefox
 exec thunderbird
-exec env XDG_CURRENT_DESKTOP=Unity nextcloud --background
+# exec env XDG_CURRENT_DESKTOP=Unity nextcloud --background
+exec env --unset QT_QPA_PLATFORM dropbox
 exec env XDG_CURRENT_DESKTOP=Unity pulseeffects --gapplication-service
 exec jack_control start
 exec env XDG_CURRENT_DESKTOP=Unity redshift
