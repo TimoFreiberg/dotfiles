@@ -13,36 +13,43 @@ if type starship > /dev/null 2>&1
 end
 
 # Abbreviations
-abbr --add :q exit
-abbr --add cal 'cal -3 -w -m'
-abbr --add g git
-abbr --add l exa 
-abbr --add ll exa -l
-abbr --add l1 ls-1A
-abbr --add la exa -la
-abbr --add ll 'ls -A'
-abbr --add pm pacman
-abbr --add sc systemctl
-abbr --add scX 'sudo systemctl start'
-abbr --add scr 'sudo systemctl restart'
-abbr --add scx 'sudo systemctl stop'
-abbr --add spr 'sudo pacman -R'
-abbr --add sps 'sudo pacman -S'
-abbr --add ssc 'sudo systemctl'
-abbr --add syu 'sudo pacman -Syu'
-abbr --add tp trash
-abbr --add t tmux
-abbr --add v vim
-abbr --add c cargo
-abbr --add tn tmux-new
-abbr --add xb xsel -b
-abbr --add vimup 'nvim +PlugClean +PlugInstall +PlugUpdate'
-abbr --add zi 'z -i'
-abbr --add za 'zoxide add'
-abbr --add zq 'zoxide query'
-abbr --add zr 'zoxide remove'
-abbr --add wlp 'wl-paste'
-abbr --add wlc 'wl-copy'
+if status is-interactive
+    abbr --add --global :q exit
+    abbr --add --global cal 'cal -3 -w -m'
+    abbr --add --global g git
+    abbr --add --global l exa 
+    abbr --add --global ll exa -l
+    abbr --add --global l1 ls-1A
+    abbr --add --global la exa -la
+    abbr --add --global ll 'ls -A'
+    abbr --add --global pm pacman
+    abbr --add --global sc systemctl
+    abbr --add --global scX 'sudo systemctl start'
+    abbr --add --global scr 'sudo systemctl restart'
+    abbr --add --global scx 'sudo systemctl stop'
+    abbr --add --global spr 'sudo pacman -R'
+    abbr --add --global sps 'sudo pacman -S'
+    abbr --add --global ssc 'sudo systemctl'
+    abbr --add --global syu 'sudo pacman -Syu'
+    abbr --add --global tp trash
+    abbr --add --global t tmux
+    abbr --add --global v vim
+    abbr --add --global c cargo
+    abbr --add --global tn tmux-new
+    abbr --add --global xb xsel -b
+    abbr --add --global vimup 'nvim +PlugClean +PlugInstall +PlugUpdate'
+    abbr --add --global zi 'z -i'
+    abbr --add --global za 'zoxide add'
+    abbr --add --global zq 'zoxide query'
+    abbr --add --global zr 'zoxide remove'
+    abbr --add --global wlp 'wl-paste'
+    abbr --add --global wlc 'wl-copy'
+    if command -v exa > /dev/null 
+        abbr --add --global l exa
+        abbr --add --global ll 'exa -l'
+        abbr --add --global la 'exa -la'
+    end
+end
 
 if command -v zoxide > /dev/null
     function zoxide-add --on-event fish_prompt
@@ -51,11 +58,6 @@ if command -v zoxide > /dev/null
 end
 
 
-if command -v exa > /dev/null 
-    abbr --add l exa
-    abbr --add ll 'exa -l'
-    abbr --add la 'exa -la'
-end
 
 setenv FZF_DEFAULT_COMMAND 'fd --type file --follow'
 setenv FZF_CTRL_T_COMMAND 'fd --type file --follow'
