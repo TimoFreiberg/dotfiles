@@ -201,7 +201,7 @@ exec kanshi
 
     bindsym $mod+comma exec makoctl dismiss
     bindsym $mod+Shift+comma exec makoctl restore
-    bindsym $mod+period exec makoctl invoke
+    bindsym $mod+period exec 'makoctl invoke && makoctl dismiss'
 #
 # Moving around:
 #
