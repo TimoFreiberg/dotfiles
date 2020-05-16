@@ -61,6 +61,10 @@ output * bg ~/Wallpapers/current fill
 
 exec swayidle -w \
           timeout 300 'swaylock --grace=5 --fade-in=5 --daemonize' \
+          timeout 330 'swaymsg "output * dpms off"' \
+               resume 'swaymsg "output * dpms on"' \
+          timeout 30 'if pgrep swaylock; then swaymsg "output * dpms off"; fi' \
+               resume 'if pgrep swaylock; then swaymsg "output * dpms on"; fi' \
           before-sleep 'swaylock --daemonize --color 000000'
 
 
@@ -90,7 +94,8 @@ exec env --unset QT_QPA_PLATFORM dropbox
 exec env XDG_CURRENT_DESKTOP=Unity redshift
 exec mako
 exec wl-paste --type text --watch clipman store
-exec kanshi
+# FIXME reenable when it doesn't cause sway to crash
+# exec kanshi
 
 ### Key bindings
     # Start a terminal
