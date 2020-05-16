@@ -1,39 +1,6 @@
-
-#
-# Copy this to ~/.config/sway/config and edit it to your liking.
 #
 # Read `man 5 sway` for a complete reference.
 #
-# Launchers used:
-#
-# /usr/local/bin/run-sway.sh:
-# ```
-# #!/bin/sh
-#
-# # Session
-# export XDG_SESSION_TYPE=wayland
-# export XDG_SESSION_DESKTOP=sway
-# export XDG_CURRENT_DESKTOP=sway
-#
-# source /usr/local/bin/wayland_enablement.sh
-#
-# systemd-cat --identifier=sway sway $@
-# ```
-#
-# /usr/local/bin/wayland_enablement.sh:
-# ```
-# #!/bin/sh
-# export MOZ_ENABLE_WAYLAND=1
-# export CLUTTER_BACKEND=wayland
-# export QT_QPA_PLATFORM=wayland-egl
-# export ECORE_EVAS_ENGINE=wayland-egl
-# export ELM_ENGINE=wayland_egl
-# export SDL_VIDEODRIVER=wayland
-# export _JAVA_AWT_WM_NOREPARENTING=1
-# export NO_AT_BRIDGE=1
-# ```
-#
-
 ### Variables
 #
 # Logo key. Use Mod1 for Alt.
