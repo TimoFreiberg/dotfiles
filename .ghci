@@ -1,4 +1,0 @@
-:set -XOverloadedStrings
-:set -Wall
-:set -fdefer-type-errors
-:set prompt "λ> "
