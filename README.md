@@ -6,6 +6,8 @@ Run `bootstrap.fish`
 
 ## Required packages for Sway
 
+Feel free to use the `-git` versions of these packages.
+
 * sway
 * swaybg
 * swayidle
@@ -20,6 +22,8 @@ Run `bootstrap.fish`
 * slurp
 * redshift-wayland-git
 * kanshi
+* swaynagmode
+* greetd
 
 ## greetd config
 
@@ -53,3 +57,7 @@ export NO_AT_BRIDGE=1
 ## Sway config
 
 `ln -s PATH_TO_DESIRED_WALLPAPER ~/Wallpapers/current`
+
+If you want to add more applications to autostart, create `~/.config/sway/config.d/custom-autostart.conf` and add lines like `exec MY_AWESOME_APP`
+
+If programs like zoom don't start after setting env variables like `export QT_QPA_PLATFORM=wayland-egl`, copy the `.desktop` file from `/usr/share/applications/` to `~/.local/share/applications` and edit the `Exec=` line to say (e.g.) `Exec=env -u QT_QPA_PLATFORM zoom %U`.
