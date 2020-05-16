@@ -12,6 +12,12 @@ if type starship > /dev/null 2>&1
     eval (starship init fish)
 end
 
+if type zoxide > /dev/null 2>&1
+    function _zoxide_hook --on-variable PWD
+        zoxide add
+    end
+end
+
 # Abbreviations
 if status is-interactive
     abbr --add --global :q exit
