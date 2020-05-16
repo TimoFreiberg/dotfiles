@@ -3,7 +3,6 @@ clock
 datestr=%Y-%m-%d
 ignore-empty-password
 grace=1
-grace-no-mouse
 
 color=282828
 ring-color=B16286

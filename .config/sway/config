@@ -102,7 +102,7 @@ exec kanshi
     # Start your launcher
     bindsym $mod+space exec $menu
 
-    bindsym $mod+l exec swaylock
+    bindsym $mod+l exec swaylock --grace-no-mouse
 
     # Drag floating windows by holding down $mod and left mouse button.
     # Resize them with right mouse button + $mod.
