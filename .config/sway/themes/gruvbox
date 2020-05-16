@@ -13,7 +13,7 @@ set $magenta #b16286
 set $bg2 #504945
 
 # class                 border   backgr.    text indicator child_border
-client.focused          $fg4     $fg4       $bg2 $magenta  $bg2
+client.focused          $fg4     $fg4       $bg2 $magenta  $fg4
 client.focused_inactive $bg0     $bg0       $fg1 $bg0      $bg0hard
 client.unfocused        $bg0     $bg0       $fg4 $white    $bg0
 client.urgent           $bg0hard $bg0hard   $fg1 $reddark  $reddark
