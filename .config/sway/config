@@ -94,7 +94,7 @@ exec env --unset QT_QPA_PLATFORM dropbox
 exec env XDG_CURRENT_DESKTOP=Unity redshift
 exec mako
 exec wl-paste --type text --watch clipman store
-# FIXME reenable when it doesn't cause sway to crash
+# FIXME reenable until https://github.com/swaywm/sway/issues/5351 is fixed
 # exec kanshi
 
 ### Key bindings
