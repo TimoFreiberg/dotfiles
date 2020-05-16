@@ -1,16 +1,9 @@
 /*
 !/.gitignore
-!/.zprofile
 !/.gitconfig
 !/.tmux.conf
-!/.xinitrc
-!/.spacemacs
-!/.ghci
-!/.Xmodmap
-!/.profile
-!/.xprofile
-!/.tigrc
 !/bootstrap.fish
+!/README.md
 
 !/bin
 bin/nogit
@@ -22,6 +15,7 @@ Wallpapers/current
 .config/*
 
 # Spacemacs
+!/.spacemacs
 !/.config/spacemacs/
 .config/spacemacs/custom-file.el
 .config/spacemacs/org-config.el
