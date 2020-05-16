@@ -18,10 +18,11 @@ set $right d
 # Your preferred terminal emulator
 set $term alacritty
 
-smart_borders no_gaps
+smart_borders on
 # smart_gaps on
-default_border none
-hide_edge_borders --i3 both
+default_border pixel 4
+default_floating_border pixel 4
+# hide_edge_borders --i3 both
 
 gaps inner 5
 
