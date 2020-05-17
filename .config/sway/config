@@ -19,12 +19,13 @@ set $right d
 set $term alacritty
 
 smart_borders on
-# smart_gaps on
+smart_gaps on
 default_border pixel 4
 default_floating_border pixel 4
-# hide_edge_borders --i3 both
+hide_edge_borders --i3 both
 
-gaps inner 5
+# gaps inner 5
+# gaps outer -5
 
 # Your preferred application launcher
 # Note: pass the final command to swaymsg so that the resulting window can be opened
