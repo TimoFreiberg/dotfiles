@@ -22,7 +22,7 @@ smart_borders on
 smart_gaps on
 default_border pixel 4
 default_floating_border pixel 4
-hide_edge_borders --i3 both
+hide_edge_borders --i3 none
 
 # gaps inner 5
 # gaps outer -5
