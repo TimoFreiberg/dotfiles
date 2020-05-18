@@ -33,7 +33,6 @@ Wallpapers/current
 !/.config/kanshi
 !/.config/wofi
 !/.config/environment.d
-
 !/.config/vim
 !/.config/nvim
 !/.config/bat
@@ -44,3 +43,4 @@ Wallpapers/current
 !/.config/git
 !/.config/tig
 !/.config/starship.toml
+!/.config/newsboat
