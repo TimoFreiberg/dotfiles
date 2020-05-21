@@ -122,6 +122,8 @@ exec wl-paste --type text --watch clipman store
     # Reload the configuration file
     bindsym --release $mod+Shift+c reload
 
+    bindsym $mod+F1 exec pactl set-source-mute jack_in toggle
+
     # Exit sway (logs you out of your Wayland session)
     set {
         $nag         exec swaynagmode
