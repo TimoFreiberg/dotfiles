@@ -6,7 +6,6 @@ set -x EDITOR vim
 set -x VISUAL vim
 set -x XDG_CONFIG_HOME $HOME/.config
 set -x EMACS_HOME $XDG_CONFIG_HOME/emacs/
-set -x CARGO_TARGET_DIR $HOME/Projects/cargo_target
 
 if type starship > /dev/null 2>&1
     eval (starship init fish)
