@@ -61,7 +61,7 @@ output * bg ~/Wallpapers/current fill
 
 
 exec swayidle -w \
-          timeout 300 'swaylock --grace=5 --fade-in=5 --daemonize' \
+          timeout 300 'swaylock --grace=5 --fade-in=2' \
           timeout 330 'swaymsg "output * dpms off"' \
                resume 'swaymsg "output * dpms on"' \
           timeout 500 'systemctl suspend' \
@@ -109,7 +109,7 @@ exec wl-paste --type text --watch clipman store
     # Start your launcher
     bindsym $mod+space exec $menu
 
-    bindsym $mod+l exec swaylock --grace-no-mouse
+    bindsym $mod+l exec swaylock
 
     # Drag floating windows by holding down $mod and left mouse button.
     # Resize them with right mouse button + $mod.

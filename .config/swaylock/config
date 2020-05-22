@@ -2,7 +2,6 @@ daemonize
 clock
 datestr=%Y-%m-%d
 ignore-empty-password
-grace=1
 
 color=282828
 ring-color=B16286
