@@ -45,21 +45,6 @@ output * bg ~/Wallpapers/current fill
 # You can get the names of your outputs by running: swaymsg -t get_outputs
 
 ### Idle configuration
-#
-# Example configuration:
-#
-         # TODO maybe add this?
-         # timeout 420 'systemctl suspend' 
-         
- # exec swayidle -w \
- #          timeout 300 'swaylock --grace=5 --fade-in=5 --daemonize' \
- #          timeout 330 'swaymsg "output * dpms off"' \
- #               resume 'swaymsg "output * dpms on"' \
- #          timeout 30 'if pgrep swaylock; then swaymsg "output * dpms off"; fi' \
- #               resume 'if pgrep swaylock; then swaymsg "output * dpms on"; fi' \
- #          before-sleep 'swaylock --daemonize --color 000000'
-
-
 exec swayidle -w \
           timeout 300 'swaylock --grace=5 --fade-in=2' \
           timeout 330 'swaymsg "output * dpms off"' \
