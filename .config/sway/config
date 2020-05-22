@@ -161,6 +161,8 @@ exec wl-paste --type text --watch clipman store
     bindsym $mod+comma exec makoctl dismiss
     bindsym $mod+Shift+comma exec makoctl restore
     bindsym $mod+period exec 'makoctl invoke && makoctl dismiss'
+
+    bindsym $mod+z exec ~/.cargo/bin/sway-overview
 #
 # Moving around:
 #
@@ -304,6 +306,7 @@ for_window [class="Lxappearance"] floating enable
 for_window [class="Cadence"] floating enable
 for_window [app_id="pavucontrol"] floating enable
 for_window [class="zoom"] floating enable
+for_window [app_id="sway-overview"] floating enable
 
 # Don't turn on screensaver when watching videos
 for_window [class="Firefox"] inhibit_idle fullscreen
