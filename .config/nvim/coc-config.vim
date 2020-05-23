@@ -66,7 +66,7 @@ xmap <leader>a  <Plug>(coc-codeaction-selected)
 " nmap <leader>a  <Plug>(coc-codeaction-selected)
 
 " Remap for do codeAction of current line
-nmap <leader>a  <Plug>(coc-codeaction-line)
+nmap <leader>a v<Plug>(coc-codeaction-selected)
 " Fix autofix problem of current line
 nmap <leader>qf  <Plug>(coc-fix-current)
 
