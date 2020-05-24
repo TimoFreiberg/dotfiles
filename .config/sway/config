@@ -49,7 +49,7 @@ exec swayidle -w \
           timeout 300 'swaylock --grace=5 --fade-in=2' \
           timeout 330 'swaymsg "output * dpms off"' \
                resume 'swaymsg "output * dpms on"' \
-          timeout 500 'systemctl suspend' \
+          timeout 900 'systemctl suspend' \
           timeout 30 'if pgrep -u $(whoami) swaylock; then swaymsg "output * dpms off"; fi' \
                resume 'if pgrep -u $(whoami) swaylock; then swaymsg "output * dpms on"; fi' \
           before-sleep 'swaylock --daemonize --color 000000'
