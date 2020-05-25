@@ -35,7 +35,7 @@ if status is-interactive
     abbr --add --global spr 'sudo pacman -R'
     abbr --add --global sps 'sudo pacman -S'
     abbr --add --global ssc 'sudo systemctl'
-    abbr --add --global syu 'yay -Syu --devel --answerdiff=All'
+    abbr --add --global syu 'nice yay -Syu --devel --answerdiff=All'
     abbr --add --global tp trash
     abbr --add --global t tmux
     abbr --add --global v vim
