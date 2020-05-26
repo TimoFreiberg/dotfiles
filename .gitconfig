@@ -49,3 +49,7 @@
     diff = diff-highlighter.fish | less -R
 [interactive]
     diffFilter = diff-highlighter.fish
+[log]
+    date = iso
+[format]
+    pretty = format:%C(yellow)%h %Cgreen%ad %Cblue%an%Creset %s
