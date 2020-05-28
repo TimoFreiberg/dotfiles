@@ -3,8 +3,8 @@
 pactl set-source-mute @DEFAULT_SOURCE@ toggle
 
 if pactl list sources | grep -q 'Mute: yes'; then
-    notify-send -t 2000 "Muted microphone"
+    notify-send --urgency=low --expire-time=2000 --category=pactl "Muted microphone"
 else
-    notify-send -t 2000 "Unmuted microphone"
+    notify-send --urgency=low --expire-time=2000 --category=pactl "Unmuted microphone"
 fi
 
