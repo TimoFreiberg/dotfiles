@@ -2,7 +2,7 @@ bind main B !git rebase --autosquash --autostash -i %(commit)^
 bind diff B !git rebase --autosquash --autostash -i %(commit)^
 
 bind main F !git commit --fixup=%(commit)
-bind main H !@sh -c "echo %(commit) | xsel -b"
+bind main H !@sh -c "echo %(commit) | wl-copy"
 
 bind generic C !git commit --verbose
 bind status C !git commit --verbose
