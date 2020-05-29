@@ -77,8 +77,8 @@ input type:keyboard {
 
 exec firefox
 # exec env XDG_CURRENT_DESKTOP=Unity nextcloud --background
-exec env --unset QT_QPA_PLATFORM dropbox
-exec env redshift
+exec dropbox
+exec redshift
 exec mako
 exec wl-paste --type text --watch clipman store
 # FIXME reenable until https://github.com/swaywm/sway/issues/5351 is fixed
