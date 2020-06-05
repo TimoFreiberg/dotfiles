@@ -61,12 +61,7 @@ vmap <silent> <M-W> <Plug>(coc-range-select-backward)
 " Highlight the symbol and its references when holding the cursor.
 autocmd CursorHold * silent call CocActionAsync('highlight')
 
-" Remap for do codeAction of selected region, ex: `<leader>aap` for current paragraph
-xmap <leader>a  <Plug>(coc-codeaction-selected)
-" nmap <leader>a  <Plug>(coc-codeaction-selected)
-
-" Remap for do codeAction of current line
-nmap <leader>a :CocCommand actions.open<cr>
+map <leader>a :CocCommand actions.open<cr>
 " Fix autofix problem of current line
 nmap <leader>qf  <Plug>(coc-fix-current)
 
