@@ -11,8 +11,9 @@ Plug 'ciaranm/securemodelines'
 
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 " Plug 'TimoFreiberg/coc.nvim', {'branch': 'dev', 'do': 'yarn install --frozen-lockfile'}
-" Run :CocInstall coc-rust-analyzer
-" Run :CocInstall coc-pairs
+" :CocInstall coc-rust-analyzer
+" :CocInstall coc-pairs
+" :CocInstall coc-actions
 " Plug 'TimoFreiberg/coc-rust-analyzer', {'branch': 'dev', 'do': 'yarn install --frozen-lockfile'}
 
 Plug 'itchyny/lightline.vim'
