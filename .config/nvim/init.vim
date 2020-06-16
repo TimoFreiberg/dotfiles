@@ -15,6 +15,7 @@ Plug 'neoclide/coc.nvim', {'branch': 'release'}
 " :CocInstall coc-pairs
 " :CocInstall coc-actions
 " Plug 'TimoFreiberg/coc-rust-analyzer', {'branch': 'dev', 'do': 'yarn install --frozen-lockfile'}
+" Plug 'fannheyward/coc-rust-analyzer', {'branch': 'master', 'do': 'yarn install --frozen-lockfile'}
 
 Plug 'itchyny/lightline.vim'
 Plug 'machakann/vim-highlightedyank'
