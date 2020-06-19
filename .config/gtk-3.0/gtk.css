@@ -18,7 +18,7 @@ window.ssd headerbar.titlebar {
 }
 
 window.ssd headerbar.titlebar button.titlebutton {
-    padding: 0px;
+    padding: 2px;
     min-height: 0;
     min-width: 0;
 }
@@ -37,7 +37,7 @@ window.ssd headerbar.titlebar button.titlebutton {
 }
 
 .default-decoration .titlebutton {
-    padding: 0px;
+    padding: 2px;
     min-height: 0;
     min-width: 0;
 }
