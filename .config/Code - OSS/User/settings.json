@@ -1,5 +1,12 @@
 {
+    "window.enableMenuBarMnemonics": false,
+    "window.menuBarVisibility": "hidden",
+    "window.newWindowDimensions": "maximized",
     "files.autoSave": "afterDelay",
     "files.autoSaveDelay": 250,
     "editor.fontFamily": "'Fira Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
+    "editor.dragAndDrop": false,
+    "editor.accessibilitySupport": "off",
+    "editor.mouseWheelZoom": true,
+    "workbench.colorTheme": "Gruvbox Dark Medium",
 }
