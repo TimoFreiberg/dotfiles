@@ -494,13 +494,6 @@
         "command": "workbench.action.splitEditorDown"
     },
     {
-        "key": "ctrl+k ctrl+shift+i",
-        "command": "workbench.action.terminal.sendSequence",
-        "args": {
-            "text": "cargo run --manifest-path ~/projects/nixpkgs-fmt/Cargo.toml -- --in-place ${file}\n"
-        }
-    },
-    {
         "key": "ctrl+k u",
         "command": "-workbench.action.closeUnmodifiedEditors"
     },
@@ -611,5 +604,9 @@
     {
         "key": "ctrl+shift+f",
         "command": "search.action.openNewEditorToSide"
+    },
+    {
+        "key": "ctrl+q",
+        "command": "editor.action.showHoverZ"
     }
 ]
