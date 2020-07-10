@@ -9,4 +9,5 @@
     "editor.accessibilitySupport": "off",
     "editor.mouseWheelZoom": true,
     "workbench.colorTheme": "Gruvbox Dark Medium",
+    "explorer.confirmDragAndDrop": false,
 }

@@ -608,5 +608,10 @@
     {
         "key": "ctrl+q",
         "command": "editor.action.showHoverZ"
+    },
+    {
+        "key": "ctrl+shift+p",
+        "command": "workbench.action.openRecent",
+        "when": "!inFilesPicker"
     }
 ]
