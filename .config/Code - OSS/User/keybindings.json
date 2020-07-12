@@ -607,7 +607,7 @@
     },
     {
         "key": "ctrl+q",
-        "command": "editor.action.showHoverZ"
+        "command": "editor.action.showHover"
     },
     {
         "key": "ctrl+shift+p",
