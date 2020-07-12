@@ -10,4 +10,9 @@
     "editor.mouseWheelZoom": true,
     "workbench.colorTheme": "Gruvbox Dark Medium",
     "explorer.confirmDragAndDrop": false,
+    "git.enableSmartCommit": true,
+    "rust-analyzer.updates.channel": "nightly",
+    "explorer.confirmDelete": false,
+    "rust-analyzer.procMacro.enable": true,
+    "rust-analyzer.cargo.loadOutDirsFromCheck": true,
 }
