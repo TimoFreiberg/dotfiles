@@ -15,4 +15,7 @@
     "explorer.confirmDelete": false,
     "rust-analyzer.procMacro.enable": true,
     "rust-analyzer.cargo.loadOutDirsFromCheck": true,
+    //"rust-analyzer.trace.server": "verbose",
+    // "rust-analyzer.trace.extension": true,
+    // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux"
 }
