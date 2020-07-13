@@ -11,3 +11,5 @@ stkb.rewrap
 vadimcn.vscode-lldb
 vscodevim.vim
 wmaurer.change-case
+ms-kubernetes-tools.vscode-kubernetes-tools
+redhat.vscode-yaml
