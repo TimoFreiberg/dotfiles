@@ -8,7 +8,7 @@
     "editor.dragAndDrop": false,
     "editor.accessibilitySupport": "off",
     "editor.mouseWheelZoom": true,
-    "workbench.colorTheme": "Gruvbox Dark Medium",
+    "workbench.colorTheme": "Gruvbox Dark (Medium)",
     "explorer.confirmDragAndDrop": false,
     "git.enableSmartCommit": true,
     "rust-analyzer.updates.channel": "nightly",
@@ -17,6 +17,7 @@
     "rust-analyzer.cargo.loadOutDirsFromCheck": true,
     "editor.formatOnSave": true,
     "editor.formatOnType": true,
+    "rust-analyzer.checkOnSave.command": "clippy",
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
     // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux"
