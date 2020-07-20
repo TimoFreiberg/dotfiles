@@ -8,7 +8,7 @@
     "editor.dragAndDrop": false,
     "editor.accessibilitySupport": "off",
     "editor.mouseWheelZoom": true,
-    "workbench.colorTheme": "Gruvbox Dark (Medium)",
+    "workbench.colorTheme": "Gruvbox Dark Medium",
     "explorer.confirmDragAndDrop": false,
     "git.enableSmartCommit": true,
     "rust-analyzer.updates.channel": "nightly",
