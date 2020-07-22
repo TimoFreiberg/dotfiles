@@ -81,6 +81,7 @@ if status is-interactive
     abbr --add --global gfa 'git fetch --all --prune'
     abbr --add --global gpu 'git push --set-upstream origin HEAD'
     abbr --add --global gw 'git switch'
+    abbr --add --global gwc 'git switch --create'
 
     if command -v exa > /dev/null 
         abbr --add --global l exa
