@@ -20,5 +20,5 @@
     "rust-analyzer.checkOnSave.command": "clippy",
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
-    // "rust-analyzer.serverPath": "~/.cargo/bin/rust-analyzer"
+    // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux"
 }
