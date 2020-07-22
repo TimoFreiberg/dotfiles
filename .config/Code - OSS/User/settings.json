@@ -18,7 +18,9 @@
     "editor.formatOnSave": true,
     "editor.formatOnType": true,
     "rust-analyzer.checkOnSave.command": "clippy",
+    "files.insertFinalNewline": true,
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
-    // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux"
+    // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux",
+    // "rust-analyzer.serverPath": "~/.cargo/bin/rust-analyzer",
 }
