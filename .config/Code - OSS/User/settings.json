@@ -17,7 +17,6 @@
     "rust-analyzer.cargo.loadOutDirsFromCheck": true,
     "editor.formatOnSave": true,
     "editor.formatOnType": true,
-    "rust-analyzer.checkOnSave.command": "clippy",
     "files.insertFinalNewline": true,
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
