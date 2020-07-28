@@ -53,3 +53,5 @@
     date = iso
 [format]
     pretty = format:%C(yellow)%h %Cgreen%ad %Cblue%an%Creset %s
+[init]
+    defaultBranch = main
