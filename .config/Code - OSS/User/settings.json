@@ -18,6 +18,85 @@
     "editor.formatOnSave": true,
     "editor.formatOnType": true,
     "files.insertFinalNewline": true,
+    "vim.normalModeKeyBindingsNonRecursive": [
+        {
+            "before": [
+                "gd"
+            ],
+            "commands": [
+                "editor.action.revealDefinition"
+            ]
+        },
+        {
+            "before": [
+                "gy"
+            ],
+            "commands": [
+                "editor.action.goToTypeDefinition"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "s"
+            ],
+            "commands": [
+                "workbench.action.showAllSymbols"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "a"
+            ],
+            "commands": [
+                "editor.action.quickFix"
+            ],
+            "when": [
+                "editorHasCodeActionsProvider && editorTextFocus && !editorReadonly"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "r"
+            ],
+            "commands": [
+                "editor.action.rename"
+            ],
+            "when": [
+                "editorHasRenameProvider && editorTextFocus && !editorReadonly"
+            ]
+        },
+        {
+            "before": [
+                "]",
+                "g"
+            ],
+            "commands": [
+                "editor.action.marker.next"
+            ]
+        },
+        {
+            "before": [
+                "[",
+                "g"
+            ],
+            "commands": [
+                "editor.action.marker.prev"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "e"
+            ],
+            "commands": [
+                "workbench.panel.markers.view.focus"
+            ]
+        }
+    ],
+    "vim.leader": "<space>"
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
     // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux",
