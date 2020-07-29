@@ -104,13 +104,22 @@
                 "workbench.action.quickOpen"
             ]
         },
-{
+        {
             "before": [
                 "<leader>",
                 "P"
             ],
             "commands": [
                 "workbench.action.openRecent"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "w"
+            ],
+            "commands": [
+                "workbench.action.files.save"
             ]
         }
     ],
