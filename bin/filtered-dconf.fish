@@ -18,7 +18,7 @@ set IGNORED \
     org/gnome/desktop/app-folders \
     org/gnome/desktop/notifications \
     org/gnome/eog/view \
-    org/gnome/evince/default \
+    org/gnome/evince \
     org/gnome/evolution-data-server \
     org/gnome/feedreader/saved-state \
     org/gnome/file-roller \
@@ -31,7 +31,8 @@ set IGNORED \
     org/gtk/settings/color-chooser \
     org/gtk/settings/file-chooser \
     org/gnome/desktop/background \
-    org/gnome/desktop/screensaver
+    org/gnome/desktop/screensaver \
+    org/gnome/maps
 
 dconf dump / > $TMP
 
@@ -39,5 +40,6 @@ for IGNORE_PARAGRAPH in $IGNORED
     set ESCAPED (echo $IGNORE_PARAGRAPH | regex-escape.py)
     gawk -i inplace -v RS= -v ORS='\n\n' "!/$ESCAPED/" $TMP
 end
+sed -i '/^night-light-last-coordinates/d' $TMP
 
 bat $TMP
