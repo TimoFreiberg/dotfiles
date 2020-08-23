@@ -121,9 +121,28 @@
             "commands": [
                 "workbench.action.files.save"
             ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "o"
+            ],
+            "commands": [
+                "workbench.action.gotoSymbol"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "t"
+            ],
+            "commands": [
+                "rust-analyzer.run"
+            ]
         }
     ],
-    "vim.leader": "<space>"
+    "vim.leader": "<space>",
+    "vim.highlightedyank.enable": true
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
     // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux",
