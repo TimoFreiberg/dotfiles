@@ -82,6 +82,7 @@ if status is-interactive
     abbr --add --global gpu 'git push --set-upstream origin HEAD'
     abbr --add --global gw 'git switch'
     abbr --add --global gwc 'git switch --create'
+    abbr --add --global gcp 'git cherry-pick'
 
     if command -v exa > /dev/null 
         abbr --add --global l exa
