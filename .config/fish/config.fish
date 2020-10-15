@@ -43,7 +43,6 @@ if status is-interactive
     abbr --add --global c cargo
     abbr --add --global tn tmux-new
     abbr --add --global xb xsel -b
-    abbr --add --global vimup 'nvim +PlugClean +PlugInstall +PlugUpdate'
     abbr --add --global zi 'z -i'
     abbr --add --global za 'zoxide add'
     abbr --add --global zq 'zoxide query'
