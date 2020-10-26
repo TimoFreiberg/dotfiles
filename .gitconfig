@@ -1,18 +1,25 @@
 [include]
     path=~/.gitcredentials 
   #user and credential block
+
 [pull]
     rebase = true
+
 [push]
     default = simple
+
 [diff]
     tool = vimdiff
     guitool = meld
+
 [core]
+    pager = delta
     editor = nvim
     autocrlf = input
+
 [merge]
     tool = meld
+
 [alias]
     l = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit
     s = status -s
@@ -41,17 +48,27 @@
     fpa = fetch --prune --all
     psu = push --set-upstream origin HEAD
     sw = switch
+
 [branch]
     autosetuprebase = always
-[pager]
-    log = diff-highlighter.fish | less -R
-    show = diff-highlighter.fish | less -R
-    diff = diff-highlighter.fish | less -R
+
 [interactive]
-    diffFilter = diff-highlighter.fish
+    diffFilter = delta --color-only
+
 [log]
     date = iso
+
 [format]
     pretty = format:%C(yellow)%h %Cgreen%ad %Cblue%an%Creset %s
+
 [init]
     defaultBranch = main
+
+[delta]
+    features = side-by-side line-numbers decorations
+    whitespace-error-style = 22 reverse
+
+[delta "decorations"]
+    commit-decoration-style = bold yellow box ul
+    file-style = bold yellow ul
+    file-decoration-style = none
