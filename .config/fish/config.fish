@@ -2,8 +2,8 @@
 # set -x PATH (echo $PATH | awk -v RS=' ' '!dedup[$1]++ {if (NR > 1) printf RS;  printf $1}')
 set -x fish_user_paths ~/bin ~/bin/nogit ~/.local/bin ~/.emacs.d/bin ~/.cargo/bin
 
-set -x EDITOR vim
-set -x VISUAL vim
+set -x EDITOR nvim
+set -x VISUAL nvim
 set -x XDG_CONFIG_HOME $HOME/.config
 set -x EMACS_HOME $XDG_CONFIG_HOME/emacs/
 set -x NOTE_FILE ~/Dropbox/notes.md
