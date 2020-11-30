@@ -22,7 +22,94 @@
         "key": "ctrl+w",
         "command": "-workbench.action.closeGroup",
     },
+    {
+        "key": "ctrl+shift+r",
+        "command": "-editor.action.refactor",
+        "when": "editorHasCodeActionsProvider && editorTextFocus && !editorReadonly"
+    },
+    {
+        "key": "ctrl+shift+r",
+        "command": "-rerunSearchEditorSearch",
+        "when": "inSearchEditor"
+    },
+    {
+        "key": "ctrl+shift+r",
+        "command": "-workbench.action.quickOpenNavigatePreviousInRecentFilesPicker",
+        "when": "inQuickOpen && inRecentFilesPicker"
+    },
+    {
+        "key": "ctrl+o",
+        "command": "-workbench.action.files.openFile"
+    },
+    {
+        "key": "ctrl+o",
+        "command": "-workbench.action.files.openLocalFile",
+        "when": "remoteFileDialogVisible"
+    },
+    {
+        "key": "ctrl+o",
+        "command": "file-browser.open"
+    },
     // positive keys
+    {
+        "key": "ctrl+shift+r",
+        "command": "workbench.action.tasks.build"
+    },
+    {
+        "key": "ctrl+alt+right",
+        "command": "cursorWordPartRight",
+        "when": "textInputFocus"
+    },
+    {
+        "key": "ctrl+shift+alt+right",
+        "command": "cursorWordPartRightSelect",
+        "when": "textInputFocus"
+    },
+    {
+        "key": "ctrl+alt+left",
+        "command": "cursorWordPartStartLeft",
+        "when": "textInputFocus"
+    },
+    {
+        "key": "ctrl+shift+alt+left",
+        "command": "cursorWordPartStartLeftSelect",
+        "when": "textInputFocus"
+    },
+    {
+        "key": "ctrl+alt+backspace",
+        "command": "deleteWordPartLeft",
+        "when": "textInputFocus && !editorReadonly"
+    },
+    {
+        "key": "ctrl+alt+delete",
+        "command": "deleteWordPartRight",
+        "when": "textInputFocus && !editorReadonly"
+    },
+    {
+        "key": "home",
+        "command": "cursorHome",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "shift+home",
+        "command": "cursorHomeSelect",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "home",
+        "command": "cursorLineStart",
+        "when": "editorTextFocus && editorHasSelection"
+    },
+    {
+        "key": "shift+home",
+        "command": "cursorLineStartSelect",
+        "when": "editorTextFocus&& editorHasSelection"
+    },
+    {
+        "key": "ctrl+u",
+        "command": "rust-analyzer.parentModule",
+        "when": "editorTextFocus"
+    },
     {
         "key": "alt+x",
         "command": "workbench.action.showCommands"
@@ -166,6 +253,14 @@
         "command": "-workbench.action.navigateForward"
     },
     {
+        "key": "ctrl+n",
+        "command": "-workbench.action.files.newUntitledFile"
+    },
+    {
+        "key": "ctrl+n",
+        "command": "workbench.action.showAllSymbols"
+    },
+    {
         "key": "ctrl+t",
         "command": "-workbench.action.showAllSymbols"
     },
@@ -247,12 +342,17 @@
         "when": "editorFocus && !editorReadonly"
     },
     {
+        "key": "alt+8",
+        "command": "search.action.focusNextSearchResult",
+        "when": "editorFocus"
+    },
+    {
         "key": "f8",
         "command": "-editor.action.marker.nextInFiles",
         "when": "editorFocus && !editorReadonly"
     },
     {
-        "key": "alt+w",
+        "key": "ctrl+w",
         "command": "editor.action.smartSelect.expand",
         "when": "editorTextFocus"
     },
@@ -262,7 +362,7 @@
         "when": "editorTextFocus"
     },
     {
-        "key": "shift+alt+w",
+        "key": "ctrl+shift+w",
         "command": "editor.action.smartSelect.shrink",
         "when": "editorTextFocus"
     },
@@ -389,16 +489,16 @@
         "command": "-cursorUndo",
         "when": "textInputFocus"
     },
-    // {
-    //     "key": "down",
-    //     "command": "-selectNextSuggestion",
-    //     "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus"
-    // },
-    // {
-    //     "key": "up",
-    //     "command": "-selectPrevSuggestion",
-    //     "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus"
-    // },
+    {
+        "key": "down",
+        "command": "-selectNextSuggestion",
+        "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus"
+    },
+    {
+        "key": "up",
+        "command": "-selectPrevSuggestion",
+        "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus"
+    },
     {
         "key": "shift+alt+k",
         "command": "extension.aceJump.selection"
@@ -429,6 +529,13 @@
     {
         "key": "ctrl+k 2",
         "command": "workbench.action.splitEditorDown"
+    },
+    {
+        "key": "ctrl+k ctrl+shift+i",
+        "command": "workbench.action.terminal.sendSequence",
+        "args": {
+            "text": "cargo run --manifest-path ~/projects/nixpkgs-fmt/Cargo.toml -- --in-place ${file}\n"
+        }
     },
     {
         "key": "ctrl+k u",
@@ -522,10 +629,6 @@
         "command": "rust-analyzer.run"
     },
     {
-        "key": "ctrl+shift+r",
-        "command": "workbench.action.debug.start"
-    },
-    {
         "key": "Enter",
         "command": "rust-analyzer.onEnter",
         "when": "editorTextFocus && !suggestWidgetVisible && editorLangId == rust"
@@ -543,42 +646,7 @@
         "command": "search.action.openNewEditorToSide"
     },
     {
-        "key": "ctrl+q",
-        "command": "editor.action.showHover"
-    },
-    {
-        "key": "ctrl+shift+p",
-        "command": "workbench.action.openRecent",
-        "when": "!inFilesPicker"
-    },
-    {
-        "key": "alt+w",
-        "command": "-toggleFindWholeWord",
-        "when": "editorFocus"
-    },
-    {
-        "key": "alt+w",
-        "command": "-workbench.action.terminal.toggleFindWholeWord",
-        "when": "terminalFindFocused || terminalFocus"
-    },
-    {
-        "key": "ctrl+f",
-        "command": "-extension.vim_ctrl+f",
-        "when": "editorTextFocus && vim.active && vim.use<C-f> && !inDebugRepl && vim.mode != 'Insert'"
-    },
-    {
-        "key": "ctrl+j",
-        "command": "-extension.vim_ctrl+j",
-        "when": "editorTextFocus && vim.active && vim.use<C-j> && !inDebugRepl"
-    },
-    {
-        "key": "ctrl+j",
-        "command": "selectNextSuggestion",
-        "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus && vim.active"
-    },
-    {
-        "key": "ctrl+k",
-        "command": "selectPrevSuggestion",
-        "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus && vim.active"
-    },
+        "key": "ctrl+shift+n",
+        "command": "-workbench.action.newWindow"
+    }
 ]
