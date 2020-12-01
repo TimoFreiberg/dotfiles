@@ -489,16 +489,16 @@
         "command": "-cursorUndo",
         "when": "textInputFocus"
     },
-    {
-        "key": "down",
-        "command": "-selectNextSuggestion",
-        "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus"
-    },
-    {
-        "key": "up",
-        "command": "-selectPrevSuggestion",
-        "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus"
-    },
+    // {
+    //     "key": "down",
+    //     "command": "-selectNextSuggestion",
+    //     "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus"
+    // },
+    // {
+    //     "key": "up",
+    //     "command": "-selectPrevSuggestion",
+    //     "when": "suggestWidgetMultipleSuggestions && suggestWidgetVisible && textInputFocus"
+    // },
     {
         "key": "shift+alt+k",
         "command": "extension.aceJump.selection"
