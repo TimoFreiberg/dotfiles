@@ -19,6 +19,7 @@ Plug 'neoclide/coc.nvim', {'branch': 'release'}
 Plug 'itchyny/lightline.vim'
 Plug 'machakann/vim-highlightedyank'
 Plug 'morhetz/gruvbox'
+Plug 'arcticicestudio/nord-vim'
 
 Plug 'tpope/vim-surround'
 Plug 'airblade/vim-rooter'
@@ -149,9 +150,8 @@ if has('nvim')
     noremap <C-q> :confirm qall<CR>
 end
 
-" Gruvbox
-"
-colorscheme gruvbox
+" colorscheme gruvbox
+colorscheme nord
 
 let g:secure_modelines_allowed_items = [
                 \ "textwidth",   "tw",
