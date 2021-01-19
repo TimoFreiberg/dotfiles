@@ -32,7 +32,9 @@ set IGNORED \
     org/gtk/settings/file-chooser \
     org/gnome/desktop/background \
     org/gnome/desktop/screensaver \
-    org/gnome/maps
+    org/gnome/maps \
+    org/gnome/documents \
+    org/gnome/nm-applet
 
 dconf dump / > $TMP
 
