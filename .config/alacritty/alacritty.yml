@@ -3,8 +3,8 @@ env:
 
 font:
   normal:
-    family: Fira Mono
-  size: 12
+    family: Fantasque Sans Mono
+  size: 16
 
 window:
   decorations: none

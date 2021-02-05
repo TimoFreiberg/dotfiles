@@ -4,7 +4,7 @@
     "window.newWindowDimensions": "maximized",
     "files.autoSave": "afterDelay",
     "files.autoSaveDelay": 250,
-    "editor.fontFamily": "'Fira Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
+    "editor.fontFamily": "'Fantasque Sans Mono', 'Fira Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
     "editor.dragAndDrop": false,
     "editor.accessibilitySupport": "off",
     "editor.mouseWheelZoom": true,
@@ -143,7 +143,8 @@
     ],
     "vim.leader": "<space>",
     "vim.highlightedyank.enable": true,
-    "window.zoomLevel": 1
+    "window.zoomLevel": 1,
+    "editor.fontSize": 16
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
     // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux",
