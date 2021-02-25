@@ -4,7 +4,7 @@
     "window.newWindowDimensions": "maximized",
     "files.autoSave": "afterDelay",
     "files.autoSaveDelay": 250,
-    "editor.fontFamily": "'Fantasque Sans Mono', 'Fira Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
+    "editor.fontFamily": "'Jetbrains Mono', 'Fira Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
     "editor.dragAndDrop": false,
     "editor.accessibilitySupport": "off",
     "editor.mouseWheelZoom": true,
