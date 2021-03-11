@@ -34,7 +34,9 @@ set IGNORED \
     org/gnome/desktop/screensaver \
     org/gnome/maps \
     org/gnome/documents \
-    org/gnome/nm-applet
+    org/gnome/nm-applet \
+    org/gnome/evolution \
+    org/gnome/shell/extensions/paperwm/workspaces
 
 dconf dump / > $TMP
 
@@ -43,5 +45,6 @@ for IGNORE_PARAGRAPH in $IGNORED
     gawk -i inplace -v RS= -v ORS='\n\n' "!/$ESCAPED/" $TMP
 end
 sed -i '/^night-light-last-coordinates/d' $TMP
+sed -i '/^command-history/d' $TMP
 
 bat $TMP
