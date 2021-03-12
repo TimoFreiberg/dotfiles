@@ -33,7 +33,7 @@ if status is-interactive
     abbr --add --global scX 'sudo systemctl start'
     abbr --add --global scr 'sudo systemctl restart'
     abbr --add --global scx 'sudo systemctl stop'
-    abbr --add --global spr 'sudo pacman -R'
+    abbr --add --global spr 'sudo pacman -Rs'
     abbr --add --global sps 'sudo pacman -S'
     abbr --add --global ssc 'sudo systemctl'
     abbr --add --global syu 'nice paru -Syu --devel'
