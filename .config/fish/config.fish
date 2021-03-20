@@ -30,6 +30,7 @@ if status is-interactive
     abbr --add --global ll 'ls -A'
     abbr --add --global pm pacman
     abbr --add --global sc systemctl
+    abbr --add --global scu 'systemctl --user'
     abbr --add --global scX 'sudo systemctl start'
     abbr --add --global scr 'sudo systemctl restart'
     abbr --add --global scx 'sudo systemctl stop'
