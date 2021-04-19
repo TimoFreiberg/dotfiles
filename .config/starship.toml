@@ -1,5 +1,6 @@
 [character]
-symbol = "$"
+success_symbol = "[\\$](bold green)"
+error_symbol = "[\\$](bold red)"
 
 [directory]
 fish_style_pwd_dir_length = 2
