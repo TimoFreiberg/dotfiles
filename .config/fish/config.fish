@@ -6,7 +6,7 @@ set -x EDITOR nvim
 set -x VISUAL nvim
 set -x XDG_CONFIG_HOME $HOME/.config
 set -x EMACS_HOME $XDG_CONFIG_HOME/emacs/
-set -x NOTE_FILE ~/Dropbox/notes.md
+set -x NOTE_FILE ~/Dropbox/notes/notes.md
 
 if type starship > /dev/null 2>&1
     eval (starship init fish)
