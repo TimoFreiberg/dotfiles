@@ -153,4 +153,14 @@
         "command": "rust-analyzer.onEnter",
         "when": "editorTextFocus && !suggestWidgetVisible && editorLangId == rust"
     },
+    {
+        "key": "alt+1",
+        "command": "workbench.files.action.focusFilesExplorer",
+        "when": "!filesExplorerFocus"
+    },
+    {
+        "key": "alt+1",
+        "command": "workbench.action.toggleSidebarVisibility",
+        "when": "filesExplorerFocus"
+    },
 ]

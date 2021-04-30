@@ -147,7 +147,14 @@
     "editor.fontSize": 16,
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
-    }
+    },
+    "editor.minimap.enabled": false,
+    "workbench.editor.showTabs": false,
+    "workbench.editor.tabCloseButton": "off",
+    "workbench.activityBar.visible": false,
+    "editor.semanticHighlighting.enabled": true,
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
     // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux",
