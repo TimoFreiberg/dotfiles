@@ -115,7 +115,7 @@
         "when": "editorFocus && findWidgetVisible"
     },
     {
-        "key": "alt+enter",
+        "key": "ctrl+.",
         "command": "editor.action.quickFix",
         "when": "editorHasCodeActionsProvider && editorTextFocus && !editorReadonly"
     },
@@ -144,7 +144,6 @@
         "command": "editor.action.goToImplementation",
         "when": "editorHasImplementationProvider && editorTextFocus && !isInEmbeddedEditor"
     },
-    
     // {
     //     "key": "ctrl+r",
     //     "command": "rust-analyzer.run"
