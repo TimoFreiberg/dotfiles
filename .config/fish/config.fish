@@ -12,12 +12,6 @@ if type starship > /dev/null 2>&1
     eval (starship init fish)
 end
 
-if type zoxide > /dev/null 2>&1
-    function _zoxide_hook --on-variable PWD
-        zoxide add
-    end
-end
-
 # Abbreviations
 if status is-interactive
     abbr --add --global :q exit
@@ -45,9 +39,6 @@ if status is-interactive
     abbr --add --global tn tmux-new
     abbr --add --global xb xsel -b
     abbr --add --global zi 'z -i'
-    abbr --add --global za 'zoxide add'
-    abbr --add --global zq 'zoxide query'
-    abbr --add --global zr 'zoxide remove'
     abbr --add --global wlp 'wl-paste'
     abbr --add --global wlc 'wl-copy'
 
@@ -91,14 +82,6 @@ if status is-interactive
         abbr --add --global la 'exa -la'
     end
 end
-
-if command -v zoxide > /dev/null
-    function zoxide-add --on-event fish_prompt
-        zoxide add
-    end
-end
-
-
 
 setenv FZF_DEFAULT_COMMAND 'fd --type file --follow'
 setenv FZF_CTRL_T_COMMAND 'fd --type file --follow'
