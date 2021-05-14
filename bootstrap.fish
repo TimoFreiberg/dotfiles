@@ -16,12 +16,15 @@ function symlink_dotfile
     ln -s $DOTFILEDIR/$argv $HOMEDIR/$argv
 end
 
-set DOTFILES bin Wallpapers .config .ghci .gitconfig .profile .spacemacs .tmux.conf 
+set DOTFILES bin Wallpapers .gitconfig .spacemacs .tmux.conf 
 
 for dotfile in $DOTFILES
     backup_dotfile $dotfile
     symlink_dotfile $dotfile
 end
+
+backup_dotfile .config
+ln -s $DOTFILEDIR/config $HOMEDIR/.config
 
 backup_dotfile .gitcredentials
 echo '[user]
