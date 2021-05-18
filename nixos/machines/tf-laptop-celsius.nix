@@ -16,7 +16,7 @@
     interfaces = {
         wlp3s0.useDHCP = true;
         enp0s25.useDHCP = true;
-    }
+    };
   };
 
   environment.systemPackages =
