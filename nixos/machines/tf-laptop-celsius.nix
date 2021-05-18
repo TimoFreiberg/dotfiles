@@ -4,7 +4,7 @@
   imports = [
     ../common.nix
     ../roles/fish.nix
-    ../roles/gnome3.nix
+    ../roles/gnome.nix
     ../roles/games.nix
     ../roles/perftools.nix
     ../filesystems/tf-laptop-celsius.nix
