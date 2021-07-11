@@ -155,7 +155,9 @@
     "editor.semanticHighlighting.enabled": true,
     "files.trimFinalNewlines": true,
     "files.trimTrailingWhitespace": true,
-    "redhat.telemetry.enabled": false
+    "redhat.telemetry.enabled": false,
+    "javascript.updateImportsOnFileMove.enabled": "always",
+    "typescript.updateImportsOnFileMove.enabled": "always",
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
     // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux",
