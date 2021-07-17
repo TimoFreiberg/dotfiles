@@ -144,7 +144,7 @@
     "vim.leader": "<space>",
     "vim.highlightedyank.enable": true,
     "window.zoomLevel": 1,
-    "editor.fontSize": 18,
+    "editor.fontSize": 17,
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
