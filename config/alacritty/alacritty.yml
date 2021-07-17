@@ -3,8 +3,8 @@ env:
 
 font:
   normal:
-    family: Jetbrains Mono
-  size: 14
+    family: Iosevka
+  size: 16
 
 window:
   decorations: none
