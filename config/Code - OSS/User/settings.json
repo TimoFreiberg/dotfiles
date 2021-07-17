@@ -4,7 +4,7 @@
     "window.newWindowDimensions": "maximized",
     "files.autoSave": "afterDelay",
     "files.autoSaveDelay": 250,
-    "editor.fontFamily": "'Jetbrains Mono', 'Fira Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
+    "editor.fontFamily": "'Iosevka', 'Jetbrains Mono', 'Fira Mono', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
     "editor.dragAndDrop": false,
     "editor.accessibilitySupport": "off",
     "editor.mouseWheelZoom": true,
@@ -144,7 +144,7 @@
     "vim.leader": "<space>",
     "vim.highlightedyank.enable": true,
     "window.zoomLevel": 1,
-    "editor.fontSize": 16,
+    "editor.fontSize": 18,
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
@@ -158,6 +158,7 @@
     "redhat.telemetry.enabled": false,
     "javascript.updateImportsOnFileMove.enabled": "always",
     "typescript.updateImportsOnFileMove.enabled": "always",
+    "editor.inlayHints.fontFamily": "'Iosevka', 'Droid Sans Mono', 'monospace', monospace, 'Droid Sans Fallback'",
     //"rust-analyzer.trace.server": "verbose",
     // "rust-analyzer.trace.extension": true,
     // "rust-analyzer.serverPath": "~/.config/Code - OSS/User/globalStorage/matklad.rust-analyzer/rust-analyzer-linux",
