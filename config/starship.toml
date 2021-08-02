@@ -9,6 +9,7 @@ $git_state\
 $git_status\
 $cmd_duration\
 $line_break\
+$time \
 $jobs\
 $battery\
 $character"""
@@ -32,5 +33,6 @@ disabled = true
 [java]
 disabled = true
 
-# [time]
-# disabled = false
+[time]
+format = "[$time]($style)"
+disabled = false
