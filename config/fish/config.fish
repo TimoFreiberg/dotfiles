@@ -32,6 +32,7 @@ if status is-interactive
     abbr --add --global sps 'sudo pacman -S'
     abbr --add --global ssc 'sudo systemctl'
     abbr --add --global syu 'nice paru -Syu --devel'
+    abbr --add --global rsup 'rustup update; cargo sweep --installed -r ~/code'
     abbr --add --global tp trash
     abbr --add --global t tmux
     abbr --add --global v vim
