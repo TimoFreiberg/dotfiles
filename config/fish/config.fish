@@ -1,6 +1,8 @@
 # set -x PATH $PATH ~/bin ~/bin/nogit ~/.local/bin ~/.cabal/bin
 # set -x PATH (echo $PATH | awk -v RS=' ' '!dedup[$1]++ {if (NR > 1) printf RS;  printf $1}')
 set -x fish_user_paths ~/bin ~/bin/nogit ~/.local/bin ~/.emacs.d/bin ~/.cargo/bin
+set -x fish_user_paths $fish_user_paths /opt/homebrew/bin
+set -x fish_user_paths $fish_user_paths /usr/local/google-cloud-sdk/bin
 
 set -x EDITOR nvim
 set -x VISUAL nvim
@@ -88,3 +90,6 @@ end
 setenv FZF_DEFAULT_COMMAND 'fd --type file --follow'
 setenv FZF_CTRL_T_COMMAND 'fd --type file --follow'
 setenv FZF_DEFAULT_OPTS '--height 20%'
+
+# Added by eng-bootstrap 2022-01-19 20:44:10
+set -x -a PATH /usr/local/google-cloud-sdk/bin
