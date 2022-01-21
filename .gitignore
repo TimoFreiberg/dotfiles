@@ -46,5 +46,6 @@ config/fish/fish_variables
 !/config/newsboat
 !/config/gtk-3.0
 !/config/Code\ -\ OSS
+!/config/Code/User
 
 !/nixos
