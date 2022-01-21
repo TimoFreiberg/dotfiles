@@ -1,3 +1,3 @@
 function ls
-	command ls --group-directories-first --color $argv;
+	command ls --color $argv;
 end
