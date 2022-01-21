@@ -25,7 +25,7 @@ Plug 'airblade/vim-rooter'
 Plug 'godlygeek/tabular'
 Plug 'andymass/vim-matchup'
 
-Plug 'cespare/vim-toml'
+" Plug 'cespare/vim-toml'
 Plug 'stephpy/vim-yaml'
 Plug 'rust-lang/rust.vim'
 Plug 'dag/vim-fish'
