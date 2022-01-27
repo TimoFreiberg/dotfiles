@@ -94,3 +94,5 @@ setenv FZF_DEFAULT_OPTS '--height 20%'
 
 # Added by eng-bootstrap 2022-01-19 20:44:10
 set -x -a PATH /usr/local/google-cloud-sdk/bin
+
+eval (chef shell-init fish)
