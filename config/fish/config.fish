@@ -3,6 +3,7 @@
 set -x fish_user_paths ~/bin ~/bin/nogit ~/.local/bin ~/.emacs.d/bin ~/.cargo/bin
 fish_add_path /usr/local/google-cloud-sdk/bin
 fish_add_path /opt/homebrew/bin 
+fish_add_path /opt/homebrew/opt/openssl@1.1/bin
 
 set -x EDITOR nvim
 set -x VISUAL nvim
