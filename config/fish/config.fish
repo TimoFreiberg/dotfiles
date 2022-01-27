@@ -1,6 +1,10 @@
 # set -x PATH $PATH ~/bin ~/bin/nogit ~/.local/bin ~/.cabal/bin
 # set -x PATH (echo $PATH | awk -v RS=' ' '!dedup[$1]++ {if (NR > 1) printf RS;  printf $1}')
-set -x fish_user_paths ~/bin ~/bin/nogit ~/.local/bin ~/.emacs.d/bin ~/.cargo/bin
+fish_add_path ~/bin
+fish_add_path ~/bin/nogit
+fish_add_path ~/.local/bin 
+fish_add_path ~/.emacs.d/bin 
+fish_add_path ~/.cargo/bin
 fish_add_path /usr/local/google-cloud-sdk/bin
 fish_add_path /opt/homebrew/bin 
 fish_add_path /opt/homebrew/opt/openssl@1.1/bin
