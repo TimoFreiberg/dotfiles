@@ -100,3 +100,6 @@ setenv FZF_DEFAULT_OPTS '--height 20%'
 set -x -a PATH /usr/local/google-cloud-sdk/bin
 
 eval (chef shell-init fish)
+
+test -e {$HOME}/.iterm2_shell_integration.fish ; and source {$HOME}/.iterm2_shell_integration.fish
+
