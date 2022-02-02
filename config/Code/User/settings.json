@@ -45,5 +45,17 @@
     "editor.fontSize": 16,
     "files.insertFinalNewline": true,
     "files.trimFinalNewlines": true,
-    "files.trimTrailingWhitespace": true
+    "files.trimTrailingWhitespace": true,
+    "terminal.integrated.fontSize": 16,
+    "terminal.integrated.profiles.osx": {
+        "bash": null,
+        "fish": {
+            "path": "/opt/homebrew/bin/fish",
+            "args": [
+                "-l"
+            ]
+        },
+    },
+    "terminal.integrated.defaultProfile.osx": "fish",
+    "explorer.confirmDelete": false,
 }
