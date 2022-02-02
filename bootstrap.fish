@@ -16,7 +16,7 @@ function symlink_dotfile
     ln -s $DOTFILEDIR/$argv $HOMEDIR/$argv
 end
 
-set DOTFILES bin Wallpapers .gitconfig .spacemacs .tmux.conf 
+set DOTFILES bin Wallpapers .spacemacs .tmux.conf 
 
 for dotfile in $DOTFILES
     backup_dotfile $dotfile
@@ -26,8 +26,14 @@ end
 backup_dotfile .config
 ln -s $DOTFILEDIR/config $HOMEDIR/.config
 
-backup_dotfile .gitcredentials
-echo '[user]
-#name = $NAME
-#email = $EMAIL' > $HOMEDIR/.gitcredentials
+backup_dotfile .gitconfig
+cat "[user]
+    name =
+    email =
+
+[include]
+    path=$DOTFILEDIR/gitconfig.ini
+" > ~/.gitconfig
+
+echo "Add name and email to ~/.gitconfig"
 
