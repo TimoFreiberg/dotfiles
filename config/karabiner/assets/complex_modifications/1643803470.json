@@ -200,6 +200,30 @@
       ]
     },
     {
+      "description": "Fn + B to Caps",
+      "manipulators": [
+        {
+          "type": "basic",
+          "from": {
+            "key_code": "b",
+            "modifiers": {
+              "mandatory": [
+                "fn"
+              ],
+              "optional": [
+                "any"
+              ]
+            }
+          },
+          "to": [
+            {
+              "key_code": "caps_lock"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "description": "Fn + M/JKL/UIO/789 to numpad",
       "manipulators": [
         {
