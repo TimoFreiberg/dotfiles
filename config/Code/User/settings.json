@@ -40,6 +40,10 @@
             ]
         },
     ],
+    "vim.handleKeys": {
+        "<C-d>": true,
+        "<C-g>": false
+    },
     "window.zoomLevel": 1,
     "editor.fontSize": 16,
     "files.insertFinalNewline": true,
