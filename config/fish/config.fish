@@ -75,6 +75,8 @@ if status is-interactive
     abbr --add --global gdd 'git diff'
     abbr --add --global gst 'git stash'
     abbr --add --global gre 'git remote'
+    abbr --add --global gr 'git reset'
+    abbr --add --global grh 'git reset --hard'
     abbr --add --global grb 'git rebase'
     abbr --add --global grbc 'git rebase --continue'
     abbr --add --global grba 'git rebase --abort'
@@ -84,6 +86,9 @@ if status is-interactive
     abbr --add --global gw 'git switch'
     abbr --add --global gwc 'git switch --create'
     abbr --add --global gcp 'git cherry-pick'
+    abbr --add --global gm 'git merge'
+    abbr --add --global gma 'git merge --abort'
+
 
     if command -v exa > /dev/null 
         abbr --add --global l exa
