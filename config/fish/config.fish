@@ -87,6 +87,7 @@ if status is-interactive
     abbr --add --global gwc 'git switch --create'
     abbr --add --global gcp 'git cherry-pick'
     abbr --add --global gm 'git merge'
+    abbr --add --global gmc 'git merge --continue'
     abbr --add --global gma 'git merge --abort'
 
 
