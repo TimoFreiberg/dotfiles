@@ -3,7 +3,7 @@ bind diff B !git rebase --autosquash --autostash -i %(commit)^
 
 bind main F !git commit --fixup=%(commit)
 # bind main H !@sh -c "echo %(commit) | wl-copy"
-bind main H !@sh -c "echo %(commit) | pbcopy"
+bind main H !@bash -c "echo -n %(commit) | pbcopy"
 
 bind generic C !git commit --verbose
 bind status C !git commit --verbose
