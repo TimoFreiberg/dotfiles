@@ -89,6 +89,7 @@ if status is-interactive
     abbr --add --global gm 'git merge'
     abbr --add --global gmc 'git merge --continue'
     abbr --add --global gma 'git merge --abort'
+    abbr --add --global grv 'git revert'
 
 
     if command -v exa > /dev/null 
