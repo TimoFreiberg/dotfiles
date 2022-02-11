@@ -68,6 +68,8 @@ if status is-interactive
     abbr --add --global gdtg 'git difftool --gui'
     abbr --add --global gmt 'git mergetool'
     abbr --add --global gb 'git branch'
+    abbr --add --global gbd 'git branch --delete'
+    abbr --add --global gbdf 'git branch --delete --force'
     abbr --add --global gco 'git checkout'
     abbr --add --global gcb 'git checkout -b'
     abbr --add --global gcB 'git checkout -B'
