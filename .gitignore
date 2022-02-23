@@ -1,6 +1,7 @@
 /*
 !/.gitignore
 !/gitconfig.ini
+!/global-gitignore
 !/.tmux.conf
 !/bootstrap.fish
 !/README.md
