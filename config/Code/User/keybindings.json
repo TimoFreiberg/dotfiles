@@ -40,5 +40,15 @@
         "key": "ctrl+i",
         "command": "-extension.vim_ctrl+i",
         "when": "editorTextFocus && vim.active && vim.use<C-i> && !inDebugRepl"
+    },
+    {
+        "key": "shift+alt+w",
+        "command": "editor.action.smartSelect.shrink",
+        "when": "editorTextFocus"
+    },
+    {
+        "key": "ctrl+shift+cmd+left",
+        "command": "-editor.action.smartSelect.shrink",
+        "when": "editorTextFocus"
     }
 ]
