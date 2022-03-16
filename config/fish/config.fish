@@ -105,12 +105,9 @@ setenv FZF_DEFAULT_COMMAND 'fd --type file --follow'
 setenv FZF_CTRL_T_COMMAND 'fd --type file --follow'
 setenv FZF_DEFAULT_OPTS '--height 20%'
 
-test (type zoxide); and zoxide init fish | source
+test (type -q zoxide) && zoxide init fish | source
 
-# Added by eng-bootstrap 2022-01-19 20:44:10
-set -x -a PATH /usr/local/google-cloud-sdk/bin
-
-eval (chef shell-init fish)
+test (type -q chef) && eval (chef shell-init fish)
 
 test -e {$HOME}/.iterm2_shell_integration.fish ; and source {$HOME}/.iterm2_shell_integration.fish
 
