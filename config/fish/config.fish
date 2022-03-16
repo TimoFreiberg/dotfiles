@@ -102,4 +102,7 @@ setenv FZF_DEFAULT_COMMAND 'fd --type file --follow'
 setenv FZF_CTRL_T_COMMAND 'fd --type file --follow'
 setenv FZF_DEFAULT_OPTS '--height 20%'
 
-test (type zoxide); and zoxide init fish | source
+test (type -q zoxide) && zoxide init fish | source
+
+test (type -q chef) && eval (chef shell-init fish)
+
