@@ -1,5 +1,7 @@
 #!/usr/bin/env fish
 
+cd (dirname (status --current-filename))
+
 set DOTFILEDIR (pwd)
 set HOMEDIR $HOME
 set tmpdir (mktemp -d)
@@ -27,7 +29,7 @@ backup_dotfile .config
 ln -s $DOTFILEDIR/config $HOMEDIR/.config
 
 backup_dotfile .gitconfig
-cat "[user]
+echo "[user]
     name =
     email =
 
