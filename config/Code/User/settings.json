@@ -1,5 +1,4 @@
 {
-    "workbench.colorTheme": "Gruvbox Dark Medium",
     "files.autoSave": "onFocusChange",
     "files.autoSaveDelay": 5000,
     "editor.formatOnSave": true,
@@ -59,4 +58,5 @@
     "explorer.confirmDelete": false,
     "editor.quickSuggestionsDelay": 100,
     "editor.wordBasedSuggestions": false,
+    "workbench.colorTheme": "Dracula",
 }
