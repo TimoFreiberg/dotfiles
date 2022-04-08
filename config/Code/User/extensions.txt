@@ -1,7 +1,9 @@
 bungcip.better-toml
+dracula-theme.theme-dracula
 eamodio.gitlens
+jdinhlife.gruvbox
 matklad.rust-analyzer
-ms-python.python
-ms-python.vscode-pylance
-ms-toolsai.jupyter
+ms-azuretools.vscode-docker
+serayuzgur.crates
 vadimcn.vscode-lldb
+vscodevim.vim
