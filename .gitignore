@@ -50,5 +50,6 @@ config/fish/fish_variables
 !/config/Code/User
 !/config/karabiner
 config/karabiner/automatic_backups
+!/config/nushell
 
 !/nixos
