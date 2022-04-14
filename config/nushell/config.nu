@@ -11,7 +11,7 @@ let-env PATH = ($env.PATH | prepend [
 ## aliases
 
 alias g = git
-alias gfa = git fetch 
+alias gf = git fetch --all --prune
 alias v = nvim
 alias l = exa
 alias la = exa -la
