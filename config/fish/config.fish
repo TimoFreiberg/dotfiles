@@ -104,5 +104,5 @@ setenv FZF_DEFAULT_OPTS '--height 20%'
 
 type -q zoxide && zoxide init fish | source
 
-type -q chef && eval (chef shell-init fish)
+# type -q chef && eval (chef shell-init fish)
 
