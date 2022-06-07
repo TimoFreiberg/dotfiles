@@ -99,4 +99,5 @@
     "editor.quickSuggestionsDelay": 100,
     "editor.wordBasedSuggestions": false,
     "workbench.colorTheme": "Dracula",
+    "editor.inlayHints.enabled": "offUnlessPressed",
 }
