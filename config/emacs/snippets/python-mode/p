@@ -1,5 +1,0 @@
-# -*- mode: snippet; require-final-newline: nil -*-
-#name: print
-#key: p
-# --
-print(${1:p})$0
