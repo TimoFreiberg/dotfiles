@@ -1,6 +1,7 @@
 source ~/.config/nvim/plug.vim
 source ~/.config/nvim/appearance.vim
 source ~/.config/nvim/lsp.lua
+source ~/.config/nvim/rust.lua
 
 nnoremap <silent> <C-l> :nohlsearch<CR><C-l>
 set mouse=a
