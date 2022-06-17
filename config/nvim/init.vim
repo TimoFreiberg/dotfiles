@@ -1,4 +1,5 @@
 source ~/.config/nvim/plug.vim
+source ~/.config/nvim/appearance.vim
 
 " General
 
@@ -11,7 +12,6 @@ nnoremap <silent> <C-l> :nohlsearch<CR><C-l>
 set mouse=a
 filetype plugin indent on
 set autoindent
-set noshowmode
 
 set tabstop=4
 set shiftwidth=4
@@ -28,7 +28,6 @@ set updatetime=300
 set shortmess+=c
 
 " always show signcolumns
-set signcolumn=yes
 
 set incsearch
 set ignorecase
@@ -62,7 +61,6 @@ set undodir=~/.vimdid
 set undofile
 
 set relativenumber " Relative line numbers
-set number " Also show current absolute line
 
 let mapleader="\<SPACE>"
 
@@ -110,8 +108,6 @@ if has('nvim')
     set inccommand=nosplit
     noremap <C-q> :confirm qall<CR>
 end
-
-colorscheme dracula
 
 let g:secure_modelines_allowed_items = [
                 \ "textwidth",   "tw",
