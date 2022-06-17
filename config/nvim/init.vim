@@ -5,6 +5,8 @@ source ~/.config/nvim/rust.lua
 source ~/.config/nvim/complete.lua
 
 nnoremap <silent> <C-l> :nohlsearch<CR><C-l>
+nnoremap <silent> <C-n> :nohlsearch<CR><C-l>
+
 set mouse=a
 
 set tabstop=2
