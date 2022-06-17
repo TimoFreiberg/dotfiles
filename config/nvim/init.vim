@@ -1,35 +1,22 @@
 source ~/.config/nvim/plug.vim
 source ~/.config/nvim/appearance.vim
 
-" General
-
-" Taken from burntsushi
-syntax sync fromstart
-
-set hidden
-set hlsearch
 nnoremap <silent> <C-l> :nohlsearch<CR><C-l>
 set mouse=a
-filetype plugin indent on
-set autoindent
 
-set tabstop=4
-set shiftwidth=4
+set tabstop=2
+set shiftwidth=2
 set expandtab
-
-" Some servers have issues with backup files, see #649
-set nobackup
-set nowritebackup
 
 " You will have bad experience for diagnostic messages when it's default 4000.
 set updatetime=300
 
 " don't give |ins-completion-menu| messages.
-set shortmess+=c
+" TODO check if I miss this
+" set shortmess+=c
 
 " always show signcolumns
 
-set incsearch
 set ignorecase
 set smartcase
 set gdefault
@@ -49,7 +36,8 @@ nnoremap ? ?\v
 nnoremap / /\v
 cnoremap %s/ %sm/
 
-set lazyredraw
+" TODO check if I miss this
+" set lazyredraw
 
 set diffopt+=iwhite " No whitespace in vimdiff
 " Make diffing better: https://vimways.org/2018/the-power-of-diff/
@@ -57,10 +45,9 @@ set diffopt+=algorithm:patience
 set diffopt+=indent-heuristic
 
 " Permanent undo
-set undodir=~/.vimdid
+set undodir=~/.vimundo
 set undofile
 
-set relativenumber " Relative line numbers
 
 let mapleader="\<SPACE>"
 
@@ -127,12 +114,11 @@ let g:secure_modelines_allowed_items = [
 let g:lightline = {
       \ 'component_function': {
       \   'filename': 'LightlineFilename',
-      \   'cocstatus': 'coc#status',
       \ },
       \ 'active': {
       \   'right': [ [ 'lineinfo' ],
       \              [ 'percent' ],
-      \              [ 'cocstatus', 'fileformat', 'fileencoding', 'filetype']]
+      \              ]
       \ }
 \ }
 function! LightlineFilename()
@@ -171,7 +157,7 @@ map T <Plug>Sneak_T
 
 " coc.nvim
 "
-source ~/.config/nvim/coc-config.vim
+" source ~/.config/nvim/coc-config.vim
 
 " Rust
 let g:rustfmt_autosave = 1
