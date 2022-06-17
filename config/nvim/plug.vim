@@ -1,4 +1,37 @@
-call plug#begin('~/.local/share/nvim/plugged')
+call plug#begin()
+
+Plug 'dracula/vim', {'as': 'dracula'}
+
+Plug 'folke/trouble.nvim'
+Plug 'gelguy/wilder.nvim'
+Plug 'godlygeek/tabular'
+
+Plug 'hrsh7th/cmp-buffer'
+Plug 'hrsh7th/cmp-cmdline'
+Plug 'hrsh7th/cmp-nvim-lsp'
+Plug 'hrsh7th/cmp-path'
+Plug 'hrsh7th/cmp-vsnip'
+Plug 'hrsh7th/nvim-cmp'
+Plug 'hrsh7th/vim-vsnip'
+
+Plug 'kyazdani42/nvim-web-devicons'
+Plug 'lambdalisue/nerdfont.vim'
+
+Plug 'neovim/nvim-lspconfig'
+
+Plug 'ruanyl/vim-gh-line'
+
+Plug 'rust-lang/rust.vim'
+Plug 'simrat39/rust-tools.nvim'
+
+Plug 'tpope/vim-fugitive'
+
+Plug 'vim-airline/vim-airline'
+
+Plug 'tpope/vim-commentary'
+Plug 'machakann/vim-highlightedyank'
+
+Plug 'vim-test/vim-test'
 
 Plug 'junegunn/fzf', { 'do': { -> fzf#install() } }
 Plug 'junegunn/fzf.vim'
@@ -6,33 +39,17 @@ Plug 'junegunn/fzf.vim'
 " Disabled now because it's buggy
 " Plug 'junegunn/vim-peekaboo'
 
-Plug 'justinmk/vim-sneak'
+" Plug 'justinmk/vim-sneak'
 Plug 'ciaranm/securemodelines'
 
-" Plug 'neoclide/coc.nvim', {'branch': 'release'}
-" Plug 'TimoFreiberg/coc.nvim', {'branch': 'dev', 'do': 'yarn install --frozen-lockfile'}
-" :CocInstall coc-rust-analyzer
-" :CocInstall coc-pairs
-" Plug 'TimoFreiberg/coc-rust-analyzer', {'branch': 'dev', 'do': 'yarn install --frozen-lockfile'}
-" Plug 'fannheyward/coc-rust-analyzer', {'branch': 'master', 'do': 'yarn install --frozen-lockfile'}
-
-Plug 'vim-airline/vim-airline'
-Plug 'machakann/vim-highlightedyank'
-
-Plug 'dracula/vim', {'as': 'dracula'}
-
-Plug 'tpope/vim-surround'
-Plug 'airblade/vim-rooter'
-Plug 'godlygeek/tabular'
-Plug 'andymass/vim-matchup'
+" Plug 'tpope/vim-surround'
+" Plug 'airblade/vim-rooter'
+" Plug 'andymass/vim-matchup'
 
 " Plug 'cespare/vim-toml'
-Plug 'stephpy/vim-yaml'
-Plug 'rust-lang/rust.vim'
-Plug 'dag/vim-fish'
+" Plug 'stephpy/vim-yaml'
+" Plug 'dag/vim-fish'
 
-Plug 'tpope/vim-fugitive'
-Plug 'tpope/vim-commentary'
 
 " Autopairing plugin
 " Plug 'tmsvg/pear-tree'
