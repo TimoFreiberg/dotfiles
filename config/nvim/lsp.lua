@@ -20,9 +20,8 @@ end
 local bufopts = { noremap=true, silent=true, buffer=bufnr }
 
 vim.keymap.set('n', '<C-k>', vim.lsp.buf.signature_help, bufopts)
-vim.keymap.set('n', 'gy', vim.lsp.buf.type_definition, bufopts)
-vim.keymap.set('n', '<space>.', vim.lsp.buf.code_action, bufopts)
-vim.keymap.set('n', '<space>f', vim.lsp.buf.formatting, bufopts)
+vim.keymap.set('n', '<space>a', vim.lsp.buf.code_action, bufopts)
+vim.keymap.set('n', '<space>=', vim.lsp.buf.formatting, bufopts)
 vim.keymap.set('n', '<space>r', vim.lsp.buf.rename, bufopts)
 vim.keymap.set('n', '<space>wa', vim.lsp.buf.add_workspace_folder, bufopts)
 vim.keymap.set('n', '<space>wl', function()
@@ -30,16 +29,6 @@ vim.keymap.set('n', '<space>wl', function()
 end, bufopts)
 vim.keymap.set('n', '<space>wr', vim.lsp.buf.remove_workspace_folder, bufopts)
 vim.keymap.set('n', 'K', vim.lsp.buf.hover, bufopts)
--- I don't care about go-to-file
-vim.keymap.set('n', 'gF', vim.lsp.buf.code_action, bufopts)
-vim.keymap.set('n', 'g0', vim.lsp.buf.document_symbol, bufopts)
-vim.keymap.set('n', 'gD', vim.lsp.buf.declaration, bufopts)
-vim.keymap.set('n', 'gW', vim.lsp.buf.workspace_symbol, bufopts)
-vim.keymap.set('n', 'gd', vim.lsp.buf.definition, bufopts)
-vim.keymap.set('n', 'gi', vim.lsp.buf.implementation, bufopts)
-vim.keymap.set('n', 'gr', vim.lsp.buf.references, bufopts)
--- I don't use tabs
-vim.keymap.set('n', 'gt', vim.lsp.buf.type_definition, bufopts)
 
 local lsp_flags = {
   -- This is the default in Nvim 0.7+
