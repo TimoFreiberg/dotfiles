@@ -1,14 +1,3 @@
-
--- nmap <silent> <leader>b :Buffers<CR>
--- " Opens command prompt with `:Rg ` already typed -> project wide search
--- nmap <leader>/ :Rg 
--- " Opens a search over the lines of the open buffer
--- nmap <leader>l :BLines<CR>
--- " Calls `:Rg` with the current word under the cursor (<C-R><C-W> selects the
--- " current word under cursor)
--- nnoremap <leader>* yiw:Rg \b<C-R>"\b<CR>
--- map <leader>: :Commands<CR>
-
 vim.keymap.set('n', '<leader>T', ':Telescope<cr>')
 vim.keymap.set('n', '<leader>f', ':Telescope fd<cr>', {silent = true})
 vim.keymap.set('n', '<leader>:', ':Telescope commands<cr>', {silent = true})

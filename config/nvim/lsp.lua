@@ -1,5 +1,3 @@
-require'lspconfig'.rust_analyzer.setup{}
-
 -- Mappings.
 -- See `:help vim.diagnostic.*` for documentation on any of the below functions
 local opts = { noremap=true, silent=true }
@@ -35,11 +33,15 @@ local lsp_flags = {
   debounce_text_changes = 150,
 }
 
+-- Setup lspconfig.
+local capabilities = require('cmp_nvim_lsp').update_capabilities(vim.lsp.protocol.make_client_capabilities())
+
 require('lspconfig')['rust_analyzer'].setup {
     on_attach = on_attach,
     flags = lsp_flags,
     -- Server-specific settings...
     settings = {
       ["rust-analyzer"] = {}
-    }
+    },
+    capabilities = capabilities
 }

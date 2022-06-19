@@ -44,8 +44,7 @@ Plug 'ciaranm/securemodelines'
 
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 
-" Disabled now because it's buggy
-" Plug 'junegunn/vim-peekaboo'
+Plug 'windwp/nvim-autopairs'
 
 " Plug 'justinmk/vim-sneak'
 
@@ -55,7 +54,6 @@ Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 " Plug 'cespare/vim-toml'
 " Plug 'stephpy/vim-yaml'
 " Plug 'dag/vim-fish'
-
 
 " Autopairing plugin
 " Plug 'tmsvg/pear-tree'
