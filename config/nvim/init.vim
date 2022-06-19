@@ -4,9 +4,10 @@ source ~/.config/nvim/appearance.vim
 source ~/.config/nvim/lsp.lua
 source ~/.config/nvim/rust.lua
 source ~/.config/nvim/complete.lua
-source ~/.config/nvim/search.lua
+source ~/.config/nvim/telescope.lua
 source ~/.config/nvim/treesitter.lua
 source ~/.config/nvim/git.lua
+source ~/.config/nvim/autopairs.lua
 
 nnoremap <silent> <C-l> :nohlsearch<CR><C-l>
 nnoremap <silent> <C-n> :nohlsearch<CR><C-l>
