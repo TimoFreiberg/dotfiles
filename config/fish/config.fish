@@ -40,7 +40,7 @@ if status is-interactive
     abbr --add --global ssc 'sudo systemctl'
     abbr --add --global syu 'nice paru -Syu --devel --upgrademenu'
     abbr --add --global rsup 'rustup update; cargo sweep --installed -r ~/code'
-    abbr --add --global vimup 'nvim +PlugClean +PlugInstall +PlugUpdate +CocUpdate'
+    abbr --add --global vimup 'nvim +PlugClean +PlugInstall +PlugUpdate'
     abbr --add --global tp trash
     abbr --add --global t tmux
     abbr --add --global v vim
