@@ -40,17 +40,17 @@
         },
         {
             "before": [
-                "g",
-                "p"
+                "[",
+                "d"
             ],
             "commands": [
-                "editor.action.marker.next"
+                "editor.action.marker.prevInFiles"
             ]
         },
         {
             "before": [
-                "g",
-                "P"
+                "]",
+                "d"
             ],
             "commands": [
                 "editor.action.marker.nextInFiles"
