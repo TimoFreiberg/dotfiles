@@ -74,6 +74,24 @@
                 "editor.action.rename"
             ]
         },
+        {
+            "before": [
+                "<leader>",
+                "o"
+            ],
+            "commands": [
+                "workbench.action.gotoSymbol"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "s"
+            ],
+            "commands": [
+                "workbench.action.showAllSymbols"
+            ]
+        },
     ],
     "window.zoomLevel": 1,
     "editor.fontSize": 16,
