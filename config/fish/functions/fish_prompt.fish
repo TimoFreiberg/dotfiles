@@ -3,10 +3,10 @@ function fish_prompt
     tty|grep -q tty; and set tty tty; or set tty pts
 
     function _git_branch_name
-        echo (git symbolic-ref HEAD ^/dev/null | sed -e 's|^refs/heads/||')
+        echo (git symbolic-ref HEAD 2> /dev/null | sed -e 's|^refs/heads/||')
     end
     function _is_git_dirty
-        echo (git status -s --ignore-submodules=dirty ^/dev/null)
+        echo (git status -s --ignore-submodules=dirty 2> /dev/null)
     end
     if [ (_git_branch_name) ]
         set -l git_branch (set_color -o blue)(_git_branch_name)
