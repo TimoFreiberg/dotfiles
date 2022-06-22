@@ -126,7 +126,7 @@ function fish_prompt
     # if [ $tty = tty ]
     #     echo -n "'->"
     # else
-        echo -n '    ╰─>'
+        echo -n '╰─>'
     # end
     set_color -o red
     echo -n '$ '
