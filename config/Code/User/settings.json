@@ -97,7 +97,6 @@
         "<C-d>": true,
         "<C-g>": false
     },
-    "window.zoomLevel": 1,
     "editor.fontSize": 16,
     "files.insertFinalNewline": true,
     "files.trimFinalNewlines": true,
@@ -117,4 +116,5 @@
     "editor.quickSuggestionsDelay": 100,
     "editor.wordBasedSuggestions": false,
     "workbench.colorTheme": "Dracula",
+    "window.zoomLevel": 1,
 }
