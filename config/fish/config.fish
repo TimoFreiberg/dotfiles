@@ -84,7 +84,6 @@ if status is-interactive
     abbr --add --global grba 'git rebase --abort'
     abbr --add --global gpf 'git push --force-with-lease'
     abbr --add --global gfa 'git fetch --all --prune'
-    abbr --add --global gpu 'git push --set-upstream origin HEAD'
     abbr --add --global gw 'git switch'
     abbr --add --global gwc 'git switch --create'
     abbr --add --global gcp 'git cherry-pick'
