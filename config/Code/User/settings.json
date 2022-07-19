@@ -118,4 +118,5 @@
     "workbench.colorTheme": "Dracula",
     "git.mergeEditor": true,
     "window.zoomLevel": 1,
+    "editor.inlayHints.enabled": "onUnlessPressed",
 }
