@@ -92,6 +92,24 @@
                 "workbench.action.showAllSymbols"
             ]
         },
+        {
+            "before": [
+                "<leader>",
+                "K"
+            ],
+            "commands": [
+                "rust-analyzer.moveItemUp"
+            ]
+        },
+        {
+            "before": [
+                "<leader>",
+                "J"
+            ],
+            "commands": [
+                "rust-analyzer.moveItemDown"
+            ]
+        },
     ],
     "vim.handleKeys": {
         "<C-d>": true,
