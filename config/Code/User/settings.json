@@ -113,4 +113,8 @@
     "editor.quickSuggestionsDelay": 100,
     "editor.wordBasedSuggestions": false,
     "workbench.colorTheme": "Dracula",
+    "git.mergeEditor": true,
+    "editor.inlayHints.enabled": "onUnlessPressed",
+    "editor.dragAndDrop": false,
+    "window.zoomLevel": 1,
 }
