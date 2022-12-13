@@ -135,7 +135,7 @@
     "editor.wordBasedSuggestions": false,
     "workbench.colorTheme": "Dracula",
     "git.mergeEditor": true,
-    "editor.inlayHints.enabled": "onUnlessPressed",
+    "editor.inlayHints.enabled": "offUnlessPressed",
     "editor.dragAndDrop": false,
     "window.zoomLevel": 1,
 }
