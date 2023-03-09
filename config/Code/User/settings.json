@@ -137,6 +137,7 @@
     "git.mergeEditor": true,
     "editor.inlayHints.enabled": "offUnlessPressed",
     "editor.dragAndDrop": false,
+    "_git.path": "/opt/homebrew/bin/git",
     "editor.stickyScroll.enabled": true,
     "window.nativeFullScreen": false,
     "rust-analyzer.imports.granularity.enforce": true,
