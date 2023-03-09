@@ -137,5 +137,13 @@
     "git.mergeEditor": true,
     "editor.inlayHints.enabled": "offUnlessPressed",
     "editor.dragAndDrop": false,
+    "rust-analyzer.imports.granularity.enforce": true,
+    "rust-analyzer.imports.prefix": "crate",
+    "rust-analyzer.references.excludeImports": true,
     "window.zoomLevel": 1,
+    "rust-analyzer.procMacro.ignored": {
+        "tracing-attributes": [
+            "instrument"
+        ]
+    },
 }
