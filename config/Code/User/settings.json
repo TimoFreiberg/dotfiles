@@ -138,6 +138,7 @@
     "editor.inlayHints.enabled": "offUnlessPressed",
     "editor.dragAndDrop": false,
     "editor.stickyScroll.enabled": true,
+    "window.nativeFullScreen": false,
     "rust-analyzer.imports.granularity.enforce": true,
     "rust-analyzer.imports.prefix": "crate",
     "rust-analyzer.references.excludeImports": true,
