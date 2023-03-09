@@ -137,6 +137,7 @@
     "git.mergeEditor": true,
     "editor.inlayHints.enabled": "offUnlessPressed",
     "editor.dragAndDrop": false,
+    "editor.stickyScroll.enabled": true,
     "rust-analyzer.imports.granularity.enforce": true,
     "rust-analyzer.imports.prefix": "crate",
     "rust-analyzer.references.excludeImports": true,
