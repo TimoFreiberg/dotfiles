@@ -1,9 +1,7 @@
 bungcip.better-toml
 dracula-theme.theme-dracula
 eamodio.gitlens
-jdinhlife.gruvbox
-matklad.rust-analyzer
-ms-azuretools.vscode-docker
-serayuzgur.crates
-vadimcn.vscode-lldb
+ms-vsliveshare.vsliveshare
+rust-lang.rust-analyzer
+ryu1kn.partial-diff
 vscodevim.vim
