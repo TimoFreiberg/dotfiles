@@ -79,6 +79,7 @@ if status is-interactive
     abbr --add --global gre 'git remote'
     abbr --add --global gr 'git reset'
     abbr --add --global grh 'git reset --hard'
+    abbr --add --global grH 'git reset HEAD^'
     abbr --add --global grb 'git rebase'
     abbr --add --global grbc 'git rebase --continue'
     abbr --add --global grba 'git rebase --abort'
