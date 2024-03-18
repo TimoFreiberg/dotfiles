@@ -7,7 +7,7 @@ source ~/.config/nushell/path.nu
 source ~/.cache/starship/init.nu
 
 # zoxide init nushell --hook prompt | save ~/.cache/zoxide/init.nu
-source ~/.cache/zoxide/init.nu
+# source ~/.cache/zoxide/init.nu
 
 ##
 
@@ -196,7 +196,7 @@ let light_theme = {
 
 
 # The default config record. This is where much of your global configuration is setup.
-let-env config = {
+$env.config = {
   # true or false to enable or disable the welcome banner at startup
   show_banner: true
   ls: {
@@ -207,7 +207,7 @@ let-env config = {
     always_trash: false # always act as if -t was given. Can be overridden with -p
   }
   cd: {
-    abbreviations: false # allows `cd s/o/f` to expand to `cd some/other/folder`
+    # abbreviations: false # allows `cd s/o/f` to expand to `cd some/other/folder`
   }
   table: {
     mode: rounded # basic, compact, compact_double, light, thin, with_love, rounded, reinforced, heavy, none, other
