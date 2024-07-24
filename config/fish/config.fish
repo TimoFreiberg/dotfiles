@@ -24,10 +24,7 @@ if status is-interactive
     abbr --add --global :q exit
     abbr --add --global cal 'cal -3 -w -m'
     abbr --add --global g git
-    abbr --add --global l exa 
-    abbr --add --global ll exa -l
     abbr --add --global l1 ls-1A
-    abbr --add --global la exa -la
     abbr --add --global ll 'ls -A'
     abbr --add --global pm pacman
     abbr --add --global sc systemctl
@@ -94,10 +91,10 @@ if status is-interactive
     abbr --add --global grv 'git revert'
 
 
-    if command -v exa > /dev/null 
-        abbr --add --global l exa
-        abbr --add --global ll 'exa -l'
-        abbr --add --global la 'exa -la'
+    if command -v eza > /dev/null 
+        abbr --add --global l eza
+        abbr --add --global ll 'eza -l'
+        abbr --add --global la 'eza -la'
     end
 end
 
