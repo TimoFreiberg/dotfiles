@@ -132,8 +132,8 @@
     "terminal.integrated.defaultProfile.osx": "fish",
     "explorer.confirmDelete": false,
     "editor.quickSuggestionsDelay": 100,
-    "editor.wordBasedSuggestions": false,
-    "workbench.colorTheme": "Dracula",
+    "editor.wordBasedSuggestions": "off",
+    "workbench.colorTheme": "Dracula Theme",
     "git.mergeEditor": true,
     "editor.inlayHints.enabled": "offUnlessPressed",
     "editor.dragAndDrop": false,
@@ -149,4 +149,18 @@
             "instrument"
         ]
     },
+    "git.openRepositoryInParentFolders": "never",
+    "editor.accessibilitySupport": "off",
+    "diffEditor.maxComputationTime": 1000,
+    "diffEditor.hideUnchangedRegions.enabled": true,
+    "rust-analyzer.cargo.sysrootQueryMetadata": true,
+    "redhat.telemetry.enabled": false,
+    "workbench.editorAssociations": {
+        "*.bin": "hexEditor.hexedit"
+    },
+    "rust-analyzer.imports.granularity.group": "item",
+    "rust-analyzer.imports.merge.glob": false,
+    "cmake.showOptionsMovedNotification": false,
+    "cmake.configureOnOpen": false,
+    "makefile.configureOnOpen": false,
 }
