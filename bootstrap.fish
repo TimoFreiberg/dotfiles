@@ -18,12 +18,8 @@ function symlink_dotfile
     ln -s $DOTFILEDIR/$argv $HOMEDIR/$argv
 end
 
-set DOTFILES bin .tmux.conf 
-
-for dotfile in $DOTFILES
-    backup_dotfile $dotfile
-    symlink_dotfile $dotfile
-end
+backup_dotfile .tmux.conf
+symlink_dotfile .tmux.conf
 
 backup_dotfile .config
 ln -s $DOTFILEDIR/config $HOMEDIR/.config
