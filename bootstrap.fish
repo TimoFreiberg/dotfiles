@@ -18,7 +18,7 @@ function symlink_dotfile
     ln -s $DOTFILEDIR/$argv $HOMEDIR/$argv
 end
 
-set DOTFILES bin Wallpapers .spacemacs .tmux.conf 
+set DOTFILES bin .tmux.conf 
 
 for dotfile in $DOTFILES
     backup_dotfile $dotfile
