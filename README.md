@@ -1,4 +1,4 @@
-# Linux/MacOS Installation
+tp[# Linux/MacOS Installation
 
 Run `bootstrap.fish`
 
@@ -21,3 +21,4 @@ Key tools
   - Motivity: 1.3
   - Midpoint: 5
   - All of this is WIP
+- US International (no dead keys) keyboard layout: Use [Microsoft Keyboard Layout Creator](https://www.microsoft.com/en-us/download/details.aspx?id=102134) to import the layout file, create an installer/dll from it and run that.
