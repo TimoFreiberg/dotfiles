@@ -1,0 +1,19 @@
+/*
+!.gitignore
+
+!vim
+!nvim
+!bat
+!fish
+fish/fish*history
+fish/fishd*
+fish/fish_variables
+!tig
+!starship.toml
+!gtk-3.0
+!Code\ -\ OSS
+!Code/User
+!karabiner
+karabiner/automatic_backups
+!nushell
+!ghostty
