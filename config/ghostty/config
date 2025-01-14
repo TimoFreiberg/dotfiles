@@ -1,5 +1,10 @@
 font-family = "Comic Code"
 font-size = 18
 
+# disable ligatures
+font-feature = -calt
+font-feature = -liga
+font-feature = -dlig
+
 theme = Dracula
 command = /opt/homebrew/bin/fish
