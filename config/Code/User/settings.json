@@ -165,4 +165,5 @@
     "cmake.configureOnOpen": false,
     "makefile.configureOnOpen": false,
     "editor.renderWhitespace": "all",
+    "chat.commandCenter.enabled": false,
 }
