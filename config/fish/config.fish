@@ -89,6 +89,10 @@ if status is-interactive
     abbr --add --global gma 'git merge --abort'
     abbr --add --global grv 'git revert'
 
+    # jj abbreviations
+    abbr --add --global jjgf 'jj git fetch'
+    abbr --add --global jjgp 'jj git push'
+
 
     if command -v eza > /dev/null
         abbr --add --global l eza
