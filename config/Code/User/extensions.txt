@@ -1,7 +1,13 @@
-bungcip.better-toml
 dracula-theme.theme-dracula
 eamodio.gitlens
-ms-vsliveshare.vsliveshare
+llvm-vs-code-extensions.lldb-dap
+ms-vscode-remote.remote-containers
+ms-vscode-remote.remote-ssh
+ms-vscode-remote.remote-ssh-edit
+ms-vscode.hexeditor
+ms-vscode.remote-explorer
 rust-lang.rust-analyzer
 ryu1kn.partial-diff
+tamasfe.even-better-toml
+timonwong.shellcheck
 vscodevim.vim
