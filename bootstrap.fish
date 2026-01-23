@@ -24,6 +24,10 @@ symlink_dotfile .tmux.conf
 backup_dotfile .config
 ln -s $DOTFILEDIR/config $HOMEDIR/.config
 
+# pi coding agent extensions and skills
+ln -sf $DOTFILEDIR/agents/extensions $DOTFILEDIR/config/pi/extensions
+ln -sf $DOTFILEDIR/agents/skills $DOTFILEDIR/config/pi/skills
+
 backup_dotfile .gitconfig
 echo "[user]
     name =
