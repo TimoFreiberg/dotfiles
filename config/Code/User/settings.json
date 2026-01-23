@@ -166,4 +166,12 @@
     "makefile.configureOnOpen": false,
     "editor.renderWhitespace": "all",
     "chat.commandCenter.enabled": false,
+    "git.blame.editorDecoration.enabled": true,
+    "lldb-dap.serverMode": true,
+    "rust-analyzer.check.command": "clippy",
+    "workbench.editor.enablePreview": false,
+    "editor.rename.enablePreview": false,
+    "diffEditor.codeLens": true,
+    "claudeCode.preferredLocation": "panel",
+    "claudeCode.useCtrlEnterToSend": true,
 }
