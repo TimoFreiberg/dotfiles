@@ -1,7 +1,7 @@
 source ~/.config/nvim/plug.vim
 source ~/.config/nvim/leader.lua
 source ~/.config/nvim/appearance.vim
-source ~/.config/nvim/lsp.lua
+" source ~/.config/nvim/lsp.lua
 source ~/.config/nvim/rust.lua
 source ~/.config/nvim/complete.lua
 source ~/.config/nvim/telescope.lua
