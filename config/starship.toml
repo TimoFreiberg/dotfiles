@@ -5,6 +5,9 @@ error_symbol = "[\\$](bold red)"
 [directory]
 fish_style_pwd_dir_length = 2
 
+[git_status]
+use_git_executable = true
+
 [package]
 disabled = true
 
@@ -32,14 +35,13 @@ disabled = true
 
 # custom module for jj status
 [custom.jj]
-ignore_timeout = true
 description = "current jj status"
-symbol = ""
-when = true
+shell = ["sh", "--norc"]
+symbol = "🥋 "
+when = "jj --ignore-working-copy root"
 command = '''
-jj root > /dev/null && jj log --revisions @ --no-graph --ignore-working-copy --color always --limit 1 --template '
+jj log --revisions @ --no-graph --ignore-working-copy --color always --limit 1 --template '
   separate(" ",
-    "🥋",
     change_id.shortest(4),
     bookmarks,
     "|",
@@ -50,12 +52,9 @@ jj root > /dev/null && jj log --revisions @ --no-graph --ignore-working-copy --c
       if(immutable, "🔒"),
     ),
     raw_escape_sequence("\x1b[1;32m") ++ if(empty, "(empty)"),
-    raw_escape_sequence("\x1b[1;32m") ++ if(description.first_line().len() == 0,
+    raw_escape_sequence("\x1b[1;32m") ++ coalesce(
+      truncate_end(29, description.first_line(), "…"),
       "(no description set)",
-      if(description.first_line().substr(0, 29) == description.first_line(),
-        description.first_line(),
-        description.first_line().substr(0, 29) ++ "…",
-      )
     ) ++ raw_escape_sequence("\x1b[0m"),
   )
 '
@@ -75,7 +74,13 @@ disabled = true
 disabled = true
 
 # re-enable git_branch as long as we're not in a jj repo
+[custom.git_status]
+when = "! jj --ignore-working-copy root"
+shell = ["sh", "--norc"]
+command = "starship module git_status"
+
 [custom.git_branch]
-when = true
-command = "jj root >/dev/null 2>&1 || starship module git_branch"
+when = "! jj --ignore-working-copy root"
+shell = ["sh", "--norc"]
+command = "starship module git_branch"
 description = "Only show git_branch if we're not in a jj repo"
