@@ -107,9 +107,8 @@ setenv FZF_DEFAULT_OPTS '--height 20%'
 
 type -q zoxide && zoxide init fish | source
 
-# type -q chef && eval (chef shell-init fish)
+type -q chef && eval (chef shell-init fish)
 
-test -e {$HOME}/.iterm2_shell_integration.fish ; and source {$HOME}/.iterm2_shell_integration.fish
 test -e ./fastly-config.fish && source ./fastly-config.fish
 
 export HOMEBREW_NO_ANALYTICS=1
