@@ -4,54 +4,12 @@
 
 - [x] **TOCTOU race condition in PR checkout** - Fixed in f246f087
 - [x] **Global Mutable State (`reviewOriginId`) Creates Subtle Bugs** - Eliminated the global variable; review state is now derived entirely from session state via `getReviewOriginId()`
+- [x] **Silent Failure When `gh` CLI Not Installed** - Fixed: `getPrInfo` now captures and returns `stderr`, and callers display the actual error message to the user.
+- [x] **Unsafe JSON Parsing Without Validation** - Fixed: Added explicit property checks for `baseRefName`, `title`, and `headRefName` before returning.
 
 ## Remaining Issues
 
 ### 🟡 Medium Priority
-
-**Silent Failure When `gh` CLI Not Installed**
-
-File: `review.ts:191-200`
-
-```typescript
-async function getPrInfo(pi: ExtensionAPI, prNumber: number): Promise<{ ... } | null> {
-    const { stdout, code } = await pi.exec("gh", [...]);
-    if (code !== 0) return null;  // Could be "command not found" or auth error
-}
-```
-
-When `gh` fails, the error message says "Make sure gh is authenticated and the PR exists" - but the actual error could be:
-- `gh` not installed
-- Network failure
-- Rate limiting
-- Auth token expired
-
-**Recommendation:** Capture and display `stderr` from the `gh` command to provide actionable error messages.
-
----
-
-**Unsafe JSON Parsing Without Validation**
-
-File: `review.ts:202-209`
-
-```typescript
-try {
-    const data = JSON.parse(stdout);
-    return {
-        baseBranch: data.baseRefName,
-        title: data.title,
-        headBranch: data.headRefName,
-    };
-} catch {
-    return null;
-}
-```
-
-If `gh` returns valid JSON but with unexpected structure (e.g., GitHub API change), accessing `data.baseRefName` returns `undefined`, which propagates as an invalid return value rather than an error.
-
-**Recommendation:** Add explicit property checks: `if (!data.baseRefName || !data.title || !data.headRefName) return null;`
-
----
 
 **Inconsistent Error Handling Patterns**
 

@@ -1,6 +1,9 @@
-tp[# Linux/MacOS Installation
+# Linux/MacOS Installation
 
 Run `bootstrap.fish`
+
+## MacOS notes
+- `brew install scroll-reverser maccy` 
 
 # Windows notes
 

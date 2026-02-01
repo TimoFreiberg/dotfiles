@@ -234,23 +234,29 @@ function parsePrReference(ref: string): number | null {
 	return null;
 }
 
-async function getPrInfo(pi: ExtensionAPI, prNumber: number): Promise<{ baseBranch: string; title: string; headBranch: string } | null> {
-	const { stdout, code } = await pi.exec("gh", [
+async function getPrInfo(pi: ExtensionAPI, prNumber: number): Promise<{ baseBranch: string; title: string; headBranch: string } | { error: string }> {
+	const { stdout, stderr, code } = await pi.exec("gh", [
 		"pr", "view", String(prNumber),
 		"--json", "baseRefName,title,headRefName",
 	]);
 
-	if (code !== 0) return null;
+	if (code !== 0) {
+		const errorMsg = stderr?.trim() || stdout?.trim() || "Unknown error";
+		return { error: errorMsg };
+	}
 
 	try {
 		const data = JSON.parse(stdout);
+		if (!data.baseRefName || !data.title || !data.headRefName) {
+			return { error: "Unexpected response from gh: missing required fields" };
+		}
 		return {
 			baseBranch: data.baseRefName,
 			title: data.title,
 			headBranch: data.headRefName,
 		};
 	} catch {
-		return null;
+		return { error: "Failed to parse gh output as JSON" };
 	}
 }
 
@@ -607,10 +613,10 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		}
 
 		ctx.ui.notify(`Fetching PR #${prNumber} info...`, "info");
-		const prInfo = await getPrInfo(pi, prNumber);
+		const prInfoResult = await getPrInfo(pi, prNumber);
 
-		if (!prInfo) {
-			ctx.ui.notify(`Could not find PR #${prNumber}. Make sure gh is authenticated and the PR exists.`, "error");
+		if ("error" in prInfoResult) {
+			ctx.ui.notify(`Failed to get PR #${prNumber}: ${prInfoResult.error}`, "error");
 			return null;
 		}
 
@@ -625,13 +631,13 @@ export default function reviewExtension(pi: ExtensionAPI) {
 			return null;
 		}
 
-		ctx.ui.notify(`Checked out PR #${prNumber} (${prInfo.headBranch})`, "info");
+		ctx.ui.notify(`Checked out PR #${prNumber} (${prInfoResult.headBranch})`, "info");
 
 		return {
 			type: "pullRequest",
 			prNumber,
-			baseBranch: prInfo.baseBranch,
-			title: prInfo.title,
+			baseBranch: prInfoResult.baseBranch,
+			title: prInfoResult.title,
 		};
 	}
 
@@ -739,10 +745,10 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		}
 
 		ctx.ui.notify(`Fetching PR #${prNumber} info...`, "info");
-		const prInfo = await getPrInfo(pi, prNumber);
+		const prInfoResult = await getPrInfo(pi, prNumber);
 
-		if (!prInfo) {
-			ctx.ui.notify(`Could not find PR #${prNumber}. Make sure gh is authenticated and the PR exists.`, "error");
+		if ("error" in prInfoResult) {
+			ctx.ui.notify(`Failed to get PR #${prNumber}: ${prInfoResult.error}`, "error");
 			return null;
 		}
 
@@ -757,13 +763,13 @@ export default function reviewExtension(pi: ExtensionAPI) {
 			return null;
 		}
 
-		ctx.ui.notify(`Checked out PR #${prNumber} (${prInfo.headBranch})`, "info");
+		ctx.ui.notify(`Checked out PR #${prNumber} (${prInfoResult.headBranch})`, "info");
 
 		return {
 			type: "pullRequest",
 			prNumber,
-			baseBranch: prInfo.baseBranch,
-			title: prInfo.title,
+			baseBranch: prInfoResult.baseBranch,
+			title: prInfoResult.title,
 		};
 	}
 
