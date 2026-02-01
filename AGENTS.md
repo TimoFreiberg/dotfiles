@@ -8,6 +8,6 @@
 
 2. **After making changes**, describe and commit with `jj commit -m "..."`
 
-3. **Update the main branch** at the end:
-   - If the current change is the only descendant of `main`, run `jj branch set main -r @-`
+3. **Update the main bookmark** at the end:
+   - If the current change is the only descendant of `main`, run `jj bookmark set main -r @-`
    - If there are multiple descendants of `main`, ask the user before updating
