@@ -7,3 +7,7 @@
    - If there are uncommitted changes with a description, create a new change with `jj new`
 
 2. **After making changes**, describe and commit with `jj commit -m "..."`
+
+3. **Update the main branch** at the end:
+   - If the current change is the only descendant of `main`, run `jj branch set main -r @-`
+   - If there are multiple descendants of `main`, ask the user before updating
