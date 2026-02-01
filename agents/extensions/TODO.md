@@ -3,26 +3,9 @@
 ## Completed
 
 - [x] **TOCTOU race condition in PR checkout** - Fixed in f246f087
+- [x] **Global Mutable State (`reviewOriginId`) Creates Subtle Bugs** - Eliminated the global variable; review state is now derived entirely from session state via `getReviewOriginId()`
 
 ## Remaining Issues
-
-### 🔴 High Priority
-
-**Global Mutable State (`reviewOriginId`) Creates Subtle Bugs**
-
-File: `review.ts:33`
-
-```typescript
-let reviewOriginId: string | undefined = undefined;
-```
-
-The module-level `reviewOriginId` is synchronized with session state via `applyReviewState()`, but there's a window where they can become inconsistent:
-- If the extension is used in multiple contexts (e.g., multiple windows/sessions)
-- If an error occurs mid-operation
-
-**Recommendation:** Either derive the review state entirely from session state (eliminate the global), or document the synchronization requirements clearly. Consider making `reviewOriginId` a computed property.
-
----
 
 ### 🟡 Medium Priority
 

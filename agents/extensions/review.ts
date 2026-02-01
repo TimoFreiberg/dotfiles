@@ -32,9 +32,6 @@ import { Container, type SelectItem, SelectList, Text } from "@mariozechner/pi-t
 import path from "node:path";
 import { promises as fs } from "node:fs";
 
-// State to track fresh session review (where we branched from)
-let reviewOriginId: string | undefined = undefined;
-
 const REVIEW_STATE_TYPE = "review-session";
 
 type ReviewSessionState = {
@@ -62,6 +59,11 @@ function setReviewWidget(ctx: ExtensionContext, active: boolean) {
 	});
 }
 
+/**
+ * Get the current review state from session history.
+ * This is the single source of truth for review state - no global variables needed.
+ * The state is derived by scanning the session branch for the most recent review state entry.
+ */
 function getReviewState(ctx: ExtensionContext): ReviewSessionState | undefined {
 	let state: ReviewSessionState | undefined;
 	for (const entry of ctx.sessionManager.getBranch()) {
@@ -72,17 +74,24 @@ function getReviewState(ctx: ExtensionContext): ReviewSessionState | undefined {
 	return state;
 }
 
-function applyReviewState(ctx: ExtensionContext) {
+/**
+ * Get the review origin ID from session state if an active review exists.
+ * Returns undefined if no active review session.
+ */
+function getReviewOriginId(ctx: ExtensionContext): string | undefined {
 	const state = getReviewState(ctx);
-
 	if (state?.active && state.originId) {
-		reviewOriginId = state.originId;
-		setReviewWidget(ctx, true);
-		return;
+		return state.originId;
 	}
+	return undefined;
+}
 
-	reviewOriginId = undefined;
-	setReviewWidget(ctx, false);
+/**
+ * Update the review widget to reflect current session state.
+ */
+function syncReviewWidget(ctx: ExtensionContext) {
+	const originId = getReviewOriginId(ctx);
+	setReviewWidget(ctx, originId !== undefined);
 }
 
 // Review target types
@@ -346,15 +355,15 @@ const REVIEW_PRESETS = [
 
 export default function reviewExtension(pi: ExtensionAPI) {
 	pi.on("session_start", (_event, ctx) => {
-		applyReviewState(ctx);
+		syncReviewWidget(ctx);
 	});
 
 	pi.on("session_switch", (_event, ctx) => {
-		applyReviewState(ctx);
+		syncReviewWidget(ctx);
 	});
 
 	pi.on("session_tree", (_event, ctx) => {
-		applyReviewState(ctx);
+		syncReviewWidget(ctx);
 	});
 
 	async function getSmartDefault(): Promise<"uncommitted" | "baseBranch" | "commit"> {
@@ -627,7 +636,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 	}
 
 	async function executeReview(ctx: ExtensionCommandContext, target: ReviewTarget, useFreshSession: boolean): Promise<void> {
-		if (reviewOriginId) {
+		if (getReviewOriginId(ctx)) {
 			ctx.ui.notify("Already in a review. Use /end-review to finish first.", "warning");
 			return;
 		}
@@ -638,9 +647,6 @@ export default function reviewExtension(pi: ExtensionAPI) {
 				ctx.ui.notify("Failed to determine review origin. Try again from a session with messages.", "error");
 				return;
 			}
-			reviewOriginId = originId;
-
-			const lockedOriginId = originId;
 
 			const entries = ctx.sessionManager.getEntries();
 			const firstUserMessage = entries.find(
@@ -649,26 +655,23 @@ export default function reviewExtension(pi: ExtensionAPI) {
 
 			if (!firstUserMessage) {
 				ctx.ui.notify("No user message found in session", "error");
-				reviewOriginId = undefined;
 				return;
 			}
 
 			try {
 				const result = await ctx.navigateTree(firstUserMessage.id, { summarize: false, label: "code-review" });
 				if (result.cancelled) {
-					reviewOriginId = undefined;
 					return;
 				}
 			} catch (error) {
-				reviewOriginId = undefined;
 				ctx.ui.notify(`Failed to start review: ${error instanceof Error ? error.message : String(error)}`, "error");
 				return;
 			}
 
-			reviewOriginId = lockedOriginId;
 			ctx.ui.setEditorText("");
+			// Store the review state in session - this is the single source of truth
+			pi.appendEntry(REVIEW_STATE_TYPE, { active: true, originId });
 			setReviewWidget(ctx, true);
-			pi.appendEntry(REVIEW_STATE_TYPE, { active: true, originId: lockedOriginId });
 		}
 
 		const prompt = await buildReviewPrompt(pi, target);
@@ -772,7 +775,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 				return;
 			}
 
-			if (reviewOriginId) {
+			if (getReviewOriginId(ctx)) {
 				ctx.ui.notify("Already in a review. Use /end-review to finish first.", "warning");
 				return;
 			}
@@ -878,19 +881,18 @@ Preserve exact file paths, function names, and error messages.
 				return;
 			}
 
+			const reviewOriginId = getReviewOriginId(ctx);
 			if (!reviewOriginId) {
 				const state = getReviewState(ctx);
-				if (state?.active && state.originId) {
-					reviewOriginId = state.originId;
-				} else if (state?.active) {
+				if (state?.active) {
+					// Active review but missing origin info - clear the invalid state
 					setReviewWidget(ctx, false);
 					pi.appendEntry(REVIEW_STATE_TYPE, { active: false });
 					ctx.ui.notify("Review state was missing origin info; cleared review status.", "warning");
 					return;
-				} else {
-					ctx.ui.notify("Not in a review branch (use /review first, or review was started in current session mode)", "info");
-					return;
 				}
+				ctx.ui.notify("Not in a review branch (use /review first, or review was started in current session mode)", "info");
+				return;
 			}
 
 			const summaryChoice = await ctx.ui.select("Summarize review branch?", [
@@ -904,14 +906,13 @@ Preserve exact file paths, function names, and error messages.
 			}
 
 			const wantsSummary = summaryChoice === "Summarize";
-			const originId = reviewOriginId;
 
 			if (wantsSummary) {
 				const result = await ctx.ui.custom<{ cancelled: boolean; error?: string } | null>((tui, theme, _kb, done) => {
 					const loader = new BorderedLoader(tui, theme, "Summarizing review branch...");
 					loader.onAbort = () => done(null);
 
-					ctx.navigateTree(originId!, {
+					ctx.navigateTree(reviewOriginId, {
 						summarize: true,
 						customInstructions: REVIEW_SUMMARY_PROMPT,
 						replaceInstructions: true,
@@ -932,14 +933,14 @@ Preserve exact file paths, function names, and error messages.
 					return;
 				}
 
-				setReviewWidget(ctx, false);
-				reviewOriginId = undefined;
-				pi.appendEntry(REVIEW_STATE_TYPE, { active: false });
-
 				if (result.cancelled) {
-					ctx.ui.notify("Navigation cancelled", "info");
+					ctx.ui.notify("Navigation cancelled. Use /end-review to try again.", "info");
 					return;
 				}
+
+				// Clear review state in session - the single source of truth
+				pi.appendEntry(REVIEW_STATE_TYPE, { active: false });
+				setReviewWidget(ctx, false);
 
 				if (!ctx.ui.getEditorText().trim()) {
 					ctx.ui.setEditorText("Act on the code review");
@@ -948,16 +949,16 @@ Preserve exact file paths, function names, and error messages.
 				ctx.ui.notify("Review complete! Returned to original position.", "info");
 			} else {
 				try {
-					const result = await ctx.navigateTree(originId!, { summarize: false });
+					const result = await ctx.navigateTree(reviewOriginId, { summarize: false });
 
 					if (result.cancelled) {
 						ctx.ui.notify("Navigation cancelled. Use /end-review to try again.", "info");
 						return;
 					}
 
-					setReviewWidget(ctx, false);
-					reviewOriginId = undefined;
+					// Clear review state in session - the single source of truth
 					pi.appendEntry(REVIEW_STATE_TYPE, { active: false });
+					setReviewWidget(ctx, false);
 					ctx.ui.notify("Review complete! Returned to original position.", "info");
 				} catch (error) {
 					ctx.ui.notify(`Failed to return: ${error instanceof Error ? error.message : String(error)}`, "error");
