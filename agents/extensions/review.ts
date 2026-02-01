@@ -23,7 +23,7 @@
  * - Its contents are used as the review prompt
  * - If not found, a minimal default prompt is used
  *
- * Note: PR review requires a clean working tree (no uncommitted changes to tracked files).
+ * Note: PR checkout will fail if there are uncommitted changes that conflict with the PR branch.
  */
 
 import type { ExtensionAPI, ExtensionContext, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
@@ -207,15 +207,6 @@ async function getRecentCommits(pi: ExtensionAPI, limit: number = 10): Promise<A
 async function hasUncommittedChanges(pi: ExtensionAPI): Promise<boolean> {
 	const { stdout, code } = await pi.exec("git", ["status", "--porcelain"]);
 	return code === 0 && stdout.trim().length > 0;
-}
-
-async function hasPendingChanges(pi: ExtensionAPI): Promise<boolean> {
-	const { stdout, code } = await pi.exec("git", ["status", "--porcelain"]);
-	if (code !== 0) return false;
-
-	const lines = stdout.trim().split("\n").filter((line) => line.trim());
-	const trackedChanges = lines.filter((line) => !line.startsWith("??"));
-	return trackedChanges.length > 0;
 }
 
 function parsePrReference(ref: string): number | null {
@@ -593,11 +584,6 @@ export default function reviewExtension(pi: ExtensionAPI) {
 	}
 
 	async function showPrInput(ctx: ExtensionContext): Promise<ReviewTarget | null> {
-		if (await hasPendingChanges(pi)) {
-			ctx.ui.notify("Cannot checkout PR: you have uncommitted changes. Please commit or stash them first.", "error");
-			return null;
-		}
-
 		const prRef = await ctx.ui.editor(
 			"Enter PR number or URL (e.g. 123 or https://github.com/owner/repo/pull/123):",
 			"",
@@ -619,11 +605,9 @@ export default function reviewExtension(pi: ExtensionAPI) {
 			return null;
 		}
 
-		if (await hasPendingChanges(pi)) {
-			ctx.ui.notify("Cannot checkout PR: you have uncommitted changes. Please commit or stash them first.", "error");
-			return null;
-		}
-
+		// Note: We don't pre-check for uncommitted changes here. That would be a TOCTOU race
+		// condition - changes could appear between our check and the actual checkout.
+		// Instead, we let `gh pr checkout` fail atomically and report the actual error.
 		ctx.ui.notify(`Checking out PR #${prNumber}...`, "info");
 		const checkoutResult = await checkoutPr(pi, prNumber);
 
@@ -745,11 +729,6 @@ export default function reviewExtension(pi: ExtensionAPI) {
 	}
 
 	async function handlePrCheckout(ctx: ExtensionContext, ref: string): Promise<ReviewTarget | null> {
-		if (await hasPendingChanges(pi)) {
-			ctx.ui.notify("Cannot checkout PR: you have uncommitted changes. Please commit or stash them first.", "error");
-			return null;
-		}
-
 		const prNumber = parsePrReference(ref);
 		if (!prNumber) {
 			ctx.ui.notify("Invalid PR reference. Enter a number or GitHub PR URL.", "error");
@@ -764,6 +743,9 @@ export default function reviewExtension(pi: ExtensionAPI) {
 			return null;
 		}
 
+		// Note: We don't pre-check for uncommitted changes here. That would be a TOCTOU race
+		// condition - changes could appear between our check and the actual checkout.
+		// Instead, we let `gh pr checkout` fail atomically and report the actual error.
 		ctx.ui.notify(`Checking out PR #${prNumber}...`, "info");
 		const checkoutResult = await checkoutPr(pi, prNumber);
 
