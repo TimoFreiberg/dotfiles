@@ -1,103 +1,109 @@
 ---
 name: tmux
-description: Run commands in a dedicated tmux session that humans can watch in real-time. Use this when the user wants to observe your work live, for long-running processes, or when interactive terminal access is needed.
+description: "Remote control tmux sessions for interactive CLIs (python, gdb, etc.) by sending keystrokes and scraping pane output."
+license: MIT
 ---
 
-# Tmux Session Skill
+# tmux Skill
 
-Run commands in a dedicated tmux session so a human can watch your work in real-time.
+Use tmux as a programmable terminal multiplexer for interactive work. Works on Linux and macOS with stock tmux; avoid custom config by using a private socket.
 
-## Setup
-
-Ensure tmux is installed:
-```bash
-which tmux || echo "tmux not installed"
-```
-
-## Usage
-
-### Create or attach to a session
-
-Create a new session named `pi-work` (or any name):
-```bash
-tmux new-session -d -s pi-work -c "$(pwd)"
-```
-
-### Run commands in the session
-
-Send commands to the session:
-```bash
-tmux send-keys -t pi-work 'your-command-here' Enter
-```
-
-### Check command output
-
-Capture the current pane content:
-```bash
-tmux capture-pane -t pi-work -p
-```
-
-Or capture with more history:
-```bash
-tmux capture-pane -t pi-work -p -S -100
-```
-
-### Wait for a command to complete
-
-For long-running commands, you can poll the pane or use a marker:
-```bash
-# Send command with an end marker
-tmux send-keys -t pi-work 'your-command; echo "===DONE==="' Enter
-
-# Then check for the marker in output
-tmux capture-pane -t pi-work -p | grep -q "===DONE==="
-```
-
-### Interactive programs
-
-For programs that need input:
-```bash
-# Send input
-tmux send-keys -t pi-work 'y' Enter
-
-# Or send special keys
-tmux send-keys -t pi-work C-c  # Ctrl+C
-tmux send-keys -t pi-work C-d  # Ctrl+D
-```
-
-### Kill the session when done
+## Quickstart (isolated socket)
 
 ```bash
-tmux kill-session -t pi-work
+SOCKET_DIR=${TMPDIR:-/tmp}/agent-tmux-sockets  # well-known dir for all agent sockets
+mkdir -p "$SOCKET_DIR"
+SOCKET="$SOCKET_DIR/agent.sock"                # keep agent sessions separate from user's personal tmux
+SESSION=agent-python                           # slug-like names; avoid spaces
+tmux -S "$SOCKET" new -d -s "$SESSION" -n shell
+tmux -S "$SOCKET" send-keys -t "$SESSION":0.0 -- 'python3 -q' Enter
+tmux -S "$SOCKET" capture-pane -p -J -t "$SESSION":0.0 -S -200  # watch output
+tmux -S "$SOCKET" kill-session -t "$SESSION"                   # clean up
 ```
 
-## Human Watching
+After starting a session ALWAYS tell the user how to monitor the session by giving them a command to copy paste:
 
-Tell the user to attach to the session in another terminal:
+```
+To monitor this session yourself:
+  tmux -S "$SOCKET" attach -t agent-lldb
+
+Or to capture the output once:
+  tmux -S "$SOCKET" capture-pane -p -J -t agent-lldb:0.0 -S -200
+```
+
+This must ALWAYS be printed right after a session was started and once again at the end of the tool loop. But the earlier you send it, the happier the user will be.
+
+## Socket convention
+
+- Agents MUST place tmux sockets under `AGENT_TMUX_SOCKET_DIR` (defaults to `${TMPDIR:-/tmp}/agent-tmux-sockets`) and use `tmux -S "$SOCKET"` so we can enumerate/clean them. Create the dir first: `mkdir -p "$AGENT_TMUX_SOCKET_DIR"`.
+- Default socket path to use unless you must isolate further: `SOCKET="$AGENT_TMUX_SOCKET_DIR/agent.sock"`.
+
+## Targeting panes and naming
+
+- Target format: `{session}:{window}.{pane}`, defaults to `:0.0` if omitted. Keep names short (e.g., `agent-py`, `agent-gdb`).
+- Use `-S "$SOCKET"` consistently to stay on the private socket path. If you need user config, drop `-f /dev/null`; otherwise `-f /dev/null` gives a clean config.
+- Inspect: `tmux -S "$SOCKET" list-sessions`, `tmux -S "$SOCKET" list-panes -a`.
+
+## Finding sessions
+
+- List sessions on your active socket with metadata: `./scripts/find-sessions.sh -S "$SOCKET"`; add `-q partial-name` to filter.
+- Scan all sockets under the shared directory: `./scripts/find-sessions.sh --all` (uses `AGENT_TMUX_SOCKET_DIR` or `${TMPDIR:-/tmp}/agent-tmux-sockets`).
+
+## Sending input safely
+
+- Prefer literal sends to avoid shell splitting: `tmux -S "$SOCKET" send-keys -t target -l -- "$cmd"`
+- When composing inline commands, use single quotes or ANSI C quoting to avoid expansion: `tmux ... send-keys -t target -- $'python3 -m http.server 8000'`.
+- To send control keys: `tmux ... send-keys -t target C-c`, `C-d`, `C-z`, `Escape`, etc.
+
+## Watching output
+
+- Capture recent history (joined lines to avoid wrapping artifacts): `tmux -S "$SOCKET" capture-pane -p -J -t target -S -200`.
+- For continuous monitoring, poll with the helper script (below) instead of `tmux wait-for` (which does not watch pane output).
+- You can also temporarily attach to observe: `tmux -S "$SOCKET" attach -t "$SESSION"`; detach with `Ctrl+b d`.
+- When giving instructions to a user, **explicitly print a copy/paste monitor command** alongside the action—don't assume they remembered the command.
+
+## Spawning Processes
+
+Some special rules for processes:
+
+- when asked to debug, use lldb by default
+- when starting a python interactive shell, always set the `PYTHON_BASIC_REPL=1` environment variable. This is very important as the non-basic console interferes with your send-keys.
+
+## Synchronizing / waiting for prompts
+
+- Use timed polling to avoid races with interactive tools. Example: wait for a Python prompt before sending code:
+  ```bash
+  ./scripts/wait-for-text.sh -t "$SESSION":0.0 -p '^>>>' -T 15 -l 4000
+  ```
+- For long-running commands, poll for completion text (`"Type quit to exit"`, `"Program exited"`, etc.) before proceeding.
+
+## Interactive tool recipes
+
+- **Python REPL**: `tmux ... send-keys -- 'PYTHON_BASIC_REPL=1 python3 -q' Enter`; wait for `^>>>`; send code with `-l`; interrupt with `C-c`.
+- **gdb**: `tmux ... send-keys -- 'gdb --quiet ./a.out' Enter`; disable paging `tmux ... send-keys -- 'set pagination off' Enter`; break with `C-c`; issue `bt`, `info locals`, etc.; exit via `quit` then confirm `y`.
+- **Other TTY apps** (ipdb, psql, mysql, node, bash): same pattern—start the program, poll for its prompt, then send literal text and Enter.
+
+## Cleanup
+
+- Kill a session when done: `tmux -S "$SOCKET" kill-session -t "$SESSION"`.
+- Kill all sessions on a socket: `tmux -S "$SOCKET" list-sessions -F '#{session_name}' | xargs -r -n1 tmux -S "$SOCKET" kill-session -t`.
+- Remove everything on the private socket: `tmux -S "$SOCKET" kill-server`.
+
+## Helper: wait-for-text.sh
+
+`./scripts/wait-for-text.sh` polls a pane for a regex (or fixed string) with a timeout. Works on Linux/macOS with bash + tmux + grep.
+
 ```bash
-tmux attach -t pi-work
+./scripts/wait-for-text.sh -t session:0.0 -p 'pattern' [-F] [-T 20] [-i 0.5] [-l 2000]
 ```
 
-Or if they want read-only access:
-```bash
-tmux attach -t pi-work -r
-```
+- `-t`/`--target` pane target (required)
+- `-p`/`--pattern` regex to match (required); add `-F` for fixed string
+- `-T` timeout seconds (integer, default 15)
+- `-i` poll interval seconds (default 0.5)
+- `-l` history lines to search from the pane (integer, default 1000)
+- Exits 0 on first match, 1 on timeout. On failure prints the last captured text to stderr to aid debugging.
 
-## Best Practices
+## Attribution
 
-1. **Always capture output** after running commands to verify success
-2. **Use unique session names** to avoid conflicts (e.g., include project name)
-3. **Clean up sessions** when the work is complete
-4. **Inform the user** of the session name so they can attach
-5. **Handle errors** - check if session exists before sending commands:
-   ```bash
-   tmux has-session -t pi-work 2>/dev/null && echo "exists" || echo "not found"
-   ```
-
-## Workflow Example
-
-1. Create session: `tmux new-session -d -s pi-work -c "$(pwd)"`
-2. Tell user: "You can watch my work with: `tmux attach -t pi-work`"
-3. Run commands via `tmux send-keys`
-4. Capture and verify output with `tmux capture-pane`
-5. When done: `tmux kill-session -t pi-work`
+Based on [mitsuhiko/agent-stuff](https://github.com/mitsuhiko/agent-stuff) tmux skill.
