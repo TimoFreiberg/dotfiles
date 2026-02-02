@@ -109,6 +109,6 @@ type -q zoxide && zoxide init fish | source
 
 type -q chef && eval (chef shell-init fish)
 
-test -e ./fastly-config.fish && source ./fastly-config.fish
+test -e $XDG_CONFIG_HOME/fish/fastly-config.fish && source $XDG_CONFIG_HOME/fish/fastly-config.fish
 
 export HOMEBREW_NO_ANALYTICS=1
