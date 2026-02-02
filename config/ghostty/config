@@ -8,3 +8,8 @@ font-feature = -dlig
 
 theme = Dracula
 command = /opt/homebrew/bin/fish
+
+# Try to install the terminfo for ghostty the first time we
+# log into a new server over ssh. If that fails, use a
+# fallback TERM env var
+shell-integration-features = ssh-terminfo,ssh-env
