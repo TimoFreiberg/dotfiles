@@ -107,8 +107,6 @@ setenv FZF_DEFAULT_OPTS '--height 20%'
 
 type -q zoxide && zoxide init fish | source
 
-type -q chef && eval (chef shell-init fish)
+alias pi='PI_CONFIG_DIR=$XDG_CONFIG_HOME/pi command pi'
 
 test -e $XDG_CONFIG_HOME/fish/fastly-config.fish && source $XDG_CONFIG_HOME/fish/fastly-config.fish
-
-export HOMEBREW_NO_ANALYTICS=1

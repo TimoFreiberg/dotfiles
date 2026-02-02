@@ -24,10 +24,6 @@ symlink_dotfile .tmux.conf
 backup_dotfile .config
 ln -s $DOTFILEDIR/config $HOMEDIR/.config
 
-# pi coding agent extensions and skills
-ln -sf $DOTFILEDIR/agents/extensions $DOTFILEDIR/config/pi/extensions
-ln -sf $DOTFILEDIR/agents/skills $DOTFILEDIR/config/pi/skills
-
 backup_dotfile .gitconfig
 echo "[user]
     name =
@@ -44,4 +40,3 @@ if test uname = "Darwin"
   defaults write com.apple.dock autohide-delay -float 0 && defaults write com.apple.dock autohide-time-modifier -float 0.4 && killall Dock
   defaults write com.apple.Preview ApplePersistenceIgnoreState YES
 end
-
