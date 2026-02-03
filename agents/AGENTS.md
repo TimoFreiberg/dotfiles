@@ -1,5 +1,9 @@
 # Agent Guidelines
 
+## Pi Extensions
+
+Pi agent config is at `~/.config/pi/agent` (symlinked to dotfiles). Extensions go in `~/.config/pi/agent/extensions/`.
+
 ## Version Control with jj
 
 1. **Before starting work**, ensure the current change is empty by running `jj show`:
