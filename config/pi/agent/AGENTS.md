@@ -1,1 +1,1 @@
-/Users/tfreiberg/dotfiles/agents/AGENTS.md
+../../../agents/AGENTS.md
