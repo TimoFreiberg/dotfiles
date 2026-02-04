@@ -1,9 +1,5 @@
 # Agent Guidelines
 
-## Pi Extensions
-
-Pi agent config is at `~/.config/pi/agent` (symlinked to dotfiles). Extensions go in `~/.config/pi/agent/extensions/`.
-
 ## Version Control with jj
 
 1. **Before starting work**, ensure the current change is empty by running `jj show`:
@@ -25,8 +21,4 @@ Before committing:
 2. Check `jj log` for existing scope conventions
 3. Do NOT push without asking
 
-Skip footers and sign-offs unless explicitly requested.
-
-3. **Update the main bookmark** at the end:
-   - If the current change is the only descendant of `main`, run `jj bookmark set main -r @-`
-   - If there are multiple descendants of `main`, ask the user before updating
+Skip footers and sign-offs.
