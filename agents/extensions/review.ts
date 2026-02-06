@@ -23,6 +23,10 @@
  * - Its contents are used as the review prompt
  * - If not found, a minimal default prompt is used
  *
+ * Before sending, the full review prompt is shown in an editor so you can
+ * edit the instructions or replace them entirely. Press enter to confirm,
+ * or clear/escape to cancel.
+ *
  * Note: PR checkout will fail if there are uncommitted changes that conflict with the PR branch.
  */
 
@@ -684,12 +688,21 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		const hint = getUserFacingHint(target);
 		const projectGuidelines = await loadProjectReviewGuidelines(ctx.cwd);
 
-		let fullPrompt: string;
-		if (projectGuidelines) {
-			fullPrompt = `${projectGuidelines}\n\n---\n\n${prompt}`;
-		} else {
-			fullPrompt = `${DEFAULT_REVIEW_INSTRUCTIONS}\n\n---\n\n${prompt}`;
+		const instructions = projectGuidelines ?? DEFAULT_REVIEW_INSTRUCTIONS;
+		const defaultPrompt = `${instructions}\n\n---\n\n${prompt}`;
+
+		// Let the user edit the review instructions before sending
+		const editedPrompt = await ctx.ui.editor(
+			"Review instructions (edit or replace, then confirm):",
+			defaultPrompt,
+		);
+
+		if (!editedPrompt?.trim()) {
+			ctx.ui.notify("Review cancelled (empty instructions)", "info");
+			return;
 		}
+
+		const fullPrompt = editedPrompt.trim();
 
 		const modeHint = useFreshSession ? " (fresh session)" : "";
 		ctx.ui.notify(`Starting review: ${hint}${modeHint}`, "info");
