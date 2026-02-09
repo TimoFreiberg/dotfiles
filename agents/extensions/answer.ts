@@ -489,6 +489,16 @@ export default function (pi: ExtensionAPI) {
 					.map((c) => c.text)
 					.join("\n");
 
+				if (!responseText) {
+					const contentTypes = response.content.map((c) => c.type).join(", ") || "(empty)";
+					throw new Error(
+						`Model returned no text content.\n` +
+						`Stop reason: ${response.stopReason}\n` +
+						`Content types: ${contentTypes}\n` +
+						`Model: ${extractionModel.provider}/${extractionModel.id}`,
+					);
+				}
+
 				return parseExtractionResult(responseText);
 			};
 
