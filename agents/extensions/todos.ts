@@ -799,6 +799,8 @@ class TodoSelectorComponent extends Container implements Focusable {
 	get focused() { return this._focused; }
 	set focused(v: boolean) { this._focused = v; this.searchInput.focused = v; }
 
+	private onCreateCallback?: (title: string) => void;
+
 	constructor(
 		tui: TUI,
 		theme: Theme,
@@ -808,6 +810,7 @@ class TodoSelectorComponent extends Container implements Focusable {
 		initialSearch?: string,
 		currentSessionId?: string,
 		onQuickAction?: (todo: TodoFrontMatter, action: "work" | "refine") => void,
+		onCreate?: (title: string) => void,
 	) {
 		super();
 		this.tui = tui;
@@ -818,6 +821,7 @@ class TodoSelectorComponent extends Container implements Focusable {
 		this.onCancelCallback = onCancel;
 		this.currentSessionId = currentSessionId;
 		this.onQuickAction = onQuickAction;
+		this.onCreateCallback = onCreate;
 
 		this.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
 		this.addChild(new Spacer(1));
@@ -828,8 +832,12 @@ class TodoSelectorComponent extends Container implements Focusable {
 		this.searchInput = new Input();
 		if (initialSearch) this.searchInput.setValue(initialSearch);
 		this.searchInput.onSubmit = () => {
-			const sel = this.filteredTodos[this.selectedIndex];
-			if (sel) this.onSelectCallback(sel);
+			if (this.selectedIndex === 0) {
+				this.triggerCreate();
+			} else {
+				const sel = this.filteredTodos[this.selectedIndex - 1];
+				if (sel) this.onSelectCallback(sel);
+			}
 		};
 		this.addChild(this.searchInput);
 		this.addChild(new Spacer(1));
@@ -846,6 +854,11 @@ class TodoSelectorComponent extends Container implements Focusable {
 		this.updateHeader();
 		this.updateHints();
 		this.applyFilter(this.searchInput.getValue());
+		// Default to first existing todo if any, otherwise the create item
+		if (this.filteredTodos.length > 0) {
+			this.selectedIndex = 1;
+			this.updateList();
+		}
 	}
 
 	setTodos(todos: TodoFrontMatter[]) {
@@ -863,82 +876,115 @@ class TodoSelectorComponent extends Container implements Focusable {
 
 	private updateHints() {
 		this.hintText.setText(
-			this.theme.fg("dim", "Type to search • ↑↓ select • Enter actions • Ctrl+Shift+W work • Ctrl+Shift+R refine • Esc close"),
+			this.theme.fg("dim", "Type to search • ↑↓ select • Enter actions • Ctrl+N create • Ctrl+Shift+W work • Ctrl+Shift+R refine • Esc close"),
 		);
 	}
 
 	private applyFilter(query: string) {
 		this.filteredTodos = filterTodos(this.allTodos, query);
-		this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, this.filteredTodos.length - 1));
+		// Total items = 1 (create) + filteredTodos.length
+		const totalItems = 1 + this.filteredTodos.length;
+		this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, totalItems - 1));
 		this.updateList();
 	}
 
 	private updateList() {
 		this.listContainer.clear();
-		if (!this.filteredTodos.length) {
-			this.listContainer.addChild(new Text(this.theme.fg("muted", "  No matching todos"), 0, 0));
-			return;
-		}
+
+		// Total items: 1 create item + filteredTodos.length
+		const totalItems = 1 + this.filteredTodos.length;
 		const maxVisible = 10;
-		const startIdx = Math.max(0, Math.min(this.selectedIndex - Math.floor(maxVisible / 2), this.filteredTodos.length - maxVisible));
-		const endIdx = Math.min(startIdx + maxVisible, this.filteredTodos.length);
+		const startIdx = Math.max(0, Math.min(this.selectedIndex - Math.floor(maxVisible / 2), totalItems - maxVisible));
+		const endIdx = Math.min(startIdx + maxVisible, totalItems);
 
 		for (let i = startIdx; i < endIdx; i++) {
-			const todo = this.filteredTodos[i];
-			if (!todo) continue;
-			const isSel = i === this.selectedIndex;
-			const closed = isTodoClosed(todo.status);
-			const prefix = isSel ? this.theme.fg("accent", "→ ") : "  ";
-			const titleColor = isSel ? "accent" : closed ? "dim" : "text";
-			const statusColor = closed ? "dim" : "success";
-			const tagText = todo.tags.length ? ` [${todo.tags.join(", ")}]` : "";
-			const line =
-				prefix +
-				this.theme.fg("accent", formatTodoId(todo.id)) + " " +
-				this.theme.fg(titleColor, todo.title || "(untitled)") +
-				this.theme.fg("muted", tagText) +
-				renderAssignmentSuffix(this.theme, todo, this.currentSessionId) + " " +
-				this.theme.fg(statusColor, `(${todo.status || "open"})`);
-			this.listContainer.addChild(new Text(line, 0, 0));
+			if (i === 0) {
+				// Create item
+				const isSel = this.selectedIndex === 0;
+				const prefix = isSel ? this.theme.fg("accent", "→ ") : "  ";
+				const searchText = this.searchInput.getValue().trim();
+				const label = searchText
+					? `+ Create "${searchText}"`
+					: "+ Create new todo...";
+				const color = isSel ? "accent" : "success";
+				this.listContainer.addChild(new Text(prefix + this.theme.fg(color, label), 0, 0));
+			} else {
+				// Existing todo at filteredTodos[i - 1]
+				const todo = this.filteredTodos[i - 1];
+				if (!todo) continue;
+				const isSel = i === this.selectedIndex;
+				const closed = isTodoClosed(todo.status);
+				const prefix = isSel ? this.theme.fg("accent", "→ ") : "  ";
+				const titleColor = isSel ? "accent" : closed ? "dim" : "text";
+				const statusColor = closed ? "dim" : "success";
+				const tagText = todo.tags.length ? ` [${todo.tags.join(", ")}]` : "";
+				const line =
+					prefix +
+					this.theme.fg("accent", formatTodoId(todo.id)) + " " +
+					this.theme.fg(titleColor, todo.title || "(untitled)") +
+					this.theme.fg("muted", tagText) +
+					renderAssignmentSuffix(this.theme, todo, this.currentSessionId) + " " +
+					this.theme.fg(statusColor, `(${todo.status || "open"})`);
+				this.listContainer.addChild(new Text(line, 0, 0));
+			}
 		}
 
-		if (startIdx > 0 || endIdx < this.filteredTodos.length) {
-			const scrollInfo = this.theme.fg("dim", `  (${this.selectedIndex + 1}/${this.filteredTodos.length})`);
+		if (startIdx > 0 || endIdx < totalItems) {
+			const scrollInfo = this.theme.fg("dim", `  (${this.selectedIndex + 1}/${totalItems})`);
 			this.listContainer.addChild(new Text(scrollInfo, 0, 0));
+		}
+	}
+
+	private triggerCreate() {
+		if (this.onCreateCallback) {
+			this.onCreateCallback(this.searchInput.getValue().trim());
 		}
 	}
 
 	handleInput(keyData: string): void {
 		const kb = getEditorKeybindings();
+		const totalItems = 1 + this.filteredTodos.length;
 		if (kb.matches(keyData, "selectUp")) {
-			if (!this.filteredTodos.length) return;
-			this.selectedIndex = this.selectedIndex === 0 ? this.filteredTodos.length - 1 : this.selectedIndex - 1;
+			if (!totalItems) return;
+			this.selectedIndex = this.selectedIndex === 0 ? totalItems - 1 : this.selectedIndex - 1;
 			this.updateList();
 			return;
 		}
 		if (kb.matches(keyData, "selectDown")) {
-			if (!this.filteredTodos.length) return;
-			this.selectedIndex = this.selectedIndex === this.filteredTodos.length - 1 ? 0 : this.selectedIndex + 1;
+			if (!totalItems) return;
+			this.selectedIndex = this.selectedIndex === totalItems - 1 ? 0 : this.selectedIndex + 1;
 			this.updateList();
 			return;
 		}
 		if (kb.matches(keyData, "selectConfirm")) {
-			const sel = this.filteredTodos[this.selectedIndex];
-			if (sel) this.onSelectCallback(sel);
+			if (this.selectedIndex === 0) {
+				this.triggerCreate();
+			} else {
+				const sel = this.filteredTodos[this.selectedIndex - 1];
+				if (sel) this.onSelectCallback(sel);
+			}
 			return;
 		}
 		if (kb.matches(keyData, "selectCancel")) {
 			this.onCancelCallback();
 			return;
 		}
+		if (matchesKey(keyData, Key.ctrl("n"))) {
+			this.triggerCreate();
+			return;
+		}
 		if (matchesKey(keyData, Key.ctrlShift("r"))) {
-			const sel = this.filteredTodos[this.selectedIndex];
-			if (sel && this.onQuickAction) this.onQuickAction(sel, "refine");
+			if (this.selectedIndex > 0) {
+				const sel = this.filteredTodos[this.selectedIndex - 1];
+				if (sel && this.onQuickAction) this.onQuickAction(sel, "refine");
+			}
 			return;
 		}
 		if (matchesKey(keyData, Key.ctrlShift("w"))) {
-			const sel = this.filteredTodos[this.selectedIndex];
-			if (sel && this.onQuickAction) this.onQuickAction(sel, "work");
+			if (this.selectedIndex > 0) {
+				const sel = this.filteredTodos[this.selectedIndex - 1];
+				if (sel && this.onQuickAction) this.onQuickAction(sel, "work");
+			}
 			return;
 		}
 		this.searchInput.handleInput(keyData);
@@ -1529,6 +1575,33 @@ export default function todosExtension(pi: ExtensionAPI) {
 							? buildRefinePrompt(todo.id, title)
 							: `work on todo ${formatTodoId(todo.id)} "${title}"`;
 						done();
+					},
+					async (title) => {
+						if (!title) {
+							ctx.ui.notify("Enter a title in the search box first", "warning");
+							return;
+						}
+						await ensureTodosDir(dir);
+						const id = await generateTodoId(dir);
+						const filePath = getTodoPath(dir, id);
+						const todo: TodoRecord = {
+							id,
+							title,
+							tags: [],
+							status: "open",
+							created_at: new Date().toISOString(),
+							body: "",
+						};
+						const result = await withTodoLock(dir, id, ctx, async () => {
+							await writeTodoFile(filePath, todo);
+							return todo;
+						});
+						if (typeof result === "object" && "error" in result) {
+							ctx.ui.notify(result.error, "error");
+							return;
+						}
+						ctx.ui.notify(`Created ${formatTodoId(id)} "${title}"`, "info");
+						selector?.setTodos(await listTodos(dir));
 					},
 				);
 				setActive(selector);
