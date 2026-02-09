@@ -74,10 +74,10 @@ Example output:
 // --- Model selection ---
 
 // Preferred model patterns, in priority order (cheapest/fastest first)
-const EXTRACTION_MODEL_PREFERENCES = [
-	"haiku",      // Claude Haiku (any provider: anthropic, bedrock, etc.)
-	"codex-mini", // OpenAI codex mini
-	"flash",      // Gemini Flash
+const EXTRACTION_MODEL_PREFERENCES: (string | RegExp)[] = [
+	/haiku-\d-\d/, // Claude Haiku 4.5+ (any provider: anthropic, bedrock, etc.)
+	"codex-mini",  // OpenAI codex mini
+	"flash",       // Gemini Flash
 ];
 
 interface ModelCandidate {
@@ -97,7 +97,11 @@ async function getCandidateModels(
 	const available = modelRegistry.getAvailable();
 
 	for (const pattern of EXTRACTION_MODEL_PREFERENCES) {
-		const match = available.find(m => m.id.toLowerCase().includes(pattern));
+		const match = available.find(m =>
+			pattern instanceof RegExp
+				? pattern.test(m.id.toLowerCase())
+				: m.id.toLowerCase().includes(pattern),
+		);
 		if (match) {
 			const key = `${match.provider}/${match.id}`;
 			if (seen.has(key)) continue;
