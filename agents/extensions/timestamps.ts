@@ -28,19 +28,22 @@ function formatTimestamp(): string {
 }
 
 export default function (pi: ExtensionAPI) {
+	let readyTimestamp = "";
+
 	// Show "ready" timestamp when agent finishes or session starts
 	const onReady = async (_event: any, ctx: ExtensionContext) => {
 		if (!ctx.hasUI) return;
-		ctx.ui.notify(`> ${formatTimestamp()}`, "info");
+		readyTimestamp = formatTimestamp();
+		ctx.ui.notify(`> ${readyTimestamp}`, "info");
 	};
 
 	pi.on("agent_end", onReady);
 	pi.on("session_start", onReady);
 
-	// Show "sent" timestamp when user sends a message
+	// Replace the "ready" notification with both timestamps
 	pi.on("input", async (_event, ctx) => {
 		if (!ctx.hasUI) return { action: "continue" as const };
-		ctx.ui.notify(`< ${formatTimestamp()}`, "info");
+		ctx.ui.notify(`> ${readyTimestamp}\n< ${formatTimestamp()}`, "info");
 		return { action: "continue" as const };
 	});
 }
