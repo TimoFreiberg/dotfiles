@@ -75,7 +75,8 @@ Example output:
 
 // Preferred model patterns, in priority order (cheapest/fastest first)
 const EXTRACTION_MODEL_PREFERENCES: (string | RegExp)[] = [
-	/haiku-\d-\d/, // Claude Haiku 4.5+ (any provider: anthropic, bedrock, etc.)
+	"eu.anthropic.claude-haiku-4-5-20251001-v1:0", // Bedrock EU Haiku
+	"claude-haiku-4-5",                             // Anthropic API Haiku
 	"codex-mini",  // OpenAI codex mini
 	"flash",       // Gemini Flash
 ];
