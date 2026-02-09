@@ -1601,7 +1601,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 							return;
 						}
 						ctx.ui.notify(`Created ${formatTodoId(id)} "${title}"`, "info");
-						selector?.setTodos(await listTodos(dir));
+						done();
 					},
 				);
 				setActive(selector);
