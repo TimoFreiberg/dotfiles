@@ -1629,7 +1629,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 		});
 	};
 
-	pi.registerCommand("todos", {
+	pi.registerCommand("todo", {
 		description: "List and manage open todos",
 		getArgumentCompletions: (prefix: string) => getCompletions(prefix, false),
 		handler: async (args, ctx) => todosCommandHandler(args, ctx, false),
