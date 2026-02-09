@@ -1,9 +1,9 @@
 /**
  * Timestamps Extension
  *
- * Shows timestamps:
- * - ">" notification when the agent finishes / session starts (persists in chat)
- * - "<" widget above the prompt when the user sends a message
+ * Shows timestamps as notifications (persist greyed out in chat history):
+ * - ">" when the agent finishes / session starts
+ * - "<" when the user sends a message
  *
  * Format: > 2026-02-03 09:38:20+01
  *         < 2026-02-03 09:38:25+01
@@ -28,22 +28,19 @@ function formatTimestamp(): string {
 }
 
 export default function (pi: ExtensionAPI) {
-	let readyTimestamp = "";
-
-	// Show "ready" notification (persists in chat history)
+	// Show "ready" timestamp when agent finishes or session starts
 	const onReady = async (_event: any, ctx: ExtensionContext) => {
 		if (!ctx.hasUI) return;
-		readyTimestamp = formatTimestamp();
-		ctx.ui.notify(`> ${readyTimestamp}`, "info");
+		ctx.ui.notify(`> ${formatTimestamp()}`, "info");
 	};
 
 	pi.on("agent_end", onReady);
 	pi.on("session_start", onReady);
 
-	// Show "sent" widget above editor when user sends a message
+	// Show "sent" timestamp when user sends a message
 	pi.on("input", async (_event, ctx) => {
 		if (!ctx.hasUI) return { action: "continue" as const };
-		ctx.ui.setWidget("timestamps", [`> ${readyTimestamp}`, `< ${formatTimestamp()}`]);
+		ctx.ui.notify(`< ${formatTimestamp()}`, "info");
 		return { action: "continue" as const };
 	});
 }
