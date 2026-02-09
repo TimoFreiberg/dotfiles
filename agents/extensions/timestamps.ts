@@ -1,15 +1,15 @@
 /**
  * Timestamps Extension
  *
- * Shows timestamps:
- * - Above the prompt (widget) when the agent finishes and waits for input
- * - Below the user's prompt (chat message) when a message is sent
+ * Shows timestamps as a widget directly above the prompt:
+ * - ">" timestamp when the agent finishes and waits for input
+ * - "<" timestamp when the user sends a message (appended as second line)
  *
- * Format: 2026-02-03 09:38:20+01
+ * Format: > 2026-02-03 09:38:20+01
+ *         < 2026-02-03 09:38:25+01
  */
 
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
 
 function formatTimestamp(): string {
 	const now = new Date();
@@ -27,37 +27,27 @@ function formatTimestamp(): string {
 	return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}`;
 }
 
-function showReadyTimestamp(ctx: ExtensionContext) {
-	if (!ctx.hasUI) return;
-	ctx.ui.setWidget("timestamp-ready", (tui, theme) => {
-		return new Text(theme.fg("dim", formatTimestamp()), 0, 0);
-	});
-}
-
 export default function (pi: ExtensionAPI) {
-	// Render "sent" timestamps as dim text in the chat history
-	pi.registerMessageRenderer("timestamp-sent", (message, _options, theme) => {
-		return new Text(theme.fg("dim", message.content), 0, 0);
-	});
+	let readyTimestamp = "";
 
-	// When user sends a message, inject a "sent" timestamp below the prompt
-	pi.on("before_agent_start", async (_event, _ctx) => {
-		return {
-			message: {
-				customType: "timestamp-sent",
-				content: formatTimestamp(),
-				display: true,
-			},
-		};
-	});
+	function showWidget(ctx: ExtensionContext, lines: string[]) {
+		if (!ctx.hasUI) return;
+		ctx.ui.setWidget("timestamps", lines);
+	}
 
-	// Show "ready" timestamp widget above the editor when agent finishes
-	pi.on("agent_end", async (_event, ctx) => {
-		showReadyTimestamp(ctx);
-	});
+	// Show "ready" timestamp when agent finishes or session starts
+	const onReady = async (_event: any, ctx: ExtensionContext) => {
+		readyTimestamp = formatTimestamp();
+		showWidget(ctx, [`> ${readyTimestamp}`]);
+	};
 
-	// Also on session start
-	pi.on("session_start", async (_event, ctx) => {
-		showReadyTimestamp(ctx);
+	pi.on("agent_end", onReady);
+	pi.on("session_start", onReady);
+
+	// Append "sent" timestamp when user sends a message
+	pi.on("input", async (_event, ctx) => {
+		if (!ctx.hasUI) return { action: "continue" as const };
+		showWidget(ctx, [`> ${readyTimestamp}`, `< ${formatTimestamp()}`]);
+		return { action: "continue" as const };
 	});
 }
