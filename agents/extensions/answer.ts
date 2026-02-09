@@ -177,6 +177,7 @@ class QnAComponent implements Component, Focusable {
 	private onDone: (result: string | null) => void;
 	private requestRender: () => void;
 	private showingConfirmation: boolean = false;
+	private modelId: string;
 
 	// Render cache
 	private cachedWidth?: number;
@@ -198,12 +199,14 @@ class QnAComponent implements Component, Focusable {
 		theme: Theme,
 		onDone: (result: string | null) => void,
 		requestRender: () => void,
+		modelId: string,
 	) {
 		this.questions = questions;
 		this.answers = questions.map(() => "");
 		this.theme = theme;
 		this.onDone = onDone;
 		this.requestRender = requestRender;
+		this.modelId = modelId;
 
 		this.editor = new Editor(tui, buildEditorTheme(theme));
 		this.editor.disableSubmit = true;
@@ -431,6 +434,10 @@ class QnAComponent implements Component, Focusable {
 			lines.push(padLine(boxLine(truncateToWidth(controls, contentWidth))));
 		}
 
+		// Model info
+		const modelInfo = t.fg("dim", `model: ${this.modelId}`);
+		lines.push(padLine(boxLine(truncateToWidth(modelInfo, contentWidth))));
+
 		// Bottom border
 		lines.push(padLine(t.fg("border", "╰" + hLine(boxWidth - 2) + "╯")));
 
@@ -492,7 +499,7 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		// Extract questions with a loading spinner, trying candidates in order
-		const extractionResult = await ctx.ui.custom<ExtractionResult | null>((tui, theme, _kb, done) => {
+		const extractionResult = await ctx.ui.custom<{ result: ExtractionResult; modelId: string } | null>((tui, theme, _kb, done) => {
 			const loader = new BorderedLoader(tui, theme, `Extracting questions...`);
 			loader.onAbort = () => done(null);
 
@@ -528,12 +535,16 @@ export default function (pi: ExtensionAPI) {
 				return parseExtractionResult(responseText);
 			};
 
-			const doExtract = async (): Promise<ExtractionResult | null> => {
+			const doExtract = async (): Promise<{ result: ExtractionResult; modelId: string } | null> => {
 				const errors: string[] = [];
 
 				for (const candidate of candidates) {
+					// Update spinner to show which model is being tried
+					(loader as any).loader?.setMessage?.(`Extracting questions via ${candidate.model.id}...`);
+					tui.requestRender();
 					try {
-						return await tryExtract(candidate);
+						const result = await tryExtract(candidate);
+						return { result, modelId: candidate.model.id };
 					} catch (err) {
 						if (err instanceof Error && err.message === "aborted") return null;
 						const message = err instanceof Error ? err.message : String(err);
@@ -560,7 +571,7 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 
-		if (extractionResult.questions.length === 0) {
+		if (extractionResult.result.questions.length === 0) {
 			ctx.ui.notify("No questions found in the last message", "info");
 			return;
 		}
@@ -568,11 +579,12 @@ export default function (pi: ExtensionAPI) {
 		// Show the interactive Q&A form
 		const answersResult = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
 			const component = new QnAComponent(
-				extractionResult.questions,
+				extractionResult.result.questions,
 				tui,
 				theme,
 				done,
 				() => tui.requestRender(),
+				extractionResult.modelId,
 			);
 
 			return {
