@@ -80,24 +80,45 @@ const EXTRACTION_MODEL_PREFERENCES = [
 	"flash",      // Gemini Flash
 ];
 
-async function selectExtractionModel(
+interface ModelCandidate {
+	model: Model<Api>;
+	apiKey: string;
+}
+
+async function getCandidateModels(
 	currentModel: Model<Api>,
 	modelRegistry: {
 		getAvailable: () => Model<Api>[];
 		getApiKey: (model: Model<Api>) => Promise<string | undefined>;
 	},
-): Promise<Model<Api>> {
+): Promise<ModelCandidate[]> {
+	const candidates: ModelCandidate[] = [];
+	const seen = new Set<string>();
 	const available = modelRegistry.getAvailable();
 
 	for (const pattern of EXTRACTION_MODEL_PREFERENCES) {
 		const match = available.find(m => m.id.toLowerCase().includes(pattern));
 		if (match) {
+			const key = `${match.provider}/${match.id}`;
+			if (seen.has(key)) continue;
 			const apiKey = await modelRegistry.getApiKey(match);
-			if (apiKey) return match;
+			if (apiKey) {
+				candidates.push({ model: match, apiKey });
+				seen.add(key);
+			}
 		}
 	}
 
-	return currentModel;
+	// Always include current model as final fallback
+	const currentKey = `${currentModel.provider}/${currentModel.id}`;
+	if (!seen.has(currentKey)) {
+		const apiKey = await modelRegistry.getApiKey(currentModel);
+		if (apiKey) {
+			candidates.push({ model: currentModel, apiKey });
+		}
+	}
+
+	return candidates;
 }
 
 // --- JSON parsing ---
@@ -458,16 +479,20 @@ export default function (pi: ExtensionAPI) {
 			return;
 		}
 
-		// Pick a cheap model for extraction
-		const extractionModel = await selectExtractionModel(ctx.model, ctx.modelRegistry);
+		// Build candidate model list for extraction
+		const candidates = await getCandidateModels(ctx.model, ctx.modelRegistry);
 
-		// Extract questions with a loading spinner
+		if (candidates.length === 0) {
+			ctx.ui.notify("No models available for extraction", "error");
+			return;
+		}
+
+		// Extract questions with a loading spinner, trying candidates in order
 		const extractionResult = await ctx.ui.custom<ExtractionResult | null>((tui, theme, _kb, done) => {
-			const loader = new BorderedLoader(tui, theme, `Extracting questions using ${extractionModel.id}...`);
+			const loader = new BorderedLoader(tui, theme, `Extracting questions...`);
 			loader.onAbort = () => done(null);
 
-			const doExtract = async () => {
-				const apiKey = await ctx.modelRegistry.getApiKey(extractionModel);
+			const tryExtract = async (candidate: ModelCandidate): Promise<ExtractionResult> => {
 				const userMessage: UserMessage = {
 					role: "user",
 					content: [{ type: "text", text: lastAssistantText! }],
@@ -475,13 +500,13 @@ export default function (pi: ExtensionAPI) {
 				};
 
 				const response = await complete(
-					extractionModel,
+					candidate.model,
 					{ systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-					{ apiKey, signal: loader.signal },
+					{ apiKey: candidate.apiKey, signal: loader.signal },
 				);
 
 				if (response.stopReason === "aborted") {
-					return null;
+					throw new Error("aborted");
 				}
 
 				const responseText = response.content
@@ -492,14 +517,27 @@ export default function (pi: ExtensionAPI) {
 				if (!responseText) {
 					const contentTypes = response.content.map((c) => c.type).join(", ") || "(empty)";
 					throw new Error(
-						`Model returned no text content.\n` +
-						`Stop reason: ${response.stopReason}\n` +
-						`Content types: ${contentTypes}\n` +
-						`Model: ${extractionModel.provider}/${extractionModel.id}`,
+						`No text content (stop: ${response.stopReason}, types: ${contentTypes})`,
 					);
 				}
 
 				return parseExtractionResult(responseText);
+			};
+
+			const doExtract = async (): Promise<ExtractionResult | null> => {
+				const errors: string[] = [];
+
+				for (const candidate of candidates) {
+					try {
+						return await tryExtract(candidate);
+					} catch (err) {
+						if (err instanceof Error && err.message === "aborted") return null;
+						const message = err instanceof Error ? err.message : String(err);
+						errors.push(`${candidate.model.provider}/${candidate.model.id}: ${message}`);
+					}
+				}
+
+				throw new Error(`All ${candidates.length} model(s) failed:\n${errors.join("\n")}`);
 			};
 
 			doExtract()
