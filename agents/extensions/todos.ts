@@ -1407,25 +1407,12 @@ export default function todosExtension(pi: ExtensionAPI) {
 	// /todos command
 	// -----------------------------------------------------------------------
 
-	pi.registerCommand("todos", {
-		description: "List and manage todos",
-		getArgumentCompletions: (prefix: string) => {
-			const todos = listTodosSync(getTodosDir(process.cwd()));
-			if (!todos.length) return null;
-			const matches = filterTodos(todos, prefix);
-			if (!matches.length) return null;
-			return matches.map((t) => {
-				const tags = t.tags.length ? ` • ${t.tags.join(", ")}` : "";
-				return {
-					value: t.title || "(untitled)",
-					label: `${formatTodoId(t.id)} ${t.title || "(untitled)"}`,
-					description: `${t.status || "open"}${tags}`,
-				};
-			});
-		},
-		handler: async (args, ctx) => {
+	const todosCommandHandler = async (args: string | undefined, ctx: ExtensionContext, showDone: boolean) => {
 			const dir = getTodosDir(ctx.cwd);
-			const todos = await listTodos(dir);
+			const allTodos = await listTodos(dir);
+			const todos = showDone
+				? allTodos.filter((t) => isTodoClosed(t.status))
+				: allTodos.filter((t) => !isTodoClosed(t.status));
 			const currentSessionId = ctx.sessionManager.getSessionId();
 			const searchTerm = (args ?? "").trim();
 
@@ -1622,6 +1609,35 @@ export default function todosExtension(pi: ExtensionAPI) {
 				ctx.ui.setEditorText(nextPrompt);
 				rootTui?.requestRender();
 			}
-		},
+	};
+
+	const getCompletions = (prefix: string, showDone: boolean) => {
+		const allTodos = listTodosSync(getTodosDir(process.cwd()));
+		const todos = showDone
+			? allTodos.filter((t) => isTodoClosed(t.status))
+			: allTodos.filter((t) => !isTodoClosed(t.status));
+		if (!todos.length) return null;
+		const matches = filterTodos(todos, prefix);
+		if (!matches.length) return null;
+		return matches.map((t) => {
+			const tags = t.tags.length ? ` • ${t.tags.join(", ")}` : "";
+			return {
+				value: t.title || "(untitled)",
+				label: `${formatTodoId(t.id)} ${t.title || "(untitled)"}`,
+				description: `${t.status || "open"}${tags}`,
+			};
+		});
+	};
+
+	pi.registerCommand("todos", {
+		description: "List and manage open todos",
+		getArgumentCompletions: (prefix: string) => getCompletions(prefix, false),
+		handler: async (args, ctx) => todosCommandHandler(args, ctx, false),
+	});
+
+	pi.registerCommand("todo-done", {
+		description: "List and manage done/closed todos",
+		getArgumentCompletions: (prefix: string) => getCompletions(prefix, true),
+		handler: async (args, ctx) => todosCommandHandler(args, ctx, true),
 	});
 }
