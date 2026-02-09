@@ -3,7 +3,7 @@
  *
  * Custom interactive TUI for answering questions.
  *
- * 1. /answer command (or Ctrl+.) gets the last assistant message
+ * 1. /answer command (or Ctrl+Shift+A) gets the last assistant message
  * 2. Shows a spinner while extracting questions as structured JSON
  * 3. Presents an interactive TUI to navigate and answer questions
  * 4. Submits the compiled answers when done
@@ -609,7 +609,7 @@ export default function (pi: ExtensionAPI) {
 		handler: (_args, ctx) => answerHandler(ctx),
 	});
 
-	pi.registerShortcut("ctrl+.", {
+	pi.registerShortcut("ctrl+shift+a", {
 		description: "Extract and answer questions",
 		handler: answerHandler,
 	});
