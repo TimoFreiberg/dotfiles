@@ -190,37 +190,11 @@ function parseYamlFrontMatter(content: string, idFallback: string): { fm: TodoFr
 		assigned_to_session: undefined,
 	};
 
-	// Try YAML front-matter (--- delimited)
 	const yamlMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
 	if (yamlMatch) {
 		const fm = parseSimpleYaml(yamlMatch[1], idFallback);
 		const body = (yamlMatch[2] ?? "").replace(/^\n+/, "");
 		return { fm, body };
-	}
-
-	// Fallback: try JSON front-matter (for backward compatibility with mitsuhiko format)
-	if (content.startsWith("{")) {
-		const endIdx = findJsonObjectEnd(content);
-		if (endIdx !== -1) {
-			try {
-				const parsed = JSON.parse(content.slice(0, endIdx + 1)) as Partial<TodoFrontMatter>;
-				const fm: TodoFrontMatter = {
-					id: typeof parsed.id === "string" && parsed.id ? parsed.id : idFallback,
-					title: typeof parsed.title === "string" ? parsed.title : "",
-					tags: Array.isArray(parsed.tags) ? parsed.tags.filter((t): t is string => typeof t === "string") : [],
-					status: typeof parsed.status === "string" && parsed.status ? parsed.status : "open",
-					created_at: typeof parsed.created_at === "string" ? parsed.created_at : "",
-					assigned_to_session:
-						typeof parsed.assigned_to_session === "string" && parsed.assigned_to_session.trim()
-							? parsed.assigned_to_session
-							: undefined,
-				};
-				const body = content.slice(endIdx + 1).replace(/^\r?\n+/, "");
-				return { fm, body };
-			} catch {
-				// fall through
-			}
-		}
 	}
 
 	return { fm: defaultFm, body: content };
@@ -278,25 +252,6 @@ function unquoteYaml(s: string): string {
 		return s.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
 	}
 	return s;
-}
-
-function findJsonObjectEnd(content: string): number {
-	let depth = 0;
-	let inString = false;
-	let escaped = false;
-	for (let i = 0; i < content.length; i++) {
-		const ch = content[i];
-		if (inString) {
-			if (escaped) { escaped = false; continue; }
-			if (ch === "\\") { escaped = true; continue; }
-			if (ch === '"') inString = false;
-			continue;
-		}
-		if (ch === '"') { inString = true; continue; }
-		if (ch === "{") { depth++; continue; }
-		if (ch === "}") { depth--; if (depth === 0) return i; }
-	}
-	return -1;
 }
 
 // ---------------------------------------------------------------------------
