@@ -73,26 +73,28 @@ Example output:
 
 // --- Model selection ---
 
-const CODEX_MODEL_ID = "gpt-5.1-codex-mini";
-const HAIKU_MODEL_ID = "claude-haiku-4-5";
+// Preferred model patterns, in priority order (cheapest/fastest first)
+const EXTRACTION_MODEL_PREFERENCES = [
+	"haiku",      // Claude Haiku (any provider: anthropic, bedrock, etc.)
+	"codex-mini", // OpenAI codex mini
+	"flash",      // Gemini Flash
+];
 
 async function selectExtractionModel(
 	currentModel: Model<Api>,
 	modelRegistry: {
-		find: (provider: string, modelId: string) => Model<Api> | undefined;
+		getAvailable: () => Model<Api>[];
 		getApiKey: (model: Model<Api>) => Promise<string | undefined>;
 	},
 ): Promise<Model<Api>> {
-	const codexModel = modelRegistry.find("openai-codex", CODEX_MODEL_ID);
-	if (codexModel) {
-		const apiKey = await modelRegistry.getApiKey(codexModel);
-		if (apiKey) return codexModel;
-	}
+	const available = modelRegistry.getAvailable();
 
-	const haikuModel = modelRegistry.find("anthropic", HAIKU_MODEL_ID);
-	if (haikuModel) {
-		const apiKey = await modelRegistry.getApiKey(haikuModel);
-		if (apiKey) return haikuModel;
+	for (const pattern of EXTRACTION_MODEL_PREFERENCES) {
+		const match = available.find(m => m.id.toLowerCase().includes(pattern));
+		if (match) {
+			const apiKey = await modelRegistry.getApiKey(match);
+			if (apiKey) return match;
+		}
 	}
 
 	return currentModel;
