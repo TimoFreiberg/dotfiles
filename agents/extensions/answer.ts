@@ -102,21 +102,28 @@ async function selectExtractionModel(
 
 // --- JSON parsing ---
 
-function parseExtractionResult(text: string): ExtractionResult | null {
-	try {
-		let jsonStr = text;
-		const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-		if (jsonMatch) {
-			jsonStr = jsonMatch[1].trim();
-		}
-		const parsed = JSON.parse(jsonStr);
-		if (parsed && Array.isArray(parsed.questions)) {
-			return parsed as ExtractionResult;
-		}
-		return null;
-	} catch {
-		return null;
+function parseExtractionResult(text: string): ExtractionResult {
+	let jsonStr = text;
+	const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+	if (jsonMatch) {
+		jsonStr = jsonMatch[1].trim();
 	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(jsonStr);
+	} catch (e) {
+		const jsonError = e instanceof Error ? e.message : String(e);
+		const preview = jsonStr.length > 200 ? jsonStr.slice(0, 200) + "..." : jsonStr;
+		throw new Error(`Invalid JSON: ${jsonError}\nResponse preview: ${preview}`);
+	}
+
+	if (!parsed || typeof parsed !== "object" || !Array.isArray((parsed as Record<string, unknown>).questions)) {
+		const preview = jsonStr.length > 200 ? jsonStr.slice(0, 200) + "..." : jsonStr;
+		throw new Error(`Response JSON missing "questions" array.\nParsed value: ${preview}`);
+	}
+
+	return parsed as ExtractionResult;
 }
 
 // --- Theme helpers ---
@@ -482,11 +489,7 @@ export default function (pi: ExtensionAPI) {
 					.map((c) => c.text)
 					.join("\n");
 
-				const result = parseExtractionResult(responseText);
-				if (!result) {
-					throw new Error("Failed to parse extraction response as JSON");
-				}
-				return result;
+				return parseExtractionResult(responseText);
 			};
 
 			doExtract()
