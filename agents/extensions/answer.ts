@@ -11,6 +11,7 @@
 
 import { complete, type Model, type Api, type UserMessage } from "@mariozechner/pi-ai";
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { Type } from "@sinclair/typebox";
 import { BorderedLoader } from "@mariozechner/pi-coding-agent";
 import {
 	type Component,
@@ -178,7 +179,7 @@ class QnAComponent implements Component, Focusable {
 	private onDone: (result: string | null) => void;
 	private requestRender: () => void;
 	private showingConfirmation: boolean = false;
-	private modelId: string;
+	private modelId?: string;
 
 	// Render cache
 	private cachedWidth?: number;
@@ -200,7 +201,7 @@ class QnAComponent implements Component, Focusable {
 		theme: Theme,
 		onDone: (result: string | null) => void,
 		requestRender: () => void,
-		modelId: string,
+		modelId?: string,
 	) {
 		this.questions = questions;
 		this.answers = questions.map(() => "");
@@ -435,9 +436,11 @@ class QnAComponent implements Component, Focusable {
 			lines.push(padLine(boxLine(truncateToWidth(controls, contentWidth))));
 		}
 
-		// Model info
-		const modelInfo = t.fg("dim", `model: ${this.modelId}`);
-		lines.push(padLine(boxLine(truncateToWidth(modelInfo, contentWidth))));
+		// Model info (only when extraction was used)
+		if (this.modelId) {
+			const modelInfo = t.fg("dim", `model: ${this.modelId}`);
+			lines.push(padLine(boxLine(truncateToWidth(modelInfo, contentWidth))));
+		}
 
 		// Bottom border
 		lines.push(padLine(t.fg("border", "╰" + hLine(boxWidth - 2) + "╯")));
@@ -451,6 +454,71 @@ class QnAComponent implements Component, Focusable {
 // --- Extension entry point ---
 
 export default function (pi: ExtensionAPI) {
+	// --- Tool: let the LLM ask the user multiple questions at once ---
+
+	pi.registerTool({
+		name: "answer",
+		label: "Answer",
+		description:
+			"Ask the user one or more questions interactively. The user can answer all questions in a single Q&A form. " +
+			"Use this when you have multiple questions for the user instead of asking them inline.",
+		parameters: Type.Object({
+			questions: Type.Array(
+				Type.Object({
+					question: Type.String({ description: "The question text" }),
+					context: Type.Optional(Type.String({ description: "Optional context to help the user answer" })),
+				}),
+				{ description: "List of questions to ask the user" },
+			),
+		}),
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			if (!ctx.hasUI) {
+				return {
+					content: [{ type: "text", text: "Error: answer tool requires interactive mode" }],
+					isError: true,
+				};
+			}
+
+			if (params.questions.length === 0) {
+				return {
+					content: [{ type: "text", text: "Error: no questions provided" }],
+					isError: true,
+				};
+			}
+
+			const answersResult = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
+				const component = new QnAComponent(
+					params.questions,
+					tui,
+					theme,
+					done,
+					() => tui.requestRender(),
+				);
+
+				return {
+					render: (w: number) => component.render(w),
+					invalidate: () => component.invalidate(),
+					handleInput: (data: string) => component.handleInput(data),
+					get focused() {
+						return component.focused;
+					},
+					set focused(value: boolean) {
+						component.focused = value;
+					},
+				};
+			});
+
+			if (answersResult === null) {
+				return {
+					content: [{ type: "text", text: "User cancelled — did not answer the questions." }],
+				};
+			}
+
+			return {
+				content: [{ type: "text", text: answersResult }],
+			};
+		},
+	});
 	const answerHandler = async (ctx: ExtensionContext) => {
 		if (!ctx.hasUI) {
 			ctx.ui.notify("answer requires interactive mode", "error");
