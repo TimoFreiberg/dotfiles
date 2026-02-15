@@ -128,15 +128,45 @@ const PULL_REQUEST_PROMPT_FALLBACK =
 	'Review pull request #{prNumber} ("{title}") against base branch \'{baseBranch}\'. Find the merge base (`git merge-base HEAD {baseBranch}`), then `git diff` against that SHA.';
 
 // Default review instructions when no REVIEW_GUIDELINES.md exists
-const DEFAULT_REVIEW_INSTRUCTIONS = `Review the code changes and provide findings.
+const DEFAULT_REVIEW_INSTRUCTIONS = `# Review Guidelines
 
-Focus on:
-- Correctness and logic errors
-- Security issues
-- Performance concerns
-- Error handling
+You are reviewing code changes made by another engineer.
 
-Provide prioritized, actionable findings.`;
+## What to flag
+
+Flag issues that:
+1. Meaningfully impact correctness, performance, security, or maintainability.
+2. Are discrete and actionable — one issue per finding, not vague concerns.
+3. Don't demand rigor inconsistent with the rest of the codebase.
+4. Were introduced in the changes being reviewed, not pre-existing problems.
+5. The author would likely fix if aware of them.
+6. Have provable impact on other parts of the code — don't speculate that a change may break something, identify the parts that are actually affected.
+7. Are clearly not intentional changes by the author.
+
+## Review priorities
+
+1. Call out newly added dependencies and explain why they're needed.
+2. Prefer simple, direct solutions over wrappers or abstractions without clear value.
+3. Favor fail-fast behavior; avoid logging-and-continue patterns that hide errors.
+4. Prefer predictable behavior; crashing is better than silent degradation.
+5. Ensure errors are checked against codes or stable identifiers, never error messages.
+6. Be careful with untrusted user input: flag unparameterized SQL, open redirects, and unprotected fetches of user-supplied URLs.
+
+## Findings format
+
+Tag each finding with a priority level:
+- [P0] — Drop everything. Blocking. Only for universal issues that don't depend on assumptions about inputs.
+- [P1] — Urgent. Should be addressed in the next cycle.
+- [P2] — Normal. Fix eventually.
+- [P3] — Low. Nice to have.
+
+For each finding, include the priority tag, file path with line number, and a brief explanation (one paragraph max). Use a matter-of-fact tone — no flattery, no exaggeration.
+
+Findings must reference locations that overlap with the actual diff. Ignore trivial style issues unless they obscure meaning. Don't stop at the first finding — list every qualifying issue.
+
+End with an overall verdict: "correct" (no blocking issues) or "needs attention" (has P0/P1 issues).
+
+If there are no qualifying findings, say the code looks good.`;
 
 async function loadProjectReviewGuidelines(cwd: string): Promise<string | null> {
 	let currentDir = path.resolve(cwd);
