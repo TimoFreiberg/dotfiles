@@ -78,19 +78,11 @@ export default function (pi: ExtensionAPI) {
 
     const [serverName, serverConfig] = match;
     try {
-      const client = await getClientForServer(serverName, serverConfig, projectRoot);
+      const client = await getClient(serverName, serverConfig, projectRoot);
       return { client, serverName };
     } catch (e: any) {
       return `Failed to start LSP server '${serverName}': ${e.message}. Use grep/read to navigate code instead.`;
     }
-  }
-
-  async function getClientForServer(
-    serverName: string,
-    serverConfig: ServerConfig,
-    projectRoot: string,
-  ): Promise<LspClient> {
-    return getClient(serverName, serverConfig, projectRoot);
   }
 
   /**
@@ -275,7 +267,7 @@ export default function (pi: ExtensionAPI) {
 
       for (const [name, serverCfg] of Object.entries(cfg.servers)) {
         try {
-          const client = await getClientForServer(name, serverCfg, projectRoot);
+          const client = await getClient(name, serverCfg, projectRoot);
           const resolved = await resolveSymbol(client, params.symbol);
           if (typeof resolved !== "string") {
             const openErr = await ensureFileOpen(client, resolved.file);
@@ -382,7 +374,7 @@ Falls back gracefully if LSP is unavailable — use grep/read instead.`,
             const allResults: any[] = [];
             for (const [name, serverCfg] of Object.entries(cfg.servers)) {
               try {
-                const client = await getClientForServer(name, serverCfg, projectRoot);
+                const client = await getClient(name, serverCfg, projectRoot);
                 const results = await client.workspaceSymbol(query);
                 if (results) allResults.push(...results);
               } catch {
