@@ -20,7 +20,7 @@ export default function (pi: ExtensionAPI) {
   const clients = new Map<string, LspClient>();
   let config: LspConfig | null = null;
   let configLoaded = false;
-  let cwd: string = process.cwd();
+
 
   // --- Config loading ---
 
@@ -312,7 +312,6 @@ Falls back gracefully if LSP is unavailable — use grep/read instead.`,
 
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const projectRoot = ctx.cwd;
-      cwd = projectRoot;
       const updateStatusAfter = () => updateStatus(ctx);
 
       try {
@@ -401,7 +400,7 @@ Falls back gracefully if LSP is unavailable — use grep/read instead.`,
    * After write/edit tools modify a file, refresh it in any LSP server
    * that has it open. Uses didClose + didOpen (simpler than incremental didChange).
    */
-  pi.on("tool_result", async (event) => {
+  pi.on("tool_result", async (event, ctx) => {
     if (clients.size === 0) return; // No servers running, nothing to refresh
 
     let filePath: string | undefined;
@@ -410,7 +409,7 @@ Falls back gracefully if LSP is unavailable — use grep/read instead.`,
     }
     if (!filePath) return;
 
-    const absPath = resolve(cwd, filePath.replace(/^@/, ""));
+    const absPath = resolve(ctx.cwd, filePath.replace(/^@/, ""));
     if (!existsSync(absPath)) return;
 
     try {
