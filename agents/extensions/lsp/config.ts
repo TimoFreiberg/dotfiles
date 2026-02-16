@@ -44,6 +44,48 @@ const EXT_TO_LANG: Record<string, string> = {
   ".zig": "zig",
 };
 
+/**
+ * Parse a JSONC string (JSON with comments and trailing commas).
+ * Strips line comments, block comments, and trailing commas,
+ * while respecting string literals. Then feeds the result to JSON.parse.
+ */
+export function parseJsonc(text: string): unknown {
+  let result = "";
+  let i = 0;
+  while (i < text.length) {
+    const ch = text[i];
+    // String literal — copy verbatim (including escape sequences)
+    if (ch === '"') {
+      let j = i + 1;
+      while (j < text.length && text[j] !== '"') {
+        if (text[j] === "\\") j++; // skip escaped char
+        j++;
+      }
+      result += text.slice(i, j + 1);
+      i = j + 1;
+      continue;
+    }
+    // Line comment
+    if (ch === "/" && text[i + 1] === "/") {
+      i += 2;
+      while (i < text.length && text[i] !== "\n") i++;
+      continue;
+    }
+    // Block comment
+    if (ch === "/" && text[i + 1] === "*") {
+      i += 2;
+      while (i < text.length && !(text[i] === "*" && text[i + 1] === "/")) i++;
+      i += 2; // skip */
+      continue;
+    }
+    result += ch;
+    i++;
+  }
+  // Strip trailing commas before ] or }
+  result = result.replace(/,(\s*[}\]])/g, "$1");
+  return JSON.parse(result);
+}
+
 export function languageIdForFile(filePath: string): string {
   const ext = filePath.substring(filePath.lastIndexOf("."));
   return EXT_TO_LANG[ext] ?? "plaintext";
@@ -57,7 +99,7 @@ export function loadConfig(projectRoot: string): LspConfig | null {
   const piConfig = join(projectRoot, ".pi", "lsp.json");
   if (existsSync(piConfig)) {
     try {
-      const raw = JSON.parse(readFileSync(piConfig, "utf-8"));
+      const raw = parseJsonc(readFileSync(piConfig, "utf-8"));
       return normalizePiConfig(raw);
     } catch (e) {
       console.error(`Failed to parse ${piConfig}:`, e);
@@ -68,7 +110,7 @@ export function loadConfig(projectRoot: string): LspConfig | null {
   const zedConfig = join(projectRoot, ".zed", "settings.json");
   if (existsSync(zedConfig)) {
     try {
-      const raw = JSON.parse(readFileSync(zedConfig, "utf-8"));
+      const raw = parseJsonc(readFileSync(zedConfig, "utf-8"));
       return parseZedConfig(raw);
     } catch (e) {
       console.error(`Failed to parse ${zedConfig}:`, e);
