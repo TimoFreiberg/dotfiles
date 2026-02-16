@@ -52,6 +52,7 @@ export class LspClient extends EventEmitter {
       }
       this.pending.clear();
       this.initialized = false;
+      this.proc = null;
     });
 
     // Initialize handshake
@@ -87,7 +88,7 @@ export class LspClient extends EventEmitter {
     } catch {
       // Best effort
     }
-    this.proc.kill();
+    this.proc?.kill();
     this.proc = null;
     this.initialized = false;
     this.openDocuments.clear();
@@ -162,9 +163,6 @@ export class LspClient extends EventEmitter {
 
   private request(method: string, params: any): Promise<any> {
     return new Promise((resolve, reject) => {
-      if (!this.proc?.stdin?.writable) {
-        return reject(new Error("LSP server not running"));
-      }
       const id = this.nextId++;
       const timer = setTimeout(() => {
         if (this.pending.has(id)) {
@@ -173,7 +171,11 @@ export class LspClient extends EventEmitter {
         }
       }, 30000);
       this.pending.set(id, { resolve, reject, timer });
-      this.send({ jsonrpc: "2.0", id, method, params });
+      if (!this.send({ jsonrpc: "2.0", id, method, params })) {
+        this.pending.delete(id);
+        clearTimeout(timer);
+        reject(new Error("LSP server not running"));
+      }
     });
   }
 
@@ -181,10 +183,13 @@ export class LspClient extends EventEmitter {
     this.send({ jsonrpc: "2.0", method, params });
   }
 
-  private send(msg: any): void {
+  /** Returns false if the server is not running (message silently dropped). */
+  private send(msg: any): boolean {
+    if (!this.proc?.stdin?.writable) return false;
     const body = JSON.stringify(msg);
     const header = `Content-Length: ${Buffer.byteLength(body)}\r\n\r\n`;
-    this.proc!.stdin!.write(header + body);
+    this.proc.stdin.write(header + body);
+    return true;
   }
 
   private onData(chunk: Buffer): void {
