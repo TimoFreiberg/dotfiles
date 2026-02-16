@@ -1,5 +1,9 @@
 # Agent Guidelines
 
+## Shell
+
+Shell commands run in the project root. Do not prefix with `cd`.
+
 ## Version Control with jj
 
 1. **Before starting work**, ensure the current change is empty by running `jj show`:
