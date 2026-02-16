@@ -17,7 +17,7 @@ Use Conventional Commits: `<type>(<scope>): <summary>`
 - **summary**: imperative, ≤72 chars, no trailing period
 
 Before committing:
-1. Review changes with `jj diff --git` (the default `jj diff` uses inline word-level diffs that concatenate old+new text, making it hard to read)
+1. Review changes with `jj diff --git`
 2. Check `jj log` for existing scope conventions
 3. Do NOT push without asking
 
