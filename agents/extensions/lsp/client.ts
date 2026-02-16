@@ -18,7 +18,7 @@ export interface LspClientOptions {
 export class LspClient extends EventEmitter {
   private proc: ChildProcess | null = null;
   private nextId = 1;
-  private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void }>();
+  private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
   private buffer = Buffer.alloc(0);
   private contentLength = -1;
   private openDocuments = new Set<string>();
@@ -47,6 +47,7 @@ export class LspClient extends EventEmitter {
       this.emit("exit", code);
       // Reject all pending requests
       for (const [, p] of this.pending) {
+        clearTimeout(p.timer);
         p.reject(new Error(`LSP server exited with code ${code}`));
       }
       this.pending.clear();
@@ -165,16 +166,14 @@ export class LspClient extends EventEmitter {
         return reject(new Error("LSP server not running"));
       }
       const id = this.nextId++;
-      this.pending.set(id, { resolve, reject });
-      this.send({ jsonrpc: "2.0", id, method, params });
-
-      // Timeout after 30s
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (this.pending.has(id)) {
           this.pending.delete(id);
           reject(new Error(`LSP request '${method}' timed out after 30s`));
         }
       }, 30000);
+      this.pending.set(id, { resolve, reject, timer });
+      this.send({ jsonrpc: "2.0", id, method, params });
     });
   }
 
@@ -217,6 +216,7 @@ export class LspClient extends EventEmitter {
         if ("id" in msg && this.pending.has(msg.id)) {
           const p = this.pending.get(msg.id)!;
           this.pending.delete(msg.id);
+          clearTimeout(p.timer);
           if (msg.error) {
             p.reject(new Error(`LSP error ${msg.error.code}: ${msg.error.message}`));
           } else {
