@@ -36,7 +36,7 @@ function formatDuration(ms: number): string {
 }
 
 export default function (pi: ExtensionAPI) {
-	let readyTimestamp = "";
+	let lastNotification = "";
 	let agentStartTime = 0;
 
 	// Track when the agent starts processing
@@ -48,27 +48,26 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_start", async (_event, ctx) => {
 		if (!ctx.hasUI) return;
 		agentStartTime = 0;
-		readyTimestamp = formatTimestamp();
-		ctx.ui.notify(`> ${readyTimestamp}`, "info");
+		lastNotification = `> ${formatTimestamp()}`;
+		ctx.ui.notify(lastNotification, "info");
 	});
 
 	// Show "ready" timestamp with LLM response duration when agent finishes
 	pi.on("agent_end", async (_event, ctx) => {
 		if (!ctx.hasUI) return;
-		readyTimestamp = formatTimestamp();
-		let label = `> ${readyTimestamp}`;
+		lastNotification = `> ${formatTimestamp()}`;
 		if (agentStartTime > 0) {
 			const elapsed = Date.now() - agentStartTime;
-			label += ` (${formatDuration(elapsed)})`;
+			lastNotification += ` (${formatDuration(elapsed)})`;
 			agentStartTime = 0;
 		}
-		ctx.ui.notify(label, "info");
+		ctx.ui.notify(lastNotification, "info");
 	});
 
-	// Replace the "ready" notification with both timestamps
+	// Prepend previous notification and append send timestamp
 	pi.on("input", async (_event, ctx) => {
 		if (!ctx.hasUI) return { action: "continue" as const };
-		ctx.ui.notify(`> ${readyTimestamp}\n< ${formatTimestamp()}`, "info");
+		ctx.ui.notify(`${lastNotification}\n< ${formatTimestamp()}`, "info");
 		return { action: "continue" as const };
 	});
 }
