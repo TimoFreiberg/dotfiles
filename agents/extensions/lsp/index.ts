@@ -289,15 +289,24 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lsp",
     label: "LSP",
-    description: `Query language servers for code intelligence. Actions:
+    description: `Query language servers for code intelligence. **Prefer this over grep/find/rg** for navigating code structure — it understands semantics, not just text.
+
+Actions:
 - hover: Get type info/docs for a symbol. Provide file+line+col or symbol.
 - definition: Go to definition. Provide file+line+col or symbol. Returns location + surrounding code.
 - references: Find all references. Provide file+line+col or symbol.
 - symbols: List symbols in a file. Provide file.
 - workspace_symbols: Search symbols across workspace. Provide query.
 
-Positions are 1-indexed. Symbol names are resolved via workspace symbol search.
-Falls back gracefully if LSP is unavailable — use grep/read instead.`,
+Use this tool FIRST when:
+- Finding where a function/type/variable is defined (use definition, not grep)
+- Finding all usages of a symbol (use references, not grep)
+- Understanding a symbol's type or signature (use hover, not reading code)
+- Exploring what's in a file (use symbols, not grepping for def/fn/class)
+
+Fall back to grep/rg/find only for plain-text searches (log messages, string literals, comments, config values) or when LSP returns no results.
+
+Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`,
 
     parameters: Type.Object({
       action: StringEnum(["hover", "definition", "references", "symbols", "workspace_symbols"] as const, {
