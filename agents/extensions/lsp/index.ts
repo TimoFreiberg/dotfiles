@@ -7,6 +7,7 @@
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import { truncateHead, formatSize, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { StringEnum } from "@mariozechner/pi-ai";
 import { readFileSync, existsSync } from "node:fs";
@@ -474,8 +475,13 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
 // --- Helpers ---
 
 function okResult(text: string) {
+  const result = truncateHead(text, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES });
+  let output = result.content;
+  if (result.truncated) {
+    output += `\n\n[Output truncated: ${formatSize(result.totalBytes)} / ${result.totalLines} lines → ${formatSize(result.outputBytes)} / ${result.outputLines} lines, hit ${result.truncatedBy} limit]`;
+  }
   return {
-    content: [{ type: "text" as const, text }],
+    content: [{ type: "text" as const, text: output }],
     details: {},
   };
 }
