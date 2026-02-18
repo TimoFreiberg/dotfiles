@@ -1,11 +1,9 @@
 /**
  * Compact Tool Output Extension
  *
- * Makes tool output much less verbose in the default (collapsed) view.
+ * Makes tool output minimal in the default (collapsed) view:
+ * a single line showing the tool name, args, and line count.
  * Ctrl+O still shows the full expanded output.
- *
- * All collapsed views are limited to 3 visual terminal lines of content,
- * accounting for line wrapping at the current terminal width.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -24,8 +22,6 @@ import {
 } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { relative } from "path";
-
-// No content lines shown in collapsed view — just a summary line.
 
 // ── helpers ─────────────────────────────────────────────────────────
 
@@ -47,7 +43,6 @@ function str(v: unknown): string | null {
 	return typeof v === "string" ? v : null;
 }
 
-/** Format a path arg for display: accent if present, "..." if still streaming/missing. */
 function pathDisplay(rawPath: string | null, cwd: string, theme: any): string {
 	if (rawPath === null) return theme.fg("toolOutput", "...");
 	if (!rawPath) return theme.fg("toolOutput", "...");
@@ -62,7 +57,12 @@ function getTextOutput(result: any): string {
 		.join("\n");
 }
 
-/** Build fully styled code string with syntax highlighting (no truncation). */
+function countLines(text: string): number {
+	if (!text) return 0;
+	return text.split("\n").length;
+}
+
+/** Build fully styled code string with syntax highlighting. */
 function buildStyledCode(code: string, filePath: string | null, theme: any): string {
 	const lang = filePath ? getLanguageFromPath(filePath) : undefined;
 	const cleaned = replaceTabs(code);
@@ -72,7 +72,7 @@ function buildStyledCode(code: string, filePath: string | null, theme: any): str
 		.join("\n");
 }
 
-/** Build fully styled list string (no truncation). */
+/** Build fully styled list string. */
 function buildStyledList(output: string, theme: any): string {
 	return output
 		.split("\n")
@@ -80,35 +80,13 @@ function buildStyledList(output: string, theme: any): string {
 		.join("\n");
 }
 
-/** Count logical (newline-delimited) lines in raw text. */
-function countLines(text: string): number {
-	if (!text) return 0;
-	const n = text.split("\n").length;
-	return n;
-}
-
-/**
- * Create a renderable that shows no content lines — just a summary
- * with the line count and a hint to expand.
- */
-function createCollapsedRenderable(
-	rawText: string,
-	theme: any,
-	warningText?: string,
-): any {
-	const lines = countLines(rawText);
-	const summary =
-		theme.fg("muted", `${lines} line${lines !== 1 ? "s" : ""} (`) +
+/** Build the expand hint suffix: " — 42 lines (ctrl+o to expand)" */
+function expandSuffix(lineCount: number, theme: any, warningText?: string): string {
+	let s = theme.fg("muted", ` — ${lineCount} line${lineCount !== 1 ? "s" : ""} (`) +
 		keyHint("expandTools", "to expand") +
 		theme.fg("muted", ")");
-	return {
-		render(_width: number): string[] {
-			const out: string[] = ["", summary];
-			if (warningText) out.push(warningText);
-			return out;
-		},
-		invalidate() {},
-	};
+	if (warningText) s += " " + warningText;
+	return s;
 }
 
 function renderTruncationWarning(result: any, theme: any): string {
@@ -123,6 +101,19 @@ function renderTruncationWarning(result: any, theme: any): string {
 	return theme.fg("warning", `[Truncated: ${t.outputLines} lines (${formatSize(t.maxBytes ?? DEFAULT_MAX_BYTES)} limit)]`);
 }
 
+/**
+ * Create a lazy renderable whose text is built by `buildLine()` at render time.
+ * This lets renderCall's component pick up info set later by renderResult.
+ */
+function lazyLine(buildLine: () => string): any {
+	return {
+		render(_width: number): string[] {
+			return [buildLine()];
+		},
+		invalidate() {},
+	};
+}
+
 // ── extension ───────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
@@ -130,23 +121,25 @@ export default function (pi: ExtensionAPI) {
 
 	// TODO: This unconditionally registers overrides for all built-in tools,
 	// which activates grep/find/ls even in sessions that don't normally have them.
-	// To only override active tools: register all tools here unconditionally (as now),
-	// then in a "session_start" handler call pi.getActiveTools() to snapshot the
-	// original set, and pi.setActiveTools() to remove the ones that weren't active.
-	// (pi.getActiveTools() is an action method — can't be called during loading.)
-	// See examples/extensions/ssh.ts for the lazy-resolution pattern.
+	// See the comment in the previous version for the fix.
 
 	// renderCall and renderResult are always called synchronously in sequence
 	// within the same ToolExecutionComponent.updateDisplay() call, so a simple
 	// closure variable is safe for passing args from renderCall to renderResult.
+	//
+	// For the single-line collapsed view, renderResult stores a suffix string
+	// in the closure and returns null. The renderCall component is a lazy
+	// renderable that reads the suffix at paint time (after renderResult has set it).
 
 	// --- read -----------------------------------------------------------
 	{
+		let resultSuffix = "";
 		let readArgs: any = null;
 		const builtinRead = createReadTool(cwd);
 		pi.registerTool({
 			...builtinRead,
 			renderCall(args: any, theme: any) {
+				resultSuffix = "";
 				readArgs = args;
 				const rawPath = str(args?.file_path ?? args?.path);
 				const offset = args?.offset;
@@ -158,91 +151,103 @@ export default function (pi: ExtensionAPI) {
 					const e = limit !== undefined ? s + limit - 1 : "";
 					pd += theme.fg("warning", `:${s}${e ? `-${e}` : ""}`);
 				}
-				return new Text(`${theme.fg("toolTitle", theme.bold("read"))} ${pd}`, 0, 0);
+				const prefix = `${theme.fg("toolTitle", theme.bold("read"))} ${pd}`;
+				return lazyLine(() => prefix + resultSuffix);
 			},
 			renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-				if (isPartial) return null;
+				if (isPartial) { resultSuffix = ""; return null; }
 				const output = getTextOutput(result);
-				if (result.isError) return new Text(theme.fg("error", output), 0, 0);
-				if (!output) return null;
+				if (result.isError) {
+					resultSuffix = "";
+					return new Text(theme.fg("error", output), 0, 0);
+				}
+				if (!output) { resultSuffix = ""; return null; }
 
 				const rawPath = str(readArgs?.file_path ?? readArgs?.path);
 				const warning = renderTruncationWarning(result, theme);
 
 				if (expanded) {
+					resultSuffix = "";
 					let text = "\n\n" + buildStyledCode(output, rawPath, theme);
 					if (warning) text += "\n" + warning;
 					return new Text(text, 0, 0);
 				}
 
-				return createCollapsedRenderable(
-					output,
-					theme,
-					warning || undefined,
-				);
+				// Collapsed: set suffix for the lazy header line, return no component
+				resultSuffix = expandSuffix(countLines(output), theme, warning || undefined);
+				return null;
 			},
 		});
 	}
 
 	// --- write ----------------------------------------------------------
 	{
+		let resultSuffix = "";
 		let writeArgs: any = null;
 		const builtinWrite = createWriteTool(cwd);
 		pi.registerTool({
 			...builtinWrite,
 			renderCall(args: any, theme: any) {
+				resultSuffix = "";
 				writeArgs = args;
 				const rawPath = str(args?.file_path ?? args?.path);
 				const pd = pathDisplay(rawPath, cwd, theme);
-				return new Text(`${theme.fg("toolTitle", theme.bold("write"))} ${pd}`, 0, 0);
+				const prefix = `${theme.fg("toolTitle", theme.bold("write"))} ${pd}`;
+				return lazyLine(() => prefix + resultSuffix);
 			},
 			renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-				if (isPartial) return null;
-				if (result.isError) return new Text(theme.fg("error", getTextOutput(result)), 0, 0);
+				if (isPartial) { resultSuffix = ""; return null; }
+				if (result.isError) {
+					resultSuffix = "";
+					return new Text(theme.fg("error", getTextOutput(result)), 0, 0);
+				}
 
 				const rawPath = str(writeArgs?.file_path ?? writeArgs?.path);
 				const fileContent = str(writeArgs?.content);
 
 				if (!fileContent) {
+					resultSuffix = "";
 					const output = getTextOutput(result);
 					return output ? new Text(theme.fg("toolOutput", output), 0, 0) : null;
 				}
 
 				if (expanded) {
+					resultSuffix = "";
 					return new Text("\n\n" + buildStyledCode(fileContent, rawPath, theme), 0, 0);
 				}
 
-				return createCollapsedRenderable(
-					fileContent,
-					theme,
-				);
+				resultSuffix = expandSuffix(countLines(fileContent), theme);
+				return null;
 			},
 		});
 	}
 
 	// --- bash -----------------------------------------------------------
 	{
+		let resultSuffix = "";
 		const builtinBash = createBashTool(cwd);
 		pi.registerTool({
 			...builtinBash,
 			renderCall(args: any, theme: any) {
+				resultSuffix = "";
 				const command = str(args?.command);
 				const timeout = args?.timeout;
 				const tsuf = timeout ? theme.fg("muted", ` (timeout ${timeout}s)`) : "";
 				const cd = command ? command : theme.fg("toolOutput", "...");
-				return new Text(theme.fg("toolTitle", theme.bold(`$ ${cd}`)) + tsuf, 0, 0);
+				const prefix = theme.fg("toolTitle", theme.bold(`$ ${cd}`)) + tsuf;
+				return lazyLine(() => prefix + resultSuffix);
 			},
 			renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-				if (isPartial) return null;
+				if (isPartial) { resultSuffix = ""; return null; }
 				const output = getTextOutput(result).trim();
-				if (!output) return null;
-
-				const styled = output
-					.split("\n")
-					.map((l: string) => theme.fg("toolOutput", l))
-					.join("\n");
+				if (!output) { resultSuffix = ""; return null; }
 
 				if (expanded) {
+					resultSuffix = "";
+					const styled = output
+						.split("\n")
+						.map((l: string) => theme.fg("toolOutput", l))
+						.join("\n");
 					let text = `\n${styled}`;
 					const tr = result.details?.truncation;
 					const fp = result.details?.fullOutputPath;
@@ -255,46 +260,41 @@ export default function (pi: ExtensionAPI) {
 					return new Text(text, 0, 0);
 				}
 
-				// Collapsed: show line count and expand hint
-				const lineCount = countLines(output);
-				const summary =
-					theme.fg("muted", `${lineCount} line${lineCount !== 1 ? "s" : ""} (`) +
-					keyHint("expandTools", "to expand") +
-					theme.fg("muted", ")");
-				const collapsedOut: string[] = ["", summary];
-				const tr2 = result.details?.truncation;
-				const fp2 = result.details?.fullOutputPath;
-				if (tr2?.truncated || fp2) {
+				// Collapsed: single-line suffix
+				let warningText: string | undefined;
+				const tr = result.details?.truncation;
+				const fp = result.details?.fullOutputPath;
+				if (tr?.truncated || fp) {
 					const w: string[] = [];
-					if (fp2) w.push(`Full output: ${fp2}`);
-					if (tr2?.truncated) w.push("output truncated");
-					collapsedOut.push(theme.fg("warning", `[${w.join(". ")}]`));
+					if (fp) w.push(`Full output: ${fp}`);
+					if (tr?.truncated) w.push("output truncated");
+					warningText = theme.fg("warning", `[${w.join(". ")}]`);
 				}
-				return {
-					render(_width: number): string[] { return collapsedOut; },
-					invalidate() {},
-				} as any;
+				resultSuffix = expandSuffix(countLines(output), theme, warningText);
+				return null;
 			},
 		});
 	}
 
 	// --- ls -------------------------------------------------------------
 	{
+		let resultSuffix = "";
 		const builtinLs = createLsTool(cwd);
 		pi.registerTool({
 			...builtinLs,
 			renderCall(args: any, theme: any) {
+				resultSuffix = "";
 				const rawPath = str(args?.path);
 				const path = rawPath ? shortenPath(rawPath, cwd) : ".";
 				const limit = args?.limit;
-				let text = `${theme.fg("toolTitle", theme.bold("ls"))} ${theme.fg("accent", path)}`;
-				if (limit !== undefined) text += theme.fg("toolOutput", ` (limit ${limit})`);
-				return new Text(text, 0, 0);
+				let prefix = `${theme.fg("toolTitle", theme.bold("ls"))} ${theme.fg("accent", path)}`;
+				if (limit !== undefined) prefix += theme.fg("toolOutput", ` (limit ${limit})`);
+				return lazyLine(() => prefix + resultSuffix);
 			},
 			renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-				if (isPartial) return null;
+				if (isPartial) { resultSuffix = ""; return null; }
 				const output = getTextOutput(result).trim();
-				if (!output) return null;
+				if (!output) { resultSuffix = ""; return null; }
 
 				let warning: string | undefined;
 				const el = result.details?.entryLimitReached;
@@ -307,42 +307,42 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				if (expanded) {
+					resultSuffix = "";
 					let text = "\n\n" + buildStyledList(output, theme);
 					if (warning) text += "\n" + warning;
 					return new Text(text, 0, 0);
 				}
 
-				return createCollapsedRenderable(
-					output,
-					theme,
-					warning,
-				);
+				resultSuffix = expandSuffix(countLines(output), theme, warning);
+				return null;
 			},
 		});
 	}
 
 	// --- find -----------------------------------------------------------
 	{
+		let resultSuffix = "";
 		const builtinFind = createFindTool(cwd);
 		pi.registerTool({
 			...builtinFind,
 			renderCall(args: any, theme: any) {
+				resultSuffix = "";
 				const pattern = str(args?.pattern);
 				const rawPath = str(args?.path);
 				const path = rawPath ? shortenPath(rawPath, cwd) : ".";
 				const limit = args?.limit;
-				let text =
+				let prefix =
 					theme.fg("toolTitle", theme.bold("find")) +
 					" " +
 					theme.fg("accent", pattern || "...") +
 					theme.fg("toolOutput", ` in ${path}`);
-				if (limit !== undefined) text += theme.fg("toolOutput", ` (limit ${limit})`);
-				return new Text(text, 0, 0);
+				if (limit !== undefined) prefix += theme.fg("toolOutput", ` (limit ${limit})`);
+				return lazyLine(() => prefix + resultSuffix);
 			},
 			renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-				if (isPartial) return null;
+				if (isPartial) { resultSuffix = ""; return null; }
 				const output = getTextOutput(result).trim();
-				if (!output) return null;
+				if (!output) { resultSuffix = ""; return null; }
 
 				let warning: string | undefined;
 				const rl = result.details?.resultLimitReached;
@@ -355,44 +355,44 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				if (expanded) {
+					resultSuffix = "";
 					let text = "\n\n" + buildStyledList(output, theme);
 					if (warning) text += "\n" + warning;
 					return new Text(text, 0, 0);
 				}
 
-				return createCollapsedRenderable(
-					output,
-					theme,
-					warning,
-				);
+				resultSuffix = expandSuffix(countLines(output), theme, warning);
+				return null;
 			},
 		});
 	}
 
 	// --- grep -----------------------------------------------------------
 	{
+		let resultSuffix = "";
 		const builtinGrep = createGrepTool(cwd);
 		pi.registerTool({
 			...builtinGrep,
 			renderCall(args: any, theme: any) {
+				resultSuffix = "";
 				const pattern = str(args?.pattern);
 				const rawPath = str(args?.path);
 				const path = rawPath ? shortenPath(rawPath, cwd) : ".";
 				const glob = str(args?.glob);
 				const limit = args?.limit;
-				let text =
+				let prefix =
 					theme.fg("toolTitle", theme.bold("grep")) +
 					" " +
 					theme.fg("accent", pattern ? `/${pattern}/` : "...") +
 					theme.fg("toolOutput", ` in ${path}`);
-				if (glob) text += theme.fg("toolOutput", ` (${glob})`);
-				if (limit !== undefined) text += theme.fg("toolOutput", ` limit ${limit}`);
-				return new Text(text, 0, 0);
+				if (glob) prefix += theme.fg("toolOutput", ` (${glob})`);
+				if (limit !== undefined) prefix += theme.fg("toolOutput", ` limit ${limit}`);
+				return lazyLine(() => prefix + resultSuffix);
 			},
 			renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-				if (isPartial) return null;
+				if (isPartial) { resultSuffix = ""; return null; }
 				const output = getTextOutput(result).trim();
-				if (!output) return null;
+				if (!output) { resultSuffix = ""; return null; }
 
 				let warning: string | undefined;
 				const ml = result.details?.matchLimitReached;
@@ -407,16 +407,14 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				if (expanded) {
+					resultSuffix = "";
 					let text = "\n\n" + buildStyledList(output, theme);
 					if (warning) text += "\n" + warning;
 					return new Text(text, 0, 0);
 				}
 
-				return createCollapsedRenderable(
-					output,
-					theme,
-					warning,
-				);
+				resultSuffix = expandSuffix(countLines(output), theme, warning);
+				return null;
 			},
 		});
 	}
