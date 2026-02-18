@@ -7,7 +7,6 @@
  * Default collapsed views:
  * - read:  header + 3 preview lines (built-in shows 10)
  * - write: header + 3 preview lines (built-in shows 10)
- * - edit:  unchanged — diffs are already compact and useful
  * - bash:  header + 3 visual lines (built-in shows 5)
  * - ls:    header + 5 lines (built-in shows 20)
  * - find:  header + 5 lines (built-in shows 20)
@@ -18,7 +17,6 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
 	createReadTool,
 	createBashTool,
-	createEditTool,
 	createWriteTool,
 	createLsTool,
 	createFindTool,
@@ -204,11 +202,6 @@ export default function (pi: ExtensionAPI) {
 			return new Text(renderCodePreview(fileContent, rawPath, WRITE_PREVIEW_LINES, expanded, theme), 0, 0);
 		},
 	});
-
-	// --- edit -----------------------------------------------------------
-	// No custom rendering — built-in diff renderer is already compact.
-	const builtinEdit = createEditTool(cwd);
-	pi.registerTool({ ...builtinEdit });
 
 	// --- bash -----------------------------------------------------------
 	const builtinBash = createBashTool(cwd);
