@@ -245,7 +245,7 @@ export default function (pi: ExtensionAPI) {
   > {
     // If file+line+col given, use directly
     if (params.file && params.line != null && params.col != null) {
-      const filePath = resolve(projectRoot, params.file);
+      const filePath = resolve(projectRoot, params.file.replace(/^@/, ""));
       const result = await getClientForFile(filePath, projectRoot);
       if (typeof result === "string") return { error: result };
       const openErr = await ensureFileOpen(result.client, filePath);
@@ -363,7 +363,7 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
 
           case "symbols": {
             if (!params.file) return errorResult("'symbols' action requires a file path.");
-            const filePath = resolve(projectRoot, params.file);
+            const filePath = resolve(projectRoot, params.file.replace(/^@/, ""));
             const clientResult = await getClientForFile(filePath, projectRoot);
             if (typeof clientResult === "string") return errorResult(clientResult);
             const openErr = await ensureFileOpen(clientResult.client, filePath);
