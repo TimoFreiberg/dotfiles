@@ -20,14 +20,12 @@ import {
 	highlightCode,
 	getLanguageFromPath,
 	formatSize,
-	truncateToVisualLines,
 	DEFAULT_MAX_BYTES,
 } from "@mariozechner/pi-coding-agent";
 import { Text } from "@mariozechner/pi-tui";
 import { relative } from "path";
 
-// Maximum visual lines shown in any collapsed tool output.
-const MAX_VISUAL_LINES = 3;
+// No content lines shown in collapsed view — just a summary line.
 
 // ── helpers ─────────────────────────────────────────────────────────
 
@@ -82,51 +80,34 @@ function buildStyledList(output: string, theme: any): string {
 		.join("\n");
 }
 
+/** Count logical (newline-delimited) lines in raw text. */
+function countLines(text: string): number {
+	if (!text) return 0;
+	const n = text.split("\n").length;
+	return n;
+}
+
 /**
- * Create a renderable that truncates styled content to N visual lines
- * from the start. Used for collapsed views of read/write/ls/find/grep.
+ * Create a renderable that shows no content lines — just a summary
+ * with the line count and a hint to expand.
  */
 function createCollapsedRenderable(
-	styledContent: string,
-	maxVisualLines: number,
+	rawText: string,
 	theme: any,
 	warningText?: string,
 ): any {
+	const lines = countLines(rawText);
+	const summary =
+		theme.fg("muted", `${lines} line${lines !== 1 ? "s" : ""} (`) +
+		keyHint("expandTools", "to expand") +
+		theme.fg("muted", ")");
 	return {
-		_cw: undefined as number | undefined,
-		_cl: undefined as string[] | undefined,
-		_ct: undefined as boolean | undefined,
-		render(width: number): string[] {
-			if (this._cl === undefined || this._cw !== width) {
-				const tempText = new Text(styledContent, 0, 0);
-				const allVisual = tempText.render(width);
-				if (allVisual.length <= maxVisualLines) {
-					this._cl = allVisual;
-					this._ct = false;
-				} else {
-					this._cl = allVisual.slice(0, maxVisualLines);
-					this._ct = true;
-				}
-				this._cw = width;
-			}
-			const out: string[] = ["", ...this._cl!];
-			if (this._ct) {
-				out.push(
-					theme.fg("muted", "... (") +
-						keyHint("expandTools", "to expand") +
-						")",
-				);
-			}
-			if (warningText) {
-				out.push(warningText);
-			}
+		render(_width: number): string[] {
+			const out: string[] = ["", summary];
+			if (warningText) out.push(warningText);
 			return out;
 		},
-		invalidate() {
-			this._cw = undefined;
-			this._cl = undefined;
-			this._ct = undefined;
-		},
+		invalidate() {},
 	};
 }
 
@@ -195,8 +176,7 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				return createCollapsedRenderable(
-					buildStyledCode(output, rawPath, theme),
-					MAX_VISUAL_LINES,
+					output,
 					theme,
 					warning || undefined,
 				);
@@ -233,8 +213,7 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				return createCollapsedRenderable(
-					buildStyledCode(fileContent, rawPath, theme),
-					MAX_VISUAL_LINES,
+					fileContent,
 					theme,
 				);
 			},
@@ -276,44 +255,24 @@ export default function (pi: ExtensionAPI) {
 					return new Text(text, 0, 0);
 				}
 
-				// Collapsed: visual line truncation (last N lines for bash)
+				// Collapsed: show line count and expand hint
+				const lineCount = countLines(output);
+				const summary =
+					theme.fg("muted", `${lineCount} line${lineCount !== 1 ? "s" : ""} (`) +
+					keyHint("expandTools", "to expand") +
+					theme.fg("muted", ")");
+				const collapsedOut: string[] = ["", summary];
+				const tr2 = result.details?.truncation;
+				const fp2 = result.details?.fullOutputPath;
+				if (tr2?.truncated || fp2) {
+					const w: string[] = [];
+					if (fp2) w.push(`Full output: ${fp2}`);
+					if (tr2?.truncated) w.push("output truncated");
+					collapsedOut.push(theme.fg("warning", `[${w.join(". ")}]`));
+				}
 				return {
-					_cw: undefined as number | undefined,
-					_cl: undefined as string[] | undefined,
-					_cs: undefined as number | undefined,
-					render(width: number): string[] {
-						if (this._cl === undefined || this._cw !== width) {
-							const r = truncateToVisualLines(styled, MAX_VISUAL_LINES, width);
-							this._cl = r.visualLines;
-							this._cs = r.skippedCount;
-							this._cw = width;
-						}
-						const out: string[] = [];
-						if (this._cs && this._cs > 0) {
-							out.push(
-								"",
-								theme.fg("muted", `... (${this._cs} earlier lines,`) +
-									` ${keyHint("expandTools", "to expand")})`,
-								...this._cl!,
-							);
-						} else {
-							out.push("", ...this._cl!);
-						}
-						const tr = result.details?.truncation;
-						const fp = result.details?.fullOutputPath;
-						if (tr?.truncated || fp) {
-							const w: string[] = [];
-							if (fp) w.push(`Full output: ${fp}`);
-							if (tr?.truncated) w.push("output truncated");
-							out.push(theme.fg("warning", `[${w.join(". ")}]`));
-						}
-						return out;
-					},
-					invalidate() {
-						this._cw = undefined;
-						this._cl = undefined;
-						this._cs = undefined;
-					},
+					render(_width: number): string[] { return collapsedOut; },
+					invalidate() {},
 				} as any;
 			},
 		});
@@ -354,8 +313,7 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				return createCollapsedRenderable(
-					buildStyledList(output, theme),
-					MAX_VISUAL_LINES,
+					output,
 					theme,
 					warning,
 				);
@@ -403,8 +361,7 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				return createCollapsedRenderable(
-					buildStyledList(output, theme),
-					MAX_VISUAL_LINES,
+					output,
 					theme,
 					warning,
 				);
@@ -456,8 +413,7 @@ export default function (pi: ExtensionAPI) {
 				}
 
 				return createCollapsedRenderable(
-					buildStyledList(output, theme),
-					MAX_VISUAL_LINES,
+					output,
 					theme,
 					warning,
 				);
