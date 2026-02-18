@@ -179,6 +179,7 @@ class QnAComponent implements Component, Focusable {
 	private onDone: (result: string | null) => void;
 	private requestRender: () => void;
 	private showingConfirmation: boolean = false;
+	private showingCancelConfirmation: boolean = false;
 	private modelId?: string;
 
 	// Render cache
@@ -216,6 +217,11 @@ class QnAComponent implements Component, Focusable {
 			this.invalidate();
 			this.requestRender();
 		};
+	}
+
+	private hasAnyAnswers(): boolean {
+		this.saveCurrentAnswer();
+		return this.answers.some((a) => a.trim().length > 0);
 	}
 
 	private saveCurrentAnswer(): void {
@@ -258,7 +264,7 @@ class QnAComponent implements Component, Focusable {
 	}
 
 	handleInput(data: string): void {
-		// Confirmation dialog
+		// Submit confirmation dialog
 		if (this.showingConfirmation) {
 			if (matchesKey(data, Key.enter) || data.toLowerCase() === "y") {
 				this.submit();
@@ -273,9 +279,30 @@ class QnAComponent implements Component, Focusable {
 			return;
 		}
 
-		// Cancel
+		// Cancel confirmation dialog
+		if (this.showingCancelConfirmation) {
+			if (matchesKey(data, Key.enter) || data.toLowerCase() === "y") {
+				this.cancel();
+				return;
+			}
+			if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c")) || data.toLowerCase() === "n") {
+				this.showingCancelConfirmation = false;
+				this.invalidate();
+				this.requestRender();
+				return;
+			}
+			return;
+		}
+
+		// Cancel — confirm first if any answers have been typed
 		if (matchesKey(data, Key.escape) || matchesKey(data, Key.ctrl("c"))) {
-			this.cancel();
+			if (this.hasAnyAnswers()) {
+				this.showingCancelConfirmation = true;
+				this.invalidate();
+				this.requestRender();
+			} else {
+				this.cancel();
+			}
 			return;
 		}
 
@@ -430,6 +457,9 @@ class QnAComponent implements Component, Focusable {
 		// Confirmation or controls
 		if (this.showingConfirmation) {
 			const msg = `${t.fg("warning", "Submit all answers?")} ${t.fg("dim", "(Enter/y to confirm, Esc/n to cancel)")}`;
+			lines.push(padLine(boxLine(truncateToWidth(msg, contentWidth))));
+		} else if (this.showingCancelConfirmation) {
+			const msg = `${t.fg("warning", "Discard all answers?")} ${t.fg("dim", "(Enter/y to discard, Esc/n to go back)")}`;
 			lines.push(padLine(boxLine(truncateToWidth(msg, contentWidth))));
 		} else {
 			const controls = `${t.fg("dim", "Tab/Enter")} next · ${t.fg("dim", "Shift+Tab")} prev · ${t.fg("dim", "Shift+Enter")} newline · ${t.fg("dim", "Esc")} cancel`;
