@@ -85,10 +85,20 @@ export class LspClient extends EventEmitter {
     try {
       await this.request("shutdown", null);
       this.notify("exit", null);
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => {
+          this.proc?.kill();
+          resolve();
+        }, 2000);
+        this.proc?.on("exit", () => {
+          clearTimeout(timeout);
+          resolve();
+        });
+      });
     } catch {
       // Best effort
+      this.proc?.kill();
     }
-    this.proc?.kill();
     this.proc = null;
     this.initialized = false;
     this.openDocuments.clear();
