@@ -227,8 +227,16 @@ export class LspClient extends EventEmitter {
           } else {
             p.resolve(msg.result);
           }
+        } else if ("id" in msg && "method" in msg) {
+          // Server-to-client request — must respond to avoid server hangs
+          this.emit("log", `Server request: ${msg.method} (id=${msg.id})`);
+          let result: any = null;
+          if (msg.method === "workspace/configuration" && Array.isArray(msg.params?.items)) {
+            result = msg.params.items.map(() => null);
+          }
+          this.send({ jsonrpc: "2.0", id: msg.id, result });
         }
-        // Notifications and server-initiated requests are ignored for now
+        // Server-to-client notifications (method but no id) are silently ignored
       } catch {
         // Malformed JSON, skip
       }
