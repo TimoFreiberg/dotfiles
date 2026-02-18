@@ -13,6 +13,7 @@ import { complete, type Model, type Api, type UserMessage } from "@mariozechner/
 import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { BorderedLoader } from "@mariozechner/pi-coding-agent";
+import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
 import {
 	type Component,
 	Editor,
@@ -181,6 +182,8 @@ class QnAComponent implements Component, Focusable {
 	private showingConfirmation: boolean = false;
 	private showingCancelConfirmation: boolean = false;
 	private modelId?: string;
+	private keybindings?: KeybindingsManager;
+	private onToggleExpand?: () => void;
 
 	// Render cache
 	private cachedWidth?: number;
@@ -202,14 +205,16 @@ class QnAComponent implements Component, Focusable {
 		theme: Theme,
 		onDone: (result: string | null) => void,
 		requestRender: () => void,
-		modelId?: string,
+		options?: { modelId?: string; keybindings?: KeybindingsManager; onToggleExpand?: () => void },
 	) {
 		this.questions = questions;
 		this.answers = questions.map(() => "");
 		this.theme = theme;
 		this.onDone = onDone;
 		this.requestRender = requestRender;
-		this.modelId = modelId;
+		this.modelId = options?.modelId;
+		this.keybindings = options?.keybindings;
+		this.onToggleExpand = options?.onToggleExpand;
 
 		this.editor = new Editor(tui, buildEditorTheme(theme));
 		this.editor.disableSubmit = true;
@@ -264,6 +269,12 @@ class QnAComponent implements Component, Focusable {
 	}
 
 	handleInput(data: string): void {
+		// Expand/collapse tool output (Ctrl+O by default)
+		if (this.keybindings?.matches(data, "expandTools") && this.onToggleExpand) {
+			this.onToggleExpand();
+			return;
+		}
+
 		// Submit confirmation dialog
 		if (this.showingConfirmation) {
 			if (matchesKey(data, Key.enter) || data.toLowerCase() === "y") {
@@ -516,13 +527,22 @@ export default function (pi: ExtensionAPI) {
 				};
 			}
 
-			const answersResult = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
+			// Pause the working message while the Q&A form is displayed
+			ctx.ui.setWorkingMessage(" ");
+
+			const answersResult = await ctx.ui.custom<string | null>((tui, theme, kb, done) => {
 				const component = new QnAComponent(
 					params.questions,
 					tui,
 					theme,
 					done,
 					() => tui.requestRender(),
+					{
+						keybindings: kb,
+						onToggleExpand: () => {
+							ctx.ui.setToolsExpanded(!ctx.ui.getToolsExpanded());
+						},
+					},
 				);
 
 				return {
@@ -537,6 +557,9 @@ export default function (pi: ExtensionAPI) {
 					},
 				};
 			});
+
+			// Restore working message
+			ctx.ui.setWorkingMessage();
 
 			if (answersResult === null) {
 				return {
@@ -676,14 +699,20 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		// Show the interactive Q&A form
-		const answersResult = await ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
+		const answersResult = await ctx.ui.custom<string | null>((tui, theme, kb, done) => {
 			const component = new QnAComponent(
 				extractionResult.result.questions,
 				tui,
 				theme,
 				done,
 				() => tui.requestRender(),
-				extractionResult.modelId,
+				{
+					modelId: extractionResult.modelId,
+					keybindings: kb,
+					onToggleExpand: () => {
+						ctx.ui.setToolsExpanded(!ctx.ui.getToolsExpanded());
+					},
+				},
 			);
 
 			return {
