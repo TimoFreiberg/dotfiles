@@ -1210,6 +1210,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 	// Tool
 	// -----------------------------------------------------------------------
 
+	let resultSuffix = "";
 	pi.registerTool({
 		name: "todo",
 		label: "Todo",
@@ -1354,39 +1355,73 @@ export default function todosExtension(pi: ExtensionAPI) {
 		},
 
 		renderCall(args, theme) {
+			resultSuffix = "";
 			const action = typeof args.action === "string" ? args.action : "";
 			const id = typeof args.id === "string" ? args.id : "";
 			const nId = id ? normalizeTodoId(id) : "";
 			const title = typeof args.title === "string" ? args.title : "";
-			let text = theme.fg("toolTitle", theme.bold("todo ")) + theme.fg("muted", action);
-			if (nId) text += " " + theme.fg("accent", formatTodoId(nId));
-			if (title) text += " " + theme.fg("dim", `"${title}"`);
-			return new Text(text, 0, 0);
+			let prefix = theme.fg("toolTitle", theme.bold("todo ")) + theme.fg("muted", action);
+			if (nId) prefix += " " + theme.fg("accent", formatTodoId(nId));
+			if (title) prefix += " " + theme.fg("dim", `"${title}"`);
+			const inner = new Text("", 0, 0);
+			return {
+				render(width: number): string[] { inner.setText(prefix + resultSuffix); return inner.render(width); },
+				invalidate() { inner.invalidate(); },
+			};
 		},
 
 		renderResult(result, { expanded, isPartial }, theme) {
 			const details = result.details as TodoToolDetails | undefined;
-			if (isPartial) return new Text(theme.fg("warning", "Processing..."), 0, 0);
+
+			if (isPartial) { resultSuffix = ""; return null; }
 			if (!details) {
+				resultSuffix = "";
 				const t = result.content[0];
 				return new Text(t?.type === "text" ? t.text : "", 0, 0);
 			}
-			if (details.error) return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
+			if (details.error) {
+				resultSuffix = "";
+				return new Text(theme.fg("error", `Error: ${details.error}`), 0, 0);
+			}
 
 			if (details.action === "list" || details.action === "list-all") {
-				let text = renderTodoList(theme, details.todos, expanded, details.currentSessionId);
 				if (!expanded) {
-					const { closed } = splitTodosByAssignment(details.todos);
-					if (closed.length) text = appendExpandHint(theme, text);
+					const { assigned, open, closed } = splitTodosByAssignment(details.todos);
+					const parts: string[] = [];
+					if (assigned.length) parts.push(`${assigned.length} assigned`);
+					if (open.length) parts.push(`${open.length} open`);
+					if (closed.length) parts.push(`${closed.length} closed`);
+					const summary = parts.length ? parts.join(", ") : "none";
+					resultSuffix = theme.fg("muted", ` — ${summary} (`) + keyHint("expandTools", "to expand") + theme.fg("muted", ")");
+					return null;
 				}
+				resultSuffix = "";
+				const text = renderTodoList(theme, details.todos, expanded, details.currentSessionId);
 				return new Text(text, 0, 0);
 			}
 
 			if (!details.todo) {
+				resultSuffix = "";
 				const t = result.content[0];
 				return new Text(t?.type === "text" ? t.text : "", 0, 0);
 			}
 
+			if (!expanded) {
+				const labels: Record<string, string> = {
+					create: "Created", update: "Updated", append: "Appended to",
+					delete: "Deleted", claim: "Claimed", release: "Released",
+					get: "",
+				};
+				const label = labels[details.action] ?? "";
+				const statusText = getTodoStatus(details.todo);
+				let suffix = "";
+				if (label) suffix += theme.fg("success", " ✓") + theme.fg("muted", ` ${label}`);
+				suffix += theme.fg("muted", ` [${statusText}] (`) + keyHint("expandTools", "to expand") + theme.fg("muted", ")");
+				resultSuffix = suffix;
+				return null;
+			}
+
+			resultSuffix = "";
 			let text = renderTodoDetail(theme, details.todo, expanded);
 			const labels: Record<string, string> = {
 				create: "Created", update: "Updated", append: "Appended to",
@@ -1398,7 +1433,6 @@ export default function todosExtension(pi: ExtensionAPI) {
 				lines[0] = theme.fg("success", "✓ ") + theme.fg("muted", `${label} `) + lines[0];
 				text = lines.join("\n");
 			}
-			if (!expanded) text = appendExpandHint(theme, text);
 			return new Text(text, 0, 0);
 		},
 	});
