@@ -92,32 +92,36 @@ export function languageIdForFile(filePath: string): string {
 }
 
 /**
+ * Find the config file path, preferring `.pi/lsp.json` over `.zed/settings.json`.
+ */
+export function findConfigPath(projectRoot: string): string | null {
+  const piConfig = join(projectRoot, ".pi", "lsp.json");
+  if (existsSync(piConfig)) return piConfig;
+  const zedConfig = join(projectRoot, ".zed", "settings.json");
+  if (existsSync(zedConfig)) return zedConfig;
+  return null;
+}
+
+/**
+ * Load and parse a specific config file. Throws on parse errors.
+ */
+export function loadConfigFromFile(configPath: string): LspConfig | null {
+  const raw = parseJsonc(readFileSync(configPath, "utf-8"));
+  if (configPath.endsWith("lsp.json")) {
+    return normalizePiConfig(raw);
+  } else {
+    return parseZedConfig(raw);
+  }
+}
+
+/**
  * Load config from `.pi/lsp.json`, falling back to `.zed/settings.json`.
+ * Throws on parse errors.
  */
 export function loadConfig(projectRoot: string): LspConfig | null {
-  // 1. Try .pi/lsp.json
-  const piConfig = join(projectRoot, ".pi", "lsp.json");
-  if (existsSync(piConfig)) {
-    try {
-      const raw = parseJsonc(readFileSync(piConfig, "utf-8"));
-      return normalizePiConfig(raw);
-    } catch (e) {
-      console.error(`Failed to parse ${piConfig}:`, e);
-    }
-  }
-
-  // 2. Fallback to .zed/settings.json
-  const zedConfig = join(projectRoot, ".zed", "settings.json");
-  if (existsSync(zedConfig)) {
-    try {
-      const raw = parseJsonc(readFileSync(zedConfig, "utf-8"));
-      return parseZedConfig(raw);
-    } catch (e) {
-      console.error(`Failed to parse ${zedConfig}:`, e);
-    }
-  }
-
-  return null;
+  const configPath = findConfigPath(projectRoot);
+  if (!configPath) return null;
+  return loadConfigFromFile(configPath);
 }
 
 /**

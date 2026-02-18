@@ -10,11 +10,11 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { truncateHead, formatSize, DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { StringEnum } from "@mariozechner/pi-ai";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, statSync } from "node:fs";
 import { resolve, extname } from "node:path";
 
 import { LspClient } from "./client.js";
-import { loadConfig, serverForFile, languageIdForFile, type LspConfig, type ServerConfig } from "./config.js";
+import { findConfigPath, loadConfig, serverForFile, languageIdForFile, type LspConfig, type ServerConfig } from "./config.js";
 
 export default function (pi: ExtensionAPI) {
   // One LspClient per server name (e.g. "rust-analyzer", "clangd")
@@ -22,17 +22,81 @@ export default function (pi: ExtensionAPI) {
   // Tracks in-flight server starts to avoid duplicate spawns from concurrent calls
   const starting = new Map<string, Promise<LspClient>>();
   let config: LspConfig | null = null;
-  let configLoaded = false;
+  let configPath: string | null = null;
+  let configMtime: number = 0;
+  let configLoadedOnce = false;
+  let configWarning: string | null = null;
 
 
   // --- Config loading ---
 
   function ensureConfig(projectRoot: string): LspConfig | null {
-    if (!configLoaded) {
-      config = loadConfig(projectRoot);
-      configLoaded = true;
+    configWarning = null;
+    const currentPath = findConfigPath(projectRoot);
+
+    // Determine if we need to reload
+    let needsReload = !configLoadedOnce;
+    if (!needsReload) {
+      if (currentPath !== configPath) {
+        // Config file appeared, disappeared, or switched
+        needsReload = true;
+      } else if (currentPath) {
+        try {
+          const mtime = statSync(currentPath).mtimeMs;
+          if (mtime !== configMtime) needsReload = true;
+        } catch {
+          needsReload = true;
+        }
+      }
     }
-    return config;
+
+    if (!needsReload) return config;
+
+    // Reload
+    configLoadedOnce = true;
+    configPath = currentPath;
+
+    if (!currentPath) {
+      config = null;
+      configMtime = 0;
+      return null;
+    }
+
+    try {
+      configMtime = statSync(currentPath).mtimeMs;
+    } catch {
+      configMtime = 0;
+    }
+
+    try {
+      const newConfig = loadConfig(projectRoot);
+      const oldJson = JSON.stringify(config);
+      const newJson = JSON.stringify(newConfig);
+
+      if (clients.size > 0 && config !== null && newJson !== oldJson) {
+        configWarning = `LSP config has changed (${currentPath}). Running servers use the old config — use /reload to pick up changes.`;
+      }
+
+      config = newConfig;
+      return config;
+    } catch (e: any) {
+      // Parse error: keep last good config, surface error
+      configWarning = `LSP config file is broken (${currentPath}): ${e.message}. Using last good config.`;
+      return config;
+    }
+  }
+
+  /**
+   * Prepend configWarning (if set) to a tool result.
+   */
+  function maybeWarnResult(result: ReturnType<typeof okResult>) {
+    if (configWarning && result.content.length > 0) {
+      const first = result.content[0];
+      if (first.type === "text") {
+        first.text = `⚠️ ${configWarning}\n\n${first.text}`;
+      }
+    }
+    return result;
   }
 
   // --- Client management ---
@@ -339,25 +403,27 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
       const updateStatusAfter = () => updateStatus(ctx);
 
       try {
+        let result: ReturnType<typeof okResult>;
         switch (params.action) {
           case "hover": {
             const resolved = await resolvePosition(params, projectRoot);
-            if ("error" in resolved) return errorResult(resolved.error);
-            const result = await resolved.client.hover(resolved.pos.file, resolved.pos.line, resolved.pos.col);
-            const text = formatHover(result);
-            return okResult(`Hover at ${resolved.pos.file}:${resolved.pos.line + 1}:${resolved.pos.col + 1}:\n\n${text}`);
+            if ("error" in resolved) return maybeWarnResult(errorResult(resolved.error));
+            const hoverResult = await resolved.client.hover(resolved.pos.file, resolved.pos.line, resolved.pos.col);
+            const text = formatHover(hoverResult);
+            result = okResult(`Hover at ${resolved.pos.file}:${resolved.pos.line + 1}:${resolved.pos.col + 1}:\n\n${text}`);
+            break;
           }
 
           case "definition": {
             const resolved = await resolvePosition(params, projectRoot);
-            if ("error" in resolved) return errorResult(resolved.error);
-            const result = await resolved.client.definition(resolved.pos.file, resolved.pos.line, resolved.pos.col);
+            if ("error" in resolved) return maybeWarnResult(errorResult(resolved.error));
+            const defResult = await resolved.client.definition(resolved.pos.file, resolved.pos.line, resolved.pos.col);
 
-            if (!result) return okResult("No definition found.");
+            if (!defResult) { result = okResult("No definition found."); break; }
 
             // definition can return a single Location or Location[]
-            const locations = Array.isArray(result) ? result : [result];
-            if (locations.length === 0) return okResult("No definition found.");
+            const locations = Array.isArray(defResult) ? defResult : [defResult];
+            if (locations.length === 0) { result = okResult("No definition found."); break; }
 
             const parts = locations.map((loc: any) => {
               const file = loc.uri.replace("file://", "");
@@ -366,32 +432,35 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
               const context = extractContext(file, line);
               return `${header}\n${context}`;
             });
-            return okResult(parts.join("\n\n---\n\n"));
+            result = okResult(parts.join("\n\n---\n\n"));
+            break;
           }
 
           case "references": {
             const resolved = await resolvePosition(params, projectRoot);
-            if ("error" in resolved) return errorResult(resolved.error);
-            const result = await resolved.client.references(resolved.pos.file, resolved.pos.line, resolved.pos.col);
-            return okResult(formatReferences(result));
+            if ("error" in resolved) return maybeWarnResult(errorResult(resolved.error));
+            const refsResult = await resolved.client.references(resolved.pos.file, resolved.pos.line, resolved.pos.col);
+            result = okResult(formatReferences(refsResult));
+            break;
           }
 
           case "symbols": {
             if (!params.file) return errorResult("'symbols' action requires a file path.");
             const filePath = resolve(projectRoot, params.file.replace(/^@/, ""));
             const clientResult = await getClientForFile(filePath, projectRoot);
-            if (typeof clientResult === "string") return errorResult(clientResult);
+            if (typeof clientResult === "string") return maybeWarnResult(errorResult(clientResult));
             const openErr = await ensureFileOpen(clientResult.client, filePath);
-            if (openErr) return errorResult(openErr);
-            const result = await clientResult.client.documentSymbol(filePath);
-            return okResult(`Symbols in ${params.file}:\n\n${formatDocumentSymbols(result)}`);
+            if (openErr) return maybeWarnResult(errorResult(openErr));
+            const symResult = await clientResult.client.documentSymbol(filePath);
+            result = okResult(`Symbols in ${params.file}:\n\n${formatDocumentSymbols(symResult)}`);
+            break;
           }
 
           case "workspace_symbols": {
             const query = params.query ?? params.symbol ?? "";
             if (!query) return errorResult("'workspace_symbols' action requires a query or symbol.");
             const cfg = ensureConfig(projectRoot);
-            if (!cfg) return errorResult("No LSP config found. Use grep instead.");
+            if (!cfg) return maybeWarnResult(errorResult("No LSP config found. Use grep instead."));
 
             // Query all servers and merge results
             const allResults: any[] = [];
@@ -404,14 +473,16 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
                 // Skip failed servers
               }
             }
-            return okResult(formatWorkspaceSymbols(allResults));
+            result = okResult(formatWorkspaceSymbols(allResults));
+            break;
           }
 
           default:
             return errorResult(`Unknown action: ${params.action}`);
         }
+        return maybeWarnResult(result);
       } catch (e: any) {
-        return errorResult(`LSP error: ${e.message}. Use grep/read to navigate code instead.`);
+        return maybeWarnResult(errorResult(`LSP error: ${e.message}. Use grep/read to navigate code instead.`));
       } finally {
         updateStatusAfter();
       }
@@ -451,7 +522,7 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
 
   function updateStatus(ctx: { ui: { setStatus(key: string, msg: string | undefined): void } }) {
     if (clients.size === 0) {
-      ctx.ui.setStatus("lsp", configLoaded && !config ? "LSP: no config" : "LSP: idle");
+      ctx.ui.setStatus("lsp", configLoadedOnce && !config ? "LSP: no config" : "LSP: idle");
     } else {
       const names = [...clients.keys()].join(", ");
       ctx.ui.setStatus("lsp", `LSP: ${names}`);
