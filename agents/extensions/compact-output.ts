@@ -87,7 +87,8 @@ function renderCodePreview(
 	theme: any,
 ): string {
 	const lang = filePath ? getLanguageFromPath(filePath) : undefined;
-	const lines = lang ? highlightCode(replaceTabs(code), lang) : code.split("\n");
+	const cleaned = replaceTabs(code);
+	const lines = lang ? highlightCode(cleaned, lang) : cleaned.split("\n");
 	const limit = expanded ? lines.length : maxLines;
 	const displayLines = lines.slice(0, limit);
 	const remaining = lines.length - limit;
@@ -96,7 +97,7 @@ function renderCodePreview(
 		"\n\n" +
 		displayLines
 			.map((line: string) =>
-				lang ? replaceTabs(line) : theme.fg("toolOutput", replaceTabs(line)),
+				lang ? line : theme.fg("toolOutput", line),
 			)
 			.join("\n");
 
