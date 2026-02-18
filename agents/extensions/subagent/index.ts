@@ -28,6 +28,19 @@ const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
 const COLLAPSED_ITEM_COUNT = 10;
 
+/**
+ * Map generic model names to Amazon Bedrock model IDs.
+ * Used when the resolved provider is "amazon-bedrock" to translate
+ * human-friendly agent config names to Bedrock's cross-region IDs.
+ */
+const BEDROCK_MODEL_MAP: Record<string, string> = {
+	"claude-opus-4-6": "global.anthropic.claude-opus-4-6-v1",
+	"claude-opus-4-5": "global.anthropic.claude-opus-4-5-20251101-v1:0",
+	"claude-sonnet-4-5": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
+	"claude-sonnet-4": "global.anthropic.claude-sonnet-4-20250514-v1:0",
+	"claude-haiku-4-5": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+};
+
 function formatTokens(count: number): string {
 	if (count < 1000) return count.toString();
 	if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
@@ -227,6 +240,8 @@ async function runSingleAgent(
 	signal: AbortSignal | undefined,
 	onUpdate: OnUpdateCallback | undefined,
 	makeDetails: (results: SingleResult[]) => SubagentDetails,
+	parentProvider?: string,
+	parentThinking?: string,
 ): Promise<SingleResult> {
 	const agent = agents.find((a) => a.name === agentName);
 
@@ -245,7 +260,23 @@ async function runSingleAgent(
 	}
 
 	const args: string[] = ["--mode", "json", "-p", "--no-session"];
-	if (agent.model) args.push("--model", agent.model);
+
+	// Provider: use agent-specific override, or inherit from parent
+	const provider = agent.provider ?? parentProvider;
+	if (provider) args.push("--provider", provider);
+
+	// Resolve model: map generic names to provider-specific IDs
+	if (agent.model) {
+		const resolvedModel = provider === "amazon-bedrock"
+			? BEDROCK_MODEL_MAP[agent.model] ?? agent.model
+			: agent.model;
+		args.push("--model", resolvedModel);
+	}
+
+	// Thinking: use agent-specific override, or inherit from parent
+	const thinking = agent.thinking ?? parentThinking;
+	if (thinking) args.push("--thinking", thinking);
+
 	if (agent.tools && agent.tools.length > 0) args.push("--tools", agent.tools.join(","));
 
 	let tmpPromptDir: string | null = null;
@@ -423,6 +454,10 @@ export default function (pi: ExtensionAPI) {
 			const agents = discovery.agents;
 			const confirmProjectAgents = params.confirmProjectAgents ?? true;
 
+			// Inherit provider and thinking from parent session
+			const parentProvider = ctx.model?.provider;
+			const parentThinking = undefined; // thinking level not exposed on ctx, inherited via settings
+
 			const hasChain = (params.chain?.length ?? 0) > 0;
 			const hasTasks = (params.tasks?.length ?? 0) > 0;
 			const hasSingle = Boolean(params.agent && params.task);
@@ -508,6 +543,7 @@ export default function (pi: ExtensionAPI) {
 						signal,
 						chainUpdate,
 						makeDetails("chain"),
+						parentProvider,
 					);
 					results.push(result);
 
@@ -588,6 +624,7 @@ export default function (pi: ExtensionAPI) {
 							}
 						},
 						makeDetails("parallel"),
+						parentProvider,
 					);
 					allResults[index] = result;
 					emitParallelUpdate();
@@ -622,6 +659,7 @@ export default function (pi: ExtensionAPI) {
 					signal,
 					onUpdate,
 					makeDetails("single"),
+					parentProvider,
 				);
 				const isError = result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted";
 				if (isError) {
