@@ -106,11 +106,13 @@ function renderTruncationWarning(result: any, theme: any): string {
  * This lets renderCall's component pick up info set later by renderResult.
  */
 function lazyLine(buildLine: () => string): any {
+	const inner = new Text("", 0, 0);
 	return {
-		render(_width: number): string[] {
-			return [buildLine()];
+		render(width: number): string[] {
+			inner.setText(buildLine());
+			return inner.render(width);
 		},
-		invalidate() {},
+		invalidate() { inner.invalidate(); },
 	};
 }
 
