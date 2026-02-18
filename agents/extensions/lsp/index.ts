@@ -188,8 +188,9 @@ export default function (pi: ExtensionAPI) {
   async function resolveSymbol(
     client: LspClient,
     symbol: string,
+    signal?: AbortSignal,
   ): Promise<{ file: string; line: number; col: number } | string> {
-    const results = await client.workspaceSymbol(symbol);
+    const results = await client.workspaceSymbol(symbol, signal);
     if (!results || results.length === 0) {
       return `Symbol '${symbol}' not found via workspace/symbol. Try a different name or use grep.`;
     }
@@ -318,6 +319,7 @@ export default function (pi: ExtensionAPI) {
   async function resolvePosition(
     params: any,
     projectRoot: string,
+    signal?: AbortSignal,
   ): Promise<
     | { pos: ResolvedPosition; client: LspClient }
     | { error: string }
@@ -347,7 +349,7 @@ export default function (pi: ExtensionAPI) {
       for (const [name, serverCfg] of Object.entries(cfg.servers)) {
         try {
           const client = await getClient(name, serverCfg, projectRoot);
-          const resolved = await resolveSymbol(client, params.symbol);
+          const resolved = await resolveSymbol(client, params.symbol, signal);
           if (typeof resolved !== "string") {
             const openErr = await ensureFileOpen(client, resolved.file);
             if (openErr) return { error: openErr };
@@ -406,18 +408,18 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
         let result: ReturnType<typeof okResult>;
         switch (params.action) {
           case "hover": {
-            const resolved = await resolvePosition(params, projectRoot);
+            const resolved = await resolvePosition(params, projectRoot, signal);
             if ("error" in resolved) return maybeWarnResult(errorResult(resolved.error));
-            const hoverResult = await resolved.client.hover(resolved.pos.file, resolved.pos.line, resolved.pos.col);
+            const hoverResult = await resolved.client.hover(resolved.pos.file, resolved.pos.line, resolved.pos.col, signal);
             const text = formatHover(hoverResult);
             result = okResult(`Hover at ${resolved.pos.file}:${resolved.pos.line + 1}:${resolved.pos.col + 1}:\n\n${text}`);
             break;
           }
 
           case "definition": {
-            const resolved = await resolvePosition(params, projectRoot);
+            const resolved = await resolvePosition(params, projectRoot, signal);
             if ("error" in resolved) return maybeWarnResult(errorResult(resolved.error));
-            const defResult = await resolved.client.definition(resolved.pos.file, resolved.pos.line, resolved.pos.col);
+            const defResult = await resolved.client.definition(resolved.pos.file, resolved.pos.line, resolved.pos.col, signal);
 
             if (!defResult) { result = okResult("No definition found."); break; }
 
@@ -437,9 +439,9 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
           }
 
           case "references": {
-            const resolved = await resolvePosition(params, projectRoot);
+            const resolved = await resolvePosition(params, projectRoot, signal);
             if ("error" in resolved) return maybeWarnResult(errorResult(resolved.error));
-            const refsResult = await resolved.client.references(resolved.pos.file, resolved.pos.line, resolved.pos.col);
+            const refsResult = await resolved.client.references(resolved.pos.file, resolved.pos.line, resolved.pos.col, true, signal);
             result = okResult(formatReferences(refsResult));
             break;
           }
@@ -451,7 +453,7 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
             if (typeof clientResult === "string") return maybeWarnResult(errorResult(clientResult));
             const openErr = await ensureFileOpen(clientResult.client, filePath);
             if (openErr) return maybeWarnResult(errorResult(openErr));
-            const symResult = await clientResult.client.documentSymbol(filePath);
+            const symResult = await clientResult.client.documentSymbol(filePath, signal);
             result = okResult(`Symbols in ${params.file}:\n\n${formatDocumentSymbols(symResult)}`);
             break;
           }
@@ -467,7 +469,7 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
             for (const [name, serverCfg] of Object.entries(cfg.servers)) {
               try {
                 const client = await getClient(name, serverCfg, projectRoot);
-                const results = await client.workspaceSymbol(query);
+                const results = await client.workspaceSymbol(query, signal);
                 if (results) allResults.push(...results);
               } catch {
                 // Skip failed servers

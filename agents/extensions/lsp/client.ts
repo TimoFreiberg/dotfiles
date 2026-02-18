@@ -127,53 +127,67 @@ export class LspClient extends EventEmitter {
     await this.ensureOpen(filePath, content, languageId);
   }
 
-  async hover(filePath: string, line: number, col: number): Promise<any> {
+  async hover(filePath: string, line: number, col: number, signal?: AbortSignal): Promise<any> {
     return this.request("textDocument/hover", {
       textDocument: { uri: `file://${filePath}` },
       position: { line, character: col },
-    });
+    }, signal);
   }
 
-  async definition(filePath: string, line: number, col: number): Promise<any> {
+  async definition(filePath: string, line: number, col: number, signal?: AbortSignal): Promise<any> {
     return this.request("textDocument/definition", {
       textDocument: { uri: `file://${filePath}` },
       position: { line, character: col },
-    });
+    }, signal);
   }
 
-  async references(filePath: string, line: number, col: number, includeDeclaration = true): Promise<any> {
+  async references(filePath: string, line: number, col: number, includeDeclaration = true, signal?: AbortSignal): Promise<any> {
     return this.request("textDocument/references", {
       textDocument: { uri: `file://${filePath}` },
       position: { line, character: col },
       context: { includeDeclaration },
-    });
+    }, signal);
   }
 
-  async documentSymbol(filePath: string): Promise<any> {
+  async documentSymbol(filePath: string, signal?: AbortSignal): Promise<any> {
     return this.request("textDocument/documentSymbol", {
       textDocument: { uri: `file://${filePath}` },
-    });
+    }, signal);
   }
 
-  async workspaceSymbol(query: string): Promise<any> {
-    return this.request("workspace/symbol", { query });
+  async workspaceSymbol(query: string, signal?: AbortSignal): Promise<any> {
+    return this.request("workspace/symbol", { query }, signal);
   }
 
   // --- JSON-RPC transport ---
 
-  private request(method: string, params: any): Promise<any> {
+  private request(method: string, params: any, signal?: AbortSignal): Promise<any> {
     return new Promise((resolve, reject) => {
+      if (signal?.aborted) return reject(new Error("Cancelled"));
       const id = this.nextId++;
+      const cleanup = () => {
+        this.pending.delete(id);
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+      };
+      const onAbort = () => {
+        cleanup();
+        reject(new Error("Cancelled"));
+      };
+      signal?.addEventListener("abort", onAbort, { once: true });
       const timer = setTimeout(() => {
         if (this.pending.has(id)) {
-          this.pending.delete(id);
+          cleanup();
           reject(new Error(`LSP request '${method}' timed out after 30s`));
         }
       }, 30000);
-      this.pending.set(id, { resolve, reject, timer });
+      this.pending.set(id, {
+        resolve: (v) => { cleanup(); resolve(v); },
+        reject: (e) => { cleanup(); reject(e); },
+        timer,
+      });
       if (!this.send({ jsonrpc: "2.0", id, method, params })) {
-        this.pending.delete(id);
-        clearTimeout(timer);
+        cleanup();
         reject(new Error("LSP server not running"));
       }
     });
