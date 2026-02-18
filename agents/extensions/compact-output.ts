@@ -60,6 +60,13 @@ function str(v: unknown): string | null {
 	return typeof v === "string" ? v : null;
 }
 
+/** Format a path arg for display: accent if present, "..." if still streaming/missing. */
+function pathDisplay(rawPath: string | null, cwd: string, theme: any): string {
+	if (rawPath === null) return theme.fg("toolOutput", "...");
+	if (!rawPath) return theme.fg("toolOutput", "...");
+	return theme.fg("accent", shortenPath(rawPath, cwd));
+}
+
 function getTextOutput(result: any): string {
 	if (!result) return "";
 	const textBlocks = result.content?.filter((c: any) => c.type === "text") || [];
@@ -146,12 +153,10 @@ export default function (pi: ExtensionAPI) {
 		renderCall(args: any, theme: any) {
 			readArgs = args;
 			const rawPath = str(args?.file_path ?? args?.path);
-			const path = rawPath !== null ? shortenPath(rawPath, cwd) : null;
 			const offset = args?.offset;
 			const limit = args?.limit;
-			const inv = theme.fg("error", "[invalid arg]");
 
-			let pd = path === null ? inv : path ? theme.fg("accent", path) : theme.fg("toolOutput", "...");
+			let pd = pathDisplay(rawPath, cwd, theme);
 			if (offset !== undefined || limit !== undefined) {
 				const s = offset ?? 1;
 				const e = limit !== undefined ? s + limit - 1 : "";
@@ -181,9 +186,7 @@ export default function (pi: ExtensionAPI) {
 		renderCall(args: any, theme: any) {
 			writeArgs = args;
 			const rawPath = str(args?.file_path ?? args?.path);
-			const path = rawPath !== null ? shortenPath(rawPath, cwd) : null;
-			const inv = theme.fg("error", "[invalid arg]");
-			const pd = path === null ? inv : path ? theme.fg("accent", path) : theme.fg("toolOutput", "...");
+			const pd = pathDisplay(rawPath, cwd, theme);
 			return new Text(`${theme.fg("toolTitle", theme.bold("write"))} ${pd}`, 0, 0);
 		},
 		renderResult(result: any, { expanded, isPartial }: any, theme: any) {
@@ -211,8 +214,7 @@ export default function (pi: ExtensionAPI) {
 			const command = str(args?.command);
 			const timeout = args?.timeout;
 			const tsuf = timeout ? theme.fg("muted", ` (timeout ${timeout}s)`) : "";
-			const inv = theme.fg("error", "[invalid arg]");
-			const cd = command === null ? inv : command ? command : theme.fg("toolOutput", "...");
+			const cd = command ? command : theme.fg("toolOutput", "...");
 			return new Text(theme.fg("toolTitle", theme.bold(`$ ${cd}`)) + tsuf, 0, 0);
 		},
 		renderResult(result: any, { expanded, isPartial }: any, theme: any) {
@@ -287,10 +289,9 @@ export default function (pi: ExtensionAPI) {
 		...builtinLs,
 		renderCall(args: any, theme: any) {
 			const rawPath = str(args?.path);
-			const path = rawPath !== null ? shortenPath(rawPath || ".", cwd) : null;
+			const path = rawPath ? shortenPath(rawPath, cwd) : ".";
 			const limit = args?.limit;
-			const inv = theme.fg("error", "[invalid arg]");
-			let text = `${theme.fg("toolTitle", theme.bold("ls"))} ${path === null ? inv : theme.fg("accent", path)}`;
+			let text = `${theme.fg("toolTitle", theme.bold("ls"))} ${theme.fg("accent", path)}`;
 			if (limit !== undefined) text += theme.fg("toolOutput", ` (limit ${limit})`);
 			return new Text(text, 0, 0);
 		},
@@ -318,14 +319,13 @@ export default function (pi: ExtensionAPI) {
 		renderCall(args: any, theme: any) {
 			const pattern = str(args?.pattern);
 			const rawPath = str(args?.path);
-			const path = rawPath !== null ? shortenPath(rawPath || ".", cwd) : null;
+			const path = rawPath ? shortenPath(rawPath, cwd) : ".";
 			const limit = args?.limit;
-			const inv = theme.fg("error", "[invalid arg]");
 			let text =
 				theme.fg("toolTitle", theme.bold("find")) +
 				" " +
-				(pattern === null ? inv : theme.fg("accent", pattern || "")) +
-				theme.fg("toolOutput", ` in ${path === null ? inv : path}`);
+				theme.fg("accent", pattern || "...") +
+				theme.fg("toolOutput", ` in ${path}`);
 			if (limit !== undefined) text += theme.fg("toolOutput", ` (limit ${limit})`);
 			return new Text(text, 0, 0);
 		},
@@ -353,15 +353,14 @@ export default function (pi: ExtensionAPI) {
 		renderCall(args: any, theme: any) {
 			const pattern = str(args?.pattern);
 			const rawPath = str(args?.path);
-			const path = rawPath !== null ? shortenPath(rawPath || ".", cwd) : null;
+			const path = rawPath ? shortenPath(rawPath, cwd) : ".";
 			const glob = str(args?.glob);
 			const limit = args?.limit;
-			const inv = theme.fg("error", "[invalid arg]");
 			let text =
 				theme.fg("toolTitle", theme.bold("grep")) +
 				" " +
-				(pattern === null ? inv : theme.fg("accent", `/${pattern || ""}/`)) +
-				theme.fg("toolOutput", ` in ${path === null ? inv : path}`);
+				theme.fg("accent", pattern ? `/${pattern}/` : "...") +
+				theme.fg("toolOutput", ` in ${path}`);
 			if (glob) text += theme.fg("toolOutput", ` (${glob})`);
 			if (limit !== undefined) text += theme.fg("toolOutput", ` limit ${limit}`);
 			return new Text(text, 0, 0);
