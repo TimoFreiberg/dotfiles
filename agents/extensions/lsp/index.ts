@@ -172,7 +172,7 @@ export default function (pi: ExtensionAPI) {
     try {
       const content = readFileSync(filePath, "utf-8");
       const langId = languageIdForFile(filePath);
-      await client.ensureOpen(filePath, content, langId);
+      client.ensureOpen(filePath, content, langId);
       return null;
     } catch (e: any) {
       return `Failed to read file ${filePath}: ${e.message}`;
@@ -513,7 +513,7 @@ Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`
       const content = readFileSync(absPath, "utf-8");
       const langId = languageIdForFile(absPath);
       for (const client of clients.values()) {
-        await client.refreshDocument(absPath, content, langId);
+        client.refreshDocument(absPath, content, langId);
       }
     } catch {
       // Best effort — don't break the tool chain

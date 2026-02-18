@@ -22,6 +22,7 @@ export class LspClient extends EventEmitter {
   private buffer = Buffer.alloc(0);
   private contentLength = -1;
   private openDocuments = new Set<string>();
+  private docVersions = new Map<string, number>();
   private initialized = false;
   private _capabilities: any = {};
 
@@ -111,14 +112,16 @@ export class LspClient extends EventEmitter {
   /**
    * Ensure a document is open. LSP requires textDocument/didOpen before queries.
    */
-  async ensureOpen(filePath: string, content: string, languageId: string): Promise<void> {
+  ensureOpen(filePath: string, content: string, languageId: string): void {
     const uri = `file://${filePath}`;
     if (this.openDocuments.has(uri)) return;
+    const version = (this.docVersions.get(uri) ?? 0) + 1;
+    this.docVersions.set(uri, version);
     this.notify("textDocument/didOpen", {
       textDocument: {
         uri,
         languageId,
-        version: 1,
+        version,
         text: content,
       },
     });
@@ -129,12 +132,12 @@ export class LspClient extends EventEmitter {
    * Close and reopen a document to refresh the server's view after edits.
    * No-op if the document was never opened.
    */
-  async refreshDocument(filePath: string, content: string, languageId: string): Promise<void> {
+  refreshDocument(filePath: string, content: string, languageId: string): void {
     const uri = `file://${filePath}`;
     if (!this.openDocuments.has(uri)) return;
     this.notify("textDocument/didClose", { textDocument: { uri } });
     this.openDocuments.delete(uri);
-    await this.ensureOpen(filePath, content, languageId);
+    this.ensureOpen(filePath, content, languageId);
   }
 
   async hover(filePath: string, line: number, col: number, signal?: AbortSignal): Promise<any> {
