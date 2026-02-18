@@ -76,10 +76,10 @@ Example output:
 
 // Preferred model patterns, in priority order (cheapest/fastest first)
 const EXTRACTION_MODEL_PREFERENCES: (string | RegExp)[] = [
-	"eu.anthropic.claude-haiku-4-5-20251001-v1:0", // Bedrock EU Haiku
-	"claude-haiku-4-5",                             // Anthropic API Haiku
-	"codex-mini",  // OpenAI codex mini
-	"flash",       // Gemini Flash
+	"claude-sonnet-4-6",  // Anthropic API Sonnet 4.6
+	/sonnet-4-6/,         // Bedrock / other Sonnet 4.6 variants
+	"codex-mini",         // OpenAI codex mini
+	"flash",              // Gemini Flash
 ];
 
 interface ModelCandidate {
