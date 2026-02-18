@@ -5,6 +5,9 @@
  * - ">" when the agent finishes / session starts (with LLM response duration)
  * - "<" when the user sends a message
  *
+ * While the agent is thinking, a running timer (⏱ 3s, ⏱ 4s, ...) is shown
+ * in the footer status bar, updating every second.
+ *
  * Format: > 2026-02-03 09:38:20+01 (12s)
  *         < 2026-02-03 09:38:25+01
  */
@@ -38,10 +41,33 @@ function formatDuration(ms: number): string {
 export default function (pi: ExtensionAPI) {
 	let lastNotification = "";
 	let agentStartTime = 0;
+	let timerInterval: ReturnType<typeof setInterval> | undefined;
 
-	// Track when the agent starts processing
-	pi.on("agent_start", async (_event, _ctx) => {
+	function startTimer(ctx: { ui: { setStatus(key: string, text: string | undefined): void } }) {
+		stopTimer(ctx);
 		agentStartTime = Date.now();
+		updateTimerStatus(ctx);
+		timerInterval = setInterval(() => updateTimerStatus(ctx), 1000);
+	}
+
+	function updateTimerStatus(ctx: { ui: { setStatus(key: string, text: string | undefined): void } }) {
+		if (agentStartTime <= 0) return;
+		const elapsed = Date.now() - agentStartTime;
+		ctx.ui.setStatus("timestamps", `⏱ ${formatDuration(elapsed)}`);
+	}
+
+	function stopTimer(ctx: { ui: { setStatus(key: string, text: string | undefined): void } }) {
+		if (timerInterval !== undefined) {
+			clearInterval(timerInterval);
+			timerInterval = undefined;
+		}
+		ctx.ui.setStatus("timestamps", undefined);
+	}
+
+	// Start running timer when the agent begins processing
+	pi.on("agent_start", async (_event, ctx) => {
+		if (!ctx.hasUI) return;
+		startTimer(ctx);
 	});
 
 	// Show "ready" timestamp when session starts (no duration)
@@ -52,15 +78,16 @@ export default function (pi: ExtensionAPI) {
 		ctx.ui.notify(lastNotification, "info");
 	});
 
-	// Show "ready" timestamp with LLM response duration when agent finishes
+	// Stop timer and show "ready" timestamp with duration when agent finishes
 	pi.on("agent_end", async (_event, ctx) => {
 		if (!ctx.hasUI) return;
+		const elapsed = agentStartTime > 0 ? Date.now() - agentStartTime : 0;
+		stopTimer(ctx);
 		lastNotification = `> ${formatTimestamp()}`;
-		if (agentStartTime > 0) {
-			const elapsed = Date.now() - agentStartTime;
+		if (elapsed > 0) {
 			lastNotification += ` (${formatDuration(elapsed)})`;
-			agentStartTime = 0;
 		}
+		agentStartTime = 0;
 		ctx.ui.notify(lastNotification, "info");
 	});
 
@@ -69,5 +96,10 @@ export default function (pi: ExtensionAPI) {
 		if (!ctx.hasUI) return { action: "continue" as const };
 		ctx.ui.notify(`${lastNotification}\n< ${formatTimestamp()}`, "info");
 		return { action: "continue" as const };
+	});
+
+	// Clean up timer on shutdown
+	pi.on("session_shutdown", async (_event, ctx) => {
+		stopTimer(ctx);
 	});
 }
