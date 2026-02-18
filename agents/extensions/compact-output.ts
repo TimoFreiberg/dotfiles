@@ -11,9 +11,6 @@
  * - ls:    header + 5 lines (built-in shows 20)
  * - find:  header + 5 lines (built-in shows 20)
  * - grep:  header + 5 lines (built-in shows 15)
- *
- * Only overrides tools that are already active — won't accidentally add
- * grep/find/ls to sessions that only have read/bash/edit/write.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -144,19 +141,20 @@ function renderTruncationWarning(result: any, theme: any): string {
 export default function (pi: ExtensionAPI) {
 	const cwd = process.cwd();
 
-	// Only override tools that are already active — registerTool with a built-in
-	// name activates it, which would unintentionally add grep/find/ls to sessions
-	// that only have read/bash/edit/write.
-	const activeTools = new Set(
-		pi.getActiveTools().map((t: any) => (typeof t === "string" ? t : t.name)),
-	);
+	// TODO: This unconditionally registers overrides for all built-in tools,
+	// which activates grep/find/ls even in sessions that don't normally have them.
+	// To only override active tools: register all tools here unconditionally (as now),
+	// then in a "session_start" handler call pi.getActiveTools() to snapshot the
+	// original set, and pi.setActiveTools() to remove the ones that weren't active.
+	// (pi.getActiveTools() is an action method — can't be called during loading.)
+	// See examples/extensions/ssh.ts for the lazy-resolution pattern.
 
 	// renderCall and renderResult are always called synchronously in sequence
 	// within the same ToolExecutionComponent.updateDisplay() call, so a simple
 	// closure variable is safe for passing args from renderCall to renderResult.
 
 	// --- read -----------------------------------------------------------
-	if (activeTools.has("read")) {
+	{
 		let readArgs: any = null;
 		const builtinRead = createReadTool(cwd);
 		pi.registerTool({
@@ -190,7 +188,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	// --- write ----------------------------------------------------------
-	if (activeTools.has("write")) {
+	{
 		let writeArgs: any = null;
 		const builtinWrite = createWriteTool(cwd);
 		pi.registerTool({
@@ -223,7 +221,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	// --- bash -----------------------------------------------------------
-	if (activeTools.has("bash")) {
+	{
 		const builtinBash = createBashTool(cwd);
 		pi.registerTool({
 			...builtinBash,
@@ -301,7 +299,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	// --- ls -------------------------------------------------------------
-	if (activeTools.has("ls")) {
+	{
 		const builtinLs = createLsTool(cwd);
 		pi.registerTool({
 			...builtinLs,
@@ -332,7 +330,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	// --- find -----------------------------------------------------------
-	if (activeTools.has("find")) {
+	{
 		const builtinFind = createFindTool(cwd);
 		pi.registerTool({
 			...builtinFind,
@@ -368,7 +366,7 @@ export default function (pi: ExtensionAPI) {
 	}
 
 	// --- grep -----------------------------------------------------------
-	if (activeTools.has("grep")) {
+	{
 		const builtinGrep = createGrepTool(cwd);
 		pi.registerTool({
 			...builtinGrep,
