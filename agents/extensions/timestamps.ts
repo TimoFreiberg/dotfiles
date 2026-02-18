@@ -5,8 +5,8 @@
  * - ">" when the agent finishes / session starts (with LLM response duration)
  * - "<" when the user sends a message
  *
- * While the agent is thinking, a running timer (⏱ 3s, ⏱ 4s, ...) is shown
- * in the footer status bar, updating every second.
+ * While the agent is thinking, a running timer is shown in the "Working"
+ * message above the prompt (e.g., "Working (3s)"), updating every second.
  *
  * Format: > 2026-02-03 09:38:20+01 (12s)
  *         < 2026-02-03 09:38:25+01
@@ -43,25 +43,25 @@ export default function (pi: ExtensionAPI) {
 	let agentStartTime = 0;
 	let timerInterval: ReturnType<typeof setInterval> | undefined;
 
-	function startTimer(ctx: { ui: { setStatus(key: string, text: string | undefined): void } }) {
+	function startTimer(ctx: { ui: { setWorkingMessage(text?: string): void } }) {
 		stopTimer(ctx);
 		agentStartTime = Date.now();
-		updateTimerStatus(ctx);
-		timerInterval = setInterval(() => updateTimerStatus(ctx), 1000);
+		updateWorkingMessage(ctx);
+		timerInterval = setInterval(() => updateWorkingMessage(ctx), 1000);
 	}
 
-	function updateTimerStatus(ctx: { ui: { setStatus(key: string, text: string | undefined): void } }) {
+	function updateWorkingMessage(ctx: { ui: { setWorkingMessage(text?: string): void } }) {
 		if (agentStartTime <= 0) return;
 		const elapsed = Date.now() - agentStartTime;
-		ctx.ui.setStatus("timestamps", `⏱ ${formatDuration(elapsed)}`);
+		ctx.ui.setWorkingMessage(`Working (${formatDuration(elapsed)})`);
 	}
 
-	function stopTimer(ctx: { ui: { setStatus(key: string, text: string | undefined): void } }) {
+	function stopTimer(ctx: { ui: { setWorkingMessage(text?: string): void } }) {
 		if (timerInterval !== undefined) {
 			clearInterval(timerInterval);
 			timerInterval = undefined;
 		}
-		ctx.ui.setStatus("timestamps", undefined);
+		ctx.ui.setWorkingMessage();
 	}
 
 	// Start running timer when the agent begins processing
