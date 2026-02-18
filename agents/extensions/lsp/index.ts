@@ -18,6 +18,8 @@ import { loadConfig, serverForFile, languageIdForFile, type LspConfig, type Serv
 export default function (pi: ExtensionAPI) {
   // One LspClient per server name (e.g. "rust-analyzer", "clangd")
   const clients = new Map<string, LspClient>();
+  // Tracks in-flight server starts to avoid duplicate spawns from concurrent calls
+  const starting = new Map<string, Promise<LspClient>>();
   let config: LspConfig | null = null;
   let configLoaded = false;
 
@@ -42,24 +44,36 @@ export default function (pi: ExtensionAPI) {
     const existing = clients.get(serverName);
     if (existing?.isRunning()) return existing;
 
-    const client = new LspClient();
+    const inflight = starting.get(serverName);
+    if (inflight) return inflight;
 
-    client.on("log", (msg: string) => {
-      // Could pipe to a debug log; suppress for now
-    });
+    const promise = (async () => {
+      const client = new LspClient();
 
-    client.on("exit", (code: number) => {
-      clients.delete(serverName);
-    });
+      client.on("log", (msg: string) => {
+        // Could pipe to a debug log; suppress for now
+      });
 
-    await client.start({
-      command: serverConfig.command,
-      rootUri: projectRoot,
-      initializationOptions: serverConfig.initializationOptions,
-    });
+      client.on("exit", (code: number) => {
+        clients.delete(serverName);
+      });
 
-    clients.set(serverName, client);
-    return client;
+      await client.start({
+        command: serverConfig.command,
+        rootUri: projectRoot,
+        initializationOptions: serverConfig.initializationOptions,
+      });
+
+      clients.set(serverName, client);
+      return client;
+    })();
+
+    starting.set(serverName, promise);
+    try {
+      return await promise;
+    } finally {
+      starting.delete(serverName);
+    }
   }
 
   async function getClientForFile(
