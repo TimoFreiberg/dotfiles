@@ -139,14 +139,14 @@ const TodoParams = Type.Object({
 		"claim",
 		"release",
 	] as const),
-	id: Type.Optional(Type.String({ description: "Todo id (TODO-<hex> or raw hex filename)" })),
-	title: Type.Optional(Type.String({ description: "Short summary shown in lists" })),
+	id: Type.Optional(Type.String({ description: "Todo id (TODO-<hex> or raw hex)" })),
+	title: Type.Optional(Type.String({ description: "Short summary" })),
 	status: Type.Optional(Type.String({ description: "Todo status" })),
 	tags: Type.Optional(Type.Array(Type.String({ description: "Todo tag" }))),
 	body: Type.Optional(
-		Type.String({ description: "Long-form details (markdown). Update replaces; append adds." }),
+		Type.String({ description: "Markdown notes (update replaces, append adds)" }),
 	),
-	force: Type.Optional(Type.Boolean({ description: "Override another session's assignment" })),
+	force: Type.Optional(Type.Boolean({ description: "Override another session's claim" })),
 });
 
 // ---------------------------------------------------------------------------
@@ -1215,11 +1215,9 @@ export default function todosExtension(pi: ExtensionAPI) {
 		name: "todo",
 		label: "Todo",
 		description:
-			`Manage file-based todos in ${todosDirLabel} (list, list-all, get, create, update, append, delete, claim, release). ` +
-			"Title is the short summary; body is long-form markdown notes (update replaces, append adds). " +
-			"Todo ids are shown as TODO-<hex>; id parameters accept TODO-<hex> or the raw hex filename. " +
-			"Claim tasks before working on them to avoid conflicts, and close them when complete. " +
-			"Before committing changes, update the relevant todo to reflect the current state of the work.",
+			`Manage file-based todos in ${todosDirLabel}. ` +
+			"Ids shown as TODO-<hex>; raw hex also accepted. list returns open only, list-all includes closed. " +
+			"Claim before working, close when done. Update the relevant todo before committing.",
 		parameters: TodoParams,
 
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {

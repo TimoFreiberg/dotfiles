@@ -370,34 +370,17 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lsp",
     label: "LSP",
-    description: `Query language servers for code intelligence. **Prefer this over grep/find/rg** for navigating code structure — it understands semantics, not just text.
-
-Actions:
-- hover: Get type info/docs for a symbol. Provide file+line+col or symbol.
-- definition: Go to definition. Provide file+line+col or symbol. Returns location + surrounding code.
-- references: Find all references. Provide file+line+col or symbol.
-- symbols: List symbols in a file. Provide file.
-- workspace_symbols: Search symbols across workspace. Provide query.
-
-Use this tool FIRST when:
-- Finding where a function/type/variable is defined (use definition, not grep)
-- Finding all usages of a symbol (use references, not grep)
-- Understanding a symbol's type or signature (use hover, not reading code)
-- Exploring what's in a file (use symbols, not grepping for def/fn/class)
-
-Fall back to grep/rg/find only for plain-text searches (log messages, string literals, comments, config values) or when LSP returns no results.
-
-Positions are 1-indexed. Symbol names are resolved via workspace symbol search.`,
+    description: `Query language servers for code intelligence. Prefer over grep for navigating definitions, references, types, and symbols. Provide file+line+col or symbol name to identify a location. Positions are 1-indexed. Fall back to grep only for plain-text/string searches or when LSP returns nothing.`,
 
     parameters: Type.Object({
       action: StringEnum(["hover", "definition", "references", "symbols", "workspace_symbols"] as const, {
         description: "LSP action to perform",
       }),
-      file: Type.Optional(Type.String({ description: "File path (relative to project root)" })),
-      line: Type.Optional(Type.Number({ description: "Line number (1-indexed)" })),
-      col: Type.Optional(Type.Number({ description: "Column number (1-indexed)" })),
-      symbol: Type.Optional(Type.String({ description: "Symbol name to look up (alternative to file+line+col)" })),
-      query: Type.Optional(Type.String({ description: "Search query for workspace_symbols" })),
+      file: Type.Optional(Type.String({ description: "Relative file path" })),
+      line: Type.Optional(Type.Number({ description: "Line (1-indexed)" })),
+      col: Type.Optional(Type.Number({ description: "Column (1-indexed)" })),
+      symbol: Type.Optional(Type.String({ description: "Symbol name (alternative to file+line+col)" })),
+      query: Type.Optional(Type.String({ description: "Query for workspace_symbols" })),
     }),
 
     async execute(toolCallId, params, signal, onUpdate, ctx) {
