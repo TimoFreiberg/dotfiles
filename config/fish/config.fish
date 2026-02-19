@@ -44,6 +44,7 @@ if status is-interactive
     abbr --add --global tn tmux-new
     abbr --add --global xb xsel -b
     abbr --add --global zi 'z -i'
+    abbr --add --global cl 'claude'
     abbr --add --global wlp 'wl-paste'
     abbr --add --global wlc 'wl-copy'
 
