@@ -506,10 +506,9 @@ export default function (pi: ExtensionAPI) {
 		parameters: Type.Object({
 			questions: Type.Array(
 				Type.Object({
-					question: Type.String({ description: "The question text" }),
-					context: Type.Optional(Type.String({ description: "Optional context to help the user answer" })),
+					question: Type.String(),
+					context: Type.Optional(Type.String()),
 				}),
-				{ description: "List of questions to ask the user" },
 			),
 		}),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
