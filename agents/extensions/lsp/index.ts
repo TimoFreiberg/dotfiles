@@ -411,32 +411,15 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lsp",
     label: "LSP",
-    description: `Query language servers for code intelligence. Prefer over grep for navigating definitions, references, types, and symbols. Provide file+line+col or symbol name to identify a location. Positions are 1-indexed.`,
+    description: `Query language servers for code intelligence. Provide file+line+col or symbol name. Positions are 1-indexed.`,
 
     parameters: Type.Object({
-      action: StringEnum(
-        [
-          "hover",
-          "definition",
-          "references",
-          "symbols",
-          "workspace_symbols",
-        ] as const,
-        {
-          description: "LSP action to perform",
-        },
-      ),
-      file: Type.Optional(Type.String({ description: "Relative file path" })),
-      line: Type.Optional(Type.Number({ description: "Line (1-indexed)" })),
-      col: Type.Optional(Type.Number({ description: "Column (1-indexed)" })),
-      symbol: Type.Optional(
-        Type.String({
-          description: "Symbol name (alternative to file+line+col)",
-        }),
-      ),
-      query: Type.Optional(
-        Type.String({ description: "Query for workspace_symbols" }),
-      ),
+      action: StringEnum(["hover", "definition", "references", "symbols", "workspace_symbols"] as const),
+      file: Type.Optional(Type.String()),
+      line: Type.Optional(Type.Number({ description: "1-indexed" })),
+      col: Type.Optional(Type.Number({ description: "1-indexed" })),
+      symbol: Type.Optional(Type.String({ description: "Alternative to file+line+col" })),
+      query: Type.Optional(Type.String({ description: "For workspace_symbols" })),
     }),
 
     async execute(toolCallId, params, signal, onUpdate, ctx) {
