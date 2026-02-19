@@ -432,12 +432,12 @@ async function runSingleAgent(
 }
 
 const TaskItem = Type.Object({
-	agent: Type.String({ description: "Name of the agent to invoke" }),
-	task: Type.String({ description: "Task to delegate to the agent" }),
+	agent: Type.String(),
+	task: Type.String(),
 });
 
 const SubagentParams = Type.Object({
-	tasks: Type.Array(TaskItem, { description: "Array of {agent, task} for parallel execution" }),
+	tasks: Type.Array(TaskItem),
 });
 
 export default function (pi: ExtensionAPI) {
@@ -446,7 +446,7 @@ export default function (pi: ExtensionAPI) {
 	pi.registerTool({
 		name: "subagent",
 		label: "Subagent",
-		description: "Delegate tasks to specialized subagents with isolated context. Each task runs as a separate pi process. Multiple tasks run in parallel.",
+		description: "Delegate tasks to subagents with isolated context. Each task {agent, task} runs as a separate pi process. Multiple tasks run in parallel.",
 		parameters: SubagentParams,
 
 		async execute(_toolCallId, params, signal, onUpdate, ctx) {
