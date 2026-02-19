@@ -1,7 +1,7 @@
 ---
 name: review
 description: Code review with scope selection. Use when the user wants to review code changes - uncommitted work, a specific commit, or a GitHub PR.
-argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name>]"
+argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name> | file <path>]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(git diff *)
@@ -16,48 +16,46 @@ allowed-tools:
   - Bash(jj *)
 ---
 
-# Code Review
+## Repo state
+
+- VCS: !`test -d .jj && echo "jj" || echo "git"`
+- Uncommitted changes: !`test -d .jj && jj diff --stat 2>/dev/null || git diff --stat HEAD 2>/dev/null`
+- Current branch: !`test -d .jj && jj log -r @ --no-graph -T 'bookmarks' 2>/dev/null || git branch --show-current 2>/dev/null`
+- Recent commits: !`test -d .jj && jj log --no-graph -r 'ancestors(@, 5)' -T 'change_id.shortest() ++ " " ++ description.first_line() ++ "\n"' 2>/dev/null || git log --oneline -5 2>/dev/null`
 
 ## Step 1: Determine review scope
 
-Parse `$ARGUMENTS` to determine what to review:
-
 | Argument | Example | Action |
 |---|---|---|
-| *(empty)* | `/review` | Ask the user (see below) |
+| *(empty)* | `/review` | Use AskUserQuestion; use repo state above to tailor options |
 | `uncommitted` | `/review uncommitted` | Review uncommitted changes |
 | `commit <hash>` | `/review commit abc123` | Review that commit |
 | `pr <number-or-url>` | `/review pr 42` | Review that GitHub PR |
 | `branch <name>` | `/review branch main` | Review changes against that base branch |
+| `file <path>` | `/review file src/foo.ts` | Review only that file's uncommitted changes |
 | anything else | `/review check for XSS` | Use as custom review instructions |
 
-**When `$ARGUMENTS` is empty**, use AskUserQuestion to ask the user which scope they want. Present these options:
+When `$ARGUMENTS` is empty, use AskUserQuestion. Use the repo state above to make smart choices: hide "uncommitted" if working tree is clean, show the current branch name in the "branch" option description, etc.
 
-- **Uncommitted changes** - staged, unstaged, and untracked files
-- **A specific commit** - review a single commit
-- **A GitHub PR** - review a pull request by number
-- **Against a base branch** - compare current branch to a base
-
-If the user picks "commit", run `git log --oneline -10` and show the results, then ask which commit. If they pick "PR", ask for the PR number. If they pick "branch", run `git branch --format='%(refname:short)'` and ask which branch.
+When the user picks "commit", show recent commits and ask which. For "PR", ask for the number. For "branch", show branches and ask which.
 
 ## Step 2: Gather the diff
 
-Based on the scope, fetch the diff:
+Use jj commands if VCS is "jj", git commands otherwise.
 
-- **uncommitted**: `git diff HEAD` (includes staged + unstaged). Also check `git status` for untracked files and read any new files.
-- **commit**: `git show <hash>`
-- **pr**: `gh pr diff <number>` for the diff, `gh pr view <number>` for title/description.
-- **branch**: Find merge base with `git merge-base HEAD <branch>`, then `git diff <merge-base>`.
+| Scope | git | jj |
+|---|---|---|
+| uncommitted | `git diff HEAD` + `git status` for untracked | `jj diff --git` |
+| commit | `git show <hash>` | `jj diff --git -r <change-id>` |
+| pr | `gh pr diff <n>` + `gh pr view <n>` + `gh pr view <n> --comments` | same (PRs are git-hosted) |
+| branch | `git merge-base HEAD <branch>`, then `git diff <base>` | `jj diff --git -r 'latest(trunk())..@'` (adjust base as needed) |
+| file | `git diff HEAD -- <path>` | `jj diff --git <path>` |
+
+For PR reviews, also fetch `gh pr view <n> --comments` for reviewer discussion context.
 
 ## Step 3: Delegate review to a subagent
 
-Use the **Task tool** with `subagent_type: "general-purpose"` to perform the actual review. Pass the subagent:
-
-1. The full diff content
-2. The review guidelines (see below)
-3. Instructions to read any files it needs for additional context
-
-The subagent prompt should be structured as:
+Use the **Task tool** with `subagent_type: "general-purpose"`. Structure the prompt as:
 
 ```
 <review-guidelines>
@@ -68,19 +66,17 @@ The subagent prompt should be structured as:
 {the diff content}
 </diff>
 
-Review the above diff following the guidelines. Read source files as needed for context.
-For PR reviews, also consider the PR title and description for intent.
+Review the diff following the guidelines. Read source files as needed for context.
+For PR reviews, also consider the PR title, description, and comment thread for intent.
 ```
+
+Present the subagent's findings directly. Don't re-summarize or editorialize.
 
 ## Step 4: Review guidelines
 
-First, check if a `REVIEW_GUIDELINES.md` file exists in the project root (same directory as `.claude/` or the git root). If it exists, use its contents as the review guidelines.
-
-If no project-level guidelines exist, use these defaults:
+Check if `REVIEW_GUIDELINES.md` exists in the project root. If so, use it. Otherwise use these defaults:
 
 ---
-
-You are reviewing code changes made by another engineer.
 
 ### What to flag
 
@@ -105,22 +101,13 @@ Flag issues that:
 ### Findings format
 
 Tag each finding with a priority level:
-- **[P0]** - Drop everything. Blocking. Only for universal issues that don't depend on assumptions about inputs.
+- **[P0]** - Blocking. Only for universal issues that don't depend on assumptions about inputs.
 - **[P1]** - Urgent. Should be addressed in the next cycle.
 - **[P2]** - Normal. Fix eventually.
 - **[P3]** - Low. Nice to have.
 
-For each finding, include the priority tag, file path with line number, and a brief explanation (one paragraph max). Use a matter-of-fact tone.
+For each finding: priority tag, file path with line number, brief explanation (one paragraph max). Matter-of-fact tone.
 
-Findings must reference locations that overlap with the actual diff. Ignore trivial style issues unless they obscure meaning. Don't stop at the first finding - list every qualifying issue.
+Findings must reference locations that overlap with the actual diff. Ignore trivial style issues unless they obscure meaning. List every qualifying issue.
 
----
-
-## Step 5: Present findings
-
-After the subagent returns, present its findings directly. Don't re-summarize or editorialize. End with the overall verdict:
-
-- **Correct** - no blocking issues (no P0/P1 findings)
-- **Needs attention** - has P0 or P1 issues
-
-If there are no qualifying findings, say the code looks good.
+End with verdict: **correct** (no P0/P1) or **needs attention** (has P0/P1). If no findings, say the code looks good.
