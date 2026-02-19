@@ -164,6 +164,7 @@ interface SingleResult {
 	stopReason?: string;
 	errorMessage?: string;
 	step?: number;
+	outputFile?: string;
 }
 
 interface SubagentDetails {
@@ -226,6 +227,40 @@ function writePromptToTempFile(agentName: string, prompt: string): { dir: string
 	const filePath = path.join(tmpDir, `prompt-${safeName}.md`);
 	fs.writeFileSync(filePath, prompt, { encoding: "utf-8", mode: 0o600 });
 	return { dir: tmpDir, filePath };
+}
+
+const SUBAGENT_OUTPUT_DIR = path.join(os.tmpdir(), "pi-subagent-output");
+
+function outputFileHint(results: SingleResult[]): string {
+	const files = results.filter((r) => r.outputFile).map((r) => r.outputFile!);
+	if (files.length === 0) return "";
+	if (files.length === 1) return `\n\nFull output saved to: ${files[0]}`;
+	return `\n\nFull outputs saved to:\n${files.map((f) => `  ${f}`).join("\n")}`;
+}
+
+function saveOutputFile(agentName: string, result: SingleResult): string {
+	fs.mkdirSync(SUBAGENT_OUTPUT_DIR, { recursive: true });
+	const safeName = agentName.replace(/[^\w.-]+/g, "_");
+	const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+	const filePath = path.join(SUBAGENT_OUTPUT_DIR, `${safeName}-${timestamp}.md`);
+	const output = getFinalOutput(result.messages);
+	const header = [
+		`# Subagent output: ${agentName}`,
+		``,
+		`- **Task:** ${result.task}`,
+		`- **Exit code:** ${result.exitCode}`,
+		`- **Model:** ${result.model || "unknown"}`,
+		result.step !== undefined ? `- **Step:** ${result.step}` : null,
+		result.stopReason ? `- **Stop reason:** ${result.stopReason}` : null,
+		result.errorMessage ? `- **Error:** ${result.errorMessage}` : null,
+		``,
+		`## Output`,
+		``,
+	]
+		.filter((line) => line !== null)
+		.join("\n");
+	fs.writeFileSync(filePath, header + output, { encoding: "utf-8", mode: 0o600 });
+	return filePath;
 }
 
 type OnUpdateCallback = (partial: AgentToolResult<SubagentDetails>) => void;
@@ -546,14 +581,14 @@ export default function (pi: ExtensionAPI) {
 						parentProvider,
 					);
 					results.push(result);
-
+					result.outputFile = saveOutputFile(step.agent, result);
 					const isError =
 						result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted";
 					if (isError) {
 						const errorMsg =
 							result.errorMessage || result.stderr || getFinalOutput(result.messages) || "(no output)";
 						return {
-							content: [{ type: "text", text: `Chain stopped at step ${i + 1} (${step.agent}): ${errorMsg}` }],
+							content: [{ type: "text", text: `Chain stopped at step ${i + 1} (${step.agent}): ${errorMsg}${outputFileHint(results)}` }],
 							details: makeDetails("chain")(results),
 							isError: true,
 						};
@@ -561,7 +596,7 @@ export default function (pi: ExtensionAPI) {
 					previousOutput = getFinalOutput(result.messages);
 				}
 				return {
-					content: [{ type: "text", text: getFinalOutput(results[results.length - 1].messages) || "(no output)" }],
+					content: [{ type: "text", text: (getFinalOutput(results[results.length - 1].messages) || "(no output)") + outputFileHint(results) }],
 					details: makeDetails("chain")(results),
 				};
 			}
@@ -628,6 +663,7 @@ export default function (pi: ExtensionAPI) {
 					);
 					allResults[index] = result;
 					emitParallelUpdate();
+					result.outputFile = saveOutputFile(t.agent, result);
 					return result;
 				});
 
@@ -651,7 +687,7 @@ export default function (pi: ExtensionAPI) {
 						content: [
 							{
 								type: "text",
-								text: `Parallel: ${successCount}/${results.length} succeeded, ${failures.length} failed\n\nErrors:\n${errorDetails.join("\n")}\n\n${summaries.join("\n\n")}`,
+								text: `Parallel: ${successCount}/${results.length} succeeded, ${failures.length} failed\n\nErrors:\n${errorDetails.join("\n")}\n\n${summaries.join("\n\n")}${outputFileHint(results)}`,
 							},
 						],
 						details: makeDetails("parallel")(results),
@@ -663,7 +699,7 @@ export default function (pi: ExtensionAPI) {
 					content: [
 						{
 							type: "text",
-							text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n")}`,
+							text: `Parallel: ${successCount}/${results.length} succeeded\n\n${summaries.join("\n\n")}${outputFileHint(results)}`,
 						},
 					],
 					details: makeDetails("parallel")(results),
@@ -684,17 +720,18 @@ export default function (pi: ExtensionAPI) {
 					parentProvider,
 				);
 				const isError = result.exitCode !== 0 || result.stopReason === "error" || result.stopReason === "aborted";
+				result.outputFile = saveOutputFile(params.agent, result);
 				if (isError) {
 					const errorMsg =
 						result.errorMessage || result.stderr || getFinalOutput(result.messages) || "(no output)";
 					return {
-						content: [{ type: "text", text: `Agent ${result.stopReason || "failed"}: ${errorMsg}` }],
+						content: [{ type: "text", text: `Agent ${result.stopReason || "failed"}: ${errorMsg}${outputFileHint([result])}` }],
 						details: makeDetails("single")([result]),
 						isError: true,
 					};
 				}
 				return {
-					content: [{ type: "text", text: getFinalOutput(result.messages) || "(no output)" }],
+					content: [{ type: "text", text: (getFinalOutput(result.messages) || "(no output)") + outputFileHint([result]) }],
 					details: makeDetails("single")([result]),
 				};
 			}
