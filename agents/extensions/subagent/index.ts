@@ -632,11 +632,33 @@ export default function (pi: ExtensionAPI) {
 				});
 
 				const successCount = results.filter((r) => r.exitCode === 0).length;
+				const failures = results.filter(
+					(r) => r.exitCode !== 0 || r.stopReason === "error" || r.stopReason === "aborted",
+				);
 				const summaries = results.map((r) => {
 					const output = getFinalOutput(r.messages);
 					const preview = output.slice(0, 100) + (output.length > 100 ? "..." : "");
 					return `[${r.agent}] ${r.exitCode === 0 ? "completed" : "failed"}: ${preview || "(no output)"}`;
 				});
+
+				if (failures.length > 0) {
+					const errorDetails = failures.map((r) => {
+						const errorMsg =
+							r.errorMessage || r.stderr || getFinalOutput(r.messages) || "(no output)";
+						return `[${r.agent}] ${errorMsg}`;
+					});
+					return {
+						content: [
+							{
+								type: "text",
+								text: `Parallel: ${successCount}/${results.length} succeeded, ${failures.length} failed\n\nErrors:\n${errorDetails.join("\n")}\n\n${summaries.join("\n\n")}`,
+							},
+						],
+						details: makeDetails("parallel")(results),
+						isError: true,
+					};
+				}
+
 				return {
 					content: [
 						{
