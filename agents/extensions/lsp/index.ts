@@ -370,7 +370,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lsp",
     label: "LSP",
-    description: `Query language servers for code intelligence. Prefer over grep for navigating definitions, references, types, and symbols. Provide file+line+col or symbol name to identify a location. Positions are 1-indexed. Fall back to grep only for plain-text/string searches or when LSP returns nothing.`,
+    description: `Query language servers for code intelligence. Prefer over grep for navigating definitions, references, types, and symbols. Provide file+line+col or symbol name to identify a location. Positions are 1-indexed.`,
 
     parameters: Type.Object({
       action: StringEnum(["hover", "definition", "references", "symbols", "workspace_symbols"] as const, {
