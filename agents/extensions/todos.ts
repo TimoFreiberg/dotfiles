@@ -139,14 +139,13 @@ const TodoParams = Type.Object({
 		"claim",
 		"release",
 	] as const),
-	id: Type.Optional(Type.String({ description: "Todo id (TODO-<hex> or raw hex)" })),
-	title: Type.Optional(Type.String({ description: "Short summary" })),
-	status: Type.Optional(Type.String({ description: "Todo status" })),
-	tags: Type.Optional(Type.Array(Type.String({ description: "Todo tag" }))),
+	id: Type.Optional(Type.String({ description: "Todo id (TODO-<hex> or raw hex filename)" })),
+	title: Type.Optional(Type.String({ description: "Short summary shown in lists" })),
+	status: Type.Optional(Type.String()),
+	tags: Type.Optional(Type.Array(Type.String())),
 	body: Type.Optional(
-		Type.String({ description: "Markdown notes (update replaces, append adds)" }),
+		Type.String({ description: "Long-form details (markdown). Update replaces; append adds." }),
 	),
-	force: Type.Optional(Type.Boolean({ description: "Override another session's claim" })),
 });
 
 // ---------------------------------------------------------------------------
@@ -594,7 +593,7 @@ async function updateTodoStatus(
 }
 
 async function claimTodoAssignment(
-	dir: string, id: string, ctx: ExtensionContext, force = false,
+	dir: string, id: string, ctx: ExtensionContext,
 ): Promise<TodoRecord | { error: string }> {
 	const v = validateTodoId(id);
 	if ("error" in v) return v;
@@ -607,8 +606,12 @@ async function claimTodoAssignment(
 		if (!existing) return { error: `Todo ${displayTodoId(id)} not found` } as const;
 		if (isTodoClosed(existing.status)) return { error: `Todo ${displayTodoId(id)} is closed` } as const;
 		const assigned = existing.assigned_to_session;
-		if (assigned && assigned !== sessionId && !force) {
-			return { error: `Todo ${displayTodoId(id)} is already assigned to session ${assigned}. Use force to override.` } as const;
+		if (assigned && assigned !== sessionId) {
+			if (!ctx.hasUI) {
+				return { error: `Todo ${displayTodoId(id)} is already assigned to session ${assigned}.` } as const;
+			}
+			const ok = await ctx.ui.confirm("Todo assigned", `Todo ${displayTodoId(id)} is assigned to session ${assigned}. Reassign to this session?`);
+			if (!ok) return { error: `Todo ${displayTodoId(id)} remains assigned to session ${assigned}.` } as const;
 		}
 		if (assigned !== sessionId) {
 			existing.assigned_to_session = sessionId;
@@ -619,7 +622,7 @@ async function claimTodoAssignment(
 }
 
 async function releaseTodoAssignment(
-	dir: string, id: string, ctx: ExtensionContext, force = false,
+	dir: string, id: string, ctx: ExtensionContext,
 ): Promise<TodoRecord | { error: string }> {
 	const v = validateTodoId(id);
 	if ("error" in v) return v;
@@ -632,8 +635,12 @@ async function releaseTodoAssignment(
 		if (!existing) return { error: `Todo ${displayTodoId(id)} not found` } as const;
 		const assigned = existing.assigned_to_session;
 		if (!assigned) return existing;
-		if (assigned !== sessionId && !force) {
-			return { error: `Todo ${displayTodoId(id)} is assigned to session ${assigned}. Use force to release.` } as const;
+		if (assigned !== sessionId) {
+			if (!ctx.hasUI) {
+				return { error: `Todo ${displayTodoId(id)} is assigned to session ${assigned}.` } as const;
+			}
+			const ok = await ctx.ui.confirm("Todo assigned elsewhere", `Todo ${displayTodoId(id)} is assigned to session ${assigned}. Release anyway?`);
+			if (!ok) return { error: `Todo ${displayTodoId(id)} remains assigned to session ${assigned}.` } as const;
 		}
 		existing.assigned_to_session = undefined;
 		await writeTodoFile(filePath, existing);
@@ -1324,7 +1331,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 
 				case "claim": {
 					if (!params.id) return { content: [{ type: "text", text: "Error: id required" }], details: { action: "claim", error: "id required" } };
-					const result = await claimTodoAssignment(dir, params.id, ctx, Boolean(params.force));
+					const result = await claimTodoAssignment(dir, params.id, ctx);
 					if (typeof result === "object" && "error" in result) {
 						return { content: [{ type: "text", text: result.error }], details: { action: "claim", error: result.error } };
 					}
@@ -1333,7 +1340,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 
 				case "release": {
 					if (!params.id) return { content: [{ type: "text", text: "Error: id required" }], details: { action: "release", error: "id required" } };
-					const result = await releaseTodoAssignment(dir, params.id, ctx, Boolean(params.force));
+					const result = await releaseTodoAssignment(dir, params.id, ctx);
 					if (typeof result === "object" && "error" in result) {
 						return { content: [{ type: "text", text: result.error }], details: { action: "release", error: result.error } };
 					}
@@ -1529,7 +1536,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 					if (action === "copyPath") { copyPath(record.id); return "stay"; }
 					if (action === "copyText") { copyText(record); return "stay"; }
 					if (action === "release") {
-						const r = await releaseTodoAssignment(dir, record.id, ctx, true);
+						const r = await releaseTodoAssignment(dir, record.id, ctx);
 						if ("error" in r) { ctx.ui.notify(r.error, "error"); return "stay"; }
 						selector?.setTodos(await listTodos(dir));
 						ctx.ui.notify(`Released todo ${formatTodoId(record.id)}`, "info");
