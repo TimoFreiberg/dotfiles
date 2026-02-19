@@ -411,7 +411,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerTool({
     name: "lsp",
     label: "LSP",
-    description: `Query language servers for code intelligence. Provide file+line+col or symbol name. Positions are 1-indexed.`,
+    description: `Query language servers for code intelligence. Prefer for code navigation. Provide file+line+col or symbol name. Positions are 1-indexed.`,
 
     parameters: Type.Object({
       action: StringEnum(["hover", "definition", "references", "symbols", "workspace_symbols"] as const),
