@@ -35,6 +35,11 @@ echo "[user]
 
 echo "Add name and email to ~/.gitconfig"
 
+# Claude Code - symlink entire directory; .gitignore allowlist controls what's tracked
+# Machine-specific config (model, AWS profile, etc.) goes in ~/.claude/settings.local.json
+backup_dotfile .claude
+ln -s $DOTFILEDIR/claude $HOMEDIR/.claude
+
 # mac only
 if test uname = "Darwin"
   defaults write com.apple.dock autohide-delay -float 0 && defaults write com.apple.dock autohide-time-modifier -float 0.4 && killall Dock

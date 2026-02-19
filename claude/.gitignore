@@ -1,0 +1,9 @@
+# Ignore everything by default (runtime state)
+*
+
+# Track these files
+!.gitignore
+!settings.json
+!CLAUDE.md
+!statusline.sh
+!skills
