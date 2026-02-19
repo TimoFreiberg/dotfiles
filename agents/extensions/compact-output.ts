@@ -11,9 +11,6 @@ import {
 	createReadTool,
 	createBashTool,
 	createWriteTool,
-	createLsTool,
-	createFindTool,
-	createGrepTool,
 	keyHint,
 	highlightCode,
 	getLanguageFromPath,
@@ -72,14 +69,6 @@ function buildStyledCode(code: string, filePath: string | null, theme: any): str
 		.join("\n");
 }
 
-/** Build fully styled list string. */
-function buildStyledList(output: string, theme: any): string {
-	return output
-		.split("\n")
-		.map((l: string) => theme.fg("toolOutput", l))
-		.join("\n");
-}
-
 /** Build the expand hint suffix: " — 42 lines (ctrl+o to expand)" */
 function expandSuffix(lineCount: number, theme: any, warningText?: string): string {
 	let s = theme.fg("muted", ` — ${lineCount} line${lineCount !== 1 ? "s" : ""} (`) +
@@ -121,9 +110,9 @@ function lazyLine(buildLine: () => string): any {
 export default function (pi: ExtensionAPI) {
 	const cwd = process.cwd();
 
-	// TODO: This unconditionally registers overrides for all built-in tools,
-	// which activates grep/find/ls even in sessions that don't normally have them.
-	// See the comment in the previous version for the fix.
+	// Only override read, write, and bash with compact rendering.
+	// ls, find, and grep are left as built-in tools to avoid unnecessary
+	// tool registrations (saves ~580 tokens in the tool schema).
 
 	// renderCall and renderResult are always called synchronously in sequence
 	// within the same ToolExecutionComponent.updateDisplay() call, so a simple
@@ -278,146 +267,4 @@ export default function (pi: ExtensionAPI) {
 		});
 	}
 
-	// --- ls -------------------------------------------------------------
-	{
-		let resultSuffix = "";
-		const builtinLs = createLsTool(cwd);
-		pi.registerTool({
-			...builtinLs,
-			renderCall(args: any, theme: any) {
-				resultSuffix = "";
-				const rawPath = str(args?.path);
-				const path = rawPath ? shortenPath(rawPath, cwd) : ".";
-				const limit = args?.limit;
-				let prefix = `${theme.fg("toolTitle", theme.bold("ls"))} ${theme.fg("accent", path)}`;
-				if (limit !== undefined) prefix += theme.fg("toolOutput", ` (limit ${limit})`);
-				return lazyLine(() => prefix + resultSuffix);
-			},
-			renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-				if (isPartial) { resultSuffix = ""; return null; }
-				const output = getTextOutput(result).trim();
-				if (!output) { resultSuffix = ""; return null; }
-
-				let warning: string | undefined;
-				const el = result.details?.entryLimitReached;
-				const tr = result.details?.truncation;
-				if (el || tr?.truncated) {
-					const w: string[] = [];
-					if (el) w.push(`${el} entries limit`);
-					if (tr?.truncated) w.push(`${formatSize(tr.maxBytes ?? DEFAULT_MAX_BYTES)} limit`);
-					warning = theme.fg("warning", `[Truncated: ${w.join(", ")}]`);
-				}
-
-				if (expanded) {
-					resultSuffix = "";
-					let text = "\n\n" + buildStyledList(output, theme);
-					if (warning) text += "\n" + warning;
-					return new Text(text, 0, 0);
-				}
-
-				resultSuffix = expandSuffix(countLines(output), theme, warning);
-				return null;
-			},
-		});
-	}
-
-	// --- find -----------------------------------------------------------
-	{
-		let resultSuffix = "";
-		const builtinFind = createFindTool(cwd);
-		pi.registerTool({
-			...builtinFind,
-			renderCall(args: any, theme: any) {
-				resultSuffix = "";
-				const pattern = str(args?.pattern);
-				const rawPath = str(args?.path);
-				const path = rawPath ? shortenPath(rawPath, cwd) : ".";
-				const limit = args?.limit;
-				let prefix =
-					theme.fg("toolTitle", theme.bold("find")) +
-					" " +
-					theme.fg("accent", pattern || "...") +
-					theme.fg("toolOutput", ` in ${path}`);
-				if (limit !== undefined) prefix += theme.fg("toolOutput", ` (limit ${limit})`);
-				return lazyLine(() => prefix + resultSuffix);
-			},
-			renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-				if (isPartial) { resultSuffix = ""; return null; }
-				const output = getTextOutput(result).trim();
-				if (!output) { resultSuffix = ""; return null; }
-
-				let warning: string | undefined;
-				const rl = result.details?.resultLimitReached;
-				const tr = result.details?.truncation;
-				if (rl || tr?.truncated) {
-					const w: string[] = [];
-					if (rl) w.push(`${rl} results limit`);
-					if (tr?.truncated) w.push(`${formatSize(tr.maxBytes ?? DEFAULT_MAX_BYTES)} limit`);
-					warning = theme.fg("warning", `[Truncated: ${w.join(", ")}]`);
-				}
-
-				if (expanded) {
-					resultSuffix = "";
-					let text = "\n\n" + buildStyledList(output, theme);
-					if (warning) text += "\n" + warning;
-					return new Text(text, 0, 0);
-				}
-
-				resultSuffix = expandSuffix(countLines(output), theme, warning);
-				return null;
-			},
-		});
-	}
-
-	// --- grep -----------------------------------------------------------
-	{
-		let resultSuffix = "";
-		const builtinGrep = createGrepTool(cwd);
-		pi.registerTool({
-			...builtinGrep,
-			renderCall(args: any, theme: any) {
-				resultSuffix = "";
-				const pattern = str(args?.pattern);
-				const rawPath = str(args?.path);
-				const path = rawPath ? shortenPath(rawPath, cwd) : ".";
-				const glob = str(args?.glob);
-				const limit = args?.limit;
-				let prefix =
-					theme.fg("toolTitle", theme.bold("grep")) +
-					" " +
-					theme.fg("accent", pattern ? `/${pattern}/` : "...") +
-					theme.fg("toolOutput", ` in ${path}`);
-				if (glob) prefix += theme.fg("toolOutput", ` (${glob})`);
-				if (limit !== undefined) prefix += theme.fg("toolOutput", ` limit ${limit}`);
-				return lazyLine(() => prefix + resultSuffix);
-			},
-			renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-				if (isPartial) { resultSuffix = ""; return null; }
-				const output = getTextOutput(result).trim();
-				if (!output) { resultSuffix = ""; return null; }
-
-				let warning: string | undefined;
-				const ml = result.details?.matchLimitReached;
-				const tr = result.details?.truncation;
-				const lt = result.details?.linesTruncated;
-				if (ml || tr?.truncated || lt) {
-					const w: string[] = [];
-					if (ml) w.push(`${ml} matches limit`);
-					if (tr?.truncated) w.push(`${formatSize(tr.maxBytes ?? DEFAULT_MAX_BYTES)} limit`);
-					if (lt) w.push("some lines truncated");
-					warning = theme.fg("warning", `[Truncated: ${w.join(", ")}]`);
-				}
-
-				if (expanded) {
-					resultSuffix = "";
-					let text = "\n\n" + buildStyledList(output, theme);
-					if (warning) text += "\n" + warning;
-					return new Text(text, 0, 0);
-				}
-
-				resultSuffix = expandSuffix(countLines(output), theme, warning);
-				return null;
-			},
-		});
-	}
 }
