@@ -1,7 +1,6 @@
 {
   "awsAuthRefresh": "aws sso login",
   "permissions": {
-    "defaultMode": "acceptEdits",
     "allow": [
       "Bash(jj *)",
       "Bash(git *)",
@@ -71,8 +70,9 @@
       "WebFetch",
       "WebSearch",
       "Read"
-    ]
- },
+    ],
+    "defaultMode": "acceptEdits"
+  },
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
