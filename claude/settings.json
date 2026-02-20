@@ -70,7 +70,8 @@
       "WebFetch(*)",
       "WebSearch(*)",
       "Read(*)",
-      "Search(*)"
+      "Glob(*)",
+      "Grep(*)"
     ],
     "defaultMode": "acceptEdits"
   },
