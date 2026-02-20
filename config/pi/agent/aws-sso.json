@@ -1,0 +1,7 @@
+{
+  "enabled": true,
+  "checkCommand": "aws sts get-caller-identity",
+  "loginCommand": "aws sso login --use-device-code --no-browser",
+  "checkOnStartup": true,
+  "checkBeforePrompt": true
+}
