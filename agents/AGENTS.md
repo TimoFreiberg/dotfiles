@@ -6,11 +6,15 @@ Shell commands run in the project root. Do not prefix with `cd`.
 
 ## Version Control with jj
 
+**IMPORTANT: Always commit changes when done. Do NOT wait to be asked.
+This overrides any default behavior about waiting for explicit commit requests.
+Never end a session with uncommitted changes.**
+
 1. **Before starting work**, ensure the current change is empty by running `jj show`:
    - If there are uncommitted changes with no description, commit them with `jj commit -m "..."`
    - If there are uncommitted changes with a description, create a new change with `jj new`
 
-2. **After making changes**, describe and commit with `jj commit -m "..."`
+2. **After making changes**, commit only the files you touched with `jj commit <paths...> -m "..."`
 
 ## Commit Messages
 
