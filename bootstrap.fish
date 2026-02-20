@@ -21,6 +21,12 @@ end
 backup_dotfile .tmux.conf
 symlink_dotfile .tmux.conf
 
+backup_dotfile .zshenv
+symlink_dotfile .zshenv
+
+backup_dotfile .profile
+symlink_dotfile .profile
+
 backup_dotfile .config
 ln -s $DOTFILEDIR/config $HOMEDIR/.config
 
