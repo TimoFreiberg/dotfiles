@@ -68,13 +68,19 @@ created: <today's date YYYY-MM-DD>
 
 1. Match the query to a file (see "Match")
 2. Read the file
-3. Present the current TODO content to the user
-4. Discuss the TODO with the user to improve it. Think critically about what's missing:
+3. **Gather context before asking questions.** Based on the TODO text, proactively research anything you can answer yourself:
+   - If files, functions, or modules are mentioned, read them to understand the current state
+   - If related TODOs exist, read those too
+   - If the TODO references a bug or behavior, look at the relevant code to understand it
+   - Search the codebase for anything directly relevant to the TODO's subject
+   Do NOT ask the user questions you could answer by reading code or files. Only ask about intent, priorities, and decisions that require human judgment.
+4. Present the current TODO content and a brief summary of what you found from your research
+5. Discuss the TODO with the user to improve it. Think critically about what's missing:
    - Is the problem or goal clearly defined?
    - Are there acceptance criteria or a definition of done?
    - Are there edge cases, constraints, or dependencies worth noting?
    - Is there relevant context (affected files, related TODOs, prior decisions)?
    - Could the TODO be split into smaller, more actionable items?
-5. Use AskUserQuestion to ask clarifying questions — ask whatever would help make the TODO more concrete, actionable, and complete
-6. After the discussion, update the TODO file with the refined content using the Edit tool
-7. Show the user the final version
+6. Use AskUserQuestion to ask clarifying questions — only things that require human judgment, not things you can look up
+7. After the discussion, update the TODO file with the refined content using the Edit tool
+8. Show the user the final version
