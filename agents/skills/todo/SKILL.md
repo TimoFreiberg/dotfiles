@@ -6,8 +6,7 @@ argument-hint: "[add <title> | list | done <query> | refine <query> | delete <qu
 
 ## Current state
 
-- TODOs directory: !`test -d .todos && echo "exists ($(ls .todos/*.md 2>/dev/null | wc -l | tr -d ' ') items)" || echo "not created yet"`
-- Open TODOs: !`ls .todos/*.md 2>/dev/null | while read f; do echo "- $(basename "$f" .md)"; done || echo "(none)"`
+!`todo`
 
 ## Operations
 
