@@ -1,5 +1,6 @@
 # set -x PATH $PATH ~/bin ~/bin/nogit ~/.local/bin ~/.cabal/bin
 # set -x PATH (echo $PATH | awk -v RS=' ' '!dedup[$1]++ {if (NR > 1) printf RS;  printf $1}')
+fish_add_path ~/dotfiles/bin
 fish_add_path ~/bin
 fish_add_path ~/bin/nogit
 fish_add_path ~/.local/bin
