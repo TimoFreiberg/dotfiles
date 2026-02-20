@@ -67,6 +67,7 @@
       "Bash(wget *)",
       "Bash(tar *)",
       "Bash(unzip *)",
+      "Bash(todo*)",
       "WebFetch(*)",
       "WebSearch(*)",
       "Read(*)",
