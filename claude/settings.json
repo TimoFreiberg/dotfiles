@@ -67,9 +67,10 @@
       "Bash(wget *)",
       "Bash(tar *)",
       "Bash(unzip *)",
-      "WebFetch",
-      "WebSearch",
-      "Read"
+      "WebFetch(*)",
+      "WebSearch(*)",
+      "Read(*)",
+      "Search(*)"
     ],
     "defaultMode": "acceptEdits"
   },
