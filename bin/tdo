@@ -70,6 +70,16 @@ check_for_update() {
     fi
 }
 
+# --update flag: force an immediate update check
+if [ "$1" = "--update" ]; then
+    shift
+    check_for_update
+    if [ $# -eq 0 ]; then
+        exit 0
+    fi
+    exec "${BIN}" "$@"
+fi
+
 # First run: download if missing
 if [ ! -f "${BIN}" ]; then
     download
