@@ -1,14 +1,14 @@
 # set -x PATH $PATH ~/bin ~/bin/nogit ~/.local/bin ~/.cabal/bin
 # set -x PATH (echo $PATH | awk -v RS=' ' '!dedup[$1]++ {if (NR > 1) printf RS;  printf $1}')
-fish_add_path ~/dotfiles/bin
-fish_add_path ~/bin
-fish_add_path ~/bin/nogit
-fish_add_path ~/.local/bin
 fish_add_path ~/.emacs.d/bin
-fish_add_path ~/.cargo/bin
 fish_add_path /usr/local/google-cloud-sdk/bin
 fish_add_path /opt/homebrew/bin
 fish_add_path /opt/homebrew/opt/openssl@1.1/bin
+fish_add_path ~/.local/bin
+fish_add_path ~/.cargo/bin
+fish_add_path ~/bin
+fish_add_path ~/bin/nogit
+fish_add_path --move ~/dotfiles/bin
 
 set -x EDITOR nvim
 set -x VISUAL nvim
