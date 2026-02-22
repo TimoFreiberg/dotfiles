@@ -1083,6 +1083,11 @@ export default function todosExtension(pi: ExtensionAPI) {
     handler: async (args, ctx) => todosCommandHandler(args, ctx, true),
   });
 
+  pi.registerShortcut("ctrl+shift+d", {
+    description: "Open todo list",
+    handler: async (ctx) => todosCommandHandler(undefined, ctx, false),
+  });
+
   // Append skill refine instructions when a refine prompt is sent
   pi.on("input", async (event, ctx) => {
     if (!event.text.includes(REFINE_PROMPT_MARKER)) return;
