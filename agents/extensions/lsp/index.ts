@@ -414,12 +414,22 @@ export default function (pi: ExtensionAPI) {
     description: `Query language servers for code intelligence. Prefer for code navigation. Provide file+line+col or symbol name. Positions are 1-indexed.`,
 
     parameters: Type.Object({
-      action: StringEnum(["hover", "definition", "references", "symbols", "workspace_symbols"] as const),
+      action: StringEnum([
+        "hover",
+        "definition",
+        "references",
+        "symbols",
+        "workspace_symbols",
+      ] as const),
       file: Type.Optional(Type.String()),
       line: Type.Optional(Type.Number({ description: "1-indexed" })),
       col: Type.Optional(Type.Number({ description: "1-indexed" })),
-      symbol: Type.Optional(Type.String({ description: "Alternative to file+line+col" })),
-      query: Type.Optional(Type.String({ description: "For workspace_symbols" })),
+      symbol: Type.Optional(
+        Type.String({ description: "Alternative to file+line+col" }),
+      ),
+      query: Type.Optional(
+        Type.String({ description: "For workspace_symbols" }),
+      ),
     }),
 
     async execute(toolCallId, params, signal, onUpdate, ctx) {

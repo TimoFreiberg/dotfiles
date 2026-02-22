@@ -18,7 +18,14 @@ export interface LspClientOptions {
 export class LspClient extends EventEmitter {
   private proc: ChildProcess | null = null;
   private nextId = 1;
-  private pending = new Map<number, { resolve: (v: any) => void; reject: (e: Error) => void; timer: ReturnType<typeof setTimeout> }>();
+  private pending = new Map<
+    number,
+    {
+      resolve: (v: any) => void;
+      reject: (e: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
   private buffer = Buffer.alloc(0);
   private contentLength = -1;
   private openDocuments = new Set<string>();
@@ -140,32 +147,64 @@ export class LspClient extends EventEmitter {
     this.ensureOpen(filePath, content, languageId);
   }
 
-  async hover(filePath: string, line: number, col: number, signal?: AbortSignal): Promise<any> {
-    return this.request("textDocument/hover", {
-      textDocument: { uri: `file://${filePath}` },
-      position: { line, character: col },
-    }, signal);
+  async hover(
+    filePath: string,
+    line: number,
+    col: number,
+    signal?: AbortSignal,
+  ): Promise<any> {
+    return this.request(
+      "textDocument/hover",
+      {
+        textDocument: { uri: `file://${filePath}` },
+        position: { line, character: col },
+      },
+      signal,
+    );
   }
 
-  async definition(filePath: string, line: number, col: number, signal?: AbortSignal): Promise<any> {
-    return this.request("textDocument/definition", {
-      textDocument: { uri: `file://${filePath}` },
-      position: { line, character: col },
-    }, signal);
+  async definition(
+    filePath: string,
+    line: number,
+    col: number,
+    signal?: AbortSignal,
+  ): Promise<any> {
+    return this.request(
+      "textDocument/definition",
+      {
+        textDocument: { uri: `file://${filePath}` },
+        position: { line, character: col },
+      },
+      signal,
+    );
   }
 
-  async references(filePath: string, line: number, col: number, includeDeclaration = true, signal?: AbortSignal): Promise<any> {
-    return this.request("textDocument/references", {
-      textDocument: { uri: `file://${filePath}` },
-      position: { line, character: col },
-      context: { includeDeclaration },
-    }, signal);
+  async references(
+    filePath: string,
+    line: number,
+    col: number,
+    includeDeclaration = true,
+    signal?: AbortSignal,
+  ): Promise<any> {
+    return this.request(
+      "textDocument/references",
+      {
+        textDocument: { uri: `file://${filePath}` },
+        position: { line, character: col },
+        context: { includeDeclaration },
+      },
+      signal,
+    );
   }
 
   async documentSymbol(filePath: string, signal?: AbortSignal): Promise<any> {
-    return this.request("textDocument/documentSymbol", {
-      textDocument: { uri: `file://${filePath}` },
-    }, signal);
+    return this.request(
+      "textDocument/documentSymbol",
+      {
+        textDocument: { uri: `file://${filePath}` },
+      },
+      signal,
+    );
   }
 
   async workspaceSymbol(query: string, signal?: AbortSignal): Promise<any> {
@@ -174,7 +213,11 @@ export class LspClient extends EventEmitter {
 
   // --- JSON-RPC transport ---
 
-  private request(method: string, params: any, signal?: AbortSignal): Promise<any> {
+  private request(
+    method: string,
+    params: any,
+    signal?: AbortSignal,
+  ): Promise<any> {
     return new Promise((resolve, reject) => {
       if (signal?.aborted) return reject(new Error("Cancelled"));
       const id = this.nextId++;
@@ -195,8 +238,14 @@ export class LspClient extends EventEmitter {
         }
       }, 30000);
       this.pending.set(id, {
-        resolve: (v) => { cleanup(); resolve(v); },
-        reject: (e) => { cleanup(); reject(e); },
+        resolve: (v) => {
+          cleanup();
+          resolve(v);
+        },
+        reject: (e) => {
+          cleanup();
+          reject(e);
+        },
         timer,
       });
       if (!this.send({ jsonrpc: "2.0", id, method, params })) {
@@ -250,7 +299,9 @@ export class LspClient extends EventEmitter {
           this.pending.delete(msg.id);
           clearTimeout(p.timer);
           if (msg.error) {
-            p.reject(new Error(`LSP error ${msg.error.code}: ${msg.error.message}`));
+            p.reject(
+              new Error(`LSP error ${msg.error.code}: ${msg.error.message}`),
+            );
           } else {
             p.resolve(msg.result);
           }
@@ -258,7 +309,10 @@ export class LspClient extends EventEmitter {
           // Server-to-client request — must respond to avoid server hangs
           this.emit("log", `Server request: ${msg.method} (id=${msg.id})`);
           let result: any = null;
-          if (msg.method === "workspace/configuration" && Array.isArray(msg.params?.items)) {
+          if (
+            msg.method === "workspace/configuration" &&
+            Array.isArray(msg.params?.items)
+          ) {
             result = msg.params.items.map(() => null);
           }
           this.send({ jsonrpc: "2.0", id: msg.id, result });

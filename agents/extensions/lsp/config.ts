@@ -151,10 +151,19 @@ function normalizePiConfig(raw: any): LspConfig {
 }
 
 /** Known Zed LSP server names → file extensions + language IDs */
-const ZED_SERVER_DEFAULTS: Record<string, { fileExtensions: string[]; languageId: string }> = {
+const ZED_SERVER_DEFAULTS: Record<
+  string,
+  { fileExtensions: string[]; languageId: string }
+> = {
   "rust-analyzer": { fileExtensions: [".rs"], languageId: "rust" },
-  clangd: { fileExtensions: [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"], languageId: "c" },
-  "typescript-language-server": { fileExtensions: [".ts", ".tsx", ".js", ".jsx"], languageId: "typescript" },
+  clangd: {
+    fileExtensions: [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"],
+    languageId: "c",
+  },
+  "typescript-language-server": {
+    fileExtensions: [".ts", ".tsx", ".js", ".jsx"],
+    languageId: "typescript",
+  },
   pylsp: { fileExtensions: [".py"], languageId: "python" },
   gopls: { fileExtensions: [".go"], languageId: "go" },
   zls: { fileExtensions: [".zig"], languageId: "zig" },
@@ -190,7 +199,8 @@ function parseZedConfig(raw: any): LspConfig | null {
     }
 
     // Zed uses snake_case "initialization_options", LSP uses camelCase
-    const initOptions = c.initialization_options ?? c.initializationOptions ?? {};
+    const initOptions =
+      c.initialization_options ?? c.initializationOptions ?? {};
 
     servers[name] = {
       command,
@@ -206,7 +216,10 @@ function parseZedConfig(raw: any): LspConfig | null {
 /**
  * Find the server config that handles a given file path.
  */
-export function serverForFile(config: LspConfig, filePath: string): [string, ServerConfig] | null {
+export function serverForFile(
+  config: LspConfig,
+  filePath: string,
+): [string, ServerConfig] | null {
   const ext = filePath.substring(filePath.lastIndexOf("."));
   for (const [name, cfg] of Object.entries(config.servers)) {
     if (cfg.fileExtensions.includes(ext)) {

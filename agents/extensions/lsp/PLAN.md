@@ -17,22 +17,27 @@ Make the `lsp` tool work **zero-config** by automatically discovering language s
 Zed stores downloaded language servers in three patterns:
 
 ### Pattern 1: Native binary (date/version-named)
+
 ```
 languages/rust-analyzer/
   rust-analyzer-2026-02-02          ← the binary
   rust-analyzer-2026-02-02.metadata ← JSON metadata (skip)
 ```
+
 Resolution: scan dir, skip `.metadata` files, take the last entry as binary.
 
 ### Pattern 2: Native binary in versioned subdirectory
+
 ```
 languages/ruff/
   ruff-0.15.1/ruff-aarch64-apple-darwin/ruff    ← the binary
   ruff-0.15.metadata
 ```
+
 Resolution: find the versioned dir, then arch subdir, then binary name.
 
 ### Pattern 3: Node.js package
+
 ```
 languages/vtsls/
   node_modules/@vtsls/language-server/bin/vtsls.js
@@ -42,6 +47,7 @@ languages/basedpyright/
   node_modules/basedpyright/langserver.index.js
   package.json
 ```
+
 Resolution: Node binary + path to JS entry point + `--stdio`.
 Node is at: `~/Library/Application Support/Zed/node/node-v{VERSION}-{os}-{arch}/bin/node`
 
@@ -50,6 +56,7 @@ Node is at: `~/Library/Application Support/Zed/node/node-v{VERSION}-{os}-{arch}/
 ### New: `ZED_SERVER_REGISTRY` — built-in server definitions
 
 A static registry mapping server names to:
+
 - File extensions they handle
 - Language ID
 - How to find the binary in the Zed languages dir
@@ -65,10 +72,14 @@ interface ZedServerDef {
   /** LSP language ID */
   languageId: string;
   /** How to resolve the binary */
-  binary: 
+  binary:
     | { type: "native"; /** binary name without version */ baseName: string }
     | { type: "native-subdir"; /** binary name */ baseName: string }
-    | { type: "node"; /** path relative to container dir */ serverPath: string; args?: string[] }
+    | {
+        type: "node";
+        /** path relative to container dir */ serverPath: string;
+        args?: string[];
+      };
   /** Extra CLI args after the binary (e.g. ["server"] for ruff) */
   extraArgs?: string[];
   /** Default initializationOptions */
@@ -78,21 +89,21 @@ interface ZedServerDef {
 
 Initial registry (servers that are useful for coding):
 
-| Server | Type | Extensions | Notes |
-|---|---|---|---|
-| `rust-analyzer` | native | `.rs` | Primary Rust server |
-| `vtsls` | node | `.ts .tsx .js .jsx` | `node_modules/@vtsls/language-server/bin/vtsls.js --stdio` |
-| `basedpyright` | node | `.py` | `node_modules/basedpyright/langserver.index.js --stdio` |
-| `ruff` | native-subdir | `.py` | Linter only, not useful as primary LSP for code nav |
-| `json-language-server` | node | `.json .jsonc` | `node_modules/.bin/vscode-json-language-server --stdio` |
-| `gopls` | native | `.go` | Not in Zed languages dir; typically system-installed |
-| `clangd` | native | `.c .h .cpp .hpp .cc .cxx` | Typically system-installed |
-| `zls` | native | `.zig` | May be in Zed or system-installed |
+| Server                 | Type          | Extensions                 | Notes                                                      |
+| ---------------------- | ------------- | -------------------------- | ---------------------------------------------------------- |
+| `rust-analyzer`        | native        | `.rs`                      | Primary Rust server                                        |
+| `vtsls`                | node          | `.ts .tsx .js .jsx`        | `node_modules/@vtsls/language-server/bin/vtsls.js --stdio` |
+| `basedpyright`         | node          | `.py`                      | `node_modules/basedpyright/langserver.index.js --stdio`    |
+| `ruff`                 | native-subdir | `.py`                      | Linter only, not useful as primary LSP for code nav        |
+| `json-language-server` | node          | `.json .jsonc`             | `node_modules/.bin/vscode-json-language-server --stdio`    |
+| `gopls`                | native        | `.go`                      | Not in Zed languages dir; typically system-installed       |
+| `clangd`               | native        | `.c .h .cpp .hpp .cc .cxx` | Typically system-installed                                 |
+| `zls`                  | native        | `.zig`                     | May be in Zed or system-installed                          |
 
 ### New: `discoverServers()` function
 
 ```typescript
-function discoverServers(projectRoot: string): LspConfig
+function discoverServers(projectRoot: string): LspConfig;
 ```
 
 1. Find Zed languages dir (platform-dependent)
@@ -116,7 +127,7 @@ If a config file exists, it takes full precedence (no merging with auto-discover
 - Add `discoverZedServers(): LspConfig | null` function
 - Modify `loadConfig()` / `ensureConfig()` fallback chain:
   1. Try `.pi/lsp.json` → return if found
-  2. Try `.zed/settings.json` → return if found  
+  2. Try `.zed/settings.json` → return if found
   3. Try `discoverZedServers()` → return discovered servers
 - Remove the hard error "No LSP config found" when discovery finds servers
 
@@ -128,6 +139,7 @@ If a config file exists, it takes full precedence (no merging with auto-discover
 ### Node binary resolution
 
 For node-based servers, we need to find Zed's bundled Node.js:
+
 ```
 ~/Library/Application Support/Zed/node/node-v{VERSION}-{os}-{arch}/bin/node
 ```
@@ -137,60 +149,72 @@ Strategy: scan the `node/` directory for `node-v*` dirs, pick the latest version
 ## Edge Cases & Concerns
 
 ### 1. Multiple servers for the same extension
+
 - `.py` could match both `basedpyright` and `ruff`
 - Solution: registry has a priority order; only the first match wins
 - Ruff is a linter/formatter, not great for code navigation — `basedpyright` should win for `.py`
 
 ### 2. Server not installed in Zed yet
+
 - User hasn't opened that file type in Zed → no server downloaded
 - Solution: also check `$PATH` for system-installed servers (rust-analyzer, clangd, gopls)
 - If neither found, graceful error as today
 
 ### 3. Zed updates a server while pi is running
+
 - Zed replaces the binary on disk (new version-named file)
 - Our cached binary path becomes stale
 - Solution: re-resolve the binary path each time we start a new server instance (not on every request — only on cold start)
 
 ### 4. Platform detection
+
 - macOS: `~/Library/Application Support/Zed/languages/`
 - Linux: `$XDG_DATA_HOME/zed/languages/` or `~/.local/share/zed/languages/`
 - Need to handle both; Windows not needed for now
 
 ### 5. Zed not installed
+
 - No Zed directory exists → discovery returns nothing → fall back to PATH lookup
 - Still zero-config if servers are on PATH
 
 ### 6. Architecture-specific binaries (ruff pattern)
+
 - `ruff-0.15.1/ruff-aarch64-apple-darwin/ruff`
 - Need to detect current arch: `process.arch` → map to Zed's naming
 - `arm64` → `aarch64`, `x64` → `x86_64`
 - OS: `darwin` → `apple-darwin`, `linux` → `unknown-linux-gnu`
 
 ### 7. Node server shebang scripts vs direct invocation
+
 - The `.bin/vtsls` script has `#!/usr/bin/env node` — could invoke wrong node
 - Better to use Zed's node binary + the `.js` path directly (like Zed does)
 - e.g., `["/path/to/zed/node", "node_modules/@vtsls/language-server/bin/vtsls.js", "--stdio"]`
 
 ### 8. initializationOptions
+
 - Auto-discovered servers get sensible defaults (from registry)
 - User can still override via `.pi/lsp.json` or `.zed/settings.json`
 - For basedpyright, Zed sends: `{ python: { analysis: { autoSearchPaths: true, useLibraryCodeForTypes: true, autoImportCompletions: true } } }`
 
 ### 9. System PATH servers
+
 - `rust-analyzer`, `clangd`, `gopls` are often system-installed
 - Should we prefer Zed's copy or system copy?
 - Proposal: prefer Zed's copy (it's managed/updated), fall back to system
 
 ### 10. lspmux compatibility
+
 - lspmux requires explicit config (need to specify the lspmux binary + args)
 - Auto-discovery doesn't help here → user must use `.pi/lsp.json`
 - This is fine — lspmux is an advanced/optional optimization
 
 ### 11. Stale Zed node version
+
 - Zed may update its Node.js — old version dir disappears
 - Solution: scan for latest `node-v*` dir each time, don't cache
 
 ### 12. Multiple Zed installations (Stable vs Preview)
+
 - Zed Preview uses `~/Library/Application Support/Zed Preview/`
 - We could check both, preferring the most recently modified
 - Or just check "Zed" (stable) — keep it simple for now
