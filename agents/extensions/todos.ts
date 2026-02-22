@@ -215,33 +215,32 @@ function renderTodoHeading(theme: Theme, todo: Todo): string {
 	);
 }
 
-function loadRefineInstructions(): string {
+function loadRefineInstructions(): { text: string; error?: string } {
 	const home = process.env.HOME || process.env.USERPROFILE || "";
 	const skillPath = path.join(home, ".config", "pi", "agent", "skills", "tdo", "SKILL.md");
 	try {
 		const content = readFileSync(skillPath, "utf8");
 		const refineMatch = content.match(/^## Refine\n([\s\S]*?)(?=\n## |\n---|$)/m);
 		if (!refineMatch) {
-			console.error(`[todos] Could not find ## Refine section in ${skillPath}`);
-			return "";
+			return { text: "", error: `No ## Refine section found in ${skillPath}` };
 		}
-		return refineMatch[1].trim();
+		return { text: refineMatch[1].trim() };
 	} catch (e) {
-		console.error(`[todos] Failed to load refine instructions from ${skillPath}:`, e);
-		return "";
+		const msg = e instanceof Error ? e.message : String(e);
+		return { text: "", error: `Failed to load ${skillPath}: ${msg}` };
 	}
 }
 
-function buildRefinePrompt(id: string, title: string): string {
-	const skillInstructions = loadRefineInstructions();
+function buildRefinePrompt(id: string, title: string): { prompt: string; error?: string } {
+	const { text: skillInstructions, error } = loadRefineInstructions();
 	const base =
 		`let's refine task ${id} "${title}": ` +
 		"Ask me for the missing details needed to refine the todo together. Do not rewrite the todo yet and do not make assumptions. " +
 		"Ask clear, concrete questions and wait for my answers before drafting any structured description.";
-	if (skillInstructions) {
-		return base + "\n\nFollow these refine instructions:\n" + skillInstructions + "\n\n";
-	}
-	return base + "\n\n";
+	const prompt = skillInstructions
+		? base + "\n\nFollow these refine instructions:\n" + skillInstructions + "\n\n"
+		: base + "\n\n";
+	return { prompt, error };
 }
 
 // ---------------------------------------------------------------------------
@@ -801,7 +800,9 @@ export default function todosExtension(pi: ExtensionAPI) {
 				action: TodoMenuAction,
 			): Promise<"stay" | "exit"> => {
 				if (action === "refine") {
-					nextPrompt = buildRefinePrompt(todo.id, todo.title || "(untitled)");
+					const refine = buildRefinePrompt(todo.id, todo.title || "(untitled)");
+					if (refine.error) ctx.ui.notify(refine.error, "warning");
+					nextPrompt = refine.prompt;
 					done();
 					return "exit";
 				}
@@ -906,10 +907,13 @@ export default function todosExtension(pi: ExtensionAPI) {
 				searchTerm || undefined,
 				(todo, action) => {
 					const title = todo.title || "(untitled)";
-					nextPrompt =
-						action === "refine"
-							? buildRefinePrompt(todo.id, title)
-							: `work on todo ${todo.id} "${title}"`;
+					if (action === "refine") {
+						const refine = buildRefinePrompt(todo.id, title);
+						if (refine.error) ctx.ui.notify(refine.error, "warning");
+						nextPrompt = refine.prompt;
+					} else {
+						nextPrompt = `work on todo ${todo.id} "${title}"`;
+					}
 					done();
 				},
 				(title) => {
