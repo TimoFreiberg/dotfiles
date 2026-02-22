@@ -42,21 +42,27 @@ export default function (pi: ExtensionAPI) {
 	let lastNotification = "";
 	let agentStartTime = 0;
 	let timerInterval: ReturnType<typeof setInterval> | undefined;
+	let paused = false;
+	let pausedCtx: { ui: { setWorkingMessage(text?: string): void } } | undefined;
 
 	function startTimer(ctx: { ui: { setWorkingMessage(text?: string): void } }) {
 		stopTimer(ctx);
+
+		pausedCtx = ctx;
 		agentStartTime = Date.now();
 		updateWorkingMessage(ctx);
 		timerInterval = setInterval(() => updateWorkingMessage(ctx), 1000);
 	}
 
 	function updateWorkingMessage(ctx: { ui: { setWorkingMessage(text?: string): void } }) {
-		if (agentStartTime <= 0) return;
+
+		if (agentStartTime <= 0 || paused) return;
 		const elapsed = Date.now() - agentStartTime;
 		ctx.ui.setWorkingMessage(`Working (${formatDuration(elapsed)})`);
 	}
 
 	function stopTimer(ctx: { ui: { setWorkingMessage(text?: string): void } }) {
+
 		if (timerInterval !== undefined) {
 			clearInterval(timerInterval);
 			timerInterval = undefined;
@@ -102,4 +108,23 @@ export default function (pi: ExtensionAPI) {
 	pi.on("session_shutdown", async (_event, ctx) => {
 		stopTimer(ctx);
 	});
+
+	// Pause timer when answer UI is shown (avoid overwriting the working message)
+	pi.events.on("answer:open", () => {
+		paused = true;
+		if (timerInterval !== undefined) {
+			clearInterval(timerInterval);
+			timerInterval = undefined;
+		}
+	});
+
+	// Resume timer when answer UI closes
+	pi.events.on("answer:close", () => {
+		paused = false;
+		if (pausedCtx && agentStartTime > 0) {
+			updateWorkingMessage(pausedCtx);
+			timerInterval = setInterval(() => updateWorkingMessage(pausedCtx!), 1000);
+		}
+	});
+
 }

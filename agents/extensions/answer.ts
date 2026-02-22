@@ -527,10 +527,12 @@ export default function (pi: ExtensionAPI) {
 			}
 
 			// Pause the working message while the Q&A form is displayed
+			pi.events.emit("answer:open");
 			ctx.ui.setWorkingMessage(" ");
 
 			const answersResult = await ctx.ui.custom<string | null>((tui, theme, kb, done) => {
 				const component = new QnAComponent(
+
 					params.questions,
 					tui,
 					theme,
@@ -558,10 +560,12 @@ export default function (pi: ExtensionAPI) {
 			});
 
 			// Restore working message
+			pi.events.emit("answer:close");
 			ctx.ui.setWorkingMessage();
 
 			if (answersResult === null) {
 				return {
+
 					content: [{ type: "text", text: "User cancelled — did not answer the questions." }],
 				};
 			}
@@ -698,6 +702,8 @@ export default function (pi: ExtensionAPI) {
 		}
 
 		// Show the interactive Q&A form
+		pi.events.emit("answer:open");
+
 		const answersResult = await ctx.ui.custom<string | null>((tui, theme, kb, done) => {
 			const component = new QnAComponent(
 				extractionResult.result.questions,
@@ -727,9 +733,11 @@ export default function (pi: ExtensionAPI) {
 				},
 			};
 		});
+		pi.events.emit("answer:close");
 
 		if (answersResult === null) {
 			ctx.ui.notify("Cancelled", "info");
+
 			return;
 		}
 
