@@ -238,16 +238,15 @@ function loadRefineInstructions(): { text: string; error?: string } {
 	}
 }
 
-function buildRefinePrompt(id: string, title: string): { prompt: string; error?: string } {
-	const { text: skillInstructions, error } = loadRefineInstructions();
-	const base =
+const REFINE_PROMPT_MARKER = "<!-- todo-refine -->";
+
+function buildRefinePrompt(id: string, title: string): string {
+	return (
 		`let's refine task ${id} "${title}": ` +
 		"Ask me for the missing details needed to refine the todo together. Do not rewrite the todo yet and do not make assumptions. " +
-		"Ask clear, concrete questions and wait for my answers before drafting any structured description.";
-	const prompt = skillInstructions
-		? base + "\n\nFollow these refine instructions:\n" + skillInstructions + "\n\n"
-		: base + "\n\n";
-	return { prompt, error };
+		"Ask clear, concrete questions and wait for my answers before drafting any structured description.\n\n" +
+		REFINE_PROMPT_MARKER
+	);
 }
 
 // ---------------------------------------------------------------------------
@@ -807,9 +806,7 @@ export default function todosExtension(pi: ExtensionAPI) {
 				action: TodoMenuAction,
 			): Promise<"stay" | "exit"> => {
 				if (action === "refine") {
-					const refine = buildRefinePrompt(todo.id, todo.title || "(untitled)");
-					if (refine.error) ctx.ui.notify(refine.error, "warning");
-					nextPrompt = refine.prompt;
+					nextPrompt = buildRefinePrompt(todo.id, todo.title || "(untitled)");
 					done();
 					return "exit";
 				}
@@ -914,13 +911,10 @@ export default function todosExtension(pi: ExtensionAPI) {
 				searchTerm || undefined,
 				(todo, action) => {
 					const title = todo.title || "(untitled)";
-					if (action === "refine") {
-						const refine = buildRefinePrompt(todo.id, title);
-						if (refine.error) ctx.ui.notify(refine.error, "warning");
-						nextPrompt = refine.prompt;
-					} else {
-						nextPrompt = `work on todo ${todo.id} "${title}"`;
-					}
+					nextPrompt =
+						action === "refine"
+							? buildRefinePrompt(todo.id, title)
+							: `work on todo ${todo.id} "${title}"`;
 					done();
 				},
 				(title) => {
@@ -993,5 +987,17 @@ export default function todosExtension(pi: ExtensionAPI) {
 		description: "List and manage done/closed todos",
 		getArgumentCompletions: (prefix: string) => getCompletions(prefix, true),
 		handler: async (args, ctx) => todosCommandHandler(args, ctx, true),
+	});
+
+	// Append skill refine instructions when a refine prompt is sent
+	pi.on("input", async (event, ctx) => {
+		if (!event.text.includes(REFINE_PROMPT_MARKER)) return;
+		const { text: skillInstructions, error } = loadRefineInstructions();
+		if (error) ctx.ui.notify(error, "warning");
+		const cleaned = event.text.replace(REFINE_PROMPT_MARKER, "").trimEnd();
+		const text = skillInstructions
+			? cleaned + "\n\nFollow these refine instructions:\n" + skillInstructions
+			: cleaned;
+		return { action: "transform" as const, text };
 	});
 }
