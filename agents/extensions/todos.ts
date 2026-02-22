@@ -220,11 +220,18 @@ function loadRefineInstructions(): { text: string; error?: string } {
 	const skillPath = path.join(home, ".config", "pi", "agent", "skills", "tdo", "SKILL.md");
 	try {
 		const content = readFileSync(skillPath, "utf8");
-		const refineMatch = content.match(/^## Refine\n([\s\S]*?)(?=\n## |\n---|$)/m);
-		if (!refineMatch) {
+		const marker = "## Refine\n";
+		const start = content.indexOf(marker);
+		if (start < 0) {
 			return { text: "", error: `No ## Refine section found in ${skillPath}` };
 		}
-		return { text: refineMatch[1].trim() };
+		const after = content.slice(start + marker.length);
+		const nextSection = after.search(/\n## /);
+		const section = (nextSection >= 0 ? after.slice(0, nextSection) : after).trim();
+		if (!section) {
+			return { text: "", error: `## Refine section in ${skillPath} is empty` };
+		}
+		return { text: section };
 	} catch (e) {
 		const msg = e instanceof Error ? e.message : String(e);
 		return { text: "", error: `Failed to load ${skillPath}: ${msg}` };
