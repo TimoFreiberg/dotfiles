@@ -7,6 +7,7 @@
  * - Review against a base branch (PR style)
  * - Review uncommitted changes
  * - Review a specific commit
+ * - Review specific folders/files (snapshot, not diff)
  * - Custom review instructions
  *
  * Usage:
@@ -16,6 +17,7 @@
  * - `/review uncommitted` - review uncommitted changes directly
  * - `/review branch main` - review against main branch
  * - `/review commit abc123` - review specific commit
+ * - `/review folder src docs` - review specific folders/files (snapshot, not diff)
  * - `/review custom "check for security issues"` - custom instructions
  *
  * Project-specific review guidelines:
@@ -46,6 +48,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 
 const REVIEW_STATE_TYPE = "review-session";
+let endReviewInProgress = false;
 
 type ReviewSessionState = {
   active: boolean;
@@ -117,6 +120,7 @@ type ReviewTarget =
   | { type: "baseBranch"; branch: string }
   | { type: "commit"; sha: string; title?: string }
   | { type: "custom"; instructions: string }
+  | { type: "folder"; paths: string[] }
   | {
       type: "pullRequest";
       prNumber: number;
@@ -144,6 +148,9 @@ const PULL_REQUEST_PROMPT =
 
 const PULL_REQUEST_PROMPT_FALLBACK =
   "Review pull request #{prNumber} (\"{title}\") against base branch '{baseBranch}'. Find the merge base (`git merge-base HEAD {baseBranch}`), then `git diff` against that SHA.";
+
+const FOLDER_REVIEW_PROMPT =
+  "Review the code in the following paths: {paths}. This is a snapshot review (not a diff). Read the files directly in these paths and provide prioritized, actionable findings.";
 
 // Default review instructions when no REVIEW_GUIDELINES.md exists
 const DEFAULT_REVIEW_INSTRUCTIONS = `# Review Guidelines
@@ -438,6 +445,9 @@ async function buildReviewPrompt(
         .replace(/{title}/g, target.title)
         .replace(/{baseBranch}/g, target.baseBranch);
     }
+
+    case "folder":
+      return FOLDER_REVIEW_PROMPT.replace("{paths}", target.paths.join(", "));
   }
 }
 
@@ -464,6 +474,12 @@ function getUserFacingHint(target: ReviewTarget): string {
           : target.title;
       return `PR #${target.prNumber}: ${shortTitle}`;
     }
+    case "folder": {
+      const joined = target.paths.join(", ");
+      return joined.length > 40
+        ? `folders: ${joined.slice(0, 37)}...`
+        : `folders: ${joined}`;
+    }
   }
 }
 
@@ -484,6 +500,11 @@ const REVIEW_PRESETS = [
     description: "",
   },
   { value: "commit", label: "Review a commit", description: "" },
+  {
+    value: "folder",
+    label: "Review a folder (or more)",
+    description: "(snapshot, not diff)",
+  },
   { value: "custom", label: "Custom review instructions", description: "" },
 ] as const;
 
@@ -520,17 +541,14 @@ export default function reviewExtension(pi: ExtensionAPI) {
     ctx: ExtensionContext,
   ): Promise<ReviewTarget | null> {
     const smartDefault = await getSmartDefault();
-    const items: SelectItem[] = REVIEW_PRESETS.slice()
-      .sort((a, b) => {
-        if (a.value === smartDefault) return -1;
-        if (b.value === smartDefault) return 1;
-        return 0;
-      })
-      .map((preset) => ({
-        value: preset.value,
-        label: preset.label,
-        description: preset.description,
-      }));
+    const items: SelectItem[] = REVIEW_PRESETS.map((preset) => ({
+      value: preset.value,
+      label: preset.label,
+      description: preset.description,
+    }));
+    const smartDefaultIndex = items.findIndex(
+      (item) => item.value === smartDefault,
+    );
 
     while (true) {
       const result = await ctx.ui.custom<string | null>(
@@ -551,6 +569,9 @@ export default function reviewExtension(pi: ExtensionAPI) {
             noMatch: (text) => theme.fg("warning", text),
           });
 
+          if (smartDefaultIndex >= 0) {
+            selectList.setSelectedIndex(smartDefaultIndex);
+          }
           selectList.onSelect = (item) => done(item.value);
           selectList.onCancel = () => done(null);
 
@@ -609,6 +630,11 @@ export default function reviewExtension(pi: ExtensionAPI) {
           break;
         }
 
+        case "folder": {
+          const target = await showFolderInput(ctx);
+          if (target) return target;
+          break;
+        }
         default:
           return null;
       }
@@ -619,14 +645,25 @@ export default function reviewExtension(pi: ExtensionAPI) {
     ctx: ExtensionContext,
   ): Promise<ReviewTarget | null> {
     const branches = await getLocalBranches(pi);
+    const currentBranch = await getCurrentBranch(pi);
     const defaultBranch = await getDefaultBranch(pi);
 
-    if (branches.length === 0) {
-      ctx.ui.notify("No branches found", "error");
+    // Filter out current branch — reviewing against yourself is meaningless
+    const candidateBranches = currentBranch
+      ? branches.filter((b) => b !== currentBranch)
+      : branches;
+
+    if (candidateBranches.length === 0) {
+      ctx.ui.notify(
+        currentBranch
+          ? `No other branches found (current branch: ${currentBranch})`
+          : "No branches found",
+        "error",
+      );
       return null;
     }
 
-    const sortedBranches = branches.sort((a, b) => {
+    const sortedBranches = candidateBranches.sort((a, b) => {
       if (a === defaultBranch) return -1;
       if (b === defaultBranch) return 1;
       return a.localeCompare(b);
@@ -761,6 +798,28 @@ export default function reviewExtension(pi: ExtensionAPI) {
 
     if (!result?.trim()) return null;
     return { type: "custom", instructions: result.trim() };
+  }
+
+  function parseReviewPaths(value: string): string[] {
+    return value
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0);
+  }
+
+  async function showFolderInput(
+    ctx: ExtensionContext,
+  ): Promise<ReviewTarget | null> {
+    const result = await ctx.ui.editor(
+      "Enter folders/files to review (space-separated or one per line):",
+      ".",
+    );
+
+    if (!result?.trim()) return null;
+    const paths = parseReviewPaths(result);
+    if (paths.length === 0) return null;
+
+    return { type: "folder", paths };
   }
 
   async function showPrInput(
@@ -929,6 +988,11 @@ export default function reviewExtension(pi: ExtensionAPI) {
         return { type: "custom", instructions };
       }
 
+      case "folder": {
+        const paths = parseReviewPaths(parts.slice(1).join(" "));
+        if (paths.length === 0) return null;
+        return { type: "folder", paths };
+      }
       case "pr": {
         const ref = parts[1];
         if (!ref) return null;
@@ -990,7 +1054,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 
   pi.registerCommand("review", {
     description:
-      "Review code changes (PR, uncommitted, branch, commit, or custom)",
+      "Review code changes (PR, uncommitted, branch, commit, folder, or custom)",
     handler: async (args, ctx) => {
       if (!ctx.hasUI) {
         ctx.ui.notify("Review requires interactive mode", "error");
@@ -1104,11 +1168,86 @@ affected code snippet
 Preserve exact file paths, function names, and error messages.
 `;
 
+  const REVIEW_FIX_FINDINGS_PROMPT = `Use the latest review summary in this session and implement the review findings now.
+
+Instructions:
+1. Treat the summary's Findings/Fix Queue as a checklist.
+2. Fix in priority order: P0, P1, then P2 (include P3 if quick and safe).
+3. If a finding is invalid/already fixed/not possible right now, briefly explain why and continue.
+4. Run relevant tests/checks for touched code where practical.
+5. End with: fixed items, deferred/skipped items (with reasons), and verification results.`;
+
+  function clearReviewState(ctx: ExtensionContext) {
+    setReviewWidget(ctx, false);
+    pi.appendEntry(REVIEW_STATE_TYPE, { active: false });
+  }
+
+  async function navigateBackWithSummary(
+    ctx: ExtensionCommandContext,
+    originId: string,
+  ): Promise<boolean> {
+    const result = await ctx.ui.custom<{
+      cancelled: boolean;
+      error?: string;
+    } | null>((tui, theme, _kb, done) => {
+      const loader = new BorderedLoader(
+        tui,
+        theme,
+        "Returning and summarizing review branch...",
+      );
+      loader.onAbort = () => done(null);
+
+      ctx
+        .navigateTree(originId, {
+          summarize: true,
+          customInstructions: REVIEW_SUMMARY_PROMPT,
+          replaceInstructions: true,
+        })
+        .then(done)
+        .catch((err) =>
+          done({
+            cancelled: false,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+
+      return loader;
+    });
+
+    if (result === null) {
+      ctx.ui.notify(
+        "Summarization cancelled. Use /end-review to try again.",
+        "info",
+      );
+      return false;
+    }
+
+    if (result.error) {
+      ctx.ui.notify(`Summarization failed: ${result.error}`, "error");
+      return false;
+    }
+
+    if (result.cancelled) {
+      ctx.ui.notify(
+        "Navigation cancelled. Use /end-review to try again.",
+        "info",
+      );
+      return false;
+    }
+
+    return true;
+  }
+
   pi.registerCommand("end-review", {
     description: "Complete review and return to original position",
     handler: async (_args, ctx) => {
       if (!ctx.hasUI) {
         ctx.ui.notify("End-review requires interactive mode", "error");
+        return;
+      }
+
+      if (endReviewInProgress) {
+        ctx.ui.notify("/end-review is already running", "info");
         return;
       }
 
@@ -1132,107 +1271,69 @@ Preserve exact file paths, function names, and error messages.
         return;
       }
 
-      const summaryChoice = await ctx.ui.select("Summarize review branch?", [
-        "Summarize",
-        "No summary",
-      ]);
+      endReviewInProgress = true;
+      try {
+        const choice = await ctx.ui.select("Finish review:", [
+          "Return only",
+          "Return and fix findings",
+          "Return and summarize",
+        ]);
 
-      if (summaryChoice === undefined) {
-        ctx.ui.notify("Cancelled. Use /end-review to try again.", "info");
-        return;
-      }
-
-      const wantsSummary = summaryChoice === "Summarize";
-
-      if (wantsSummary) {
-        const result = await ctx.ui.custom<{
-          cancelled: boolean;
-          error?: string;
-        } | null>((tui, theme, _kb, done) => {
-          const loader = new BorderedLoader(
-            tui,
-            theme,
-            "Summarizing review branch...",
-          );
-          loader.onAbort = () => done(null);
-
-          ctx
-            .navigateTree(reviewOriginId, {
-              summarize: true,
-              customInstructions: REVIEW_SUMMARY_PROMPT,
-              replaceInstructions: true,
-            })
-            .then(done)
-            .catch((err) =>
-              done({
-                cancelled: false,
-                error: err instanceof Error ? err.message : String(err),
-              }),
-            );
-
-          return loader;
-        });
-
-        if (result === null) {
-          ctx.ui.notify(
-            "Summarization cancelled. Use /end-review to try again.",
-            "info",
-          );
+        if (choice === undefined) {
+          ctx.ui.notify("Cancelled. Use /end-review to try again.", "info");
           return;
         }
 
-        if (result.error) {
-          ctx.ui.notify(`Summarization failed: ${result.error}`, "error");
-          return;
-        }
+        if (choice === "Return only") {
+          try {
+            const result = await ctx.navigateTree(reviewOriginId, {
+              summarize: false,
+            });
 
-        if (result.cancelled) {
-          ctx.ui.notify(
-            "Navigation cancelled. Use /end-review to try again.",
-            "info",
-          );
-          return;
-        }
-
-        // Clear review state in session - the single source of truth
-        pi.appendEntry(REVIEW_STATE_TYPE, { active: false });
-        setReviewWidget(ctx, false);
-
-        if (!ctx.ui.getEditorText().trim()) {
-          ctx.ui.setEditorText("Act on the code review");
-        }
-
-        ctx.ui.notify(
-          "Review complete! Returned to original position.",
-          "info",
-        );
-      } else {
-        try {
-          const result = await ctx.navigateTree(reviewOriginId, {
-            summarize: false,
-          });
-
-          if (result.cancelled) {
+            if (result.cancelled) {
+              ctx.ui.notify(
+                "Navigation cancelled. Use /end-review to try again.",
+                "info",
+              );
+              return;
+            }
+          } catch (error) {
             ctx.ui.notify(
-              "Navigation cancelled. Use /end-review to try again.",
-              "info",
+              `Failed to return: ${error instanceof Error ? error.message : String(error)}`,
+              "error",
             );
             return;
           }
 
-          // Clear review state in session - the single source of truth
-          pi.appendEntry(REVIEW_STATE_TYPE, { active: false });
-          setReviewWidget(ctx, false);
+          clearReviewState(ctx);
           ctx.ui.notify(
             "Review complete! Returned to original position.",
             "info",
           );
-        } catch (error) {
+          return;
+        }
+
+        // Both "Return and summarize" and "Return and fix findings" need summarization
+        const success = await navigateBackWithSummary(ctx, reviewOriginId);
+        if (!success) return;
+
+        clearReviewState(ctx);
+
+        if (choice === "Return and summarize") {
+          if (!ctx.ui.getEditorText().trim()) {
+            ctx.ui.setEditorText("Act on the review findings");
+          }
+          ctx.ui.notify("Review complete! Returned and summarized.", "info");
+        } else {
+          // "Return and fix findings"
+          pi.sendUserMessage(REVIEW_FIX_FINDINGS_PROMPT);
           ctx.ui.notify(
-            `Failed to return: ${error instanceof Error ? error.message : String(error)}`,
-            "error",
+            "Review complete! Returned and queued a follow-up to fix findings.",
+            "info",
           );
         }
+      } finally {
+        endReviewInProgress = false;
       }
     },
   });
