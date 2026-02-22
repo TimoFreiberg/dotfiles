@@ -1083,7 +1083,7 @@ export default function todosExtension(pi: ExtensionAPI) {
     handler: async (args, ctx) => todosCommandHandler(args, ctx, true),
   });
 
-  pi.registerShortcut("ctrl+shift+d", {
+  pi.registerShortcut("alt+t", {
     description: "Open todo list",
     handler: async (ctx) => todosCommandHandler(undefined, ctx, false),
   });
