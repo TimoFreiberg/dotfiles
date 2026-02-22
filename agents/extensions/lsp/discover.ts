@@ -82,7 +82,7 @@ const SERVER_REGISTRY: ServerDef[] = [
   },
   {
     name: "clangd",
-    fileExtensions: [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"],
+    fileExtensions: [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx", ".hh", ".hxx"],
     languageId: "c",
     binary: { type: "native" },
   },

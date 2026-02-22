@@ -219,16 +219,10 @@ function renderTodoHeading(theme: Theme, todo: Todo): string {
 }
 
 function loadRefineInstructions(): { text: string; error?: string } {
-  const home = process.env.HOME || process.env.USERPROFILE || "";
-  const skillPath = path.join(
-    home,
-    ".config",
-    "pi",
-    "agent",
-    "skills",
-    "tdo",
-    "SKILL.md",
-  );
+  const agentDir =
+    process.env.PI_CODING_AGENT_DIR ||
+    path.join(process.env.HOME || process.env.USERPROFILE || "", ".config", "pi", "agent");
+  const skillPath = path.join(agentDir, "skills", "tdo", "SKILL.md");
   try {
     const content = readFileSync(skillPath, "utf8");
     const marker = "## Refine\n";

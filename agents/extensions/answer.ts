@@ -87,8 +87,9 @@ Example output:
 const EXTRACTION_MODEL_PREFERENCES: (string | RegExp)[] = [
   "claude-sonnet-4-6", // Anthropic API Sonnet 4.6
   /sonnet-4-6/, // Bedrock / other Sonnet 4.6 variants
-  "codex-mini", // OpenAI codex mini
   "flash", // Gemini Flash
+  /haiku/, // Claude Haiku variants
+  /sonnet/, // Claude Sonnet variants (any provider)
 ];
 
 interface ModelCandidate {

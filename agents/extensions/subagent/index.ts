@@ -572,6 +572,7 @@ export default function (pi: ExtensionAPI) {
       }
 
       const parentProvider = ctx.model?.provider;
+      const parentThinking = pi.getThinkingLevel();
 
       // Track all results for streaming updates
       const allResults: SingleResult[] = new Array(params.tasks.length);
@@ -629,6 +630,7 @@ export default function (pi: ExtensionAPI) {
               }
             },
             parentProvider,
+            parentThinking !== "off" ? parentThinking : undefined,
           );
           allResults[index] = result;
           emitParallelUpdate();

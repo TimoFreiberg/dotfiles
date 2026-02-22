@@ -36,6 +36,7 @@ const EXT_TO_LANG: Record<string, string> = {
   ".cc": "cpp",
   ".cxx": "cpp",
   ".hh": "cpp",
+  ".hxx": "cpp",
   ".ts": "typescript",
   ".tsx": "typescriptreact",
   ".js": "javascript",
@@ -165,7 +166,7 @@ const ZED_SERVER_DEFAULTS: Record<
 > = {
   "rust-analyzer": { fileExtensions: [".rs"], languageId: "rust" },
   clangd: {
-    fileExtensions: [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"],
+    fileExtensions: [".c", ".h", ".cpp", ".hpp", ".cc", ".cxx", ".hh", ".hxx"],
     languageId: "c",
   },
   "typescript-language-server": {
