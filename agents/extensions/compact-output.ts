@@ -10,6 +10,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   createReadTool,
   createBashTool,
+  createGrepTool,
   createWriteTool,
   keyHint,
   highlightCode,
@@ -147,9 +148,9 @@ export default function (pi: ExtensionAPI) {
     }
   });
 
-  // Only override read, write, and bash with compact rendering.
-  // ls, find, and grep are left as built-in tools to avoid unnecessary
-  // tool registrations (saves ~580 tokens in the tool schema).
+  // Only override read, write, bash, and grep with compact rendering.
+  // ls and find are left as built-in tools to avoid unnecessary
+  // tool registrations (saves tokens in the tool schema).
 
   // renderCall and renderResult are always called synchronously in sequence
   // within the same ToolExecutionComponent.updateDisplay() call, so a simple
@@ -322,6 +323,71 @@ export default function (pi: ExtensionAPI) {
           if (tr?.truncated) w.push("output truncated");
           warningText = theme.fg("warning", `[${w.join(". ")}]`);
         }
+        resultSuffix = expandSuffix(countLines(output), theme, warningText);
+        return null;
+      },
+    });
+  }
+
+  // --- grep -----------------------------------------------------------
+  {
+    let resultSuffix = "";
+    const builtinGrep = createGrepTool(cwd);
+    pi.registerTool({
+      ...builtinGrep,
+      renderCall(args: any, theme: any) {
+        resultSuffix = "";
+        const pattern = str(args?.pattern) || "...";
+        const rawPath = str(args?.path);
+        const glob = str(args?.glob);
+
+        let detail = theme.fg("accent", pattern);
+        if (rawPath) detail += ` ${pathDisplay(rawPath, cwd, theme)}`;
+        if (glob) detail += theme.fg("muted", ` --glob ${glob}`);
+        if (args?.ignoreCase) detail += theme.fg("muted", " -i");
+        if (args?.literal) detail += theme.fg("muted", " --literal");
+        if (args?.context) detail += theme.fg("muted", ` -C${args.context}`);
+        if (args?.limit) detail += theme.fg("muted", ` --limit ${args.limit}`);
+
+        const prefix = `${theme.fg("toolTitle", theme.bold("grep"))} ${detail}`;
+        return lazyLine(() => prefix + resultSuffix);
+      },
+      renderResult(result: any, { expanded, isPartial }: any, theme: any) {
+        if (isPartial) {
+          resultSuffix = "";
+          return null;
+        }
+        const output = getTextOutput(result).trim();
+        if (!output) {
+          resultSuffix = "";
+          return null;
+        }
+
+        if (result.isError) {
+          resultSuffix = "";
+          return new Text(theme.fg("error", output), 0, 0);
+        }
+
+        if (expanded) {
+          resultSuffix = "";
+          const styled = output
+            .split("\n")
+            .map((l: string) => theme.fg("toolOutput", l))
+            .join("\n");
+          return new Text(`\n${styled}`, 0, 0);
+        }
+
+        // Collapsed: single-line suffix
+        let warningText: string | undefined;
+        const details = result.details;
+        const notices: string[] = [];
+        if (details?.matchLimitReached)
+          notices.push(`${details.matchLimitReached} match limit`);
+        if (details?.truncation?.truncated) notices.push("output truncated");
+        if (details?.linesTruncated) notices.push("lines truncated");
+        if (notices.length > 0)
+          warningText = theme.fg("warning", `[${notices.join(". ")}]`);
+
         resultSuffix = expandSuffix(countLines(output), theme, warningText);
         return null;
       },
