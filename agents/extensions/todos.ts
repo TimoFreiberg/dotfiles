@@ -215,12 +215,28 @@ function renderTodoHeading(theme: Theme, todo: Todo): string {
 	);
 }
 
+function loadRefineInstructions(): string {
+	const home = process.env.HOME || process.env.USERPROFILE || "";
+	const skillPath = path.join(home, ".config", "pi", "agent", "skills", "tdo", "SKILL.md");
+	try {
+		const content = readFileSync(skillPath, "utf8");
+		const refineMatch = content.match(/^## Refine\n([\s\S]*?)(?=\n## |\n---|$)/m);
+		return refineMatch ? refineMatch[1].trim() : "";
+	} catch {
+		return "";
+	}
+}
+
 function buildRefinePrompt(id: string, title: string): string {
-	return (
+	const skillInstructions = loadRefineInstructions();
+	const base =
 		`let's refine task ${id} "${title}": ` +
 		"Ask me for the missing details needed to refine the todo together. Do not rewrite the todo yet and do not make assumptions. " +
-		"Ask clear, concrete questions and wait for my answers before drafting any structured description.\n\n"
-	);
+		"Ask clear, concrete questions and wait for my answers before drafting any structured description.";
+	if (skillInstructions) {
+		return base + "\n\nFollow these refine instructions:\n" + skillInstructions + "\n\n";
+	}
+	return base + "\n\n";
 }
 
 // ---------------------------------------------------------------------------
