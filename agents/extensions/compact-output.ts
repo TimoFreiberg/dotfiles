@@ -40,6 +40,14 @@ function str(v: unknown): string | null {
 	return typeof v === "string" ? v : null;
 }
 
+/** Strip a leading `cd <cwd> && ` or `cd <cwd>;` no-op prefix from bash commands. */
+function stripCdPrefix(command: string, cwd: string): string {
+	// Match: cd /exact/cwd && rest  or  cd '/exact/cwd' && rest  (with optional quotes/semicolons)
+	const escaped = cwd.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+	const re = new RegExp(`^cd\\s+['"]?${escaped}['"]?\\s*(?:&&|;)\\s*`);
+	return command.replace(re, "");
+}
+
 function pathDisplay(rawPath: string | null, cwd: string, theme: any): string {
 	if (rawPath === null) return theme.fg("toolOutput", "...");
 	if (!rawPath) return theme.fg("toolOutput", "...");
@@ -109,6 +117,13 @@ function lazyLine(buildLine: () => string): any {
 
 export default function (pi: ExtensionAPI) {
 	const cwd = process.cwd();
+
+	// Strip redundant `cd <cwd> && ` prefix from bash commands (display + execution).
+	pi.on("tool_call", async (event) => {
+		if (event.toolName === "bash" && typeof event.input?.command === "string") {
+			event.input.command = stripCdPrefix(event.input.command, cwd);
+		}
+	});
 
 	// Only override read, write, and bash with compact rendering.
 	// ls, find, and grep are left as built-in tools to avoid unnecessary
@@ -221,7 +236,8 @@ export default function (pi: ExtensionAPI) {
 			...builtinBash,
 			renderCall(args: any, theme: any) {
 				resultSuffix = "";
-				const command = str(args?.command);
+				const raw = str(args?.command);
+				const command = raw ? stripCdPrefix(raw, cwd) : raw;
 				const timeout = args?.timeout;
 				const tsuf = timeout ? theme.fg("muted", ` (timeout ${timeout}s)`) : "";
 				const cd = command ? command : theme.fg("toolOutput", "...");
