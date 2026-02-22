@@ -158,7 +158,7 @@ export default function (pi: ExtensionAPI) {
   ): Promise<{ client: LspClient; serverName: string } | string> {
     const cfg = ensureConfig(projectRoot);
     if (!cfg) {
-      return "No LSP config found. Create .pi/lsp.json or .zed/settings.json with LSP server configuration. Use grep/read to navigate code instead.";
+      return "No LSP servers found. Install a language server (or Zed editor) or create .pi/lsp.json. Use grep/read to navigate code instead.";
     }
 
     const match = serverForFile(cfg, filePath);
@@ -379,7 +379,7 @@ export default function (pi: ExtensionAPI) {
       if (!cfg) {
         return {
           error:
-            "No LSP config found. Create .pi/lsp.json or .zed/settings.json. Use grep/read instead.",
+            "No LSP servers found. Install a language server (or Zed editor) or create .pi/lsp.json. Use grep/read instead.",
         };
       }
 
@@ -538,7 +538,7 @@ export default function (pi: ExtensionAPI) {
             const cfg = ensureConfig(projectRoot);
             if (!cfg)
               return maybeWarnResult(
-                errorResult("No LSP config found. Use grep instead."),
+                errorResult("No LSP servers found. Use grep instead."),
               );
 
             // Query all servers and merge results

@@ -4,10 +4,12 @@
  * Supports:
  * 1. Project-local `.pi/lsp.json`
  * 2. Fallback: Zed's `.zed/settings.json`
+ * 3. Auto-discovery of Zed-managed and system-installed servers
  */
 
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { discoverServers, mergeWithDiscovered } from "./discover.js";
 
 export interface ServerConfig {
   /** Command + args to spawn the server (or lspmux client shim) */
@@ -115,13 +117,19 @@ export function loadConfigFromFile(configPath: string): LspConfig | null {
 }
 
 /**
- * Load config from `.pi/lsp.json`, falling back to `.zed/settings.json`.
- * Throws on parse errors.
+ * Load config from `.pi/lsp.json` or `.zed/settings.json`, then merge in
+ * auto-discovered servers for any file extensions not already covered.
+ * Falls back to pure auto-discovery if no config file exists.
  */
 export function loadConfig(projectRoot: string): LspConfig | null {
   const configPath = findConfigPath(projectRoot);
-  if (!configPath) return null;
-  return loadConfigFromFile(configPath);
+  const fileConfig = configPath ? loadConfigFromFile(configPath) : null;
+  const discovered = discoverServers();
+
+  if (fileConfig && discovered) {
+    return mergeWithDiscovered(fileConfig, discovered);
+  }
+  return fileConfig ?? discovered;
 }
 
 /**
@@ -164,7 +172,12 @@ const ZED_SERVER_DEFAULTS: Record<
     fileExtensions: [".ts", ".tsx", ".js", ".jsx"],
     languageId: "typescript",
   },
+  vtsls: {
+    fileExtensions: [".ts", ".tsx", ".js", ".jsx"],
+    languageId: "typescript",
+  },
   pylsp: { fileExtensions: [".py"], languageId: "python" },
+  basedpyright: { fileExtensions: [".py"], languageId: "python" },
   gopls: { fileExtensions: [".go"], languageId: "go" },
   zls: { fileExtensions: [".zig"], languageId: "zig" },
 };
