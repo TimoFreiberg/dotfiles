@@ -221,8 +221,13 @@ function loadRefineInstructions(): string {
 	try {
 		const content = readFileSync(skillPath, "utf8");
 		const refineMatch = content.match(/^## Refine\n([\s\S]*?)(?=\n## |\n---|$)/m);
-		return refineMatch ? refineMatch[1].trim() : "";
-	} catch {
+		if (!refineMatch) {
+			console.error(`[todos] Could not find ## Refine section in ${skillPath}`);
+			return "";
+		}
+		return refineMatch[1].trim();
+	} catch (e) {
+		console.error(`[todos] Failed to load refine instructions from ${skillPath}:`, e);
 		return "";
 	}
 }
