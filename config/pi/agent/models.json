@@ -1,0 +1,11 @@
+{
+  "providers": {
+    "amazon-bedrock": {
+      "modelOverrides": {
+        "global.anthropic.claude-opus-4-6-v1": {
+          "contextWindow": 1000000
+        }
+      }
+    }
+  }
+}
