@@ -16,6 +16,8 @@ Never end a session with uncommitted changes.**
 
 2. **After making changes**, commit only the files you touched with `jj commit <paths...> -m "..."`
 
+3. **When using `jj squash`**, always pass `--use-destination-message` or `--message "..."` to avoid interactive editor prompts.
+
 ## Commit Messages
 
 Use Conventional Commits: `<type>(<scope>): <summary>`
