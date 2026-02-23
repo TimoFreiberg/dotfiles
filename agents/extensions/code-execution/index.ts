@@ -166,7 +166,7 @@ async function executeInChild(
 						});
 						pushUpdate(tracker);
 
-						child.send({
+						safeSend({
 							type: "tool_result",
 							id: msg.id,
 							content: text,
@@ -182,7 +182,7 @@ async function executeInChild(
 						});
 						pushUpdate(tracker);
 
-						child.send({
+						safeSend({
 							type: "tool_result",
 							id: msg.id,
 							content: errorMsg,
@@ -226,7 +226,11 @@ function buildToolDocs(pi: ExtensionAPI): string {
 	const tools = pi.getAllTools().filter((t) => t.name !== "code_execution");
 	const signatures = tools
 		.filter((t) => t.callSignature)
-		.map((t) => `// ${t.description.split(".")[0]}.\n${t.callSignature}`)
+		.map((t) => {
+			const dotSpace = t.description.indexOf(". ");
+			const firstSentence = dotSpace !== -1 ? t.description.slice(0, dotSpace) : t.description;
+			return `// ${firstSentence}.\n${t.callSignature}`;
+		})
 		.join("\n\n");
 
 	return `
@@ -347,6 +351,7 @@ export default function (pi: ExtensionAPI) {
 
 			return {
 				content,
+				isError: !!result.error,
 				details: {
 					toolCalls: tracker.calls.length,
 					calls: tracker.calls,

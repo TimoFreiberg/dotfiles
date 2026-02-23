@@ -113,18 +113,27 @@ async function lsp(params: {
 // console.log capture
 // ---------------------------------------------------------------------------
 
+function safeStringify(a: unknown): string {
+	if (typeof a === "string") return a;
+	try {
+		return JSON.stringify(a, null, 2);
+	} catch {
+		return String(a);
+	}
+}
+
 const capturedConsole = {
 	log: (...args: unknown[]) => {
-		stdout.push(args.map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2))).join(" "));
+		stdout.push(args.map(safeStringify).join(" "));
 	},
 	warn: (...args: unknown[]) => {
-		stdout.push(args.map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2))).join(" "));
+		stdout.push(args.map(safeStringify).join(" "));
 	},
 	error: (...args: unknown[]) => {
-		stdout.push(args.map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2))).join(" "));
+		stdout.push(args.map(safeStringify).join(" "));
 	},
 	info: (...args: unknown[]) => {
-		stdout.push(args.map((a) => (typeof a === "string" ? a : JSON.stringify(a, null, 2))).join(" "));
+		stdout.push(args.map(safeStringify).join(" "));
 	},
 	debug: () => {},
 };
@@ -153,7 +162,7 @@ async function execute(code: string): Promise<void> {
 		sendToParent({
 			type: "done",
 			stdout: stdout.join("\n"),
-			returnValue: returnValue !== undefined ? returnValue : undefined,
+			returnValue,
 		});
 	} catch (e: any) {
 		sendToParent({
