@@ -2,7 +2,9 @@
 
 ## Pi Extensions
 
-Pi agent config is at `~/.config/pi/agent` (symlinked to dotfiles). Extensions go in `~/.config/pi/agent/extensions/`.
+Pi agent config is at `config/pi/agent`.
+Extensions are in `config/pi/agent/extensions/`.
+The `config` directory is symlinked to `~/.config`
 
 ## Version Control
 
