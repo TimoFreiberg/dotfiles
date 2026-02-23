@@ -495,23 +495,41 @@ async function runSingleAgent(
   }
 }
 
-const TaskItem = Type.Object({
-  agent: Type.String(),
-  task: Type.String(),
-});
-
-const SubagentParams = Type.Object({
-  tasks: Type.Array(TaskItem),
-});
-
 export default function (pi: ExtensionAPI) {
   const agentScope = getAgentScope();
+
+  // Discover agents at registration time so we can list them in the tool description
+  const cwd = process.cwd();
+  const knownAgents = discoverAgents(cwd, agentScope).agents;
+
+  const agentNames = knownAgents.map((a) => a.name);
+  const agentListShort = agentNames.length > 0 ? agentNames.join(", ") : "none";
+  const agentListDetailed = knownAgents
+    .map((a) => `  - "${a.name}": ${a.description}`)
+    .join("\n");
+
+  const TaskItem = Type.Object({
+    agent: Type.String({
+      description: `Name of the agent to run. Available agents: ${agentListShort}`,
+    }),
+    task: Type.String({
+      description: "The task description to send to the agent",
+    }),
+  });
+
+  const SubagentParams = Type.Object({
+    tasks: Type.Array(TaskItem),
+  });
 
   pi.registerTool({
     name: "subagent",
     label: "Subagent",
-    description:
+    description: [
       "Delegate tasks to subagents with isolated context. Each task {agent, task} runs as a separate pi process. Multiple tasks run in parallel.",
+      "",
+      "Available agents:",
+      agentListDetailed || "  (none discovered)",
+    ].join("\n"),
     parameters: SubagentParams,
 
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
