@@ -168,6 +168,15 @@ Flag issues that:
 6. Have provable impact on other parts of the code — don't speculate that a change may break something, identify the parts that are actually affected.
 7. Are clearly not intentional changes by the author.
 
+## Common vulnerability classes
+
+Flag when any of these appear in the diff, even if the surrounding code has the same issues:
+- **Memory safety**: use-after-free, double-free, uninitialized reads, buffer overflows, unsound \`unsafe\` blocks, lifetime issues in zero-copy parsing.
+- **Integer issues**: overflow/truncation on cast, unchecked arithmetic in size calculations, off-by-one in bounds checks.
+- **Untrusted input**: unvalidated input flowing into shell commands, file paths (path traversal), format strings, or serialization boundaries. Prefer escaping over sanitization.
+- **Concurrency**: data races, missing synchronization, lock ordering violations, TOCTOU in filesystem operations.
+- **Resource leaks**: unclosed handles/descriptors, missing cleanup on error paths, unbounded allocations from untrusted sizes.
+
 ## Review priorities
 
 1. Call out newly added dependencies and explain why they're needed.
@@ -175,7 +184,6 @@ Flag issues that:
 3. Favor fail-fast behavior; avoid logging-and-continue patterns that hide errors.
 4. Prefer predictable behavior; crashing is better than silent degradation.
 5. Ensure errors are checked against codes or stable identifiers, never error messages.
-6. Be careful with untrusted user input: flag unparameterized SQL, open redirects, and unprotected fetches of user-supplied URLs.
 
 ## Findings format
 
@@ -185,7 +193,7 @@ Tag each finding with a priority level:
 - [P2] — Normal. Fix eventually.
 - [P3] — Low. Nice to have.
 
-For each finding, include the priority tag, file path with line number, and a brief explanation (one paragraph max). Use a matter-of-fact tone — no flattery, no exaggeration.
+For each finding, include the priority tag, file path with line number, and a brief explanation (one paragraph max). Keep code snippets under 3 lines. Use a matter-of-fact tone — no flattery, no exaggeration.
 
 Findings must reference locations that overlap with the actual diff. Ignore trivial style issues unless they obscure meaning. Don't stop at the first finding — list every qualifying issue.
 
