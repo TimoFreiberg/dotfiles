@@ -516,6 +516,11 @@ const REVIEW_PRESETS = [
   { value: "custom", label: "Custom review instructions", description: "" },
 ] as const;
 
+// Map digit keys to preset indices for quick selection
+const DIGIT_KEYS = new Map(
+  REVIEW_PRESETS.map((_, i) => [String(i + 1), i]),
+);
+
 export default function reviewExtension(pi: ExtensionAPI) {
   pi.on("session_start", (_event, ctx) => {
     syncReviewWidget(ctx);
@@ -549,9 +554,9 @@ export default function reviewExtension(pi: ExtensionAPI) {
     ctx: ExtensionContext,
   ): Promise<ReviewTarget | null> {
     const smartDefault = await getSmartDefault();
-    const items: SelectItem[] = REVIEW_PRESETS.map((preset) => ({
+    const items: SelectItem[] = REVIEW_PRESETS.map((preset, i) => ({
       value: preset.value,
-      label: preset.label,
+      label: `${i + 1}: ${preset.label}`,
       description: preset.description,
     }));
     const smartDefaultIndex = items.findIndex(
@@ -586,7 +591,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
           container.addChild(selectList);
           container.addChild(
             new Text(
-              theme.fg("dim", "Press enter to confirm or esc to go back"),
+              theme.fg("dim", "Press 1–6 to select • enter to confirm • esc to go back"),
             ),
           );
           container.addChild(
@@ -601,6 +606,11 @@ export default function reviewExtension(pi: ExtensionAPI) {
               container.invalidate();
             },
             handleInput(data: string) {
+              const presetIndex = DIGIT_KEYS.get(data);
+              if (presetIndex !== undefined) {
+                done(items[presetIndex]!.value);
+                return;
+              }
               selectList.handleInput(data);
               tui.requestRender();
             },
