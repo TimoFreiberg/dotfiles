@@ -3,3 +3,4 @@ auth.json
 sessions
 auth.json
 bin
+aws-sso.json
