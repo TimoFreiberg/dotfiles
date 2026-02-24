@@ -98,7 +98,7 @@ export default function (pi: ExtensionAPI) {
       updateWidget();
       const [cmd, args] = splitCommand(loginCmd);
       const code = await new Promise<number>((resolve) => {
-        const proc = spawn(cmd, args, {
+        const proc = spawn(loginCmd, {
           shell: true,
           stdio: ["ignore", "pipe", "pipe"],
         });
