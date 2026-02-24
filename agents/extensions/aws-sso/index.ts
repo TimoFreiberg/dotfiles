@@ -1,4 +1,5 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -80,27 +81,64 @@ export default function (pi: ExtensionAPI) {
   let loginInProgress = false;
   let sessionValid = false;
 
-  async function runLogin(ctx: { ui: { notify: (msg: string, level: string) => void } }): Promise<boolean> {
+  const WIDGET_ID = "aws-sso";
+  const MAX_WIDGET_LINES = 15;
+
+  async function runLogin(ctx: ExtensionContext): Promise<boolean> {
     if (loginInProgress) return false;
     loginInProgress = true;
+
+    const lines: string[] = [`$ ${loginCmd}`, ""];
+    const updateWidget = () => {
+      const visible = lines.slice(-MAX_WIDGET_LINES);
+      ctx.ui.setWidget(WIDGET_ID, visible);
+    };
+
     try {
-      ctx.ui.notify(`Running: ${loginCmd}`, "info");
+      updateWidget();
       const [cmd, args] = splitCommand(loginCmd);
-      const result = await pi.exec(cmd, args, { timeout: 120_000 });
-      if (result.code === 0) {
+      const code = await new Promise<number>((resolve) => {
+        const proc = spawn(cmd, args, {
+          shell: true,
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+
+        const onData = (chunk: Buffer) => {
+          const text = chunk.toString();
+          for (const line of text.split("\n")) {
+            if (line) lines.push(line);
+          }
+          updateWidget();
+        };
+
+        proc.stdout?.on("data", onData);
+        proc.stderr?.on("data", onData);
+        proc.on("close", (exitCode) => resolve(exitCode ?? 1));
+        proc.on("error", () => resolve(1));
+
+        // 120s timeout
+        setTimeout(() => {
+          proc.kill();
+          lines.push("[timeout — killed after 120s]");
+          updateWidget();
+        }, 120_000);
+      });
+
+      if (code === 0) {
         sessionValid = true;
         ctx.ui.notify("AWS SSO login succeeded ✓", "info");
         return true;
       } else {
-        ctx.ui.notify(`AWS SSO login failed (exit ${result.code}): ${result.stderr.slice(0, 200)}`, "error");
+        ctx.ui.notify(`AWS SSO login failed (exit ${code})`, "error");
         return false;
       }
     } finally {
       loginInProgress = false;
+      ctx.ui.setWidget(WIDGET_ID, undefined);
     }
   }
 
-  async function checkAndLogin(ctx: { ui: { notify: (msg: string, level: string) => void } }): Promise<void> {
+  async function checkAndLogin(ctx: ExtensionContext): Promise<void> {
     if (loginInProgress) return;
 
     const [cmd, args] = splitCommand(checkCmd);
