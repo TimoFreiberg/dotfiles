@@ -1,7 +1,0 @@
-{
-  "enabled": true,
-  "checkCommand": "aws sts get-caller-identity",
-  "loginCommand": "aws sso login",
-  "checkOnStartup": true,
-  "checkBeforePrompt": true
-}
