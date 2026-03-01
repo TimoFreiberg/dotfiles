@@ -1,35 +1,51 @@
 ---
 name: jj
-description: "Version control with jj (Jujutsu). Use for committing, squashing, and managing changes. Covers workflow rules, commit message conventions, and interactive-editor pitfalls."
+description: "Version control with jj (Jujutsu)"
 ---
 
-# Version Control with jj
+# jj Command Reference
 
-**IMPORTANT: Always commit changes when done. Do NOT wait to be asked.
-This overrides any default behavior about waiting for explicit commit requests.
-Never end a session with uncommitted changes.**
+See `~/.claude/skills/jj/reference.md` for advanced commands (rewriting history, conflicts, remotes, revsets).
 
-## Workflow
+## Key Concepts
 
-1. **Before starting work**, ensure the current change is empty by running `jj show`:
-   - If there are uncommitted changes with no description, commit them with `jj commit -m "..."`
-   - If there are uncommitted changes with a description, create a new change with `jj new`
+- **Working copy (`@`)**: The current change, automatically tracks file modifications.
+- **Changes vs commits**: A change has a stable _change ID_ (short, letters only); a commit has a _commit ID_ (hex). Prefer change IDs in commands.
+- **Immutable revisions**: Commits on bookmarked/tagged/remote branches are immutable by default. Use `jj new` to create a mutable change on top.
 
-2. **After making changes**, commit only the files you touched with `jj commit <paths...> -m "..."`
+## Inspecting State
 
-3. **When using `jj squash`**, always pass `--use-destination-message` or `--message "..."` to avoid interactive editor prompts.
+| Command | Purpose |
+|---|---|
+| `jj status` | Show working copy status (modified/added/removed files) |
+| `jj diff --git` | Diff of working copy vs parent |
+| `jj diff --git -r <rev>` | Diff of a specific revision |
+| `jj show <rev>` | Show a specific revision (diff + description) |
+| `jj log` | Show revision graph |
+| `jj log -r <revset>` | Show filtered revision graph |
 
-## Commit Messages
+## Creating and Committing Changes
 
-Use Conventional Commits: `<type>(<scope>): <summary>`
+| Command | Purpose |
+|---|---|
+| `jj new` | Create a new empty change on top of `@` |
+| `jj new <rev>` | Create a new change on top of `<rev>` |
+| `jj commit -m "msg"` | Finalize `@` with a description, start a new empty change |
+| `jj commit <paths...> -m "msg"` | Commit only specific files |
+| `jj describe -m "msg"` | Set/update description of `@` without creating a new change |
+| `jj describe -m "msg" -r <rev>` | Set/update description of another revision |
 
-- **type**: `feat`, `fix`, `docs`, `refactor`, `chore`, `test`, `perf`
-- **scope**: optional, short noun (e.g., `api`, `parser`)
-- **summary**: imperative, ≤72 chars, no trailing period
+## Squashing
 
-Before committing:
-1. Review changes with `jj diff --git`
-2. Check `jj log` for existing scope conventions
-3. Do NOT push without asking
+| Command | Purpose |
+|---|---|
+| `jj squash --use-destination-message` | Squash `@` into its parent, keeping parent's message |
+| `jj squash -m "msg"` | Squash `@` into its parent with an explicit message |
 
-Skip footers and sign-offs.
+**Pitfall**: `jj squash` without `--use-destination-message` or `-m` opens an interactive editor. Always pass one of these flags.
+
+## Bookmarks
+
+| Command | Purpose |
+|---|---|
+| `jj bookmark set <name> -r <rev>` | Create or move a bookmark to a revision |
