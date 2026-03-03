@@ -4,8 +4,8 @@
 
 | Command | Purpose |
 |---|---|
-| `jj squash -r <rev>` | Squash `<rev>` into its parent |
-| `jj squash --from <a> --into <b>` | Move changes from one revision into another |
+| `jj squash -r <rev> --use-destination-message` | Squash `<rev>` into its parent, keeping parent's message |
+| `jj squash --from <a> --into <b> -m "msg"` | Move changes from one revision into another |
 | `jj split -r <rev>` | Interactively split a revision into two |
 | `jj edit <rev>` | Set working copy to an existing change for editing |
 | `jj abandon <rev>` | Discard a change entirely |

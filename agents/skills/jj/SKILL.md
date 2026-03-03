@@ -42,7 +42,7 @@ See `~/.claude/skills/jj/reference.md` for advanced commands (rewriting history,
 | `jj squash --use-destination-message` | Squash `@` into its parent, keeping parent's message |
 | `jj squash -m "msg"` | Squash `@` into its parent with an explicit message |
 
-**Pitfall**: `jj squash` without `--use-destination-message` or `-m` opens an interactive editor. Always pass one of these flags.
+**NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message`. Bare `jj squash` opens an interactive editor and will hang.
 
 ## Bookmarks
 
