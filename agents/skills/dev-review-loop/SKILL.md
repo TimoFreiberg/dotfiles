@@ -104,12 +104,12 @@ Tell the user the review passed. Summarize total rounds.
         {review output}
         </findings>
 
-        For each finding, decide: REASONABLE (real bug/risk) or FRIVOLOUS (nitpick,
-        hypothetical, or factually wrong). Fix reasonable ones. Ignore frivolous ones.
+        For each finding (by number), decide: REASONABLE (real bug/risk) or FRIVOLOUS
+        (nitpick, hypothetical, or factually wrong). Fix reasonable ones. Ignore frivolous ones.
 
         Output:
-        - ADDRESSED: what you fixed and how
-        - REJECTED: frivolous findings with one-line reasons
+        - ADDRESSED: finding numbers, what you fixed and how
+        - REJECTED: finding numbers, one-line reasons
         - STATUS: ALL_FRIVOLOUS if you rejected everything, FIXES_APPLIED if you fixed any
       """
     )
@@ -132,8 +132,8 @@ Tell the user all remaining findings were rejected.
 After every subagent, give the user a concise summary:
 
 - **Round 0 Dev**: "Built X. Key files: ..."
-- **Round N Review**: "FAIL — 2 findings: 1 P0 (buffer overflow in parse.c:87), 1 P2 (...)"
-- **Round N Fix**: "Fixed 1 (buffer overflow). Rejected 1 as frivolous (naming)."
+- **Round N Review**: "FAIL — 2 findings: F1 [P0] buffer overflow in parse.c:87, F2 [P2] ..."
+- **Round N Fix**: "Fixed F1 (buffer overflow). Rejected F2 as frivolous (naming)."
 - **Done**: "Passed review in round N" / "All findings rejected in round N"
 
 Do NOT dump full subagent output. Summarize it yourself.
