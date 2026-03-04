@@ -100,13 +100,13 @@ Flag issues that:
 
 ### Findings format
 
-Tag each finding with a priority level:
+Number each finding sequentially (F1, F2, …) and tag with a priority level:
 - **[P0]** - Blocking. Only for universal issues that don't depend on assumptions about inputs.
 - **[P1]** - Urgent. Should be addressed in the next cycle.
 - **[P2]** - Normal. Fix eventually.
 - **[P3]** - Low. Nice to have.
 
-For each finding: priority tag, file path with line number, brief explanation (one paragraph max). Matter-of-fact tone.
+For each finding: number, priority tag, file path with line number, brief explanation (one paragraph max). Matter-of-fact tone.
 
 Findings must reference locations that overlap with the actual diff. Ignore trivial style issues unless they obscure meaning. List every qualifying issue.
 
