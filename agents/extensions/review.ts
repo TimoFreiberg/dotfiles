@@ -184,6 +184,8 @@ Flag when any of these appear in the diff, even if the surrounding code has the 
 3. Favor fail-fast behavior; avoid logging-and-continue patterns that hide errors.
 4. Prefer predictable behavior; crashing is better than silent degradation.
 5. Ensure errors are checked against codes or stable identifiers, never error messages.
+6. Flag comments that only restate what the code visibly does (e.g., \`// increment counter\` above \`counter++\`). Code should speak for itself; comments should explain *why*, not *what*.
+7. Flag comments that are inaccurate, outdated, or misleading relative to the code they describe. A wrong comment is worse than no comment.
 
 ## Findings format
 
