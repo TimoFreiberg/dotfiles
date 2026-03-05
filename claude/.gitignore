@@ -7,3 +7,6 @@
 !CLAUDE.md
 !statusline.sh
 !skills
+!hooks/
+!hooks/**
+!references/
