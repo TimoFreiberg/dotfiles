@@ -5,7 +5,7 @@ description: "Version control with jj (Jujutsu)"
 
 # jj Command Reference
 
-See `~/.claude/skills/jj/reference.md` for advanced commands (rewriting history, conflicts, remotes, revsets).
+See [reference.md](reference.md) for advanced commands (rewriting history, conflicts, remotes, revsets).
 
 ## Key Concepts
 
