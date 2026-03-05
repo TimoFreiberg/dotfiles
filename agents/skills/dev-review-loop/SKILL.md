@@ -55,9 +55,7 @@ If the diff is empty, stop — nothing to review.
 ### Load review guidelines
 
 Check if `REVIEW_GUIDELINES.md` exists in the project root. If it does, use its contents.
-Otherwise, read `~/.claude/skills/review/SKILL.md` and extract everything under
-**"Step 4: Review guidelines"** (the "What to flag", "Review priorities", and "Findings
-format" sections).
+Otherwise, read `agents/references/review-guidelines.md` and use those guidelines.
 
 ### Spawn review subagent
 
