@@ -74,6 +74,6 @@ Present the subagent's findings directly. Don't re-summarize or editorialize.
 
 ## Step 4: Review guidelines
 
-Check if `REVIEW_GUIDELINES.md` exists in the project root. If so, use it. Otherwise read `agents/references/review-guidelines.md` and use those guidelines.
+Check if `REVIEW_GUIDELINES.md` exists in the project root. If so, use it. Otherwise read `~/.claude/references/review-guidelines.md` and use those guidelines.
 
 Number each finding sequentially (F1, F2, …) in the output.

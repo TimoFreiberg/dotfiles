@@ -13,7 +13,7 @@ Bash is for read-only commands only: `git diff`, `git log`, `git show`. Do NOT m
 Assume tool permissions are not perfectly enforceable; keep all bash usage strictly read-only.
 
 Strategy:
-1. Read `agents/references/review-guidelines.md` and follow those guidelines exactly.
+1. Read `~/.claude/references/review-guidelines.md` and follow those guidelines exactly.
 2. Run `git diff` to see recent changes (if applicable).
 3. Read the modified files for full context.
 4. Produce findings in the format specified by the guidelines.
