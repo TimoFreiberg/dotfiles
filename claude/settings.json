@@ -78,12 +78,6 @@
     "defaultMode": "acceptEdits"
   },
   "model": "opus",
-  "statusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/statusline.sh"
-  },
-  "effortLevel": "high",
-  "skipDangerousModePermissionPrompt": true,
   "hooks": {
     "WorktreeCreate": [
       {
@@ -104,6 +98,23 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/post-edit-format.py",
+            "timeout": 30
+          }
+        ]
+      }
     ]
-  }
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
+  },
+  "skipDangerousModePermissionPrompt": true
 }
