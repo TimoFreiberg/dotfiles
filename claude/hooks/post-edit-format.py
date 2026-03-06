@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Post-edit hook that runs configured formatters after Write/Edit.
 
-Defaults: rustfmt for *.rs, ruff format for *.py.
+Defaults: rustfmt for *.rs, uv format for *.py.
 
 Per-project overrides: create .claude/format.json in the project root.
 Maps glob patterns to commands. {file} is replaced with the edited path.
@@ -24,7 +24,7 @@ import sys
 
 DEFAULTS = {
     "*.rs": "rustfmt {file}",
-    "*.py": "ruff format -q {file}",
+    "*.py": "uv format -q {file}",
 }
 
 
