@@ -116,5 +116,6 @@
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
   },
+  "includeGitInstructions": false,
   "skipDangerousModePermissionPrompt": true
 }
