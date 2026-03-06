@@ -32,14 +32,18 @@ def find_orphaned(settings: dict, base: dict, local_settings: dict) -> dict:
             orphaned[key] = value
         elif isinstance(value, dict):
             base_val = base.get(key, {}) if isinstance(base, dict) else {}
-            local_val = local_settings.get(key, {}) if isinstance(local_settings, dict) else {}
+            local_val = (
+                local_settings.get(key, {}) if isinstance(local_settings, dict) else {}
+            )
             nested = find_orphaned(value, base_val, local_val)
             if nested:
                 orphaned[key] = nested
         elif isinstance(value, list):
             # jq's * merge replaces arrays entirely, so expected is local's if present, else base's
             base_arr = base.get(key, []) if isinstance(base, dict) else []
-            local_arr = local_settings.get(key, []) if isinstance(local_settings, dict) else []
+            local_arr = (
+                local_settings.get(key, []) if isinstance(local_settings, dict) else []
+            )
             expected = local_arr if in_local else base_arr
 
             orphaned_elements = [elem for elem in value if elem not in expected]
