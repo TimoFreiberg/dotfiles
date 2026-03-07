@@ -29,7 +29,7 @@ if jj root --quiet -R "${cwd}" 2>/dev/null; then
     bookmark=$(jj log -R "${cwd}" -r 'latest(ancestors(@) & bookmarks())' --no-graph -T 'bookmarks' --limit 1 2>/dev/null | head -1)
     if [[ -n "${bookmark}" ]]; then
         dirty=""
-        if [[ -n $(jj diff -R "${cwd}" --stat 2>/dev/null) ]]; then
+        if [[ -n $(jj diff -R "${cwd}" --summary 2>/dev/null) ]]; then
             dirty="${C_TAN}*"
         fi
         vcs_info=" | ${C_GREEN}${bookmark}${dirty}"
