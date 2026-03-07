@@ -1,7 +1,7 @@
 ---
 name: tdo
 description: "Manage TODOs with the tdo CLI. Handles natural-language requests like 'create a todo for that' or 'mark that done'."
-argument-hint: "[add <title> [--body TEXT] | list | done <query> | reopen <query> | edit <query> | delete <query> | assign <query> [name] | unassign <query> | refine <query>]"
+argument-hint: "[add <title> [--body TEXT] | list | view <query> | done <query> | reopen <query> | edit <query> | delete <query> | assign <query> [name] | unassign <query> | refine <query>]"
 ---
 
 ## Operations
@@ -13,6 +13,8 @@ Parse `$ARGUMENTS` and dispatch:
 | *(empty)* | Run `tdo list`. If there are any, ask the user what they want to do next. If none, say so. |
 | `add <title> [--body TEXT]` | Create a new todo (optionally with body) |
 | `list` | Run `tdo list` (open only) or `tdo list --all` (include done). Note: listing triggers GC — done todos >7 days old are auto-deleted, stale assignments warn on stderr. |
+| `count` | Run `tdo count` (open only) or `tdo count --all` (include done). Prints the count as a plain number. |
+| `view <query>` | View a todo's full details |
 | `done <query>` | Mark a todo as done |
 | `reopen <query>` | Reopen a done todo |
 | `edit <query>` | Edit a todo's body |
@@ -29,6 +31,10 @@ Run `tdo add <title words>` or `tdo add <title words> --body "body text"`. It pr
 Use `--body` to set body text in the same command when the user provides details beyond the title. Newlines in the body are supported literally.
 
 Titles are immutable after creation. To change a title, delete and recreate.
+
+## View
+
+Match the query to an ID (see "Matching queries to IDs"), then run `tdo view <id>`. It prints the todo's ID, title, status, timestamps, assignment, and body to stdout.
 
 ## Matching queries to IDs
 
