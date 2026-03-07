@@ -17,7 +17,6 @@ allowed-tools:
   - Read
   - Grep
   - Glob
-  - Agent
 ---
 
 ## Repo state
@@ -36,6 +35,7 @@ allowed-tools:
 | `commit <hash>` | Tour that commit |
 | `pr <number-or-url>` | Tour that GitHub PR |
 | `branch <name>` | Tour changes against that base branch |
+| `file <path>` | Tour only that file's changes |
 
 When empty, use AskUserQuestion. Show smart options based on repo state (hide "uncommitted" if clean, etc.).
 
@@ -49,10 +49,11 @@ Use jj commands if VCS is "jj", git commands otherwise.
 |---|---|---|
 | uncommitted | `git diff HEAD` | `jj diff --git` |
 | commit | `git show <hash>` | `jj diff --git -r <change-id>` |
-| pr | `gh pr diff <n>` + `gh pr view <n>` | same |
+| pr | `gh pr diff <n>` + `gh pr view <n>` + `gh pr view <n> --comments` | same |
 | branch | `git diff $(git merge-base HEAD <branch>)` | `jj diff --git -r 'latest(trunk())..@'` |
+| file | `git diff HEAD -- <path>` | `jj diff --git <path>` |
 
-For PR tours, also fetch `gh pr view <n>` for the title/description and `gh pr view <n> --comments` for reviewer discussion.
+For PR tours, also fetch the PR title/description and reviewer comments for context.
 
 ## Step 3: Build the tour
 
