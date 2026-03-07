@@ -14,6 +14,29 @@ C_DARKGRAY=$'\033[38;5;240m'
 # Get current directory basename
 display_path=$(echo "${input}" | jq -r '.workspace.current_dir | split("/") | last')
 
+# VCS branch/bookmark + dirty state
+vcs_info=""
+cwd=$(echo "${input}" | jq -r '.workspace.current_dir')
+if jj root --quiet -R "${cwd}" 2>/dev/null; then
+    bookmark=$(jj log -R "${cwd}" -r 'latest(ancestors(@) & bookmarks())' --no-graph -T 'bookmarks' --limit 1 2>/dev/null | head -1)
+    if [[ -n "${bookmark}" ]]; then
+        dirty=""
+        if [[ -n $(jj diff -R "${cwd}" --stat 2>/dev/null) ]]; then
+            dirty="${C_TAN}*"
+        fi
+        vcs_info=" | ${C_GREEN}${bookmark}${dirty}"
+    fi
+elif git -C "${cwd}" rev-parse --git-dir &>/dev/null; then
+    branch=$(git -C "${cwd}" branch --show-current 2>/dev/null)
+    if [[ -n "${branch}" ]]; then
+        dirty=""
+        if ! git -C "${cwd}" diff --quiet 2>/dev/null || ! git -C "${cwd}" diff --cached --quiet 2>/dev/null; then
+            dirty="${C_TAN}*"
+        fi
+        vcs_info=" | ${C_GREEN}${branch}${dirty}"
+    fi
+fi
+
 # Model name - extract friendly name from ARN or model ID
 model_id=$(echo "${input}" | jq -r '.model.id')
 if [[ "${model_id}" =~ (opus|sonnet|haiku)-([0-9]+)-?([0-9]+)? ]]; then
@@ -55,9 +78,10 @@ if [[ -n "${total_cost}" ]]; then
 fi
 
 # Output the status line
-printf "%s%s%s | %s%s%s%s%s" \
+printf "%s%s%s | %s%s%s%s%s%s" \
     "${C_TAN}" "${display_path}" \
     "${C_CYAN}" "${model_name}" \
+    "${vcs_info}" \
     "${context_info}" \
     "${cost_info}" \
     "${RST}"
