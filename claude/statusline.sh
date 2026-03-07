@@ -1,9 +1,21 @@
 #!/usr/bin/env bash
 
-# Read JSON input
+# Read JSON input and extract all fields in a single jq call
 input=$(cat)
+eval "$(echo "${input}" | jq -r '
+    @sh "cwd=\(.workspace.current_dir)",
+    @sh "display_path=\(.workspace.current_dir | split("/") | last)",
+    @sh "model_id=\(.model.id)",
+    @sh "model_display=\(.model.display_name)",
+    @sh "input_tokens=\(.context_window.current_usage.input_tokens // 0)",
+    @sh "cache_create=\(.context_window.current_usage.cache_creation_input_tokens // 0)",
+    @sh "cache_read=\(.context_window.current_usage.cache_read_input_tokens // 0)",
+    @sh "ctx_size=\(.context_window.context_window_size // 0)",
+    @sh "has_usage=\(.context_window.current_usage != null)",
+    @sh "total_cost=\(.cost.total_cost_usd // empty)"
+')"
 
-# Define color escape sequences once
+# Define color escape sequences
 RST=$'\033[0m'
 C_TAN=$'\033[38;5;143m'
 C_CYAN=$'\033[38;5;73m'
@@ -11,12 +23,8 @@ C_GRAY=$'\033[38;5;250m'
 C_GREEN=$'\033[38;5;108m'
 C_DARKGRAY=$'\033[38;5;240m'
 
-# Get current directory basename
-display_path=$(echo "${input}" | jq -r '.workspace.current_dir | split("/") | last')
-
 # VCS branch/bookmark + dirty state
 vcs_info=""
-cwd=$(echo "${input}" | jq -r '.workspace.current_dir')
 if jj root --quiet -R "${cwd}" 2>/dev/null; then
     bookmark=$(jj log -R "${cwd}" -r 'latest(ancestors(@) & bookmarks())' --no-graph -T 'bookmarks' --limit 1 2>/dev/null | head -1)
     if [[ -n "${bookmark}" ]]; then
@@ -37,8 +45,7 @@ elif git -C "${cwd}" rev-parse --git-dir &>/dev/null; then
     fi
 fi
 
-# Model name - extract friendly name from ARN or model ID
-model_id=$(echo "${input}" | jq -r '.model.id')
+# Model name - extract friendly name from model ID
 if [[ "${model_id}" =~ (opus|sonnet|haiku)-([0-9]+)-?([0-9]+)? ]]; then
     family="${BASH_REMATCH[1]^}"
     major="${BASH_REMATCH[2]}"
@@ -49,16 +56,14 @@ if [[ "${model_id}" =~ (opus|sonnet|haiku)-([0-9]+)-?([0-9]+)? ]]; then
         model_name="${family} ${major}"
     fi
 else
-    model_name=$(echo "${input}" | jq -r '.model.display_name')
+    model_name="${model_display}"
 fi
 
 # Context usage with progress bar
 context_info=""
-usage=$(echo "${input}" | jq '.context_window.current_usage')
-if [[ "${usage}" != "null" ]]; then
-    current=$(echo "${usage}" | jq '.input_tokens + .cache_creation_input_tokens + .cache_read_input_tokens')
-    size=$(echo "${input}" | jq '.context_window.context_window_size')
-    pct=$((current * 100 / size))
+if [[ "${has_usage}" == "true" ]]; then
+    current=$((input_tokens + cache_create + cache_read))
+    pct=$((current * 100 / ctx_size))
 
     filled=$((pct / 10))
     empty=$((10 - filled))
@@ -72,7 +77,6 @@ fi
 
 # Session cost
 cost_info=""
-total_cost=$(echo "${input}" | jq -r '.cost.total_cost_usd // empty')
 if [[ -n "${total_cost}" ]]; then
     cost_info=$(printf " | ${C_GREEN}\$%.2f" "${total_cost}")
 fi
