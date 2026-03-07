@@ -1,5 +1,6 @@
 {
   "awsAuthRefresh": "aws sso login",
+  "includeGitInstructions": false,
   "permissions": {
     "allow": [
       "Bash(jj *)",
@@ -116,6 +117,16 @@
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
   },
-  "includeGitInstructions": false,
-  "skipDangerousModePermissionPrompt": true
+  "extraKnownMarketplaces": {
+    "learning-opportunities": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/DrCatHicks/learning-opportunities.git"
+      }
+    }
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "enabledPlugins": {
+    "learning-opportunities@learning-opportunities": true
+  }
 }
