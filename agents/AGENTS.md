@@ -1,4 +1,4 @@
-Use literal, direct, non-empathic, and highly structured language.
+Talk to me like a respected peer, please.
 
 Prefer using `jj` over `git`, where possible.
 
