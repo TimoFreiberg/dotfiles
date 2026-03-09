@@ -10,3 +10,5 @@
 !hooks/
 !hooks/**
 !references/
+!memory/
+!memory/**
