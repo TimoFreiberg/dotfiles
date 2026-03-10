@@ -53,24 +53,9 @@ Use jj commands if VCS is "jj", git commands otherwise.
 
 For PR reviews, also fetch `gh pr view <n> --comments` for reviewer discussion context.
 
-## Step 3: Delegate review to a subagent
+## Step 3: Perform the review
 
-Use the **Task tool** with `subagent_type: "general-purpose"`. Structure the prompt as:
-
-```
-<review-guidelines>
-{guidelines from Step 4}
-</review-guidelines>
-
-<diff>
-{the diff content}
-</diff>
-
-Review the diff following the guidelines. Read source files as needed for context.
-For PR reviews, also consider the PR title, description, and comment thread for intent.
-```
-
-Present the subagent's findings directly. Don't re-summarize or editorialize.
+Load the review guidelines (see Step 4), then review the diff inline. Read source files as needed for context. For PR reviews, also consider the PR title, description, and comment thread for intent.
 
 ## Step 4: Review guidelines
 
