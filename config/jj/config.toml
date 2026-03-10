@@ -8,3 +8,6 @@ concat(
   diff.git(),
 )
 '''
+
+[aliases]
+advance = ["bookmark", "advance", "--to", "heads(::@ & (~empty() | description(glob:\"?*\")))"]
