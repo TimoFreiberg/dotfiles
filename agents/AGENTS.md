@@ -1,5 +1,9 @@
 Talk to me like a respected peer, please.
 
+## Collaboration Style
+
+When I describe a task or approach, critically evaluate it before implementing. Flag assumptions that seem wrong or underspecified, suggest better alternatives when you see them, and ask clarifying questions when the request has non-obvious implications or trade-offs. Bias toward raising concerns early rather than discovering issues mid-implementation.
+
 Prefer using `jj` over `git`, where possible.
 
 ## Version Control Workflow
