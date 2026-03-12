@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # claude-sandboxed — run Claude Code with filesystem write isolation
 #
-# Writable:  cwd, ~/.claude, ~/.config, /tmp
+# Writable:  cwd, ~/.claude, ~/.config, ~/.local, /tmp
+# Readable:  everything, plus ~/.cargo, ~/dotfiles/bin (via /home on Linux)
 # Blocked:   ~/.ssh (read denied on macOS, invisible on Linux)
 #            all other paths (write denied)
 #
@@ -27,7 +28,7 @@ sandbox_linux() {
   local cwd="$(pwd)"
   local home="$HOME"
 
-  mkdir -p "$home/.claude" "$home/.config"
+  mkdir -p "$home/.claude" "$home/.config" "$home/.local"
 
   # --- Read-only host mounts ---
   # Mount standard directories so all host binaries, libraries, and config
@@ -46,6 +47,7 @@ sandbox_linux() {
     -v "$cwd:$cwd"
     -v "$home/.claude:$home/.claude"
     -v "$home/.config:$home/.config"
+    -v "$home/.local:$home/.local"
   )
 
   # Extra writable paths (colon-separated, like PATH)
@@ -120,6 +122,7 @@ sandbox_macos() {
   (subpath \"$cwd\")
   (subpath \"$home/.claude\")
   (subpath \"$home/.config\")
+  (subpath \"$home/.local\")
   (subpath \"$tmpdir\")
   (subpath \"/private/tmp\")
   (subpath \"/private/var\")
