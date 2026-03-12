@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# claude-sandboxed — run Claude Code with filesystem write isolation
+#
+# Writable:  cwd, ~/.claude, ~/.config, /tmp
+# Blocked:   ~/.ssh (read denied on macOS, invisible on Linux)
+#            all other paths (write denied)
+#
+# Linux:  Docker — mounts host filesystem read-only, overlays writable dirs
+# macOS:  sandbox-exec (Seatbelt) — kernel-level filesystem policy
+#
+# Environment variables:
+#   CLAUDE_CMD           claude binary name/path     (default: claude)
+#   CONTAINER_CMD        docker or podman            (default: docker)
+#   SANDBOX_EXTRA_WRITE  colon-separated extra writable paths
+
+set -euo pipefail
+
+CLAUDE_CMD="${CLAUDE_CMD:-claude}"
+CONTAINER_CMD="${CONTAINER_CMD:-docker}"
+
+die() { echo "error: $*" >&2; exit 1; }
+
+sandbox_linux() {
+  command -v "$CONTAINER_CMD" &>/dev/null \
+    || die "$CONTAINER_CMD not found — install Docker or set CONTAINER_CMD"
+
+  local cwd="$(pwd)"
+  local home="$HOME"
+
+  mkdir -p "$home/.claude" "$home/.config"
+
+  # --- Read-only host mounts ---
+  # Mount standard directories so all host binaries, libraries, and config
+  # are available inside the container at their original paths. This avoids
+  # needing a fat container image — the host's entire toolchain just works.
+  local mounts=()
+  for dir in /usr /bin /lib /sbin /etc /opt /home; do
+    [[ -d "$dir" ]] && mounts+=(-v "$dir:$dir:ro")
+  done
+  [[ -d /lib64 ]] && mounts+=(-v "/lib64:/lib64:ro")
+
+  # --- Writable mounts ---
+  # Docker resolves mount conflicts by specificity: these override the
+  # read-only parent mounts for their exact subtrees.
+  mounts+=(
+    -v "$cwd:$cwd"
+    -v "$home/.claude:$home/.claude"
+    -v "$home/.config:$home/.config"
+  )
+
+  # Extra writable paths (colon-separated, like PATH)
+  if [[ -n "${SANDBOX_EXTRA_WRITE:-}" ]]; then
+    IFS=: read -ra extras <<< "$SANDBOX_EXTRA_WRITE"
+    for p in "${extras[@]}"; do
+      [[ -n "$p" ]] && mounts+=(-v "$p:$p")
+    done
+  fi
+
+  # --- Run ---
+  # --read-only:    container's own rootfs is read-only (belt + suspenders)
+  # --network host: no network isolation, agent can reach APIs and git remotes
+  # -u:             run as the host user so file ownership is correct
+  # --tmpfs:        writable /tmp for tools that need scratch space
+  # --env-file:     pass through all env vars (note: multiline values will break)
+  # alpine:         base image is irrelevant — we mount over everything
+  exec "$CONTAINER_CMD" run -it --rm \
+    --network host \
+    --read-only \
+    --hostname "$(hostname)" \
+    -u "$(id -u):$(id -g)" \
+    "${mounts[@]}" \
+    --tmpfs /tmp:exec \
+    --tmpfs /run \
+    --env-file <(env) \
+    -w "$cwd" \
+    alpine:latest \
+    "$CLAUDE_CMD" "$@"
+}
+
+sandbox_macos() {
+  local cwd="$(pwd)"
+  local home="$HOME"
+  local tmpdir="${TMPDIR:-/private/tmp}"
+  tmpdir="${tmpdir%/}"  # strip trailing slash — subpath matching is literal
+
+  # Build extra writable rules for SBPL
+  local extra_write=""
+  if [[ -n "${SANDBOX_EXTRA_WRITE:-}" ]]; then
+    IFS=: read -ra extras <<< "$SANDBOX_EXTRA_WRITE"
+    for p in "${extras[@]}"; do
+      [[ -n "$p" ]] && extra_write+=$'\n'"  (subpath \"$p\")"
+    done
+  fi
+
+  # sandbox-exec applies a Seatbelt (SBPL) profile at the kernel level.
+  # The profile is inherited by all child processes, so git, node, jj,
+  # and anything else Claude spawns gets the same restrictions.
+  #
+  # Note: sandbox-exec is deprecated by Apple but still functional and
+  # used internally (Xcode, etc.) as of macOS Sequoia.
+  exec sandbox-exec -p \
+"(version 1)
+(deny default)
+
+;; Allow all non-filesystem operations
+(allow process*)
+(allow signal)
+(allow sysctl*)
+(allow mach*)
+(allow ipc*)
+(allow system*)
+(allow network*)
+
+;; Read everything except ~/.ssh
+(allow file-read*)
+(deny file-read* (subpath \"$home/.ssh\"))
+
+;; Write only to designated paths
+(allow file-write*
+  (subpath \"$cwd\")
+  (subpath \"$home/.claude\")
+  (subpath \"$home/.config\")
+  (subpath \"$tmpdir\")
+  (subpath \"/private/tmp\")
+  (subpath \"/private/var\")
+  (subpath \"/dev\")$extra_write)
+" "$CLAUDE_CMD" "$@"
+}
+
+case "$(uname -s)" in
+  Linux)  sandbox_linux "$@" ;;
+  Darwin) sandbox_macos "$@" ;;
+  *)      die "unsupported OS: $(uname -s)" ;;
+esac
