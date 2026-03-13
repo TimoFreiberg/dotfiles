@@ -186,7 +186,7 @@ export default function (pi: ExtensionAPI) {
       renderResult(result: any, { expanded, isPartial }: any, theme: any) {
         if (isPartial) {
           resultSuffix = "";
-          return null;
+          return undefined;
         }
         const output = getTextOutput(result);
         if (result.isError) {
@@ -195,7 +195,7 @@ export default function (pi: ExtensionAPI) {
         }
         if (!output) {
           resultSuffix = "";
-          return null;
+          return undefined;
         }
 
         const rawPath = str(readArgs?.file_path ?? readArgs?.path);
@@ -214,7 +214,7 @@ export default function (pi: ExtensionAPI) {
           theme,
           warning || undefined,
         );
-        return null;
+        return undefined;
       },
     });
   }
@@ -237,7 +237,7 @@ export default function (pi: ExtensionAPI) {
       renderResult(result: any, { expanded, isPartial }: any, theme: any) {
         if (isPartial) {
           resultSuffix = "";
-          return null;
+          return undefined;
         }
         if (result.isError) {
           resultSuffix = "";
@@ -263,7 +263,7 @@ export default function (pi: ExtensionAPI) {
         }
 
         resultSuffix = expandSuffix(countLines(fileContent), theme);
-        return null;
+        return undefined;
       },
     });
   }
@@ -287,12 +287,12 @@ export default function (pi: ExtensionAPI) {
       renderResult(result: any, { expanded, isPartial }: any, theme: any) {
         if (isPartial) {
           resultSuffix = "";
-          return null;
+          return undefined;
         }
         const output = getTextOutput(result).trim();
         if (!output) {
           resultSuffix = "";
-          return null;
+          return undefined;
         }
 
         if (expanded) {
@@ -324,7 +324,7 @@ export default function (pi: ExtensionAPI) {
           warningText = theme.fg("warning", `[${w.join(". ")}]`);
         }
         resultSuffix = expandSuffix(countLines(output), theme, warningText);
-        return null;
+        return undefined;
       },
     });
   }
@@ -355,12 +355,12 @@ export default function (pi: ExtensionAPI) {
       renderResult(result: any, { expanded, isPartial }: any, theme: any) {
         if (isPartial) {
           resultSuffix = "";
-          return null;
+          return undefined;
         }
         const output = getTextOutput(result).trim();
         if (!output) {
           resultSuffix = "";
-          return null;
+          return undefined;
         }
 
         if (result.isError) {
@@ -389,7 +389,7 @@ export default function (pi: ExtensionAPI) {
           warningText = theme.fg("warning", `[${notices.join(". ")}]`);
 
         resultSuffix = expandSuffix(countLines(output), theme, warningText);
-        return null;
+        return undefined;
       },
     });
   }
