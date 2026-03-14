@@ -78,10 +78,10 @@ interface PatchOpResult {
 
 /**
  * Simple line-level diff using the Myers algorithm (linear-space variant).
- * Returns an array of { value, added?, removed? } parts compatible with
- * the `diff` npm package's `diffLines` output.
+ * Returns an array of parts, each containing the affected lines and
+ * whether they were added, removed, or unchanged.
  */
-function diffLines(oldText: string, newText: string): Array<{ value: string; added?: boolean; removed?: boolean }> {
+function diffLines(oldText: string, newText: string): Array<{ lines: string[]; added?: boolean; removed?: boolean }> {
 	const oldLines = oldText.split("\n");
 	const newLines = newText.split("\n");
 	const N = oldLines.length;
@@ -144,7 +144,7 @@ function diffLines(oldText: string, newText: string): Array<{ value: string; add
 	edits.reverse();
 
 	// Merge consecutive same-type edits into parts
-	const parts: Array<{ value: string; added?: boolean; removed?: boolean }> = [];
+	const parts: Array<{ lines: string[]; added?: boolean; removed?: boolean }> = [];
 	let oi = 0;
 	let ni = 0;
 	for (const edit of edits) {
@@ -153,32 +153,27 @@ function diffLines(oldText: string, newText: string): Array<{ value: string; add
 			ni++;
 			const last = parts.length > 0 ? parts[parts.length - 1] : null;
 			if (last && !last.added && !last.removed) {
-				last.value += "\n" + line;
+				last.lines.push(line);
 			} else {
-				parts.push({ value: line });
+				parts.push({ lines: [line] });
 			}
 		} else if (edit === "delete") {
 			const line = oldLines[oi++];
 			const last = parts.length > 0 ? parts[parts.length - 1] : null;
 			if (last?.removed) {
-				last.value += "\n" + line;
+				last.lines.push(line);
 			} else {
-				parts.push({ value: line, removed: true });
+				parts.push({ lines: [line], removed: true });
 			}
 		} else {
 			const line = newLines[ni++];
 			const last = parts.length > 0 ? parts[parts.length - 1] : null;
 			if (last?.added) {
-				last.value += "\n" + line;
+				last.lines.push(line);
 			} else {
-				parts.push({ value: line, added: true });
+				parts.push({ lines: [line], added: true });
 			}
 		}
-	}
-
-	// Add trailing newline to each value to match `diff` package behavior
-	for (const p of parts) {
-		p.value += "\n";
 	}
 
 	return parts;
@@ -204,10 +199,7 @@ function generateDiffString(
 
 	for (let i = 0; i < parts.length; i++) {
 		const part = parts[i];
-		const raw = part.value.split("\n");
-		if (raw[raw.length - 1] === "") {
-			raw.pop();
-		}
+		const raw = part.lines;
 
 		if (part.added || part.removed) {
 			if (firstChangedLine === undefined) {
