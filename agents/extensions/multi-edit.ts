@@ -16,7 +16,6 @@
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { createEditTool, type EditToolDetails } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
-import * as Diff from "diff";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile, unlink as fsUnlink, writeFile as fsWriteFile } from "fs/promises";
 import { isAbsolute, resolve as resolvePath } from "path";
@@ -77,12 +76,120 @@ interface PatchOpResult {
 	firstChangedLine?: number;
 }
 
+/**
+ * Simple line-level diff using the Myers algorithm (linear-space variant).
+ * Returns an array of { value, added?, removed? } parts compatible with
+ * the `diff` npm package's `diffLines` output.
+ */
+function diffLines(oldText: string, newText: string): Array<{ value: string; added?: boolean; removed?: boolean }> {
+	const oldLines = oldText.split("\n");
+	const newLines = newText.split("\n");
+	const N = oldLines.length;
+	const M = newLines.length;
+	const max = N + M;
+
+	const v = new Int32Array(2 * max + 1);
+	v[max + 1] = 0;
+	const trace: Int32Array[] = [];
+
+	outer: for (let d = 0; d <= max; d++) {
+		trace.push(v.slice());
+		for (let k = -d; k <= d; k += 2) {
+			let x: number;
+			if (k === -d || (k !== d && v[max + k - 1] < v[max + k + 1])) {
+				x = v[max + k + 1];
+			} else {
+				x = v[max + k - 1] + 1;
+			}
+			let y = x - k;
+			while (x < N && y < M && oldLines[x] === newLines[y]) {
+				x++;
+				y++;
+			}
+			v[max + k] = x;
+			if (x >= N && y >= M) break outer;
+		}
+	}
+
+	// Backtrack to build the edit script
+	const edits: Array<"equal" | "delete" | "insert"> = [];
+	let x = N;
+	let y = M;
+	for (let d = trace.length - 1; d >= 0; d--) {
+		const vPrev = trace[d];
+		const k = x - y;
+		let prevK: number;
+		if (k === -d || (k !== d && vPrev[max + k - 1] < vPrev[max + k + 1])) {
+			prevK = k + 1;
+		} else {
+			prevK = k - 1;
+		}
+		const prevX = vPrev[max + prevK];
+		const prevY = prevX - prevK;
+		while (x > prevX && y > prevY) {
+			edits.push("equal");
+			x--;
+			y--;
+		}
+		if (d > 0) {
+			if (x === prevX) {
+				edits.push("insert");
+				y--;
+			} else {
+				edits.push("delete");
+				x--;
+			}
+		}
+	}
+	edits.reverse();
+
+	// Merge consecutive same-type edits into parts
+	const parts: Array<{ value: string; added?: boolean; removed?: boolean }> = [];
+	let oi = 0;
+	let ni = 0;
+	for (const edit of edits) {
+		if (edit === "equal") {
+			const line = oldLines[oi++];
+			ni++;
+			const last = parts.length > 0 ? parts[parts.length - 1] : null;
+			if (last && !last.added && !last.removed) {
+				last.value += "\n" + line;
+			} else {
+				parts.push({ value: line });
+			}
+		} else if (edit === "delete") {
+			const line = oldLines[oi++];
+			const last = parts.length > 0 ? parts[parts.length - 1] : null;
+			if (last?.removed) {
+				last.value += "\n" + line;
+			} else {
+				parts.push({ value: line, removed: true });
+			}
+		} else {
+			const line = newLines[ni++];
+			const last = parts.length > 0 ? parts[parts.length - 1] : null;
+			if (last?.added) {
+				last.value += "\n" + line;
+			} else {
+				parts.push({ value: line, added: true });
+			}
+		}
+	}
+
+	// Add trailing newline to each value to match `diff` package behavior
+	for (const p of parts) {
+		p.value += "\n";
+	}
+
+	return parts;
+}
+
 function generateDiffString(
 	oldContent: string,
 	newContent: string,
 	contextLines = 4,
 ): { diff: string; firstChangedLine: number | undefined } {
-	const parts = Diff.diffLines(oldContent, newContent);
+	const parts = diffLines(oldContent, newContent);
 	const output: string[] = [];
 
 	const oldLines = oldContent.split("\n");
