@@ -2,3 +2,4 @@
 !/.pi
 !/.todo
 .todo/.lock
+node_modules/

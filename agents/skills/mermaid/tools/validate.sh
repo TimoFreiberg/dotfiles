@@ -1,35 +1,33 @@
 #!/bin/bash
-# Validate a Mermaid diagram by parsing + rendering to a temp SVG.
-# Usage: validate.sh diagram.mmd [output.svg]
+# Validate a Mermaid diagram by parsing it (no browser needed).
+# Usage: validate.sh diagram.mmd
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 diagram.mmd [output.svg]"
+    echo "Usage: $0 diagram.mmd"
     exit 1
 fi
 
-INPUT="$1"
-OUTPUT="${2:-}"
+INPUT="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 
 if [ ! -f "$INPUT" ]; then
     echo "Error: File not found: $INPUT"
     exit 1
 fi
 
-CLEANUP=0
-if [ -z "$OUTPUT" ]; then
-    OUTPUT=$(mktemp /tmp/mermaid_validate.XXXXXX.svg)
-    CLEANUP=1
+# Auto-install mermaid on first run
+if [ ! -d "$SCRIPT_DIR/node_modules/mermaid" ]; then
+    echo "Installing mermaid (first run only, no Chromium)..."
+    (cd "$SCRIPT_DIR" && npm install --silent 2>&1)
 fi
 
-trap 'if [ "$CLEANUP" -eq 1 ]; then rm -f "$OUTPUT"; fi' EXIT
+echo "Validating: $1"
 
-echo "Validating: $INPUT"
-
-# Use mermaid-cli (mmdc) to parse and render. Errors mean invalid syntax.
-if npx -y @mermaid-js/mermaid-cli -i "$INPUT" -o "$OUTPUT" -q; then
-    echo "✓ Mermaid OK"
+# Parse using mermaid's own parser — catches syntax errors without Chromium.
+if node "$SCRIPT_DIR/parse.mjs" "$INPUT"; then
     echo ""
     echo "ASCII preview:"
     if ! MERMAID_INPUT="$INPUT" npx -y --package beautiful-mermaid node -e '
@@ -42,12 +40,8 @@ const text = fs.readFileSync(process.env.MERMAID_INPUT, "utf8");
 process.stdout.write(renderMermaidAscii(text));
 process.stdout.write("\n");
 '; then
-        echo "Warning: ASCII preview failed (diagram type may be unsupported)."
-    fi
-    if [ "$CLEANUP" -eq 0 ]; then
-        echo "Rendered to: $OUTPUT"
+        echo "(ASCII preview not available for this diagram type)"
     fi
 else
-    echo "✗ Mermaid validation failed"
     exit 1
 fi
