@@ -44,6 +44,12 @@ See [reference.md](reference.md) for advanced commands (rewriting history, confl
 
 **NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message`. Bare `jj squash` opens an interactive editor and will hang.
 
+## File Tracking
+
+| Command | Purpose |
+|---|---|
+| `jj file untrack <paths>` | Stop tracking paths in the working copy. Paths must already be in `.gitignore`. Useful when files were accidentally committed before being ignored. |
+
 ## Bookmarks
 
 | Command | Purpose |
