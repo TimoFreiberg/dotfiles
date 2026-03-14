@@ -109,7 +109,7 @@ function resolveConfigValue(config) {
 
 function getAgentDir() {
 	const configured = process.env.PI_CODING_AGENT_DIR;
-	if (!configured) return join(homedir(), ".pi", "agent");
+	if (!configured) return join(homedir(), ".config", "pi", "agent");
 	if (configured === "~") return homedir();
 	if (configured.startsWith("~/")) return join(homedir(), configured.slice(2));
 	return configured;
@@ -198,7 +198,7 @@ function collectModuleCandidates() {
 		}
 	}
 
-	add(join(homedir(), "Development", "pi-mono", "packages", "ai", "dist", "index.js"));
+	add(join(homedir(), "src", "pi-mono", "packages", "ai", "dist", "index.js"));
 
 	return Array.from(candidates);
 }
