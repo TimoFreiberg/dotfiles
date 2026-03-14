@@ -272,30 +272,36 @@ async function resolveApiKey(provider, auth, authPath, piAi) {
 		throw new Error(`Unsupported credential type for ${provider}: ${String(entry.type || "unknown")}`);
 	}
 
-	if (typeof piAi.getOAuthApiKey !== "function") {
-		throw new Error("Loaded pi-ai module does not export getOAuthApiKey");
-	}
-
-	const oauthCreds = {};
-	for (const [k, v] of Object.entries(auth || {})) {
-		if (v && (v.type === "oauth" || (v.access && v.refresh && v.expires))) {
-			oauthCreds[k] = v;
+	// If pi-ai exports getOAuthApiKey, use the full refresh flow.
+	if (typeof piAi.getOAuthApiKey === "function") {
+		const oauthCreds = {};
+		for (const [k, v] of Object.entries(auth || {})) {
+			if (v && (v.type === "oauth" || (v.access && v.refresh && v.expires))) {
+				oauthCreds[k] = v;
+			}
 		}
+
+		const refreshed = await piAi.getOAuthApiKey(provider, oauthCreds);
+		if (!refreshed) {
+			throw new Error(`No OAuth credentials available for provider '${provider}'`);
+		}
+
+		const mergedCred = { type: "oauth", ...(entry || {}), ...(refreshed.newCredentials || {}) };
+		auth[provider] = mergedCred;
+		writeJson(authPath, auth);
+
+		return {
+			apiKey: refreshed.apiKey,
+			accountId: mergedCred.accountId,
+		};
 	}
 
-	const refreshed = await piAi.getOAuthApiKey(provider, oauthCreds);
-	if (!refreshed) {
-		throw new Error(`No OAuth credentials available for provider '${provider}'`);
+	// Fallback: use the OAuth access token directly if available.
+	if (entry.access) {
+		return { apiKey: entry.access, accountId: entry.accountId };
 	}
 
-	const mergedCred = { type: "oauth", ...(entry || {}), ...(refreshed.newCredentials || {}) };
-	auth[provider] = mergedCred;
-	writeJson(authPath, auth);
-
-	return {
-		apiKey: refreshed.apiKey,
-		accountId: mergedCred.accountId,
-	};
+	throw new Error(`OAuth credentials for ${provider} require getOAuthApiKey (not found in pi-ai) and no access token is available.`);
 }
 
 function buildUserPrompt(query, purpose) {
