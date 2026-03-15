@@ -4,3 +4,4 @@ sessions
 auth.json
 bin
 aws-sso.json
+prompt-history.jsonl
