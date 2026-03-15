@@ -152,11 +152,13 @@ const PULL_REQUEST_PROMPT_FALLBACK =
 const FOLDER_REVIEW_PROMPT =
   "Review the code in the following paths: {paths}. This is a snapshot review (not a diff). Read the files directly in these paths and provide prioritized, actionable findings.";
 
-// Shared review guidelines live in agents/references/review-guidelines.md.
-// This path is resolved relative to the extension file at runtime.
-const REVIEW_GUIDELINES_PATH = path.resolve(
-  path.dirname(new URL(import.meta.url).pathname),
-  "../references/review-guidelines.md",
+// Shared review guidelines live in ~/dotfiles/agents/references/review-guidelines.md.
+// Use an absolute path since the extension (under ~/.config via symlink) and the
+// guidelines (under ~/dotfiles/agents/) are in different directory trees.
+import { homedir } from "node:os";
+const REVIEW_GUIDELINES_PATH = path.join(
+  homedir(),
+  "dotfiles/agents/references/review-guidelines.md",
 );
 
 async function loadDefaultReviewGuidelines(): Promise<string> {
