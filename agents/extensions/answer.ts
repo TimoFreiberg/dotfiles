@@ -19,7 +19,6 @@ import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@mariozechner/pi-coding-agent";
-import { Type } from "@sinclair/typebox";
 import { BorderedLoader } from "@mariozechner/pi-coding-agent";
 import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
 import {
@@ -533,96 +532,6 @@ class QnAComponent implements Component, Focusable {
 // --- Extension entry point ---
 
 export default function (pi: ExtensionAPI) {
-  // --- Tool: let the LLM ask the user multiple questions at once ---
-
-  pi.registerTool({
-    name: "answer",
-    label: "Answer",
-    description:
-      "Ask the user one or more questions interactively. The user can answer all questions in a single Q&A form. " +
-      "Use this when you have multiple questions for the user instead of asking them inline.",
-    parameters: Type.Object({
-      questions: Type.Array(
-        Type.Object({
-          question: Type.String(),
-          context: Type.Optional(Type.String()),
-        }),
-      ),
-    }),
-    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (!ctx.hasUI) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: "Error: answer tool requires interactive mode",
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      if (params.questions.length === 0) {
-        return {
-          content: [{ type: "text", text: "Error: no questions provided" }],
-          isError: true,
-        };
-      }
-
-      // Pause the working message while the Q&A form is displayed
-      pi.events.emit("answer:open");
-      ctx.ui.setWorkingMessage(" ");
-
-      const answersResult = await ctx.ui.custom<string | null>(
-        (tui, theme, kb, done) => {
-          const component = new QnAComponent(
-            params.questions,
-            tui,
-            theme,
-            done,
-            () => tui.requestRender(),
-            {
-              keybindings: kb,
-              onToggleExpand: () => {
-                ctx.ui.setToolsExpanded(!ctx.ui.getToolsExpanded());
-              },
-            },
-          );
-
-          return {
-            render: (w: number) => component.render(w),
-            invalidate: () => component.invalidate(),
-            handleInput: (data: string) => component.handleInput(data),
-            get focused() {
-              return component.focused;
-            },
-            set focused(value: boolean) {
-              component.focused = value;
-            },
-          };
-        },
-      );
-
-      // Restore working message
-      pi.events.emit("answer:close");
-      ctx.ui.setWorkingMessage();
-
-      if (answersResult === null) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: "User cancelled — did not answer the questions.",
-            },
-          ],
-        };
-      }
-
-      return {
-        content: [{ type: "text", text: answersResult }],
-      };
-    },
-  });
   const answerHandler = async (ctx: ExtensionContext) => {
     if (!ctx.hasUI) {
       ctx.ui.notify("answer requires interactive mode", "error");
