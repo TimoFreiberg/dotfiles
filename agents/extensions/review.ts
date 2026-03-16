@@ -133,10 +133,10 @@ const UNCOMMITTED_PROMPT =
   "Review the current code changes (staged, unstaged, and untracked files).";
 
 const BASE_BRANCH_PROMPT_WITH_MERGE_BASE =
-  "Review the code changes against the base branch '{baseBranch}'. The merge base commit is {mergeBaseSha}. Run `git diff {mergeBaseSha}` to inspect the changes.";
+  "Review the code changes against the base branch '{baseBranch}'. The merge base commit is {mergeBaseSha}.";
 
 const BASE_BRANCH_PROMPT_FALLBACK =
-  "Review the code changes against the base branch '{branch}'. Find the merge base (e.g., `git merge-base HEAD \"{branch}\"`), then run `git diff` against that SHA.";
+  "Review the code changes against the base branch '{branch}'.";
 
 const COMMIT_PROMPT_WITH_TITLE =
   'Review the code changes in commit {sha} ("{title}").';
@@ -144,10 +144,10 @@ const COMMIT_PROMPT_WITH_TITLE =
 const COMMIT_PROMPT = "Review the code changes in commit {sha}.";
 
 const PULL_REQUEST_PROMPT =
-  "Review pull request #{prNumber} (\"{title}\") against base branch '{baseBranch}'. Merge base is {mergeBaseSha}. Run `git diff {mergeBaseSha}` to inspect the changes.";
+  "Review pull request #{prNumber} (\"{title}\") against base branch '{baseBranch}'. Merge base is {mergeBaseSha}.";
 
 const PULL_REQUEST_PROMPT_FALLBACK =
-  "Review pull request #{prNumber} (\"{title}\") against base branch '{baseBranch}'. Find the merge base (`git merge-base HEAD {baseBranch}`), then `git diff` against that SHA.";
+  "Review pull request #{prNumber} (\"{title}\") against base branch '{baseBranch}'.";
 
 const FOLDER_REVIEW_PROMPT =
   "Review the code in the following paths: {paths}. This is a snapshot review (not a diff). Read the files directly in these paths and provide prioritized, actionable findings.";
