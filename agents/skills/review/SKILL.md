@@ -61,4 +61,3 @@ Load the review guidelines (see Step 4), then review the diff inline. Read sourc
 
 Check if `REVIEW_GUIDELINES.md` exists in the project root. If so, use it. Otherwise read [review-guidelines.md](../../references/review-guidelines.md) and use those guidelines.
 
-Number each finding sequentially (F1, F2, …) in the output.

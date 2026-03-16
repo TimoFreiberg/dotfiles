@@ -40,7 +40,7 @@ Tag each finding with a priority level:
 - [P2] — Normal. Fix eventually.
 - [P3] — Low. Nice to have.
 
-For each finding, include the priority tag, file path with line number, and a brief explanation (one paragraph max). Keep code snippets under 3 lines. Use a matter-of-fact tone — no flattery, no exaggeration.
+Number each finding sequentially (F1, F2, …). For each finding, include the priority tag, file path with line number, and a brief explanation (one paragraph max). Keep code snippets under 3 lines. Use a matter-of-fact tone — no flattery, no exaggeration.
 
 Ignore trivial style issues unless they obscure meaning. Don't stop at the first finding — list every qualifying issue.
 
