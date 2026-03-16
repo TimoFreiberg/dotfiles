@@ -5,9 +5,9 @@
  *
  * Default formatters:
  *   .rs        → rustfmt
- *   .py        → uv run ruff format -q
- *   .ts/.tsx   → prettier --write
- *   .js/.jsx   → prettier --write
+ *   .py        → uvx ruff format -q
+ *   .ts/.tsx   → npx prettier --write
+ *   .js/.jsx   → npx prettier --write
  *
  * Override or extend via `.pi/format.json` in the project root:
  * {
@@ -26,11 +26,11 @@ import { extname, resolve } from "path";
 
 const DEFAULT_FORMATTERS: Record<string, string> = {
 	".rs": "rustfmt {path}",
-	".py": "uv run ruff format -q {path}",
-	".ts": "prettier --write {path}",
-	".tsx": "prettier --write {path}",
-	".js": "prettier --write {path}",
-	".jsx": "prettier --write {path}",
+	".py": "uvx ruff format -q {path}",
+	".ts": "npx prettier --write {path}",
+	".tsx": "npx prettier --write {path}",
+	".js": "npx prettier --write {path}",
+	".jsx": "npx prettier --write {path}",
 };
 
 async function loadProjectConfig(cwd: string): Promise<Record<string, string | false> | null> {
