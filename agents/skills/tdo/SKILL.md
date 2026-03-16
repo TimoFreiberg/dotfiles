@@ -1,7 +1,7 @@
 ---
 name: tdo
 description: "Manage TODOs with the tdo CLI. Handles natural-language requests like 'create a todo for that' or 'mark that done'."
-argument-hint: "[add <title> [--body TEXT] | list | view <query> | done <query> | reopen <query> | edit <query> | delete <query> | assign <query> [name] | unassign <query> | refine <query>]"
+argument-hint: "[add <title> [--body TEXT] | list | show <query> | done <query> | reopen <query> | edit <query> | delete <query> | assign <query> [name] | unassign <query> | refine <query>]"
 ---
 
 ## Operations
@@ -14,7 +14,7 @@ Parse `$ARGUMENTS` and dispatch:
 | `add <title> [--body TEXT]` | Create a new todo (optionally with body) |
 | `list` | Run `tdo list` (open only) or `tdo list --all` (include done). Note: listing triggers GC — done todos >7 days old are auto-deleted, stale assignments warn on stderr. |
 | `count` | Run `tdo count` (open only) or `tdo count --all` (include done). Prints the count as a plain number. |
-| `view <query>` | View a todo's full details |
+| `show <query>` | View a todo's full details |
 | `done <query>` | Mark a todo as done |
 | `reopen <query>` | Reopen a done todo |
 | `edit <query>` | Edit a todo's body |
@@ -32,9 +32,9 @@ Use `--body` to set body text in the same command when the user provides details
 
 Titles are immutable after creation. To change a title, delete and recreate.
 
-## View
+## Show
 
-Match the query to an ID (see "Matching queries to IDs"), then run `tdo view <id>`. It prints the todo's ID, title, status, timestamps, assignment, and body to stdout.
+Match the query to an ID (see "Matching queries to IDs"), then run `tdo show <id>`. It prints the todo's ID, title, status, timestamps, assignment, and body to stdout.
 
 ## Matching queries to IDs
 
@@ -63,8 +63,8 @@ Confirm the result to the user.
 
 ## Refine
 
-1. If the query is a 4-char hex ID, use it directly. Otherwise match the query to an ID (see "Matching queries to IDs").
-2. Run `tdo view <id>` to read the todo's full content.
+1. Match the query to an ID (see "Matching queries to IDs")
+2. Run `tdo show <id>` to read the todo's full content
 3. **Research before asking.** Based on the TODO content, proactively gather context:
    - If files, functions, or modules are mentioned, read them
    - If related TODOs exist, read those too
