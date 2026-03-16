@@ -3,7 +3,7 @@ call plug#begin()
 Plug 'dracula/vim', {'as': 'dracula'}
 
 Plug 'folke/trouble.nvim'
-Plug 'gelguy/wilder.nvim'
+" Plug 'gelguy/wilder.nvim'
 Plug 'godlygeek/tabular'
 
 Plug 'hrsh7th/cmp-buffer'
@@ -14,12 +14,12 @@ Plug 'hrsh7th/cmp-vsnip'
 Plug 'hrsh7th/nvim-cmp'
 Plug 'hrsh7th/vim-vsnip'
 
-Plug 'kyazdani42/nvim-web-devicons'
+" Plug 'kyazdani42/nvim-web-devicons'
 Plug 'lambdalisue/nerdfont.vim'
 
 Plug 'nvim-lua/plenary.nvim'
-Plug 'nvim-telescope/telescope.nvim'
-Plug 'nvim-telescope/telescope-ui-select.nvim'
+" Plug 'nvim-telescope/telescope.nvim'
+" Plug 'nvim-telescope/telescope-ui-select.nvim'
 
 " Plug 'neovim/nvim-lspconfig'
 
@@ -45,7 +45,7 @@ Plug 'ciaranm/securemodelines'
 
 Plug 'nvim-treesitter/nvim-treesitter', {'do': ':TSUpdate'}
 
-Plug 'windwp/nvim-autopairs'
+" Plug 'windwp/nvim-autopairs'
 
 " Plug 'justinmk/vim-sneak'
 
