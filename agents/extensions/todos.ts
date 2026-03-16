@@ -52,9 +52,9 @@ type TodoOverlayAction = "back" | "work";
 type TodoMenuAction =
   | "work"
   | "refine"
-  | "close"
+  | "done"
   | "reopen"
-  | "release"
+  | "unassign"
   | "delete"
   | "copyPath"
   | "copyText"
@@ -68,9 +68,14 @@ function getTodoDir(): string {
   return path.resolve(process.cwd(), ".todo");
 }
 
-function tdo(args: string): string {
+function shellEscape(s: string): string {
+  return "'" + s.replace(/'/g, "'\\''") + "'";
+}
+
+function tdo(args: string[]): string {
+  const cmd = ["tdo", ...args].map(shellEscape).join(" ");
   try {
-    return execSync(`tdo ${args}`, { encoding: "utf8", timeout: 5000 }).trim();
+    return execSync(cmd, { encoding: "utf8", timeout: 5000 }).trim();
   } catch (e: any) {
     return e.stderr?.trim() || e.message || "tdo command failed";
   }
@@ -104,7 +109,7 @@ function parseListLine(line: string): Todo | null {
 }
 
 function listTodos(all: boolean): Todo[] {
-  const output = tdo(all ? "list --all" : "list");
+  const output = tdo(all ? ["list", "--all"] : ["list"]);
   if (!output) return [];
   return output
     .split("\n")
@@ -112,46 +117,51 @@ function listTodos(all: boolean): Todo[] {
     .filter((t): t is Todo => t !== null);
 }
 
-/** Read a todo's full content from disk (for detail view / copy). */
-function readTodoFile(id: string): Todo | null {
-  const dir = getTodoDir();
-  let entries: string[];
-  try {
-    entries = readdirSync(dir);
-  } catch {
-    return null;
+/** Read a todo's full content via `tdo view`. */
+function readTodo(id: string): Todo | null {
+  const output = tdo(["view", id]);
+  if (!output) return null;
+
+  const lines = output.split("\n");
+  // First line: "<id>  <title>"
+  const headerMatch = lines[0]?.match(/^([0-9a-f]{4})\s{2}(.*)$/i);
+  if (!headerMatch) return null;
+
+  const todoId = headerMatch[1];
+  let title = headerMatch[2];
+  let status = "open";
+  let assigned: string | undefined;
+  let created: string | undefined;
+
+  // Parse metadata lines (status:, created:, assigned:)
+  let bodyStart = 1;
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    const metaMatch = line.match(/^(\w+):\s+(.*)$/);
+    if (metaMatch) {
+      const key = metaMatch[1];
+      const value = metaMatch[2];
+      if (key === "status") status = value;
+      else if (key === "created") created = value;
+      else if (key === "assigned") assigned = value;
+      bodyStart = i + 1;
+    } else {
+      break;
+    }
   }
-  const file = entries.find((e) => e.startsWith(id) && e.endsWith(".md"));
-  if (!file) return null;
 
-  const content = readFileSync(path.join(dir, file), "utf8");
-  const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?([\s\S]*)$/);
-  if (!fmMatch) return { id, title: "", status: "open", body: content };
+  // Rest is body (skip leading blank lines)
+  const body = lines.slice(bodyStart).join("\n").replace(/^\n+/, "");
 
-  const yaml = fmMatch[1];
-  const body = (fmMatch[2] ?? "").replace(/^\n+/, "");
-
-  const get = (key: string): string => {
-    const m = yaml.match(new RegExp(`^${key}:\\s*'?(.*?)'?\\s*$`, "m"));
-    return m ? m[1].replace(/^['"]|['"]$/g, "") : "";
-  };
-
-  return {
-    id,
-    title: get("title"),
-    status: get("status") || "open",
-    assigned: get("assigned") || undefined,
-    created: get("created") || undefined,
-    body,
-  };
+  return { id: todoId, title, status, assigned, created, body };
 }
 
 // ---------------------------------------------------------------------------
 // Sorting & filtering
 // ---------------------------------------------------------------------------
 
-function isClosed(status: string): boolean {
-  return status === "done" || status === "closed";
+function isDone(status: string): boolean {
+  return status === "done";
 }
 
 function splitTodos(todos: Todo[]) {
@@ -159,7 +169,7 @@ function splitTodos(todos: Todo[]) {
   const open: Todo[] = [];
   const closed: Todo[] = [];
   for (const t of todos) {
-    if (isClosed(t.status)) closed.push(t);
+    if (isDone(t.status)) closed.push(t);
     else if (t.assigned) assigned.push(t);
     else open.push(t);
   }
@@ -190,8 +200,8 @@ function filterTodos(todos: Todo[], query: string): Todo[] {
 
   return matches
     .sort((a, b) => {
-      const ac = isClosed(a.todo.status),
-        bc = isClosed(b.todo.status);
+      const ac = isDone(a.todo.status),
+        bc = isDone(b.todo.status);
       if (ac !== bc) return ac ? 1 : -1;
       return a.score - b.score;
     })
@@ -208,7 +218,7 @@ function renderAssignSuffix(theme: Theme, todo: Todo): string {
 }
 
 function renderTodoHeading(theme: Theme, todo: Todo): string {
-  const closed = isClosed(todo.status);
+  const closed = isDone(todo.status);
   const titleColor = closed ? "dim" : "text";
   return (
     theme.fg("accent", todo.id) +
@@ -345,7 +355,7 @@ class TodoSelectorComponent extends Container implements Focusable {
   }
 
   private updateHeader() {
-    const openCount = this.allTodos.filter((t) => !isClosed(t.status)).length;
+    const openCount = this.allTodos.filter((t) => !isDone(t.status)).length;
     const closedCount = this.allTodos.length - openCount;
     this.headerText.setText(
       this.theme.fg(
@@ -404,7 +414,7 @@ class TodoSelectorComponent extends Container implements Focusable {
         const todo = this.filteredTodos[i - 1];
         if (!todo) continue;
         const isSel = i === this.selectedIndex;
-        const closed = isClosed(todo.status);
+        const closed = isDone(todo.status);
         const prefix = isSel ? this.theme.fg("accent", "→ ") : "  ";
         const titleColor = isSel ? "accent" : closed ? "dim" : "text";
         const statusColor = closed ? "dim" : "success";
@@ -506,19 +516,19 @@ class TodoActionMenuComponent extends Container {
   ) {
     super();
 
-    const closed = isClosed(todo.status);
+    const done = isDone(todo.status);
     const title = todo.title || "(untitled)";
     const options: SelectItem[] = [
       { value: "view", label: "view", description: "View todo" },
       { value: "work", label: "work", description: "Work on todo" },
       { value: "refine", label: "refine", description: "Refine task" },
-      ...(closed
+      ...(done
         ? [{ value: "reopen", label: "reopen", description: "Reopen todo" }]
-        : [{ value: "close", label: "close", description: "Close todo" }]),
+        : [{ value: "done", label: "done", description: "Mark as done" }]),
       ...(todo.assigned
         ? [
             {
-              value: "release",
+              value: "unassign",
               label: "unassign",
               description: "Remove assignment",
             },
@@ -741,7 +751,7 @@ class TodoDetailOverlayComponent {
 
   private buildMetaLine(width: number): string {
     const status = this.todo.status || "open";
-    const statusColor = isClosed(status) ? "dim" : "success";
+    const statusColor = isDone(status) ? "dim" : "success";
     const assignText = this.todo.assigned
       ? `assigned: ${this.todo.assigned}`
       : "unassigned";
@@ -790,12 +800,12 @@ export default function todosExtension(pi: ExtensionAPI) {
   ) => {
     const allTodos = listTodos(true);
     const todos = showDone
-      ? allTodos.filter((t) => isClosed(t.status))
-      : allTodos.filter((t) => !isClosed(t.status));
+      ? allTodos.filter((t) => isDone(t.status))
+      : allTodos.filter((t) => !isDone(t.status));
     const searchTerm = (args ?? "").trim();
 
     if (!ctx.hasUI) {
-      console.log(tdo(showDone ? "list --all" : "list"));
+      console.log(tdo(showDone ? ["list", "--all"] : ["list"]));
       return;
     }
 
@@ -827,8 +837,8 @@ export default function todosExtension(pi: ExtensionAPI) {
       const refreshList = () => {
         const fresh = listTodos(true);
         const filtered = showDone
-          ? fresh.filter((t) => isClosed(t.status))
-          : fresh.filter((t) => !isClosed(t.status));
+          ? fresh.filter((t) => isDone(t.status))
+          : fresh.filter((t) => !isDone(t.status));
         selector?.setTodos(filtered);
       };
 
@@ -908,32 +918,32 @@ export default function todosExtension(pi: ExtensionAPI) {
           return "stay";
         }
         if (action === "copyText") {
-          const record = readTodoFile(todo.id);
+          const record = readTodo(todo.id);
           if (record) copyText(record);
           else ctx.ui.notify(`Todo ${todo.id} not found`, "error");
           return "stay";
         }
-        if (action === "release") {
-          tdo(`unassign ${todo.id}`);
+        if (action === "unassign") {
+          tdo(["unassign", todo.id]);
           refreshList();
           ctx.ui.notify(`Unassigned todo ${todo.id}`, "info");
           return "stay";
         }
         if (action === "delete") {
-          tdo(`delete ${todo.id} --force`);
+          tdo(["delete", todo.id, "--force"]);
           refreshList();
           ctx.ui.notify(`Deleted todo ${todo.id}`, "info");
           return "stay";
         }
         // close / reopen
-        if (action === "close") {
-          tdo(`done ${todo.id}`);
+        if (action === "done") {
+          tdo(["done", todo.id]);
         } else {
-          tdo(`reopen ${todo.id}`);
+          tdo(["reopen", todo.id]);
         }
         refreshList();
         ctx.ui.notify(
-          `${action === "close" ? "Closed" : "Reopened"} todo ${todo.id}`,
+          `${action === "done" ? "Done" : "Reopened"} todo ${todo.id}`,
           "info",
         );
         return "stay";
@@ -944,7 +954,7 @@ export default function todosExtension(pi: ExtensionAPI) {
         action: TodoMenuAction,
       ) => {
         if (action === "view") {
-          const record = readTodoFile(todo.id);
+          const record = readTodo(todo.id);
           if (!record) {
             ctx.ui.notify(`Todo ${todo.id} not found`, "error");
             return;
@@ -981,8 +991,8 @@ export default function todosExtension(pi: ExtensionAPI) {
       };
 
       const showActionMenu = (todo: Todo) => {
-        // Re-read from disk to get full body for the menu context
-        const record = readTodoFile(todo.id) ?? todo;
+        // Re-read to get full body for the menu context
+        const record = readTodo(todo.id) ?? todo;
         actionMenu = new TodoActionMenuComponent(
           theme,
           record,
@@ -1016,7 +1026,7 @@ export default function todosExtension(pi: ExtensionAPI) {
             ctx.ui.notify("Enter a title in the search box first", "warning");
             return;
           }
-          const output = tdo(`add ${title}`);
+          const output = tdo(["add", title]);
           const idMatch = output.match(/^([0-9a-f]{4})$/im);
           if (idMatch) {
             ctx.ui.notify(`Created ${idMatch[1]} "${title}"`, "info");
@@ -1059,8 +1069,8 @@ export default function todosExtension(pi: ExtensionAPI) {
   const getCompletions = (prefix: string, showDone: boolean) => {
     const allTodos = listTodos(true);
     const todos = showDone
-      ? allTodos.filter((t) => isClosed(t.status))
-      : allTodos.filter((t) => !isClosed(t.status));
+      ? allTodos.filter((t) => isDone(t.status))
+      : allTodos.filter((t) => !isDone(t.status));
     if (!todos.length) return null;
     const matches = filterTodos(todos, prefix);
     if (!matches.length) return null;

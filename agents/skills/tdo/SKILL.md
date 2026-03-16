@@ -63,8 +63,8 @@ Confirm the result to the user.
 
 ## Refine
 
-1. Match the query to an ID (see "Matching queries to IDs")
-2. Read the todo file from `.todo/`
+1. If the query is a 4-char hex ID, use it directly. Otherwise match the query to an ID (see "Matching queries to IDs").
+2. Run `tdo view <id>` to read the todo's full content.
 3. **Research before asking.** Based on the TODO content, proactively gather context:
    - If files, functions, or modules are mentioned, read them
    - If related TODOs exist, read those too
