@@ -69,12 +69,13 @@ function parseArgs(argv) {
 
 function usage() {
 	return `Usage:
-  node search.mjs "<query>" [--purpose "<why>"] [--provider openai-codex|anthropic] [--model <id>] [--json]
+  node search.mjs "<query>" [--purpose "<why>"] [--provider gemini|openai-codex|anthropic] [--model <id>] [--json]
 
 Examples:
   node search.mjs "latest python release" --purpose "update dependency notes"
-  node search.mjs "HTTP/3 browser support 2026" --provider openai-codex
+  node search.mjs "HTTP/3 browser support 2026" --provider gemini
   node search.mjs "vite 7 breaking changes" --json`;
+
 }
 
 function readJson(path, fallback = {}) {
@@ -118,8 +119,18 @@ function getAgentDir() {
 function normalizeProvider(provider) {
 	if (!provider) return undefined;
 	const p = String(provider).toLowerCase().trim();
+	if (p.includes("gemini") || p.includes("google")) return "gemini";
 	if (p.includes("anthropic") || p.includes("claude")) return "anthropic";
 	if (p.includes("codex") || p === "openai" || p.startsWith("openai")) return "openai-codex";
+	return undefined;
+}
+
+function resolveGeminiApiKey(auth) {
+	// Check env vars first, then auth.json
+	const envKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+	if (envKey) return envKey;
+	const entry = auth?.gemini || auth?.google;
+	if (entry?.key) return resolveConfigValue(entry.key);
 	return undefined;
 }
 
@@ -127,13 +138,20 @@ function pickProvider(argProvider, settings, auth) {
 	const forced = normalizeProvider(argProvider);
 	if (forced) return forced;
 
-	const fromSettings = normalizeProvider(settings?.defaultProvider);
-	if (fromSettings) return fromSettings;
+	// Prefer providers with web search grounding.
+	// Don't use defaultProvider from settings — that's for the main coding model (likely Bedrock)
+	// and most providers don't support web search.
+
+	// Gemini AI Studio: explicit API key
+	if (resolveGeminiApiKey(auth)) return "gemini";
 
 	if (auth?.["openai-codex"]) return "openai-codex";
 	if (auth?.anthropic) return "anthropic";
 
-	throw new Error("Could not determine provider. Pass --provider openai-codex|anthropic");
+	throw new Error(
+		"No web-search-capable provider found.\n" +
+		"Set GEMINI_API_KEY (free: https://aistudio.google.com/apikey) or pass --provider."
+	);
 }
 
 function decodeJwtAccountId(jwt) {
@@ -227,7 +245,11 @@ async function loadPiAi() {
 }
 
 function pickFastModel(provider, requestedModel, piAi) {
-	const models = typeof piAi.getModels === "function" ? piAi.getModels(provider) : [];
+	if (provider === "gemini") {
+		return { id: requestedModel || "gemini-2.5-flash" };
+	}
+
+	const models = typeof piAi?.getModels === "function" ? piAi.getModels(provider) : [];
 	if (!Array.isArray(models) || models.length === 0) {
 		if (requestedModel) return { id: requestedModel, baseUrl: undefined };
 		if (provider === "openai-codex") return { id: "gpt-5.1-codex-mini", baseUrl: "https://chatgpt.com/backend-api" };
@@ -494,6 +516,58 @@ async function runAnthropicSearch({ model, apiKey, query, purpose, timeoutMs }) 
 	return text;
 }
 
+async function runGeminiSearch({ model, apiKey, query, purpose, timeoutMs }) {
+	const body = {
+		contents: [{ parts: [{ text: buildUserPrompt(query, purpose) }] }],
+		system_instruction: { parts: [{ text: buildSystemPrompt() }] },
+		tools: [{ google_search: {} }],
+	};
+
+	if (!/^[\w.-]+$/.test(model)) {
+		throw new Error(`Invalid model name: ${model}`);
+	}
+	const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+	const signal = typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(timeoutMs) : undefined;
+
+	const res = await fetch(endpoint, {
+		method: "POST",
+		headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+		body: JSON.stringify(body),
+		signal,
+	});
+
+	const payload = await res.text();
+	if (!res.ok) {
+		throw new Error(`Gemini request failed (${res.status}): ${payload}`);
+	}
+
+	return parseGeminiResponse(payload);
+}
+
+function parseGeminiResponse(payload) {
+	let parsed;
+	try {
+		parsed = JSON.parse(payload);
+	} catch {
+		throw new Error("Gemini returned non-JSON response");
+	}
+
+	const candidates = parsed.candidates || [];
+	const text = candidates
+		.flatMap((c) => c.content?.parts || [])
+		.filter((p) => typeof p.text === "string")
+		.map((p) => p.text)
+		.join("\n\n")
+		.trim();
+
+	if (!text) {
+		const blockReason = candidates[0]?.finishReason || parsed.promptFeedback?.blockReason;
+		throw new Error(`Gemini returned no text content${blockReason ? ` (reason: ${blockReason})` : ""}`);
+	}
+
+	return text;
+}
+
 async function main() {
 	const args = parseArgs(process.argv.slice(2));
 	if (args.help || !args.query) {
@@ -508,11 +582,35 @@ async function main() {
 	const settings = readJson(settingsPath, {});
 
 	const provider = pickProvider(args.provider, settings, auth);
+
+	let text;
+	if (provider === "gemini") {
+		const apiKey = resolveGeminiApiKey(auth);
+		if (!apiKey) throw new Error("No Gemini API key. Set GEMINI_API_KEY or add gemini.key to auth.json.");
+		const model = pickFastModel(provider, args.model, null);
+		text = await runGeminiSearch({
+				model: model.id,
+				apiKey,
+				query: args.query,
+				purpose: args.purpose,
+				timeoutMs: args.timeoutMs,
+			});
+		if (args.json) {
+			console.log(JSON.stringify({ provider, model: model.id, query: args.query, purpose: args.purpose, result: text }, null, 2));
+		} else {
+			console.log(`Provider: ${provider}`);
+			console.log(`Model: ${model.id}`);
+			console.log("");
+			console.log(text);
+		}
+		return;
+	}
+
 	const piAi = await loadPiAi();
 	const model = pickFastModel(provider, args.model, piAi);
 	const { apiKey, accountId } = await resolveApiKey(provider, auth, authPath, piAi);
 
-	const text =
+	text =
 		provider === "openai-codex"
 			? await runCodexSearch({
 					model: model.id,

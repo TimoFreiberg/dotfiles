@@ -112,5 +112,6 @@ type -q zoxide && zoxide init fish | source
 alias pi='PI_CODING_AGENT_DIR=$XDG_CONFIG_HOME/pi/agent command pi'
 
 test -e $XDG_CONFIG_HOME/fish/fastly-config.fish && source $XDG_CONFIG_HOME/fish/fastly-config.fish
+test -e $XDG_CONFIG_HOME/fish/secrets.fish && source $XDG_CONFIG_HOME/fish/secrets.fish
 
 type -q direnv && direnv hook fish | source

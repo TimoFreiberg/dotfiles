@@ -28,10 +28,15 @@ node search.mjs "vite 7 breaking changes" --purpose "prepare migration checklist
 
 Optional flags:
 
-- `--provider openai-codex|anthropic`
+- `--provider gemini|openai-codex|anthropic`
 - `--model <model-id>`
 - `--timeout <ms>`
 - `--json`
+
+## Setup
+
+Set `GEMINI_API_KEY` (free key from https://aistudio.google.com/apikey) or add `{"gemini": {"key": "..."}}` to `auth.json`.
+Falls back to OpenAI Codex / Anthropic if configured in `auth.json`.
 
 ## Output expectations
 

@@ -3,3 +3,4 @@
 !/.todo
 .todo/.lock
 node_modules/
+config/fish/secrets.fish
