@@ -85,9 +85,16 @@ Example output:
 // Preferred model patterns for cheaper/faster extraction, in priority order.
 // Only models from the same provider as the session model are considered,
 // so we reuse the same auth config that's already working.
+//
+// NOTE (Bedrock): prefer `global.` prefixed model IDs — those are the
+// cross-region inference profiles that work for the current setup.
+// Update this if the Bedrock config changes.
 const CHEAPER_MODEL_PATTERNS: (string | RegExp)[] = [
+  /global\.anthropic\.claude-haiku/, // Bedrock Haiku (global)
+  /haiku/, // Haiku (other providers)
+  /global\.anthropic\.claude-sonnet-4-6/, // Bedrock Sonnet 4.6 (global)
+  /sonnet/, // Sonnet (other providers)
   "flash", // Gemini Flash
-  /haiku/, // Claude Haiku variants
 ];
 
 interface ModelCandidate {
