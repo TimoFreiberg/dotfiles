@@ -488,9 +488,7 @@ const REVIEW_PRESETS = [
 ] as const;
 
 // Map digit keys to preset indices for quick selection
-const DIGIT_KEYS = new Map(
-  REVIEW_PRESETS.map((_, i) => [String(i + 1), i]),
-);
+const DIGIT_KEYS = new Map(REVIEW_PRESETS.map((_, i) => [String(i + 1), i]));
 
 export default function reviewExtension(pi: ExtensionAPI) {
   pi.on("session_start", (_event, ctx) => {
@@ -562,7 +560,10 @@ export default function reviewExtension(pi: ExtensionAPI) {
           container.addChild(selectList);
           container.addChild(
             new Text(
-              theme.fg("dim", "Press 1–6 to select • enter to confirm • esc to go back"),
+              theme.fg(
+                "dim",
+                "Press 1–6 to select • enter to confirm • esc to go back",
+              ),
             ),
           );
           container.addChild(
@@ -924,7 +925,8 @@ export default function reviewExtension(pi: ExtensionAPI) {
     const hint = getUserFacingHint(target);
     const projectGuidelines = await loadProjectReviewGuidelines(ctx.cwd);
 
-    const instructions = projectGuidelines ?? await loadDefaultReviewGuidelines();
+    const instructions =
+      projectGuidelines ?? (await loadDefaultReviewGuidelines());
     const defaultPrompt = `${instructions}\n\n---\n\n${prompt}`;
 
     // Let the user edit the review instructions before sending
@@ -1263,9 +1265,9 @@ Instructions:
       endReviewInProgress = true;
       try {
         const choice = await ctx.ui.select("Finish review:", [
-          "Return only",
           "Return and fix findings",
           "Return and summarize",
+          "Return without a response",
         ]);
 
         if (choice === undefined) {
@@ -1273,7 +1275,7 @@ Instructions:
           return;
         }
 
-        if (choice === "Return only") {
+        if (choice === "Return without a response") {
           try {
             const result = await ctx.navigateTree(reviewOriginId, {
               summarize: false,
@@ -1296,7 +1298,7 @@ Instructions:
 
           clearReviewState(ctx);
           ctx.ui.notify(
-            "Review complete! Returned to original position.",
+            "Review complete! The review branch is still accessible via /tree.",
             "info",
           );
           return;
