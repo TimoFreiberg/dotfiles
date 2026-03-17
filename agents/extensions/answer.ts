@@ -82,13 +82,12 @@ Example output:
 
 // --- Model selection ---
 
-// Preferred model patterns, in priority order (cheapest/fastest first)
-const EXTRACTION_MODEL_PREFERENCES: (string | RegExp)[] = [
-  "claude-sonnet-4-6", // Anthropic API Sonnet 4.6
-  /sonnet-4-6/, // Bedrock / other Sonnet 4.6 variants
+// Preferred model patterns for cheaper/faster extraction, in priority order.
+// Only models from the same provider as the session model are considered,
+// so we reuse the same auth config that's already working.
+const CHEAPER_MODEL_PATTERNS: (string | RegExp)[] = [
   "flash", // Gemini Flash
   /haiku/, // Claude Haiku variants
-  /sonnet/, // Claude Sonnet variants (any provider)
 ];
 
 interface ModelCandidate {
@@ -96,6 +95,11 @@ interface ModelCandidate {
   apiKey: string;
 }
 
+/**
+ * Build candidate models for extraction. Strategy:
+ * 1. Try cheaper models from the SAME provider (reuses session auth)
+ * 2. Always fall back to the session's own model (known to work)
+ */
 async function getCandidateModels(
   currentModel: Model<Api>,
   modelRegistry: {
@@ -103,34 +107,37 @@ async function getCandidateModels(
     getApiKey: (model: Model<Api>) => Promise<string | undefined>;
   },
 ): Promise<ModelCandidate[]> {
+  const apiKey = await modelRegistry.getApiKey(currentModel);
+  if (!apiKey) {
+    // Session model has no resolvable key — nothing we can do
+    return [];
+  }
+
   const candidates: ModelCandidate[] = [];
   const seen = new Set<string>();
   const available = modelRegistry.getAvailable();
 
-  for (const pattern of EXTRACTION_MODEL_PREFERENCES) {
-    const match = available.find((m) =>
-      pattern instanceof RegExp
-        ? pattern.test(m.id.toLowerCase())
-        : m.id.toLowerCase().includes(pattern),
+  // Look for cheaper models from the same provider
+  for (const pattern of CHEAPER_MODEL_PATTERNS) {
+    const match = available.find(
+      (m) =>
+        m.provider === currentModel.provider &&
+        (pattern instanceof RegExp
+          ? pattern.test(m.id.toLowerCase())
+          : m.id.toLowerCase().includes(pattern)),
     );
     if (match) {
       const key = `${match.provider}/${match.id}`;
       if (seen.has(key)) continue;
-      const apiKey = await modelRegistry.getApiKey(match);
-      if (apiKey) {
-        candidates.push({ model: match, apiKey });
-        seen.add(key);
-      }
+      candidates.push({ model: match, apiKey });
+      seen.add(key);
     }
   }
 
-  // Always include current model as final fallback
+  // Always include the session model as the final (most reliable) fallback
   const currentKey = `${currentModel.provider}/${currentModel.id}`;
   if (!seen.has(currentKey)) {
-    const apiKey = await modelRegistry.getApiKey(currentModel);
-    if (apiKey) {
-      candidates.push({ model: currentModel, apiKey });
-    }
+    candidates.push({ model: currentModel, apiKey });
   }
 
   return candidates;
