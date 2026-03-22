@@ -340,9 +340,9 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // --- grep -----------------------------------------------------------
-  const builtinGrep = createGrepTool(cwd);
-  pi.registerTool({
+  // --- grep (disabled – not needed, default pi doesn't use it) --------
+  // const builtinGrep = createGrepTool(cwd);
+  /* pi.registerTool({
     ...builtinGrep,
     parameters: { ...builtinGrep.parameters },
     renderCall(args: any, theme: any, context: any) {
@@ -411,5 +411,5 @@ export default function (pi: ExtensionAPI) {
       );
       return new Container();
     },
-  });
+  }); */
 }
