@@ -698,33 +698,48 @@ const getEditableContent = (target: FileEntry): EditCheckResult => {
   return { allowed: true, content: buffer.toString("utf8") };
 };
 
+type ActionValue =
+  | "reveal"
+  | "quicklook"
+  | "open"
+  | "edit"
+  | "addToPrompt"
+  | "copyPath"
+  | "diff";
+
 const showActionSelector = async (
   ctx: ExtensionContext,
   options: { canQuickLook: boolean; canEdit: boolean; canDiff: boolean },
-): Promise<
-  "reveal" | "quicklook" | "open" | "edit" | "addToPrompt" | "diff" | null
-> => {
+): Promise<ActionValue | null> => {
   const actions: SelectItem[] = [
-    ...(options.canDiff ? [{ value: "diff", label: "Diff in VS Code" }] : []),
+    ...(options.canDiff ? [{ value: "diff", label: "Diff" }] : []),
     { value: "reveal", label: "Reveal in Finder" },
     { value: "open", label: "Open" },
     { value: "addToPrompt", label: "Add to prompt" },
+    { value: "copyPath", label: "Copy path" },
     ...(options.canQuickLook
-      ? [{ value: "quicklook", label: "Open in Quick Look" }]
+      ? [{ value: "quicklook", label: "Quick Look" }]
       : []),
     ...(options.canEdit ? [{ value: "edit", label: "Edit" }] : []),
   ];
 
-  return ctx.ui.custom<
-    "reveal" | "quicklook" | "open" | "edit" | "addToPrompt" | "diff" | null
-  >((tui, theme, _kb, done) => {
+  // Build digit key → index map
+  const digitKeys = new Map(actions.map((_, i) => [String(i + 1), i]));
+
+  // Number the labels
+  const numberedActions: SelectItem[] = actions.map((item, i) => ({
+    ...item,
+    label: `${i + 1}: ${item.label}`,
+  }));
+
+  return ctx.ui.custom<ActionValue | null>((tui, theme, _kb, done) => {
     const container = new Container();
     container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
     container.addChild(
       new Text(theme.fg("accent", theme.bold("Choose action"))),
     );
 
-    const selectList = new SelectList(actions, actions.length, {
+    const selectList = new SelectList(numberedActions, numberedActions.length, {
       selectedPrefix: (text) => theme.fg("accent", text),
       selectedText: (text) => theme.fg("accent", text),
       description: (text) => theme.fg("muted", text),
@@ -732,21 +747,19 @@ const showActionSelector = async (
       noMatch: (text) => theme.fg("warning", text),
     });
 
-    selectList.onSelect = (item) =>
-      done(
-        item.value as
-          | "reveal"
-          | "quicklook"
-          | "open"
-          | "edit"
-          | "addToPrompt"
-          | "diff",
-      );
+    selectList.onSelect = (item) => done(item.value as ActionValue);
     selectList.onCancel = () => done(null);
 
     container.addChild(selectList);
     container.addChild(
-      new Text(theme.fg("dim", "Press enter to confirm or esc to cancel")),
+      new Text(
+        theme.fg(
+          "dim",
+          "Press 1–" +
+            actions.length +
+            " to select • enter to confirm • esc to cancel",
+        ),
+      ),
     );
     container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
 
@@ -758,6 +771,11 @@ const showActionSelector = async (
         container.invalidate();
       },
       handleInput(data: string) {
+        const presetIndex = digitKeys.get(data);
+        if (presetIndex !== undefined) {
+          done(actions[presetIndex]!.value as ActionValue);
+          return;
+        }
         selectList.handleInput(data);
         tui.requestRender();
       },
@@ -970,6 +988,22 @@ const openDiff = async (
   }
 };
 
+const copyPathToClipboard = (
+  ctx: ExtensionContext,
+  target: FileEntry,
+): void => {
+  const pathToCopy = target.displayPath || target.resolvedPath;
+  const result = spawnSync("pbcopy", {
+    input: pathToCopy,
+    stdio: ["pipe", "ignore", "ignore"],
+  });
+  if (result.status !== 0) {
+    ctx.ui.notify("Failed to copy path to clipboard", "error");
+    return;
+  }
+  ctx.ui.notify(`Copied: ${pathToCopy}`, "info");
+};
+
 const addFileToPrompt = (ctx: ExtensionContext, target: FileEntry): void => {
   const mentionTarget = target.displayPath || target.resolvedPath;
   const mention = `@${mentionTarget}`;
@@ -1089,6 +1123,9 @@ const runFileBrowser = async (
         break;
       case "addToPrompt":
         addFileToPrompt(ctx, selected);
+        break;
+      case "copyPath":
+        copyPathToClipboard(ctx, selected);
         break;
       case "diff":
         await openDiff(pi, ctx, selected, gitRoot);
