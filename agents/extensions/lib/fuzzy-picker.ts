@@ -111,6 +111,10 @@ export async function showFuzzyPicker(
 
     let filteredItems = items;
     let selectList: SelectList | null = null;
+    let currentIndex = initialSelection
+      ? items.findIndex((item) => item.value === initialSelection)
+      : 0;
+    if (currentIndex < 0) currentIndex = 0;
 
     const updateList = () => {
       listContainer.clear();
@@ -128,12 +132,9 @@ export async function showFuzzyPicker(
         selectListTheme(theme),
       );
 
-      if (initialSelection) {
-        const index = filteredItems.findIndex(
-          (item) => item.value === initialSelection,
-        );
-        if (index >= 0) selectList.setSelectedIndex(index);
-      }
+      selectList.setSelectedIndex(
+        Math.min(currentIndex, filteredItems.length - 1),
+      );
 
       selectList.onSelect = (item) => done(item.value);
       selectList.onCancel = () => done(null);
@@ -142,6 +143,7 @@ export async function showFuzzyPicker(
 
     const applyFilter = () => {
       filteredItems = filterItems(items, searchInput.getValue());
+      currentIndex = 0;
       updateList();
     };
 
@@ -164,6 +166,11 @@ export async function showFuzzyPicker(
 
         if (isSelectKey(data)) {
           selectList?.handleInput(data);
+          const sel = selectList?.getSelectedItem();
+          if (sel) {
+            const idx = filteredItems.findIndex((i) => i.value === sel.value);
+            if (idx >= 0) currentIndex = idx;
+          }
           tui.requestRender();
           return;
         }
