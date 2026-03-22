@@ -117,6 +117,9 @@
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
   },
+  "enabledPlugins": {
+    "learning-opportunities@learning-opportunities": true
+  },
   "extraKnownMarketplaces": {
     "learning-opportunities": {
       "source": {
@@ -125,8 +128,5 @@
       }
     }
   },
-  "skipDangerousModePermissionPrompt": true,
-  "enabledPlugins": {
-    "learning-opportunities@learning-opportunities": true
-  }
+  "skipDangerousModePermissionPrompt": true
 }
