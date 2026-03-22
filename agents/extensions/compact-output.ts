@@ -18,7 +18,7 @@ import {
   formatSize,
   DEFAULT_MAX_BYTES,
 } from "@mariozechner/pi-coding-agent";
-import { Text } from "@mariozechner/pi-tui";
+import { Text, Container } from "@mariozechner/pi-tui";
 import { relative } from "path";
 
 // ── helpers ─────────────────────────────────────────────────────────
@@ -152,245 +152,230 @@ export default function (pi: ExtensionAPI) {
   // ls and find are left as built-in tools to avoid unnecessary
   // tool registrations (saves tokens in the tool schema).
 
-  // renderCall and renderResult are always called synchronously in sequence
-  // within the same ToolExecutionComponent.updateDisplay() call, so a simple
-  // closure variable is safe for passing args from renderCall to renderResult.
-  //
   // For the single-line collapsed view, renderResult stores a suffix string
-  // in the closure and returns null. The renderCall component is a lazy
-  // renderable that reads the suffix at paint time (after renderResult has set it).
+  // in context.state and returns an empty Container. The renderCall component
+  // is a lazy renderable that reads the suffix at paint time (after renderResult
+  // has set it).
 
   // --- read -----------------------------------------------------------
-  {
-    let resultSuffix = "";
-    let readArgs: any = null;
-    const builtinRead = createReadTool(cwd);
-    pi.registerTool({
-      ...builtinRead,
-      renderCall(args: any, theme: any) {
-        resultSuffix = "";
-        readArgs = args;
-        const rawPath = str(args?.file_path ?? args?.path);
-        const offset = args?.offset;
-        const limit = args?.limit;
+  const builtinRead = createReadTool(cwd);
+  pi.registerTool({
+    ...builtinRead,
+    renderCall(args: any, theme: any, context: any) {
+      context.state.resultSuffix = "";
+      const rawPath = str(args?.file_path ?? args?.path);
+      const offset = args?.offset;
+      const limit = args?.limit;
 
-        let pd = pathDisplay(rawPath, cwd, theme);
-        if (offset !== undefined || limit !== undefined) {
-          const s = offset ?? 1;
-          const e = limit !== undefined ? s + limit - 1 : "";
-          pd += theme.fg("warning", `:${s}${e ? `-${e}` : ""}`);
-        }
-        const prefix = `${theme.fg("toolTitle", theme.bold("read"))} ${pd}`;
-        return lazyLine(() => prefix + resultSuffix);
-      },
-      renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-        if (isPartial) {
-          resultSuffix = "";
-          return undefined;
-        }
-        const output = getTextOutput(result);
-        if (result.isError) {
-          resultSuffix = "";
-          return new Text(theme.fg("error", output), 0, 0);
-        }
-        if (!output) {
-          resultSuffix = "";
-          return undefined;
-        }
+      let pd = pathDisplay(rawPath, cwd, theme);
+      if (offset !== undefined || limit !== undefined) {
+        const s = offset ?? 1;
+        const e = limit !== undefined ? s + limit - 1 : "";
+        pd += theme.fg("warning", `:${s}${e ? `-${e}` : ""}`);
+      }
+      const prefix = `${theme.fg("toolTitle", theme.bold("read"))} ${pd}`;
+      const state = context.state;
+      return lazyLine(() => prefix + (state.resultSuffix || ""));
+    },
+    renderResult(result: any, { expanded, isPartial }: any, theme: any, context: any) {
+      if (isPartial) {
+        context.state.resultSuffix = "";
+        return new Container();
+      }
+      const output = getTextOutput(result);
+      if (result.isError) {
+        context.state.resultSuffix = "";
+        return new Text(theme.fg("error", output), 0, 0);
+      }
+      if (!output) {
+        context.state.resultSuffix = "";
+        return new Container();
+      }
 
-        const rawPath = str(readArgs?.file_path ?? readArgs?.path);
-        const warning = renderTruncationWarning(result, theme);
+      const rawPath = str(context.args?.file_path ?? context.args?.path);
+      const warning = renderTruncationWarning(result, theme);
 
-        if (expanded) {
-          resultSuffix = "";
-          let text = "\n\n" + buildStyledCode(output, rawPath, theme);
-          if (warning) text += "\n" + warning;
-          return new Text(text, 0, 0);
-        }
+      if (expanded) {
+        context.state.resultSuffix = "";
+        let text = "\n\n" + buildStyledCode(output, rawPath, theme);
+        if (warning) text += "\n" + warning;
+        return new Text(text, 0, 0);
+      }
 
-        // Collapsed: set suffix for the lazy header line, return no component
-        resultSuffix = expandSuffix(
-          countLines(output),
-          theme,
-          warning || undefined,
-        );
-        return undefined;
-      },
-    });
-  }
+      // Collapsed: set suffix for the lazy header line
+      context.state.resultSuffix = expandSuffix(
+        countLines(output),
+        theme,
+        warning || undefined,
+      );
+      return new Container();
+    },
+  });
 
   // --- write ----------------------------------------------------------
-  {
-    let resultSuffix = "";
-    let writeArgs: any = null;
-    const builtinWrite = createWriteTool(cwd);
-    pi.registerTool({
-      ...builtinWrite,
-      renderCall(args: any, theme: any) {
-        resultSuffix = "";
-        writeArgs = args;
-        const rawPath = str(args?.file_path ?? args?.path);
-        const pd = pathDisplay(rawPath, cwd, theme);
-        const prefix = `${theme.fg("toolTitle", theme.bold("write"))} ${pd}`;
-        return lazyLine(() => prefix + resultSuffix);
-      },
-      renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-        if (isPartial) {
-          resultSuffix = "";
-          return undefined;
-        }
-        if (result.isError) {
-          resultSuffix = "";
-          return new Text(theme.fg("error", getTextOutput(result)), 0, 0);
-        }
+  const builtinWrite = createWriteTool(cwd);
+  pi.registerTool({
+    ...builtinWrite,
+    renderCall(args: any, theme: any, context: any) {
+      context.state.resultSuffix = "";
+      const rawPath = str(args?.file_path ?? args?.path);
+      const pd = pathDisplay(rawPath, cwd, theme);
+      const prefix = `${theme.fg("toolTitle", theme.bold("write"))} ${pd}`;
+      const state = context.state;
+      return lazyLine(() => prefix + (state.resultSuffix || ""));
+    },
+    renderResult(result: any, { expanded, isPartial }: any, theme: any, context: any) {
+      if (isPartial) {
+        context.state.resultSuffix = "";
+        return new Container();
+      }
+      if (result.isError) {
+        context.state.resultSuffix = "";
+        return new Text(theme.fg("error", getTextOutput(result)), 0, 0);
+      }
 
-        const rawPath = str(writeArgs?.file_path ?? writeArgs?.path);
-        const fileContent = str(writeArgs?.content);
+      const rawPath = str(context.args?.file_path ?? context.args?.path);
+      const fileContent = str(context.args?.content);
 
-        if (!fileContent) {
-          resultSuffix = "";
-          const output = getTextOutput(result);
-          return output ? new Text(theme.fg("toolOutput", output), 0, 0) : null;
-        }
+      if (!fileContent) {
+        context.state.resultSuffix = "";
+        const output = getTextOutput(result);
+        return output ? new Text(theme.fg("toolOutput", output), 0, 0) : new Container();
+      }
 
-        if (expanded) {
-          resultSuffix = "";
-          return new Text(
-            "\n\n" + buildStyledCode(fileContent, rawPath, theme),
-            0,
-            0,
-          );
-        }
+      if (expanded) {
+        context.state.resultSuffix = "";
+        return new Text(
+          "\n\n" + buildStyledCode(fileContent, rawPath, theme),
+          0,
+          0,
+        );
+      }
 
-        resultSuffix = expandSuffix(countLines(fileContent), theme);
-        return undefined;
-      },
-    });
-  }
+      context.state.resultSuffix = expandSuffix(countLines(fileContent), theme);
+      return new Container();
+    },
+  });
 
   // --- bash -----------------------------------------------------------
-  {
-    let resultSuffix = "";
-    const builtinBash = createBashTool(cwd);
-    pi.registerTool({
-      ...builtinBash,
-      renderCall(args: any, theme: any) {
-        resultSuffix = "";
-        const raw = str(args?.command);
-        const command = raw ? stripCdPrefix(raw, cwd) : raw;
-        const timeout = args?.timeout;
-        const tsuf = timeout ? theme.fg("muted", ` (timeout ${timeout}s)`) : "";
-        const cd = command ? command : theme.fg("toolOutput", "...");
-        const prefix = theme.fg("toolTitle", theme.bold(`$ ${cd}`)) + tsuf;
-        return lazyLine(() => prefix + resultSuffix);
-      },
-      renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-        if (isPartial) {
-          resultSuffix = "";
-          return undefined;
-        }
-        const output = getTextOutput(result).trim();
-        if (!output) {
-          resultSuffix = "";
-          return undefined;
-        }
+  const builtinBash = createBashTool(cwd);
+  pi.registerTool({
+    ...builtinBash,
+    renderCall(args: any, theme: any, context: any) {
+      context.state.resultSuffix = "";
+      const raw = str(args?.command);
+      const command = raw ? stripCdPrefix(raw, cwd) : raw;
+      const timeout = args?.timeout;
+      const tsuf = timeout ? theme.fg("muted", ` (timeout ${timeout}s)`) : "";
+      const cd = command ? command : theme.fg("toolOutput", "...");
+      const prefix = theme.fg("toolTitle", theme.bold(`$ ${cd}`)) + tsuf;
+      const state = context.state;
+      return lazyLine(() => prefix + (state.resultSuffix || ""));
+    },
+    renderResult(result: any, { expanded, isPartial }: any, theme: any, context: any) {
+      if (isPartial) {
+        context.state.resultSuffix = "";
+        return new Container();
+      }
+      const output = getTextOutput(result).trim();
+      if (!output) {
+        context.state.resultSuffix = "";
+        return new Container();
+      }
 
-        if (expanded) {
-          resultSuffix = "";
-          const styled = output
-            .split("\n")
-            .map((l: string) => theme.fg("toolOutput", l))
-            .join("\n");
-          let text = `\n${styled}`;
-          const tr = result.details?.truncation;
-          const fp = result.details?.fullOutputPath;
-          if (tr?.truncated || fp) {
-            const w: string[] = [];
-            if (fp) w.push(`Full output: ${fp}`);
-            if (tr?.truncated) w.push("output truncated");
-            text += `\n${theme.fg("warning", `[${w.join(". ")}]`)}`;
-          }
-          return new Text(text, 0, 0);
-        }
-
-        // Collapsed: single-line suffix
-        let warningText: string | undefined;
+      if (expanded) {
+        context.state.resultSuffix = "";
+        const styled = output
+          .split("\n")
+          .map((l: string) => theme.fg("toolOutput", l))
+          .join("\n");
+        let text = `\n${styled}`;
         const tr = result.details?.truncation;
         const fp = result.details?.fullOutputPath;
         if (tr?.truncated || fp) {
           const w: string[] = [];
           if (fp) w.push(`Full output: ${fp}`);
           if (tr?.truncated) w.push("output truncated");
-          warningText = theme.fg("warning", `[${w.join(". ")}]`);
+          text += `\n${theme.fg("warning", `[${w.join(". ")}]`)}`;
         }
-        resultSuffix = expandSuffix(countLines(output), theme, warningText);
-        return undefined;
-      },
-    });
-  }
+        return new Text(text, 0, 0);
+      }
+
+      // Collapsed: single-line suffix
+      let warningText: string | undefined;
+      const tr = result.details?.truncation;
+      const fp = result.details?.fullOutputPath;
+      if (tr?.truncated || fp) {
+        const w: string[] = [];
+        if (fp) w.push(`Full output: ${fp}`);
+        if (tr?.truncated) w.push("output truncated");
+        warningText = theme.fg("warning", `[${w.join(". ")}]`);
+      }
+      context.state.resultSuffix = expandSuffix(countLines(output), theme, warningText);
+      return new Container();
+    },
+  });
 
   // --- grep -----------------------------------------------------------
-  {
-    let resultSuffix = "";
-    const builtinGrep = createGrepTool(cwd);
-    pi.registerTool({
-      ...builtinGrep,
-      renderCall(args: any, theme: any) {
-        resultSuffix = "";
-        const pattern = str(args?.pattern) || "...";
-        const rawPath = str(args?.path);
-        const glob = str(args?.glob);
+  const builtinGrep = createGrepTool(cwd);
+  pi.registerTool({
+    ...builtinGrep,
+    renderCall(args: any, theme: any, context: any) {
+      context.state.resultSuffix = "";
+      const pattern = str(args?.pattern) || "...";
+      const rawPath = str(args?.path);
+      const glob = str(args?.glob);
 
-        let detail = theme.fg("accent", pattern);
-        if (rawPath) detail += ` ${pathDisplay(rawPath, cwd, theme)}`;
-        if (glob) detail += theme.fg("muted", ` --glob ${glob}`);
-        if (args?.ignoreCase) detail += theme.fg("muted", " -i");
-        if (args?.literal) detail += theme.fg("muted", " --literal");
-        if (args?.context) detail += theme.fg("muted", ` -C${args.context}`);
-        if (args?.limit) detail += theme.fg("muted", ` --limit ${args.limit}`);
+      let detail = theme.fg("accent", pattern);
+      if (rawPath) detail += ` ${pathDisplay(rawPath, cwd, theme)}`;
+      if (glob) detail += theme.fg("muted", ` --glob ${glob}`);
+      if (args?.ignoreCase) detail += theme.fg("muted", " -i");
+      if (args?.literal) detail += theme.fg("muted", " --literal");
+      if (args?.context) detail += theme.fg("muted", ` -C${args.context}`);
+      if (args?.limit) detail += theme.fg("muted", ` --limit ${args.limit}`);
 
-        const prefix = `${theme.fg("toolTitle", theme.bold("grep"))} ${detail}`;
-        return lazyLine(() => prefix + resultSuffix);
-      },
-      renderResult(result: any, { expanded, isPartial }: any, theme: any) {
-        if (isPartial) {
-          resultSuffix = "";
-          return undefined;
-        }
-        const output = getTextOutput(result).trim();
-        if (!output) {
-          resultSuffix = "";
-          return undefined;
-        }
+      const prefix = `${theme.fg("toolTitle", theme.bold("grep"))} ${detail}`;
+      const state = context.state;
+      return lazyLine(() => prefix + (state.resultSuffix || ""));
+    },
+    renderResult(result: any, { expanded, isPartial }: any, theme: any, context: any) {
+      if (isPartial) {
+        context.state.resultSuffix = "";
+        return new Container();
+      }
+      const output = getTextOutput(result).trim();
+      if (!output) {
+        context.state.resultSuffix = "";
+        return new Container();
+      }
 
-        if (result.isError) {
-          resultSuffix = "";
-          return new Text(theme.fg("error", output), 0, 0);
-        }
+      if (result.isError) {
+        context.state.resultSuffix = "";
+        return new Text(theme.fg("error", output), 0, 0);
+      }
 
-        if (expanded) {
-          resultSuffix = "";
-          const styled = output
-            .split("\n")
-            .map((l: string) => theme.fg("toolOutput", l))
-            .join("\n");
-          return new Text(`\n${styled}`, 0, 0);
-        }
+      if (expanded) {
+        context.state.resultSuffix = "";
+        const styled = output
+          .split("\n")
+          .map((l: string) => theme.fg("toolOutput", l))
+          .join("\n");
+        return new Text(`\n${styled}`, 0, 0);
+      }
 
-        // Collapsed: single-line suffix
-        let warningText: string | undefined;
-        const details = result.details;
-        const notices: string[] = [];
-        if (details?.matchLimitReached)
-          notices.push(`${details.matchLimitReached} match limit`);
-        if (details?.truncation?.truncated) notices.push("output truncated");
-        if (details?.linesTruncated) notices.push("lines truncated");
-        if (notices.length > 0)
-          warningText = theme.fg("warning", `[${notices.join(". ")}]`);
+      // Collapsed: single-line suffix
+      let warningText: string | undefined;
+      const details = result.details;
+      const notices: string[] = [];
+      if (details?.matchLimitReached)
+        notices.push(`${details.matchLimitReached} match limit`);
+      if (details?.truncation?.truncated) notices.push("output truncated");
+      if (details?.linesTruncated) notices.push("lines truncated");
+      if (notices.length > 0)
+        warningText = theme.fg("warning", `[${notices.join(". ")}]`);
 
-        resultSuffix = expandSuffix(countLines(output), theme, warningText);
-        return undefined;
-      },
-    });
-  }
+      context.state.resultSuffix = expandSuffix(countLines(output), theme, warningText);
+      return new Container();
+    },
+  });
 }
