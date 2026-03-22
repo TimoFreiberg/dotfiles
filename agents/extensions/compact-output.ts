@@ -161,6 +161,7 @@ export default function (pi: ExtensionAPI) {
   const builtinRead = createReadTool(cwd);
   pi.registerTool({
     ...builtinRead,
+    parameters: { ...builtinRead.parameters },
     renderCall(args: any, theme: any, context: any) {
       context.state.resultSuffix = "";
       const rawPath = str(args?.file_path ?? args?.path);
@@ -177,7 +178,12 @@ export default function (pi: ExtensionAPI) {
       const state = context.state;
       return lazyLine(() => prefix + (state.resultSuffix || ""));
     },
-    renderResult(result: any, { expanded, isPartial }: any, theme: any, context: any) {
+    renderResult(
+      result: any,
+      { expanded, isPartial }: any,
+      theme: any,
+      context: any,
+    ) {
       if (isPartial) {
         context.state.resultSuffix = "";
         return new Container();
@@ -216,6 +222,7 @@ export default function (pi: ExtensionAPI) {
   const builtinWrite = createWriteTool(cwd);
   pi.registerTool({
     ...builtinWrite,
+    parameters: { ...builtinWrite.parameters },
     renderCall(args: any, theme: any, context: any) {
       context.state.resultSuffix = "";
       const rawPath = str(args?.file_path ?? args?.path);
@@ -224,7 +231,12 @@ export default function (pi: ExtensionAPI) {
       const state = context.state;
       return lazyLine(() => prefix + (state.resultSuffix || ""));
     },
-    renderResult(result: any, { expanded, isPartial }: any, theme: any, context: any) {
+    renderResult(
+      result: any,
+      { expanded, isPartial }: any,
+      theme: any,
+      context: any,
+    ) {
       if (isPartial) {
         context.state.resultSuffix = "";
         return new Container();
@@ -240,7 +252,9 @@ export default function (pi: ExtensionAPI) {
       if (!fileContent) {
         context.state.resultSuffix = "";
         const output = getTextOutput(result);
-        return output ? new Text(theme.fg("toolOutput", output), 0, 0) : new Container();
+        return output
+          ? new Text(theme.fg("toolOutput", output), 0, 0)
+          : new Container();
       }
 
       if (expanded) {
@@ -261,6 +275,7 @@ export default function (pi: ExtensionAPI) {
   const builtinBash = createBashTool(cwd);
   pi.registerTool({
     ...builtinBash,
+    parameters: { ...builtinBash.parameters },
     renderCall(args: any, theme: any, context: any) {
       context.state.resultSuffix = "";
       const raw = str(args?.command);
@@ -272,7 +287,12 @@ export default function (pi: ExtensionAPI) {
       const state = context.state;
       return lazyLine(() => prefix + (state.resultSuffix || ""));
     },
-    renderResult(result: any, { expanded, isPartial }: any, theme: any, context: any) {
+    renderResult(
+      result: any,
+      { expanded, isPartial }: any,
+      theme: any,
+      context: any,
+    ) {
       if (isPartial) {
         context.state.resultSuffix = "";
         return new Container();
@@ -311,7 +331,11 @@ export default function (pi: ExtensionAPI) {
         if (tr?.truncated) w.push("output truncated");
         warningText = theme.fg("warning", `[${w.join(". ")}]`);
       }
-      context.state.resultSuffix = expandSuffix(countLines(output), theme, warningText);
+      context.state.resultSuffix = expandSuffix(
+        countLines(output),
+        theme,
+        warningText,
+      );
       return new Container();
     },
   });
@@ -320,6 +344,7 @@ export default function (pi: ExtensionAPI) {
   const builtinGrep = createGrepTool(cwd);
   pi.registerTool({
     ...builtinGrep,
+    parameters: { ...builtinGrep.parameters },
     renderCall(args: any, theme: any, context: any) {
       context.state.resultSuffix = "";
       const pattern = str(args?.pattern) || "...";
@@ -338,7 +363,12 @@ export default function (pi: ExtensionAPI) {
       const state = context.state;
       return lazyLine(() => prefix + (state.resultSuffix || ""));
     },
-    renderResult(result: any, { expanded, isPartial }: any, theme: any, context: any) {
+    renderResult(
+      result: any,
+      { expanded, isPartial }: any,
+      theme: any,
+      context: any,
+    ) {
       if (isPartial) {
         context.state.resultSuffix = "";
         return new Container();
@@ -374,7 +404,11 @@ export default function (pi: ExtensionAPI) {
       if (notices.length > 0)
         warningText = theme.fg("warning", `[${notices.join(". ")}]`);
 
-      context.state.resultSuffix = expandSuffix(countLines(output), theme, warningText);
+      context.state.resultSuffix = expandSuffix(
+        countLines(output),
+        theme,
+        warningText,
+      );
       return new Container();
     },
   });
