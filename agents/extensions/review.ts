@@ -46,6 +46,7 @@ import {
 } from "@mariozechner/pi-tui";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import { showFuzzyMultiPicker, listRepoFiles } from "./lib/fuzzy-picker.ts";
 
 const REVIEW_STATE_TYPE = "review-session";
 let endReviewInProgress = false;
@@ -800,6 +801,18 @@ export default function reviewExtension(pi: ExtensionAPI) {
   async function showFolderInput(
     ctx: ExtensionContext,
   ): Promise<ReviewTarget | null> {
+    const repoFiles = await listRepoFiles(pi, ctx.cwd);
+
+    if (repoFiles.length > 0) {
+      const paths = await showFuzzyMultiPicker(ctx, {
+        title: "Select folders/files to review",
+        items: repoFiles,
+      });
+      if (paths.length === 0) return null;
+      return { type: "folder", paths };
+    }
+
+    // Fallback for non-git directories: use the text editor
     const result = await ctx.ui.editor(
       "Enter folders/files to review (space-separated or one per line):",
       ".",
