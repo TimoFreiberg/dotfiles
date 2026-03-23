@@ -9,6 +9,7 @@ Critically evaluate tasks before implementing. Bias toward raising concerns earl
 Prefer `jj` over `git`.
 Prefer `rg` over `grep`. Note: CLI args are not compatible (e.g. `grep -r` ≠ `rg -r`), so don't just swap the binary name.
 **NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message` — bare `jj squash` opens an editor and hangs.
+If anything goes wrong with jj, **read the jj skill file** before attempting to fix it.
 
 ## Version Control Workflow
 

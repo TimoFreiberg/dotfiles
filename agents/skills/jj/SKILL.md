@@ -50,6 +50,14 @@ See [reference.md](reference.md) for advanced commands (rewriting history, confl
 |---|---|
 | `jj file untrack <paths>` | Stop tracking paths in the working copy. Paths must already be in `.gitignore`. Useful when files were accidentally committed before being ignored. |
 
+## Undoing Operations
+
+If a command puts the wrong changes into the wrong commit (e.g. squash into the wrong parent), **don't try to manually fix the commits** — revert the operation instead:
+
+1. Check the commit log: `jj log`
+2. Check the operation log: `jj op log`
+3. Revert the bad operation: `jj op revert <op_id>` (the op ID is shown in `jj op log`)
+
 ## Bookmarks
 
 | Command | Purpose |
