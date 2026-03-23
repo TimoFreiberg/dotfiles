@@ -8,5 +8,5 @@ The `config` directory is symlinked to `~/.config`
 
 ## Version Control
 
-After committing new `jj` changes, the current change should be empty (`jj commit` prints "Working copy ... now at: ... (empty) (no description set)").
+After committing, the current change should be empty.
 **Update the main bookmark** at the end: `jj bookmark set main -r @-`
