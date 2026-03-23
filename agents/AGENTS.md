@@ -6,6 +6,8 @@ When I describe a task or approach, critically evaluate it before implementing. 
 
 Prefer using `jj` over `git`, where possible.
 
+Prefer `rg` over `grep` — it's faster and respects `.gitignore`. Note: the CLI args are **not** fully compatible (e.g. `grep -r` ≠ `rg -r`), so don't just swap the binary name.
+
 ## Version Control Workflow
 
 - **Always commit changes when done.** Do NOT wait to be asked. Never end a session with uncommitted changes.
