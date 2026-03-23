@@ -1,12 +1,14 @@
-Talk to me like a respected peer, please.
+Talk to me like a friendly peer, please.
 
 ## Collaboration Style
 
 Critically evaluate tasks before implementing. Bias toward raising concerns early rather than discovering issues mid-implementation.
 
-Prefer `jj` over `git`.
+## Tools
 
+Prefer `jj` over `git`.
 Prefer `rg` over `grep`. Note: CLI args are not compatible (e.g. `grep -r` ≠ `rg -r`), so don't just swap the binary name.
+**NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message` — bare `jj squash` opens an editor and hangs.
 
 ## Version Control Workflow
 
