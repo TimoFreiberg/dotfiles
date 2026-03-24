@@ -10,7 +10,6 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import {
   createReadTool,
   createBashTool,
-  createGrepTool,
   createWriteTool,
   keyHint,
   highlightCode,
@@ -92,7 +91,7 @@ function expandSuffix(
 ): string {
   let s =
     theme.fg("muted", ` — ${lineCount} line${lineCount !== 1 ? "s" : ""} (`) +
-    keyHint("expandTools", "to expand") +
+    keyHint("app.tools.expand", "to expand") +
     theme.fg("muted", ")");
   if (warningText) s += " " + warningText;
   return s;
@@ -126,6 +125,7 @@ function renderTruncationWarning(result: any, theme: any): string {
 function lazyLine(buildLine: () => string): any {
   const inner = new Text("", 0, 0);
   return {
+    _cachedPrefix: undefined as string | undefined,
     render(width: number): string[] {
       inner.setText(buildLine());
       return inner.render(width);
@@ -136,17 +136,25 @@ function lazyLine(buildLine: () => string): any {
   };
 }
 
+/**
+ * Return context.lastComponent if it's a lazyLine with a matching prefix,
+ * otherwise create a fresh one. The lazy closure captures `state` by
+ * reference so suffix updates from renderResult are picked up at paint time.
+ */
+function cachedLazyLine(prefix: string, state: any, context: any): any {
+  const existing = context.lastComponent;
+  if (existing && existing._cachedPrefix === prefix) {
+    return existing;
+  }
+  const comp = lazyLine(() => prefix + (state.resultSuffix || ""));
+  comp._cachedPrefix = prefix;
+  return comp;
+}
+
 // ── extension ───────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
   const cwd = process.cwd();
-
-  // Strip redundant `cd <cwd> && ` prefix from bash commands (display + execution).
-  pi.on("tool_call", async (event) => {
-    if (event.toolName === "bash" && typeof event.input?.command === "string") {
-      event.input.command = stripCdPrefix(event.input.command, cwd);
-    }
-  });
 
   // Only override read, write, bash, and grep with compact rendering.
   // ls and find are left as built-in tools to avoid unnecessary
@@ -161,6 +169,7 @@ export default function (pi: ExtensionAPI) {
   const builtinRead = createReadTool(cwd);
   pi.registerTool({
     ...builtinRead,
+    // Spread breaks reference equality so tool-execution.ts picks up our custom renderers
     parameters: { ...builtinRead.parameters },
     renderCall(args: any, theme: any, context: any) {
       context.state.resultSuffix = "";
@@ -175,8 +184,7 @@ export default function (pi: ExtensionAPI) {
         pd += theme.fg("warning", `:${s}${e ? `-${e}` : ""}`);
       }
       const prefix = `${theme.fg("toolTitle", theme.bold("read"))} ${pd}`;
-      const state = context.state;
-      return lazyLine(() => prefix + (state.resultSuffix || ""));
+      return cachedLazyLine(prefix, context.state, context);
     },
     renderResult(
       result: any,
@@ -222,14 +230,14 @@ export default function (pi: ExtensionAPI) {
   const builtinWrite = createWriteTool(cwd);
   pi.registerTool({
     ...builtinWrite,
+    // Spread breaks reference equality so tool-execution.ts picks up our custom renderers
     parameters: { ...builtinWrite.parameters },
     renderCall(args: any, theme: any, context: any) {
       context.state.resultSuffix = "";
       const rawPath = str(args?.file_path ?? args?.path);
       const pd = pathDisplay(rawPath, cwd, theme);
       const prefix = `${theme.fg("toolTitle", theme.bold("write"))} ${pd}`;
-      const state = context.state;
-      return lazyLine(() => prefix + (state.resultSuffix || ""));
+      return cachedLazyLine(prefix, context.state, context);
     },
     renderResult(
       result: any,
@@ -275,6 +283,7 @@ export default function (pi: ExtensionAPI) {
   const builtinBash = createBashTool(cwd);
   pi.registerTool({
     ...builtinBash,
+    // Spread breaks reference equality so tool-execution.ts picks up our custom renderers
     parameters: { ...builtinBash.parameters },
     renderCall(args: any, theme: any, context: any) {
       context.state.resultSuffix = "";
@@ -284,8 +293,7 @@ export default function (pi: ExtensionAPI) {
       const tsuf = timeout ? theme.fg("muted", ` (timeout ${timeout}s)`) : "";
       const cd = command ? command : theme.fg("toolOutput", "...");
       const prefix = theme.fg("toolTitle", theme.bold(`$ ${cd}`)) + tsuf;
-      const state = context.state;
-      return lazyLine(() => prefix + (state.resultSuffix || ""));
+      return cachedLazyLine(prefix, context.state, context);
     },
     renderResult(
       result: any,
