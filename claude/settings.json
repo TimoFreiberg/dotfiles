@@ -131,5 +131,7 @@
       }
     }
   },
-  "skipDangerousModePermissionPrompt": true
+  "skipDangerousModePermissionPrompt": true,
+  "autoDreamEnabled": true,
+  "autoMemoryDirectory": "~/dotfiles/claude/memories"
 }
