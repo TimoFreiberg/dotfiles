@@ -25,6 +25,10 @@ import sys
 DEFAULTS = {
     "*.rs": "rustfmt {file}",
     "*.py": "uv format -q {file}",
+    "*.ts": "npx prettier --write {file}",
+    "*.tsx": "npx prettier --write {file}",
+    "*.js": "npx prettier --write {file}",
+    "*.jsx": "npx prettier --write {file}",
 }
 
 
