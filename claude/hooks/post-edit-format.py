@@ -73,6 +73,10 @@ def main():
     if input_data.get("tool_name") not in ("Write", "Edit"):
         sys.exit(0)
 
+    tool_response = input_data.get("tool_response", {})
+    if not tool_response.get("success", True):
+        sys.exit(0)
+
     file_path = input_data.get("tool_input", {}).get("file_path", "")
     if not file_path or not os.path.isfile(file_path):
         sys.exit(0)
