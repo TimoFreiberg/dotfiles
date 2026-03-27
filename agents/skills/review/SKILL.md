@@ -55,7 +55,7 @@ For PR reviews, also fetch `gh pr view <n> --comments` for reviewer discussion c
 
 ## Step 3: Perform the review
 
-Load the review guidelines (see Step 4), then review the diff inline. Read source files as needed for context. For PR reviews, also consider the PR title, description, and comment thread for intent.
+Conduct this review adversarially. Load the review guidelines (see Step 4), then review the diff inline. Read source files as needed for context. For PR reviews, also consider the PR title, description, and comment thread for intent.
 
 ## Step 4: Review guidelines
 
