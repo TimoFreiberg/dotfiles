@@ -24,7 +24,7 @@ import sys
 
 DEFAULTS = {
     "*.rs": "rustfmt {file}",
-    "*.py": "uv format -q {file}",
+    "*.py": "uvx ruff format -q {file}",
     "*.ts": "npx prettier --write {file}",
     "*.tsx": "npx prettier --write {file}",
     "*.js": "npx prettier --write {file}",
@@ -94,11 +94,17 @@ def main():
                 preview = "\n".join(lines[:5])
                 if len(lines) > 5:
                     preview += f"\n... ({len(lines) - 5} more lines)"
-                print(f"Formatter failed on {os.path.basename(file_path)}:\n{preview}")
+                print(
+                    f"Formatter failed on {os.path.basename(file_path)}:\n{preview}",
+                    file=sys.stderr,
+                )
+                sys.exit(2)
     except subprocess.TimeoutExpired:
-        print(f"Formatter timed out on {os.path.basename(file_path)}")
+        print(f"Formatter timed out on {os.path.basename(file_path)}", file=sys.stderr)
+        sys.exit(2)
     except FileNotFoundError:
-        print(f"Formatter not found: {cmd.split()[0]}")
+        print(f"Formatter not found: {cmd.split()[0]}", file=sys.stderr)
+        sys.exit(2)
 
     sys.exit(0)
 
