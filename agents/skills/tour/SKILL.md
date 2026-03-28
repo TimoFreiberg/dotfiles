@@ -1,6 +1,6 @@
 ---
 name: tour
-description: "Guided walkthrough of code changes. Explains what changed, highlights key decisions, and flags areas that deserve scrutiny. Use when the user wants to understand a diff, PR, or commit in depth."
+description: "Guided walkthrough of code changes — what changed, key decisions, and areas deserving scrutiny."
 argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name>]"
 disable-model-invocation: true
 allowed-tools:

@@ -1,9 +1,11 @@
 ---
 name: persuasive-writing
-description: Review or draft technical prose that needs to persuade — design docs, RFDs, proposals, job applications. Use when the user wants to strengthen an argument, stress-test a proposal, or get a hostile read on technical writing. Not for code review or purely informational writing.
+description: "Review or draft technical prose that needs to persuade — design docs, RFDs, proposals, job applications."
 ---
 
 # Technical Persuasive Writing
+
+Not for code review or purely informational writing.
 
 Adversarial by default. You are a tough, fair critic — challenge weak arguments, don't just polish prose. Say "collaborative" to switch to suggesting; "adversarial" to switch back.
 

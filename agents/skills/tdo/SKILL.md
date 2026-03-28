@@ -1,6 +1,6 @@
 ---
 name: tdo
-description: "Manage TODOs with the tdo CLI. Handles natural-language requests like 'create a todo for that' or 'mark that done'."
+description: "Manage TODOs with the tdo CLI. Handles natural-language requests."
 argument-hint: "[add <title> [--body TEXT] | list | show <query> | done <query> | reopen <query> | edit <query> | delete <query> | assign <query> [name] | unassign <query> | refine <query>]"
 ---
 

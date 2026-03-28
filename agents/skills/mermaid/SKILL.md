@@ -1,6 +1,6 @@
 ---
 name: mermaid
-description: "Must read guide on creating/editing mermaid charts with validation tools"
+description: "Create and validate Mermaid diagrams. Parses with the mermaid JS library — no browser needed."
 ---
 
 # Mermaid Skill

@@ -1,6 +1,6 @@
 ---
 name: prometheus
-description: "Query Prometheus/Thanos metrics via the HTTP API. Use for investigating production metrics, checking host status, validating alerts, or any PromQL query against observability infrastructure."
+description: "Query Prometheus/Thanos metrics via the HTTP API. Supports mTLS and PromQL."
 ---
 
 # Prometheus

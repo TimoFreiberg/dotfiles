@@ -1,6 +1,6 @@
 ---
 name: native-web-search
-description: "Trigger native web search. Use when you need quick internet research with concise summaries and full source URLs."
+description: "Quick internet research via a web-search-enabled model. Returns summaries with source URLs."
 ---
 
 # Native Web Search

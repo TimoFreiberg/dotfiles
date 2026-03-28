@@ -1,6 +1,6 @@
 ---
 name: check-todos
-description: "Check for open obligations related to the current task: unresolved PR review comments, self-announced follow-ups, and linked Jira issue status."
+description: "Check for open obligations on a PR: unresolved comments, self-announced follow-ups, Jira status."
 argument-hint: "[pr <number>]"
 allowed-tools:
   - Bash(gh *)

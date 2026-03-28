@@ -1,6 +1,6 @@
 ---
 name: dev-review-loop
-description: "Orchestrates a dev→review→fix loop using Claude Code subagents. Spawns a dev agent to build something, then iterates code review and fixes until the code passes or findings are rejected. Use when asked to run a review loop, multi-agent development, or iterative code improvement."
+description: "Orchestrate a dev→review→fix loop using subagents. Iterates until review passes or findings are rejected."
 ---
 
 # Dev Review Loop

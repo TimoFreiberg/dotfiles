@@ -1,6 +1,6 @@
 ---
 name: summarize
-description: "Fetch a URL or convert a local file (PDF/DOCX/HTML/etc.) into Markdown using `uvx markitdown`, optionally it can summarize"
+description: "Convert a URL or local file (PDF/DOCX/HTML/etc.) to Markdown, optionally with a summary."
 ---
 
 Turn “things” (URLs, PDFs, Word docs, PowerPoints, HTML pages, text files, etc.) into **Markdown** so they can be inspected/quoted/processed like normal text.
