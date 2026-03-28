@@ -1,6 +1,6 @@
 ---
 name: mermaid
-description: "Create and validate Mermaid diagrams. Parses with the mermaid JS library — no browser needed."
+description: "Create/validate Mermaid diagrams."
 ---
 
 # Mermaid Skill

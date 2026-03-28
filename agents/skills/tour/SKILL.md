@@ -1,6 +1,6 @@
 ---
 name: tour
-description: "Guided walkthrough of code changes — what changed, key decisions, and areas deserving scrutiny."
+description: "Guided walkthrough of code changes."
 argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name>]"
 disable-model-invocation: true
 allowed-tools:
