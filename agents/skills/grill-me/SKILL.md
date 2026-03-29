@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: "Stress-test a plan or design through relentless interviewing — walk the decision tree, resolve branches, then take a fresh look for blind spots."
+description: "Relentlessly interview the user about a plan or design."
 ---
 
 # Grill Me
