@@ -76,8 +76,6 @@ Include the following in every subagent prompt.
 
 Note whether each finding is in newly added or pre-existing code. Non-critical findings in pre-existing code are informational.
 
-**Common vulnerability classes** — flag even if surrounding code has the same issues: memory safety (use-after-free, double-free, uninitialized reads, buffer overflows, unsound `unsafe`, lifetime issues); integer issues (overflow/truncation on cast, unchecked arithmetic, off-by-one); untrusted input (unvalidated input → shell commands, file paths, format strings, serialization boundaries — prefer escaping over sanitization); concurrency (data races, missing synchronization, lock ordering, TOCTOU); resource leaks (unclosed handles, missing cleanup on error paths, unbounded allocations).
-
 **Priorities** — tag each finding: [P0] blocking, [P1] urgent, [P2] normal, [P3] low.
 
 **Format** — number findings with the axis prefix (C1, D1, S1, T1, …). For each: priority tag, file path with line number, one-paragraph explanation, code snippets under 3 lines. Matter-of-fact tone. Don't stop at the first finding — list every qualifying issue. Ignore trivial style issues unless they obscure meaning.
@@ -86,7 +84,7 @@ Note whether each finding is in newly added or pre-existing code. Non-critical f
 
 Focus exclusively on correctness and security:
 - Logic bugs, off-by-one errors, incorrect control flow
-- All vulnerability classes from the shared guidelines (memory safety, integer issues, untrusted input, concurrency, resource leaks)
+- Vulnerability classes (flag even if surrounding code has the same issues): memory safety (use-after-free, double-free, uninitialized reads, buffer overflows, unsound `unsafe`, lifetime issues); integer issues (overflow/truncation on cast, unchecked arithmetic, off-by-one); untrusted input (unvalidated input → shell commands, file paths, format strings, serialization boundaries — prefer escaping over sanitization); concurrency (data races, missing synchronization, lock ordering, TOCTOU); resource leaks (unclosed handles, missing cleanup on error paths, unbounded allocations)
 - Error handling: unchecked errors, wrong error codes, logging-and-continue
 - Fail-fast violations, silent degradation
 - Incorrect assumptions about inputs, state, or ordering
