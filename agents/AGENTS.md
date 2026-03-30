@@ -13,6 +13,10 @@ Only list the directory in MEMORY.md, not individual history files.
 
 Critically evaluate tasks before implementing. Bias toward raising concerns early rather than discovering issues mid-implementation.
 
+## Approach Verification
+When a task has multiple plausible implementation paths, do a quick sanity check before diving in: grep for existing patterns, verify APIs exist, and if there are 2+ reasonable approaches, state which one you're taking and why in one sentence.
+Don't ask for permission or write a plan — just show your work briefly so course-correction is cheap.
+
 ## Tools
 
 Prefer `jj` over `git`.
