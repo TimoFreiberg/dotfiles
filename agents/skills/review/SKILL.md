@@ -122,6 +122,8 @@ Focus exclusively on design and structure:
 - Layering / dependency direction: lower-level modules importing higher-level ones, circular dependencies, utilities reaching into application-specific code
 - Visibility / exposure: internal helpers, types, or constants that are unnecessarily public, leaking implementation details
 - In languages with expressive type systems (Rust, TypeScript, etc.): prefer types that enforce invariants over runtime checks — parse, don't validate
+- Line-level readability: overly clever expressions (nested ternaries, long chains, dense comprehensions), functions too long or doing too many things, AI-generated verbosity where idiomatic code would be shorter
+- Architectural legibility: can a reader follow the flow and predict what comes next? Surprising behavior should be surfaced through comments and eye-catching names, not hidden in generic abstractions
 
 Ignore correctness bugs and documentation — other agents cover those.
 
