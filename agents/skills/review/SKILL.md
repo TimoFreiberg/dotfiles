@@ -135,6 +135,9 @@ Only review test code added or modified in the diff. Focus exclusively on test c
 - Tests that pass for the wrong reason: e.g., testing an error path that never triggers, or a condition that's always true
 - Insufficient assertions: test sets up a scenario but doesn't verify the interesting part
 - Flaky patterns: time-dependent checks, order-dependent assertions on unordered data, missing cleanup
+- Not exercising production code: test helpers or fixtures that reimplement the logic under test, so the test passes without the real code path ever running
+- Wrong test layer: unit tests with heavy mocking that only test implementation details — prefer fast, readable integration tests when they cover the same behavior without brittleness
+- Overly specific assertions: testing exact error messages, snapshot-matching large objects when only a few fields matter, asserting internal state instead of observable behavior — correct today but brittle
 
 If the diff contains no test code, return "No test code in this diff — no findings."
 
