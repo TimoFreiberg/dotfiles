@@ -57,20 +57,30 @@ Use jj commands if VCS is "jj", git commands otherwise.
 
 For PR reviews, also fetch `gh pr view <n> --comments` for reviewer discussion context.
 
-## Step 3: Load review guidelines
-
-Check if `REVIEW_GUIDELINES.md` exists in the project root. If so, read it. Otherwise read [review-guidelines.md](../../references/review-guidelines.md). These guidelines are used in the subagent prompts below.
-
-## Step 4: Launch parallel review agents
+## Step 3: Launch parallel review agents
 
 Launch **three** Agent subagents in parallel (all in a single message so they run concurrently). Each agent receives:
 - The full diff from Step 2
 - Any PR context (title, description, comments) if this is a PR review
 - Any custom instructions from `$ARGUMENTS`
 - Its axis-specific guidelines (below)
-- The project's review guidelines from Step 3
+- The shared review guidelines (below)
 
-Each agent should use Read, Glob, and Grep to examine source files for context beyond the diff. Instruct each agent to return findings in the format specified in the review guidelines, but with axis-prefixed numbering.
+Each agent should use Read, Glob, and Grep to examine source files for context beyond the diff.
+
+### Shared review guidelines
+
+Include the following in every subagent prompt.
+
+**What to flag** — issues that: (a) meaningfully impact correctness, performance, security, or maintainability; (b) are discrete and actionable; (c) don't demand rigor inconsistent with the rest of the codebase; (d) the author would likely fix if aware; (e) have provable impact on other parts of the code.
+
+Note whether each finding is in newly added or pre-existing code. Non-critical findings in pre-existing code are informational.
+
+**Common vulnerability classes** — flag even if surrounding code has the same issues: memory safety (use-after-free, double-free, uninitialized reads, buffer overflows, unsound `unsafe`, lifetime issues); integer issues (overflow/truncation on cast, unchecked arithmetic, off-by-one); untrusted input (unvalidated input → shell commands, file paths, format strings, serialization boundaries — prefer escaping over sanitization); concurrency (data races, missing synchronization, lock ordering, TOCTOU); resource leaks (unclosed handles, missing cleanup on error paths, unbounded allocations).
+
+**Priorities** — tag each finding: [P0] blocking, [P1] urgent, [P2] normal, [P3] low.
+
+**Format** — number findings with the axis prefix (C1, D1, S1, …). For each: priority tag, file path with line number, one-paragraph explanation, code snippets under 3 lines. Matter-of-fact tone. Don't stop at the first finding — list every qualifying issue. Ignore trivial style issues unless they obscure meaning.
 
 ### Agent 1: Correctness & Security (prefix: C)
 
@@ -88,8 +98,8 @@ Number findings C1, C2, C3, …
 ### Agent 2: Documentation & Comments (prefix: D)
 
 Focus exclusively on:
-- Comments that restate what the code visibly does (review guideline #6)
-- Comments that are inaccurate, outdated, or misleading relative to the code (review guideline #7)
+- Comments that restate what the code visibly does
+- Comments that are inaccurate, outdated, or misleading relative to the code
 - Doc comments / module-level docs that make claims not supported by the code — cross-reference every factual claim against actual code paths
 - Missing documentation where the *why* is non-obvious
 - Commit message / PR description accuracy relative to what the diff actually does
@@ -101,8 +111,8 @@ Number findings D1, D2, D3, …
 ### Agent 3: Design & Structure (prefix: S)
 
 Focus exclusively on:
-- New dependencies: are they justified? (review guideline #1)
-- Unnecessary abstractions, wrappers, or indirection (review guideline #2)
+- New dependencies: are they justified?
+- Unnecessary abstractions, wrappers, or indirection
 - API design: are interfaces clear, minimal, hard to misuse?
 - Code organization: does the change belong where it's placed?
 - Naming: do names accurately reflect behavior?
@@ -112,13 +122,13 @@ Ignore correctness bugs and documentation — other agents cover those.
 
 Number findings S1, S2, S3, …
 
-## Step 5: Collate and present findings
+## Step 4: Collate and present findings
 
 Once all three agents return:
 
 1. Collect all findings, keeping the axis prefix (C/D/S numbering).
 2. Sort by priority (P0 first, then P1, P2, P3).
 3. Deduplicate: if two agents flagged the same issue from different angles, merge into one finding, keep the higher priority, and note both perspectives.
-4. Present the combined review in a single response using the standard findings format from the review guidelines.
-5. End with the overall verdict: "correct" or "needs attention" based on whether any P0/P1 findings exist across all axes.
+4. Present the combined review in a single response.
+5. End with per-axis verdicts and an overall verdict. For each axis, state "correct" or "needs attention" based on whether it has P0/P1 findings. The overall verdict is "needs attention" if any axis is, "correct" otherwise.
 
