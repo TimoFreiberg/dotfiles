@@ -8,4 +8,5 @@
 !statusline.sh
 !skills
 !hooks/
+!hooks/**
 !references/

@@ -111,6 +111,12 @@
             "type": "command",
             "command": "python3 ~/.claude/hooks/post-edit-format.py",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "if": "Write(~/dotfiles/claude/memories/**)|Edit(~/dotfiles/claude/memories/**)",
+            "command": "bash ~/.claude/hooks/auto-commit-memories.sh",
+            "timeout": 30
           }
         ]
       }
