@@ -14,6 +14,10 @@ allowed-tools:
   - Bash(gh pr diff *)
   - Bash(gh pr view *)
   - Bash(jj *)
+  - Agent
+  - Read
+  - Glob
+  - Grep
 ---
 
 ## Repo state
@@ -53,11 +57,68 @@ Use jj commands if VCS is "jj", git commands otherwise.
 
 For PR reviews, also fetch `gh pr view <n> --comments` for reviewer discussion context.
 
-## Step 3: Perform the review
+## Step 3: Load review guidelines
 
-Conduct this review adversarially. Load the review guidelines (see Step 4), then review the diff inline. Read source files as needed for context. For PR reviews, also consider the PR title, description, and comment thread for intent.
+Check if `REVIEW_GUIDELINES.md` exists in the project root. If so, read it. Otherwise read [review-guidelines.md](../../references/review-guidelines.md). These guidelines are used in the subagent prompts below.
 
-## Step 4: Review guidelines
+## Step 4: Launch parallel review agents
 
-Check if `REVIEW_GUIDELINES.md` exists in the project root. If so, use it. Otherwise read [review-guidelines.md](../../references/review-guidelines.md) and use those guidelines.
+Launch **three** Agent subagents in parallel (all in a single message so they run concurrently). Each agent receives:
+- The full diff from Step 2
+- Any PR context (title, description, comments) if this is a PR review
+- Any custom instructions from `$ARGUMENTS`
+- Its axis-specific guidelines (below)
+- The project's review guidelines from Step 3
+
+Each agent should use Read, Glob, and Grep to examine source files for context beyond the diff. Instruct each agent to return findings in the format specified in the review guidelines, but with axis-prefixed numbering.
+
+### Agent 1: Correctness & Security (prefix: C)
+
+Focus exclusively on:
+- Logic bugs, off-by-one errors, incorrect control flow
+- All vulnerability classes from the review guidelines (memory safety, integer issues, untrusted input, concurrency, resource leaks)
+- Error handling: unchecked errors, wrong error codes, logging-and-continue
+- Fail-fast violations, silent degradation
+- Incorrect assumptions about inputs, state, or ordering
+
+Ignore documentation, naming, and structural concerns — other agents cover those.
+
+Number findings C1, C2, C3, …
+
+### Agent 2: Documentation & Comments (prefix: D)
+
+Focus exclusively on:
+- Comments that restate what the code visibly does (review guideline #6)
+- Comments that are inaccurate, outdated, or misleading relative to the code (review guideline #7)
+- Doc comments / module-level docs that make claims not supported by the code — cross-reference every factual claim against actual code paths
+- Missing documentation where the *why* is non-obvious
+- Commit message / PR description accuracy relative to what the diff actually does
+
+Read the full source files (not just the diff) to verify doc claims. Ignore correctness and structural concerns — other agents cover those.
+
+Number findings D1, D2, D3, …
+
+### Agent 3: Design & Structure (prefix: S)
+
+Focus exclusively on:
+- New dependencies: are they justified? (review guideline #1)
+- Unnecessary abstractions, wrappers, or indirection (review guideline #2)
+- API design: are interfaces clear, minimal, hard to misuse?
+- Code organization: does the change belong where it's placed?
+- Naming: do names accurately reflect behavior?
+- Consistency with surrounding code patterns
+
+Ignore correctness bugs and documentation — other agents cover those.
+
+Number findings S1, S2, S3, …
+
+## Step 5: Collate and present findings
+
+Once all three agents return:
+
+1. Collect all findings, keeping the axis prefix (C/D/S numbering).
+2. Sort by priority (P0 first, then P1, P2, P3).
+3. Deduplicate: if two agents flagged the same issue from different angles, merge into one finding, keep the higher priority, and note both perspectives.
+4. Present the combined review in a single response using the standard findings format from the review guidelines.
+5. End with the overall verdict: "correct" or "needs attention" based on whether any P0/P1 findings exist across all axes.
 
