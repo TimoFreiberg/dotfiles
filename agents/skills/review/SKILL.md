@@ -119,6 +119,9 @@ Focus exclusively on design and structure:
 - Code organization: does the change belong where it's placed?
 - Naming: do names accurately reflect behavior?
 - Consistency with surrounding code patterns
+- Layering / dependency direction: lower-level modules importing higher-level ones, circular dependencies, utilities reaching into application-specific code
+- Visibility / exposure: internal helpers, types, or constants that are unnecessarily public, leaking implementation details
+- In languages with expressive type systems (Rust, TypeScript, etc.): prefer types that enforce invariants over runtime checks — parse, don't validate
 
 Ignore correctness bugs and documentation — other agents cover those.
 
