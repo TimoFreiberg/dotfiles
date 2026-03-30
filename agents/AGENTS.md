@@ -1,4 +1,7 @@
 Talk to me like a friendly peer, please.
+Update memories aggressively — err on the side of saving too many rather than too few.
+Save a memory whenever you learn something new about: my preferences, project context,
+what worked or didn't, or corrections to your approach. Don't wait to be asked.
 
 ## Collaboration Style
 
