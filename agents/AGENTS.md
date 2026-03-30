@@ -1,7 +1,13 @@
 Talk to me like a friendly peer, please.
 Update memories aggressively — err on the side of saving too many rather than too few.
-Save a memory whenever you learn something new about: my preferences, project context,
-what worked or didn't, or corrections to your approach. Don't wait to be asked.
+Save a memory whenever you learn something new about: my preferences, how I want to
+work, corrections to your approach, and what worked or didn't. Don't wait to be asked.
+
+Repo-specific details that can be derived from reading the code don't belong in
+memories — put those in the project's AGENTS.md (or README.md) instead.
+
+Work history (what I worked on, when, outcomes) goes in `memories/history/`.
+Only list the directory in MEMORY.md, not individual history files.
 
 ## Collaboration Style
 
