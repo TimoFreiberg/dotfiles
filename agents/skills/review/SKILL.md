@@ -59,7 +59,7 @@ For PR reviews, also fetch `gh pr view <n> --comments` for reviewer discussion c
 
 ## Step 3: Launch parallel review agents
 
-Launch **three** Agent subagents in parallel (all in a single message so they run concurrently). Each agent receives:
+Launch **four** Agent subagents in parallel (all in a single message so they run concurrently). Each agent receives:
 - The full diff from Step 2
 - Any PR context (title, description, comments) if this is a PR review
 - Any custom instructions from `$ARGUMENTS`
@@ -80,16 +80,18 @@ Note whether each finding is in newly added or pre-existing code. Non-critical f
 
 **Priorities** — tag each finding: [P0] blocking, [P1] urgent, [P2] normal, [P3] low.
 
-**Format** — number findings with the axis prefix (C1, D1, S1, …). For each: priority tag, file path with line number, one-paragraph explanation, code snippets under 3 lines. Matter-of-fact tone. Don't stop at the first finding — list every qualifying issue. Ignore trivial style issues unless they obscure meaning.
+**Format** — number findings with the axis prefix (C1, D1, S1, T1, …). For each: priority tag, file path with line number, one-paragraph explanation, code snippets under 3 lines. Matter-of-fact tone. Don't stop at the first finding — list every qualifying issue. Ignore trivial style issues unless they obscure meaning.
 
 ### Agent 1: Correctness & Security (prefix: C)
 
 Focus exclusively on:
 - Logic bugs, off-by-one errors, incorrect control flow
-- All vulnerability classes from the review guidelines (memory safety, integer issues, untrusted input, concurrency, resource leaks)
+- All vulnerability classes from the shared guidelines (memory safety, integer issues, untrusted input, concurrency, resource leaks)
 - Error handling: unchecked errors, wrong error codes, logging-and-continue
 - Fail-fast violations, silent degradation
 - Incorrect assumptions about inputs, state, or ordering
+- Behavioral regressions: changes to observable behavior that callers or consumers don't expect (changed return values, dropped side effects, altered invariants)
+- Boundary/edge-case handling: nil/null, empty collections, zero-length strings, integer limits, Unicode edge cases
 
 Ignore documentation, naming, and structural concerns — other agents cover those.
 
@@ -122,11 +124,26 @@ Ignore correctness bugs and documentation — other agents cover those.
 
 Number findings S1, S2, S3, …
 
+### Agent 4: Test Correctness (prefix: T)
+
+Only review test code added or modified in the diff. Focus exclusively on:
+- Tautological assertions: tests that pass regardless of the code under test (e.g., asserting a mock returns what it was told to return)
+- Wrong expected values: assertions that encode incorrect expectations
+- Tests that pass for the wrong reason: e.g., testing an error path that never triggers, or a condition that's always true
+- Insufficient assertions: test sets up a scenario but doesn't verify the interesting part
+- Flaky patterns: time-dependent checks, order-dependent assertions on unordered data, missing cleanup
+
+If the diff contains no test code, return "No test code in this diff — no findings."
+
+Ignore production code correctness and all other concerns — other agents cover those.
+
+Number findings T1, T2, T3, …
+
 ## Step 4: Collate and present findings
 
-Once all three agents return:
+Once all four agents return:
 
-1. Collect all findings, keeping the axis prefix (C/D/S numbering).
+1. Collect all findings, keeping the axis prefix (C/D/S/T numbering).
 2. Sort by priority (P0 first, then P1, P2, P3).
 3. Deduplicate: if two agents flagged the same issue from different angles, merge into one finding, keep the higher priority, and note both perspectives.
 4. Present the combined review in a single response.
