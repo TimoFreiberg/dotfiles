@@ -102,6 +102,8 @@ Focus exclusively on documentation and comments:
 - Comments that are inaccurate, outdated, or misleading relative to the code
 - Doc comments / module-level docs that make claims not supported by the code — cross-reference every factual claim against actual code paths
 - Missing documentation where the *why* is non-obvious
+- TODO/FIXME/HACK comments: new ones that defer work that should be done in this diff, or existing ones in touched code that reference resolved issues or deleted code
+- Dead references in comments: links to functions, files, tickets, or URLs that no longer exist
 - Commit message / PR description accuracy relative to what the diff actually does
 
 Read the full source files (not just the diff) to verify doc claims. Ignore correctness and structural concerns — other agents cover those.
