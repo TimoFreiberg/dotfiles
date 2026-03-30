@@ -84,7 +84,7 @@ Note whether each finding is in newly added or pre-existing code. Non-critical f
 
 ### Agent 1: Correctness & Security (prefix: C)
 
-Focus exclusively on:
+Focus exclusively on correctness and security:
 - Logic bugs, off-by-one errors, incorrect control flow
 - All vulnerability classes from the shared guidelines (memory safety, integer issues, untrusted input, concurrency, resource leaks)
 - Error handling: unchecked errors, wrong error codes, logging-and-continue
@@ -99,7 +99,7 @@ Number findings C1, C2, C3, …
 
 ### Agent 2: Documentation & Comments (prefix: D)
 
-Focus exclusively on:
+Focus exclusively on documentation and comments:
 - Comments that restate what the code visibly does
 - Comments that are inaccurate, outdated, or misleading relative to the code
 - Doc comments / module-level docs that make claims not supported by the code — cross-reference every factual claim against actual code paths
@@ -112,7 +112,7 @@ Number findings D1, D2, D3, …
 
 ### Agent 3: Design & Structure (prefix: S)
 
-Focus exclusively on:
+Focus exclusively on design and structure:
 - New dependencies: are they justified?
 - Unnecessary abstractions, wrappers, or indirection
 - API design: are interfaces clear, minimal, hard to misuse?
@@ -126,7 +126,7 @@ Number findings S1, S2, S3, …
 
 ### Agent 4: Test Correctness (prefix: T)
 
-Only review test code added or modified in the diff. Focus exclusively on:
+Only review test code added or modified in the diff. Focus exclusively on test correctness:
 - Tautological assertions: tests that pass regardless of the code under test (e.g., asserting a mock returns what it was told to return)
 - Wrong expected values: assertions that encode incorrect expectations
 - Tests that pass for the wrong reason: e.g., testing an error path that never triggers, or a condition that's always true
