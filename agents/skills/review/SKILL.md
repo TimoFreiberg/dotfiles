@@ -72,6 +72,8 @@ Each agent should use Read, Glob, and Grep to examine source files for context b
 
 Include the following in every subagent prompt.
 
+Conduct this review adversarially.
+
 **What to flag** — issues that: (a) meaningfully impact correctness, performance, security, or maintainability; (b) are discrete and actionable; (c) don't demand rigor inconsistent with the rest of the codebase; (d) the author would likely fix if aware; (e) have provable impact on other parts of the code.
 
 Note whether each finding is in newly added or pre-existing code. Non-critical findings in pre-existing code are informational.
