@@ -7,6 +7,7 @@
 | `jj squash -r <rev> --use-destination-message` | Squash `<rev>` into its parent, keeping parent's message |
 | `jj squash --from <a> --into <b> -m "msg"` | Move changes from one revision into another |
 | `jj split -r <rev>` | Interactively split a revision into two |
+| `jj split -r <rev> <paths...>` | Non-interactive split: matching files go in the first commit, the rest in the second. Repeat to split into >2 commits. For intra-file splits, use `jj new`/`jj restore --from <rev> <paths>`/`jj commit` to reconstruct commits manually. |
 | `jj edit <rev>` | Set working copy to an existing change for editing |
 | `jj abandon <rev>` | Discard a change entirely |
 | `jj new <a> <b>` | Create a merge change with multiple parents |
