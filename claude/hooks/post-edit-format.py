@@ -23,7 +23,7 @@ import subprocess
 import sys
 
 DEFAULTS = {
-    "*.rs": "rustfmt {file}",
+    "*.rs": "rustfmt --edition 2024 {file}",
     "*.py": "uvx ruff format -q {file}",
     "*.ts": "npx prettier --write {file}",
     "*.tsx": "npx prettier --write {file}",
