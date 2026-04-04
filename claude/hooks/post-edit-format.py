@@ -19,6 +19,7 @@ Formatter failures are reported but never block edits.
 import fnmatch
 import json
 import os
+import shlex
 import subprocess
 import sys
 
@@ -86,7 +87,7 @@ def main():
     if not command:
         sys.exit(0)
 
-    cmd = command.replace("{file}", file_path)
+    cmd = command.replace("{file}", shlex.quote(file_path))
     try:
         result = subprocess.run(
             cmd, shell=True, capture_output=True, text=True, timeout=30
