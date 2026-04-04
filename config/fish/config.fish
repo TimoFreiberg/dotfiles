@@ -27,16 +27,6 @@ if status is-interactive
     abbr --add --global cal 'cal -3 -w -m'
     abbr --add --global g git
     abbr --add --global l1 ls-1A
-    abbr --add --global pm pacman
-    abbr --add --global sc systemctl
-    abbr --add --global scu 'systemctl --user'
-    abbr --add --global scX 'sudo systemctl start'
-    abbr --add --global scr 'sudo systemctl restart'
-    abbr --add --global scx 'sudo systemctl stop'
-    abbr --add --global spr 'sudo pacman -Rs'
-    abbr --add --global sps 'sudo pacman -S'
-    abbr --add --global ssc 'sudo systemctl'
-    abbr --add --global syu 'nice paru -Syu --devel --upgrademenu'
     abbr --add --global rsup 'rustup update; cargo sweep --installed -r ~/code'
     abbr --add --global vimup 'nvim +PlugClean +PlugInstall +PlugUpdate'
     abbr --add --global tp trash
@@ -44,11 +34,8 @@ if status is-interactive
     abbr --add --global v vim
     abbr --add --global c cargo
     abbr --add --global tn tmux-new
-    abbr --add --global xb xsel -b
     abbr --add --global zi 'z -i'
     abbr --add --global cl 'claude --dangerously-skip-permissions'
-    abbr --add --global wlp 'wl-paste'
-    abbr --add --global wlc 'wl-copy'
 
     # git aliases
     abbr --add --global gl 'git log'
