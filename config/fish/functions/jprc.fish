@@ -14,7 +14,7 @@ function jprc --description "Create a GitHub PR from a jj revision"
         return 0
     end
 
-    set -l rev (_flag_revision; or echo '@-')
+    set -l rev (set -q _flag_revision; and echo $_flag_revision; or echo '@-')
     set -l base
 
     # --- Determine base branch ---
