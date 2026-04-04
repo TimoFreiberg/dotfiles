@@ -3,7 +3,7 @@ require'nvim-treesitter.configs'.setup {
   ensure_installed = { "lua", "rust" },
 
   -- Install parsers synchronously (only applied to `ensure_installed`)
-  sync_install = true,
+  sync_install = false,
 
   -- List of parsers to ignore installing (for "all")
   ignore_install = { },
