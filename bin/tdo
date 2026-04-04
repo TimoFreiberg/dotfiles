@@ -4,7 +4,9 @@ set -e
 REPO="TimoFreiberg/tdo"
 BIN_DIR="${HOME}/.local/bin"
 BIN="${BIN_DIR}/tdo"
-STAMP="${BIN_DIR}/.tdo-checked"
+CACHE_DIR="${HOME}/.cache/tdo"
+mkdir -p "${CACHE_DIR}"
+STAMP="${CACHE_DIR}/.tdo-checked"
 MAX_AGE=86400  # 1 day in seconds
 
 # Detect platform
@@ -52,6 +54,28 @@ needs_update_check() {
     [ "${age}" -ge "${MAX_AGE}" ]
 }
 
+UPDATE_FLAG="${CACHE_DIR}/.tdo-update-available"
+
+check_for_update_bg() {
+    # Run the network check in the background; write a flag file if update needed
+    (
+        if command -v gh >/dev/null 2>&1; then
+            remote_tag=$(gh release view --repo "${REPO}" --json tagName -q .tagName 2>/dev/null) || exit 0
+        else
+            remote_tag=$(curl -fsSL -o /dev/null -w '%{redirect_url}' "https://github.com/${REPO}/releases/latest" 2>/dev/null \
+                | sed 's|.*/tag/||') || exit 0
+        fi
+        local_tag=""
+        if [ -f "${BIN}" ]; then
+            local_tag=$("${BIN}" --version 2>/dev/null | awk '{print "v"$NF}') || true
+        fi
+        touch "${STAMP}"
+        if [ -n "${remote_tag}" ] && [ "${remote_tag}" != "${local_tag}" ]; then
+            echo "${remote_tag}" > "${UPDATE_FLAG}"
+        fi
+    ) &
+}
+
 check_for_update() {
     if command -v gh >/dev/null 2>&1; then
         remote_tag=$(gh release view --repo "${REPO}" --json tagName -q .tagName 2>/dev/null) || return
@@ -85,9 +109,24 @@ if [ ! -f "${BIN}" ]; then
     download
 fi
 
-# Background update check if stamp is stale
+# Kick off background check if stamp is stale
+UPDATE_PID=""
 if needs_update_check; then
-    check_for_update &
+    check_for_update_bg
+    UPDATE_PID=$!
 fi
 
-exec "${BIN}" "$@"
+# Run tdo, then check for pending updates
+"${BIN}" "$@" || rc=$?
+rc=${rc:-0}
+
+if [ -n "${UPDATE_PID}" ]; then
+    wait "${UPDATE_PID}" 2>/dev/null || true
+fi
+
+if [ -f "${UPDATE_FLAG}" ]; then
+    remote_tag=$(cat "${UPDATE_FLAG}")
+    echo "tdo ${remote_tag} available — run 'tdo --update' to install" >&2
+fi
+
+exit "${rc}"
