@@ -15,6 +15,9 @@ function backup_dotfile
 end
 
 function symlink_dotfile
+    if test -L $HOMEDIR/$argv
+        return
+    end
     ln -s $DOTFILEDIR/$argv $HOMEDIR/$argv
 end
 
@@ -28,7 +31,7 @@ backup_dotfile .profile
 symlink_dotfile .profile
 
 backup_dotfile .config
-ln -s $DOTFILEDIR/config $HOMEDIR/.config
+symlink_dotfile .config
 
 backup_dotfile .gitconfig
 echo "[user]
@@ -42,7 +45,7 @@ echo "[user]
 echo "Add name and email to ~/.gitconfig"
 
 backup_dotfile .claude
-ln -s $DOTFILEDIR/claude $HOMEDIR/.claude
+symlink_dotfile .claude
 
 # mac only
 if test (uname) = "Darwin"
