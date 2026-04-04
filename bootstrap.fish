@@ -45,7 +45,7 @@ backup_dotfile .claude
 ln -s $DOTFILEDIR/claude $HOMEDIR/.claude
 
 # mac only
-if test uname = "Darwin"
+if test (uname) = "Darwin"
   defaults write com.apple.dock autohide-delay -float 0 && defaults write com.apple.dock autohide-time-modifier -float 0.4 && killall Dock
   defaults write com.apple.Preview ApplePersistenceIgnoreState YES
 end
