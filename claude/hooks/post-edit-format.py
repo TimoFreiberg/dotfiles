@@ -26,10 +26,10 @@ import sys
 DEFAULTS = {
     "*.rs": "rustfmt --edition 2024 {file}",
     "*.py": "uvx ruff format -q {file}",
-    "*.ts": "npx prettier --write {file}",
-    "*.tsx": "npx prettier --write {file}",
-    "*.js": "npx prettier --write {file}",
-    "*.jsx": "npx prettier --write {file}",
+    "*.ts": "bunx prettier --write {file}",
+    "*.tsx": "bunx prettier --write {file}",
+    "*.js": "bunx prettier --write {file}",
+    "*.jsx": "bunx prettier --write {file}",
 }
 
 
