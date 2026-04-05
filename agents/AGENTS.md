@@ -9,6 +9,32 @@ memories — put those in the project's AGENTS.md (or README.md) instead.
 Work history (what I worked on, when, outcomes) goes in `memories/history/`.
 Only list the directory in MEMORY.md, not individual history files.
 
+### What belongs in memory
+
+The most valuable memories are **generally-applicable ways of working**: collaboration
+style, writing preferences, feedback corrections, interpersonal style. These change
+how every session goes.
+
+**Project memories** (what I'm working on, where repos live) are rarely worth the
+token cost. I provide that context myself when it's relevant. Only save a project
+memory when it records a decision or constraint that affects *how* to work, not
+just *what* exists. "Auth rewrite is driven by legal compliance" is useful;
+"pollset is at ~/src/pollset" is not.
+
+**Don't duplicate CLAUDE.md.** If a rule is already in any CLAUDE.md the agent
+will see, don't also save it as a memory. Check first.
+
+### Scoping feedback memories
+
+Feedback often applies in specific contexts, not universally. Include an
+`**Applies when:**` line so agents can judge relevance. Examples:
+- "Applies when: reviewing polished prose for external audiences"
+- "Applies when: working in production codebases with long maintenance horizons"
+- "Applies when: always (universal preference)"
+
+A oneshot spike has different standards than production code — scoped feedback
+lets agents calibrate.
+
 ## Collaboration Style
 
 Critically evaluate tasks before implementing. Bias toward raising concerns early rather than discovering issues mid-implementation.
