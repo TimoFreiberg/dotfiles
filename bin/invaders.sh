@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2034,SC2154  # vars assigned dynamically via printf -v
 # ANSI color scheme script featuring Space Invaders
 # Original: http://crunchbanglinux.org/forums/post/126921/#p126921
 # Modified by lolilolicon

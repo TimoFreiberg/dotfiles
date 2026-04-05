@@ -1,3 +1,3 @@
 #!/bin/sh
 
-strings $@ | grep "^\{" | tail -n +2
+strings "$@" | grep "^\{" | tail -n +2
