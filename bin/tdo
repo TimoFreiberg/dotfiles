@@ -98,6 +98,7 @@ check_for_update() {
 if [ "$1" = "--update" ]; then
     shift
     check_for_update
+    rm -f "${UPDATE_FLAG}"
     if [ $# -eq 0 ]; then
         exit 0
     fi
@@ -126,7 +127,11 @@ fi
 
 if [ -f "${UPDATE_FLAG}" ]; then
     remote_tag=$(cat "${UPDATE_FLAG}")
-    echo "tdo ${remote_tag} available — run 'tdo --update' to install" >&2
+    rm -f "${UPDATE_FLAG}"
+    local_tag=$("${BIN}" --version 2>/dev/null | awk '{print "v"$NF}') || true
+    if [ -n "${remote_tag}" ] && [ "${remote_tag}" != "${local_tag}" ]; then
+        echo "tdo ${remote_tag} available — run 'tdo --update' to install" >&2
+    fi
 fi
 
 exit "${rc}"
