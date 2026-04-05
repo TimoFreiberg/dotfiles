@@ -13,8 +13,8 @@ case "$file_path" in
   *) exit 0 ;;
 esac
 
-# Resolve the real directory (memories/ is a symlink) and go to repo root
-MEMORIES_DIR="$(readlink -f "$HOME/dotfiles/claude/memories")"
+# Resolve the real directory from the edited file and go to repo root
+MEMORIES_DIR="$(dirname "$(readlink -f "$file_path")")"
 cd "$MEMORIES_DIR/.." || exit 0
 
 # Bail if not a jj repo
