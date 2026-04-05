@@ -1,6 +1,6 @@
 ---
 name: tour
-description: "Guided walkthrough of code changes."
+description: "Build a mental model of code changes — guided reading order, conceptual grouping, and context."
 argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name> | <path>...]"
 disable-model-invocation: true
 allowed-tools:
@@ -58,60 +58,78 @@ Use jj commands if VCS is "jj", git commands otherwise.
 
 For PR tours, also fetch the PR title/description and reviewer comments for context.
 
+## Step 2.5: Calibrate depth to diff size
+
+Count the number of changed lines (additions + deletions) in the diff.
+
+| Size | Changed lines | Format |
+|---|---|---|
+| **Small** | < 30 | One short paragraph: what changed and why. No sections, no headers. Done. |
+| **Medium** | 30–200 | Overview + reading order + walkthrough (Parts 1–3). Include Part 4 only if something genuinely warrants it. |
+| **Large** | > 200 | Full structure (Parts 1–4). |
+
+For small diffs, skip directly to output after writing the paragraph — do not continue to Step 3.
+
 ## Step 3: Build the tour
 
-Read source files as needed for context around changes. Then present the tour in this structure:
+Read source files as needed for context around changes — not just the diff lines, but enough surrounding code to understand the "before" state and how changed pieces connect.
 
-### Part 1: Overview (always show)
+### Part 1: Overview
 
 A 2-4 sentence summary of what this changeset does and why. State the goal, not just the mechanics.
 
-### Part 2: File-by-file walkthrough
+For large diffs, also include a **conceptual map**: which components/subsystems are involved, how they relate, and what the "before" state looked like. This is the mental model the reader needs before diving into details. A short list or a sentence per component is fine — don't over-produce.
 
-For each changed file (or logical group of related files), provide:
+### Part 2: Reading order
 
-1. **What changed**: One-line summary of the modification.
-2. **Why it matters**: How this fits into the overall goal. Skip for trivial changes (imports, formatting).
-3. **Key details**: Call out specific lines/patterns worth understanding — new APIs, algorithm choices, data flow changes, configuration changes. Reference specific line numbers.
+An ordered list telling the reader exactly where to start and where to go next. Each entry is a `file:line` reference with a one-line note on what they'll find there.
 
-Order files by narrative flow (entry points first, then dependencies), not alphabetically.
+Example:
+> 1. **server.rs:45** `handle_request()` — new entry point, start here
+> 2. **validation.rs:12** `validate()` — called from handle_request, contains the core logic change
+> 3. **types.rs:8** `RequestBody` — new struct both of the above depend on
 
-### Part 3: Decisions and tradeoffs
+Group by concept, not by file. If a single concept spans three files, those three entries are adjacent. If one file has two unrelated changes, they appear in different groups.
 
-List notable design decisions visible in the diff:
-- Why was approach X chosen over alternatives?
+For medium diffs this can be short (3-5 entries). For large diffs, use labeled groups:
+
+> **Auth flow:**
+> 1. ...
+> 2. ...
+>
+> **Database migration:**
+> 3. ...
+
+### Part 3: Walkthrough
+
+Organized by concept (matching the reading order groups), not per-file. For each concept:
+
+1. **What changed**: One-line summary.
+2. **Why**: How this fits into the overall goal. Skip for trivial changes (imports, formatting).
+3. **Key details**: Specific lines worth understanding — new APIs, algorithm choices, data flow changes, subtle behavior. Reference `file:line`.
+
+For simple/medium diffs where concepts and files are 1:1, per-file is fine — don't force artificial grouping.
+
+### Part 4: Decisions and open questions (optional)
+
+Include this section only when there's something genuinely worth calling out. Combine two perspectives:
+
+**Decisions and tradeoffs** visible in the diff:
+- Why approach X over alternatives?
 - What tradeoffs were made? (performance vs readability, duplication vs abstraction, etc.)
-- Are there implicit assumptions?
+- Implicit assumptions the reader should know about?
 
-Only include this section if there are genuine decisions to highlight. Don't fabricate tradeoffs.
-
-### Part 4: Areas deserving scrutiny
-
-Flag specific areas that a reviewer should look at carefully:
-- Complex logic that's easy to get wrong
-- Security-sensitive code (input handling, auth, crypto, shell commands)
-- Error handling gaps or unusual control flow
-- Subtle behavioral changes that might not be obvious from the diff
-- Missing test coverage for new logic
-- Potential edge cases
-
-For each area, reference the specific file and line range, and explain *what* to look for.
-
-**Do NOT turn this into a code review.** The goal is to direct attention, not to judge. Use language like "worth verifying that..." or "this assumes..." rather than "this is wrong."
-
-### Part 5: Questions for the author
-
-If the diff leaves open questions that would help a reviewer understand intent, list them. Examples:
+**Open questions** the diff leaves unanswered:
 - "Is the fallback on line 42 intentional, or a placeholder?"
 - "Should this new endpoint have rate limiting?"
 
-Skip this section if no genuine questions arise.
+Skip the entire section if nothing warrants it. Don't fabricate tradeoffs or invent questions.
 
 ## Presentation style
 
-- Use a conversational but direct tone — like a knowledgeable colleague walking you through their PR.
-- Reference specific files and line numbers throughout.
-- Use code snippets (under 5 lines each) only when they clarify something the prose can't.
+- Conversational but direct — like a colleague walking you through code at your desk.
+- Reference specific `file:line` throughout. The reader should be able to follow along in their editor.
+- Use code snippets (under 5 lines each) only when they clarify something prose can't.
 - Bold key terms and file names for scannability.
 - Don't repeat information across sections — each section adds new perspective.
-- Keep the total tour concise. A 50-line diff doesn't need a 500-line tour.
+- Scale output to input: a 50-line diff gets a few paragraphs, not a 500-line tour.
