@@ -1,7 +1,7 @@
 ---
 name: tour
 description: "Guided walkthrough of code changes."
-argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name>]"
+argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name> | <path>...]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(git diff *)
@@ -36,8 +36,11 @@ allowed-tools:
 | `pr <number-or-url>` | Tour that GitHub PR |
 | `branch <name>` | Tour changes against that base branch |
 | `file <path>` | Tour only that file's changes |
+| `<path>...` | If argument matches an existing file or directory, treat as `file <path>`. Multiple paths OK. |
 
 When empty, use AskUserQuestion. Show smart options based on repo state (hide "uncommitted" if clean, etc.).
+
+**Path detection**: If the argument doesn't match any keyword (`uncommitted`, `commit`, `pr`, `branch`, `file`), check if it's a valid file or directory path. If so, tour changes scoped to those paths. For directories, include all changed files under that tree.
 
 When the user picks "commit", show recent commits and ask which. For "PR", ask for the number. For "branch", show branches and ask which.
 
@@ -51,7 +54,7 @@ Use jj commands if VCS is "jj", git commands otherwise.
 | commit | `git show <hash>` | `jj diff --git -r <change-id>` |
 | pr | `gh pr diff <n>` + `gh pr view <n>` + `gh pr view <n> --comments` | same |
 | branch | `git diff $(git merge-base HEAD <branch>)` | `jj diff --git -r 'latest(trunk())..@'` |
-| file | `git diff HEAD -- <path>` | `jj diff --git <path>` |
+| file / paths | `git diff HEAD -- <path>...` | `jj diff --git <path>...` |
 
 For PR tours, also fetch the PR title/description and reviewer comments for context.
 
