@@ -15,10 +15,16 @@ function backup_dotfile
 end
 
 function symlink_dotfile
-    if test -L $HOMEDIR/$argv
+    symlink_dotfile_as $argv[1] $argv[1]
+end
+
+function symlink_dotfile_as
+    set src $argv[1]
+    set dst $argv[2]
+    if test -L $HOMEDIR/$dst
         return
     end
-    ln -s $DOTFILEDIR/$argv $HOMEDIR/$argv
+    ln -s $DOTFILEDIR/$src $HOMEDIR/$dst
 end
 
 backup_dotfile .tmux.conf
@@ -31,7 +37,7 @@ backup_dotfile .profile
 symlink_dotfile .profile
 
 backup_dotfile .config
-symlink_dotfile .config
+symlink_dotfile_as config .config
 
 backup_dotfile .gitconfig
 echo "[user]
@@ -45,7 +51,7 @@ echo "[user]
 echo "Add name and email to ~/.gitconfig"
 
 backup_dotfile .claude
-symlink_dotfile .claude
+symlink_dotfile_as claude .claude
 
 # mac only
 if test (uname) = "Darwin"
