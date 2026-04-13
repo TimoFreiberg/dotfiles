@@ -81,7 +81,6 @@
     ],
     "defaultMode": "acceptEdits"
   },
-  "model": "opus",
   "hooks": {
     "WorktreeCreate": [
       {
