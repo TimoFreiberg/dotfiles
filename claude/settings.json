@@ -1,5 +1,5 @@
 {
-  "awsAuthRefresh": "aws sso login",
+  "awsAuthRefresh": "aws sso login --sso-session \"$SSO_SESSION\" 2>/dev/null || aws sso login --profile \"$AWS_PROFILE\"",
   "includeGitInstructions": false,
   "permissions": {
     "allow": [
