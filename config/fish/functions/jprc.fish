@@ -79,7 +79,7 @@ function jprc --description "Create a GitHub PR from a jj revision"
             echo "Pushing $branch_name..."
             jj git push --bookmark $branch_name
             or return 1
-            __jprc_open_or_create_pr $branch_name $base
+            __jprc_open_or_create_pr $branch_name $base $rev
             return $status
         end
     end
@@ -120,16 +120,45 @@ $diff_context"
     jj git push --named "$branch_name=$rev"
     or return 1
 
-    __jprc_open_or_create_pr $branch_name $base
+    __jprc_open_or_create_pr $branch_name $base $rev
 end
 
-function __jprc_open_or_create_pr --argument-names branch_name base
+function __jprc_open_or_create_pr --argument-names branch_name base rev
     set -l existing_pr (gh pr list --head $branch_name --state open --json url --jq '.[0].url' 2>/dev/null)
     if test -n "$existing_pr"
         echo "Opening existing PR: $existing_pr"
         gh pr view $branch_name --web
-    else
-        echo "Creating PR..."
-        gh pr create --head $branch_name --base $base --web
+        return $status
     end
+
+    echo "Generating PR title and body..."
+    set -l diff_context (jj diff -r $rev 2>&1 | head -200)
+    set -l log_context (jj log -r "trunk()..$rev" --no-graph 2>&1)
+
+    set -l system_prompt "Generate a GitHub PR title and body summarizing the intent of the changes.
+This is scaffolding the user will edit, so be brief and focus on intent — not an exhaustive description.
+
+Output format: first line is the title (imperative mood, no trailing period, max 72 chars), then a blank line, then a short body (2-4 sentences max) covering what and why. No markdown headers, no bullet lists unless genuinely useful, no trailing sign-offs.
+Reply with ONLY the title and body, nothing else."
+
+    set -l user_prompt "Here is the diff and log for the changes:
+
+--- jj log ---
+$log_context
+
+--- jj diff (truncated) ---
+$diff_context"
+
+    set -l pr_lines (echo "$user_prompt" | claude -p --tools "" --no-session-persistence --disable-slash-commands --model sonnet --system-prompt "$system_prompt" 2>&1)
+    set -l title (string trim $pr_lines[1])
+    set -l body (string join \n $pr_lines[2..] | string trim)
+
+    if test -z "$title"
+        echo "Warning: LLM returned empty title, falling back to interactive --web without scaffolding" >&2
+        gh pr create --head $branch_name --base $base --web
+        return $status
+    end
+
+    echo "Creating PR..."
+    gh pr create --head $branch_name --base $base --title "$title" --body "$body" --web
 end
