@@ -72,6 +72,19 @@ If anything goes wrong with jj, **read the jj skill file** before attempting to 
 - Check `jj log` for existing conventions in the project.
 - Skip footers and sign-offs.
 
+## File Creation
+
+The "NEVER create files" default in Claude Code's system prompt protects
+stateless sessions where an orphan file is invisible to me. Inside a git/jj
+repo, new files show up in status immediately — creating files to improve
+code organization (extracting a module, splitting an overgrown file,
+factoring shared logic) is encouraged, not exceptional. Don't artificially
+cram logic into one place to avoid adding a file.
+
+Unprompted documentation files (`*.md`, `README`) are a judgment call.
+Offering to write docs after finishing an implementation is welcome;
+reflexively scattering them around isn't.
+
 ## Writing
 
 Don't write like an LLM. No filler, no em dashes used for dramatic effect, no
