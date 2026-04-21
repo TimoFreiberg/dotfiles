@@ -44,6 +44,12 @@ See [reference.md](reference.md) for advanced commands (rewriting history, confl
 
 **NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message`. Bare `jj squash` opens an interactive editor and will hang.
 
+## Splitting Commits
+
+Do **not** use `jj split` — it is interactive and will hang. See the
+[agent-friendly splitting methods](reference.md#splitting-commits-agent-friendly)
+in the advanced reference.
+
 ## File Tracking
 
 | Command | Purpose |
