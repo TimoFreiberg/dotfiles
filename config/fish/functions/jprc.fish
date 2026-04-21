@@ -21,8 +21,8 @@ function jprc --description "Create a GitHub PR from a jj revision"
     if set -q _flag_base
         set base $_flag_base
     else
-        # Find all bookmarked revisions between trunk and the target
-        set -l candidates (jj log -r "trunk()::$rev & bookmarks()" --no-graph -T 'bookmarks.join(",") ++ "\n"' 2>&1)
+        # Find bookmarked ancestors (excluding the target rev itself) to use as base
+        set -l candidates (jj log -r "(trunk()::$rev & bookmarks()) ~ $rev" --no-graph -T 'bookmarks.join(",") ++ "\n"' 2>&1)
         if test $status -ne 0
             echo "Error: failed to query jj log" >&2
             echo $candidates >&2
@@ -79,8 +79,7 @@ function jprc --description "Create a GitHub PR from a jj revision"
             echo "Pushing $branch_name..."
             jj git push --bookmark $branch_name
             or return 1
-            echo "Opening PR..."
-            gh pr create --head $branch_name --base $base --web
+            __jprc_open_or_create_pr $branch_name $base
             return $status
         end
     end
@@ -121,6 +120,16 @@ $diff_context"
     jj git push --named "$branch_name=$rev"
     or return 1
 
-    echo "Opening PR..."
-    gh pr create --head $branch_name --base $base --web
+    __jprc_open_or_create_pr $branch_name $base
+end
+
+function __jprc_open_or_create_pr --argument-names branch_name base
+    set -l existing_pr (gh pr list --head $branch_name --state open --json url --jq '.[0].url' 2>/dev/null)
+    if test -n "$existing_pr"
+        echo "Opening existing PR: $existing_pr"
+        gh pr view $branch_name --web
+    else
+        echo "Creating PR..."
+        gh pr create --head $branch_name --base $base --web
+    end
 end
