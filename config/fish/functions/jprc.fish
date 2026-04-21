@@ -101,7 +101,7 @@ $log_context
 $diff_context"
 
     echo "Generating branch name..."
-    set -l suggested (echo "$user_prompt" | pi -p --no-tools --no-session --no-extensions --no-skills --no-prompt-templates --thinking off --model anthropic/claude-sonnet-4-6 --system-prompt "$system_prompt" 2>&1 | string trim)
+    set -l suggested (echo "$user_prompt" | claude -p --tools "" --no-session-persistence --disable-slash-commands --model sonnet --system-prompt "$system_prompt" 2>&1 | string trim)
 
     if test -z "$suggested"
         echo "Error: LLM returned empty branch name" >&2
