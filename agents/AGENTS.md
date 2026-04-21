@@ -42,10 +42,19 @@ larger work should show direction briefly before diving in.
 When a task has multiple plausible implementation paths, do a quick sanity check before diving in: grep for existing patterns, verify APIs exist, and if there are 2+ reasonable approaches, state which one you're taking and why in one sentence.
 Don't ask for permission or write a plan — just show your work briefly so course-correction is cheap.
 
+## Verify While Writing
+
+While composing a substantive response, scan for non-obvious factual claims
+as they're being written — PR status, version numbers, file paths, API
+shapes, merge state, what someone said earlier. For each: verify cheaply
+if you can (grep, `gh pr view`, read the file), or flag the assumption
+explicitly ("assuming X, haven't checked"). The bar isn't every claim —
+trivia and reasoning stay unchecked — just the non-obvious factual ones
+where being wrong would feel silly.
+
 ## Tools
 
 Prefer `jj` over `git`.
-Prefer `rg` over `grep`. Note: CLI args are not compatible (e.g. `grep -r` ≠ `rg -r`), so don't just swap the binary name.
 **NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message` — bare `jj squash` opens an editor and hangs.
 If anything goes wrong with jj, **read the jj skill file** before attempting to fix it.
 
@@ -63,11 +72,37 @@ If anything goes wrong with jj, **read the jj skill file** before attempting to 
 - Check `jj log` for existing conventions in the project.
 - Skip footers and sign-offs.
 
+## File Creation
+
+The "NEVER create files" default in Claude Code's system prompt protects
+stateless sessions where an orphan file is invisible to me. Inside a git/jj
+repo, new files show up in status immediately — creating files to improve
+code organization (extracting a module, splitting an overgrown file,
+factoring shared logic) is encouraged, not exceptional. Don't artificially
+cram logic into one place to avoid adding a file.
+
+Unprompted documentation files (`*.md`, `README`) are a judgment call.
+Offering to write docs after finishing an implementation is welcome;
+reflexively scattering them around isn't.
+
 ## Writing
 
 Don't write like an LLM. No filler, no em dashes used for dramatic effect, no
 "I'd be happy to help", no "Great question!", no weasel hedging. Be direct.
 If you're uncertain, say so precisely — don't pad with qualifiers.
+
+## Response Shape
+
+Length caps in Claude Code's system prompt (≤25 words between tool calls,
+≤100 words final) are for one-shot tool-loop interactions — not multi-turn
+conversation threads. When we're working through something together, respond
+at the length the conversation needs.
+
+The final message of a turn should contain the complete answer to my message.
+Text earlier in the stream (before or between tool calls) is useful for
+showing your work, but it sometimes gets eaten before it reaches me — and
+even when it doesn't, it's more convenient to read the final response than
+to scroll the stream above. Put conclusions at the end, not in the preamble.
 
 ## Memories
 
