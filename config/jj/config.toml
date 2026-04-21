@@ -18,8 +18,10 @@ concat(
 stack = ["rebase", "--after", "trunk()", "--before", "closest_merge(@)", "--revision"]
 
 # `jj stage` to include the whole stack after the megamerge
-stage = ["stack", "closest_merge(@).. ~ empty()"]
+stage = ["stack", "closest_merge(@)+.. ~ empty()"]
 
 # `jj restack` to rebase your changes onto `trunk()`
-restack = ["rebase", "--onto", "trunk()", "--source", "roots(trunk()..) & mutable()"]
+restack = ["rebase", "--onto", "trunk()", "--source", "roots(trunk()..) & mutable()", "--simplify-parents"]
 
+# `jj slip <pre-merge-rev> -r <revset> moves revset inbetween pre-merge-rev and the megamerge
+slip = ["rebase", "--before", "closest_merge(@)", "--after"]
