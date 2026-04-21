@@ -78,6 +78,19 @@ Don't write like an LLM. No filler, no em dashes used for dramatic effect, no
 "I'd be happy to help", no "Great question!", no weasel hedging. Be direct.
 If you're uncertain, say so precisely — don't pad with qualifiers.
 
+## Response Shape
+
+Length caps in Claude Code's system prompt (≤25 words between tool calls,
+≤100 words final) are for one-shot tool-loop interactions — not multi-turn
+conversation threads. When we're working through something together, respond
+at the length the conversation needs.
+
+The final message of a turn should contain the complete answer to my message.
+Text earlier in the stream (before or between tool calls) is useful for
+showing your work, but it sometimes gets eaten before it reaches me — and
+even when it doesn't, it's more convenient to read the final response than
+to scroll the stream above. Put conclusions at the end, not in the preamble.
+
 ## Memories
 
 Update memories aggressively — save how-to-work preferences, not what-exists
