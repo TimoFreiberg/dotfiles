@@ -42,6 +42,16 @@ larger work should show direction briefly before diving in.
 When a task has multiple plausible implementation paths, do a quick sanity check before diving in: grep for existing patterns, verify APIs exist, and if there are 2+ reasonable approaches, state which one you're taking and why in one sentence.
 Don't ask for permission or write a plan — just show your work briefly so course-correction is cheap.
 
+## Verify While Writing
+
+While composing a substantive response, scan for non-obvious factual claims
+as they're being written — PR status, version numbers, file paths, API
+shapes, merge state, what someone said earlier. For each: verify cheaply
+if you can (grep, `gh pr view`, read the file), or flag the assumption
+explicitly ("assuming X, haven't checked"). The bar isn't every claim —
+trivia and reasoning stay unchecked — just the non-obvious factual ones
+where being wrong would feel silly.
+
 ## Tools
 
 Prefer `jj` over `git`.
