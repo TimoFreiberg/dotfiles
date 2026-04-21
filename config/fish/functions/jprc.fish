@@ -131,20 +131,29 @@ function __jprc_open_or_create_pr --argument-names branch_name base rev
         return $status
     end
 
-    echo "Generating PR title and body..."
+    # Single commit: gh/GitHub will pre-fill title and body from the commit message, which is correct.
+    set -l commits (jj log -r "trunk()..$rev" --no-graph -T '"x\n"')
+    if test (count $commits) -lt 2
+        echo "Creating PR (single commit, using commit message as default)..."
+        gh pr create --head $branch_name --base $base --web
+        return $status
+    end
+
+    echo "Generating PR title and body from "(count $commits)" commits..."
     set -l diff_context (jj diff -r $rev 2>&1 | head -200)
-    set -l log_context (jj log -r "trunk()..$rev" --no-graph 2>&1)
+    set -l commit_messages (jj log -r "trunk()..$rev" --no-graph -T 'description ++ "\n--- commit boundary ---\n"' 2>&1)
 
     set -l system_prompt "Generate a GitHub PR title and body summarizing the intent of the changes.
 This is scaffolding the user will edit, so be brief and focus on intent — not an exhaustive description.
 
-Output format: first line is the title (imperative mood, no trailing period, max 72 chars), then a blank line, then a short body (2-4 sentences max) covering what and why. No markdown headers, no bullet lists unless genuinely useful, no trailing sign-offs.
+Prefer the existing commit-message language over paraphrasing. If one commit is the substantive change and others are minor (typo fixes, formatting, small cleanups), lead with the substantive commit's title and body verbatim, then append a short final note for the minor ones (e.g. 'Also fixes a typo in foo.rs.').
+
+Output format: first line is the title (imperative mood, no trailing period, max 72 chars), then a blank line, then the body. No markdown headers, no bullet lists unless genuinely useful, no trailing sign-offs.
 Reply with ONLY the title and body, nothing else."
 
-    set -l user_prompt "Here is the diff and log for the changes:
+    set -l user_prompt "Here are the commit messages in this PR, in topological order:
 
---- jj log ---
-$log_context
+$commit_messages
 
 --- jj diff (truncated) ---
 $diff_context"
