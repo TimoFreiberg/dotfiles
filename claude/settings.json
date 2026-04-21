@@ -135,6 +135,7 @@
       }
     }
   },
+  "effortLevel": "xhigh",
   "autoMemoryDirectory": "~/dotfiles/claude/memories",
   "autoDreamEnabled": true,
   "skipDangerousModePermissionPrompt": true
