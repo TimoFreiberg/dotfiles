@@ -152,52 +152,54 @@ Ignore production code correctness and all other concerns — other agents cover
 
 Number findings T1, T2, T3, …
 
-## Step 4: Verify findings in parallel
+## Step 4: Verify findings
 
 Reviewer subagents produce false positives — claims about behavior that don't hold once you read the surrounding code, or concerns that are already handled elsewhere. Catch them before presenting.
 
-Once all four reviewers return, collect every finding and spawn one verifier Agent per finding, **all in a single message** so they run concurrently. Skip verification only for findings that are purely subjective (e.g. "this name could be clearer") — those have nothing to verify.
+Once all four reviewers return, collate their findings into a single numbered list (preserve the C/D/S/T axis prefixes) and spawn **one** verifier Agent with the whole list. Verification is a uniform task ("does this claim hold?"), so it doesn't suffer the attention-dilution problem that motivated splitting reviewers by axis — and a single verifier can also spot cross-axis duplicates.
 
-Each verifier receives:
-- The one finding verbatim (priority, file:line, explanation, snippet)
+The verifier receives:
+- Every finding (verbatim: priority, file:line, explanation, snippet)
 - The full diff from Step 2
 - The verification prompt below
 
 **Verifier prompt template:**
 
-> You are verifying a single code review finding. Another subagent produced it; your job is to adversarially check whether it actually holds.
+> You are verifying a batch of code review findings. Other subagents produced them; your job is to adversarially check each one.
 >
-> **Finding:**
-> {finding verbatim}
+> **Findings:**
+> {all findings, numbered by axis prefix}
 >
 > **Diff under review:**
 > {diff}
 >
-> Read the relevant source files (Read/Glob/Grep) to check the claim. Specifically:
+> For each finding, read the relevant source files (Read/Glob/Grep) to check the claim. Specifically:
 > - Does the referenced code actually behave as the finding describes?
 > - Is the concern already handled elsewhere (caller validates, type system enforces, framework guarantees)?
 > - Is the finding based on a misreading of the diff or a misunderstanding of an API?
 > - For correctness/security claims: can you construct a concrete input or sequence that triggers the bug? If not, the finding may be hypothetical.
 >
-> Default to keeping the finding unless you're confident it's wrong — we'd rather show the user a weak finding than silently drop a real one.
+> Also note cross-axis duplicates: two findings (e.g. C3 and S1) that describe the same issue from different angles.
 >
-> Reply with exactly one of:
-> - `HOLDS` — finding is valid as stated.
-> - `HOLDS WITH CORRECTION: <short correction>` — finding is real but the explanation or priority is off.
-> - `REJECTED: <one-paragraph reason>` — finding is wrong. Be specific about what the original reviewer got wrong.
+> Default to keeping findings unless you're confident they're wrong — we'd rather show the user a weak finding than silently drop a real one.
 >
-> Keep the response under 150 words.
+> For each finding, reply with one of:
+> - `<id>: HOLDS`
+> - `<id>: HOLDS WITH CORRECTION — <short correction>`
+> - `<id>: REJECTED — <one-paragraph reason>`
+> - `<id>: DUPLICATE OF <other-id> — <one-sentence note>`
+>
+> Keep each verdict under 100 words.
 
 ## Step 5: Collate and present findings
 
-Once all verifiers return:
+Apply the verifier's verdicts:
 
-1. For each finding, apply the verifier verdict:
-   - `HOLDS` → keep as-is.
-   - `HOLDS WITH CORRECTION` → keep, incorporate the correction into the explanation or priority.
-   - `REJECTED` → move to a "Rejected during verification" section at the end, with the verifier's reason.
-2. Sort surviving findings by priority (P0 first, then P1, P2, P3), keeping the axis prefix (C/D/S/T numbering).
-3. Deduplicate: if two agents flagged the same issue from different angles, merge into one finding, keep the higher priority, and note both perspectives.
-4. Present the combined review in a single response. Include the "Rejected during verification" section at the end so the user can spot verifier mistakes.
-5. End with per-axis verdicts and an overall verdict. For each axis, state "correct" or "needs attention" based on whether it has surviving P0/P1 findings. The overall verdict is "needs attention" if any axis is, "correct" otherwise.
+1. `HOLDS` → keep as-is.
+2. `HOLDS WITH CORRECTION` → keep, incorporate the correction into the explanation or priority.
+3. `REJECTED` → move to a "Rejected during verification" section at the end with the verifier's reason.
+4. `DUPLICATE` → merge into the referenced finding, keep the higher priority, note both perspectives.
+5. Sort surviving findings by priority (P0 first, then P1, P2, P3), keeping the axis prefix.
+6. Present the combined review in a single response. Include the "Rejected during verification" section at the end so the user can spot verifier mistakes.
+7. End with per-axis verdicts and an overall verdict. For each axis, state "correct" or "needs attention" based on whether it has surviving P0/P1 findings. The overall verdict is "needs attention" if any axis is, "correct" otherwise.
 
