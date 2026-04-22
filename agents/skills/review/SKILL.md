@@ -68,6 +68,8 @@ Launch **four** Agent subagents in parallel (all in a single message so they run
 
 Each agent should use Read, Glob, and Grep to examine source files for context beyond the diff.
 
+**Model:** pass `model: "opus"` to every Agent call in this skill (reviewers and verifiers). Reviews are serious business — don't let subagents silently downgrade to a smaller model.
+
 ### Shared review guidelines
 
 Include the following in every subagent prompt.
@@ -150,13 +152,52 @@ Ignore production code correctness and all other concerns — other agents cover
 
 Number findings T1, T2, T3, …
 
-## Step 4: Collate and present findings
+## Step 4: Verify findings in parallel
 
-Once all four agents return:
+Reviewer subagents produce false positives — claims about behavior that don't hold once you read the surrounding code, or concerns that are already handled elsewhere. Catch them before presenting.
 
-1. Collect all findings, keeping the axis prefix (C/D/S/T numbering).
-2. Sort by priority (P0 first, then P1, P2, P3).
+Once all four reviewers return, collect every finding and spawn one verifier Agent per finding, **all in a single message** so they run concurrently. Skip verification only for findings that are purely subjective (e.g. "this name could be clearer") — those have nothing to verify.
+
+Each verifier receives:
+- The one finding verbatim (priority, file:line, explanation, snippet)
+- The full diff from Step 2
+- The verification prompt below
+
+**Verifier prompt template:**
+
+> You are verifying a single code review finding. Another subagent produced it; your job is to adversarially check whether it actually holds.
+>
+> **Finding:**
+> {finding verbatim}
+>
+> **Diff under review:**
+> {diff}
+>
+> Read the relevant source files (Read/Glob/Grep) to check the claim. Specifically:
+> - Does the referenced code actually behave as the finding describes?
+> - Is the concern already handled elsewhere (caller validates, type system enforces, framework guarantees)?
+> - Is the finding based on a misreading of the diff or a misunderstanding of an API?
+> - For correctness/security claims: can you construct a concrete input or sequence that triggers the bug? If not, the finding may be hypothetical.
+>
+> Default to keeping the finding unless you're confident it's wrong — we'd rather show the user a weak finding than silently drop a real one.
+>
+> Reply with exactly one of:
+> - `HOLDS` — finding is valid as stated.
+> - `HOLDS WITH CORRECTION: <short correction>` — finding is real but the explanation or priority is off.
+> - `REJECTED: <one-paragraph reason>` — finding is wrong. Be specific about what the original reviewer got wrong.
+>
+> Keep the response under 150 words.
+
+## Step 5: Collate and present findings
+
+Once all verifiers return:
+
+1. For each finding, apply the verifier verdict:
+   - `HOLDS` → keep as-is.
+   - `HOLDS WITH CORRECTION` → keep, incorporate the correction into the explanation or priority.
+   - `REJECTED` → move to a "Rejected during verification" section at the end, with the verifier's reason.
+2. Sort surviving findings by priority (P0 first, then P1, P2, P3), keeping the axis prefix (C/D/S/T numbering).
 3. Deduplicate: if two agents flagged the same issue from different angles, merge into one finding, keep the higher priority, and note both perspectives.
-4. Present the combined review in a single response.
-5. End with per-axis verdicts and an overall verdict. For each axis, state "correct" or "needs attention" based on whether it has P0/P1 findings. The overall verdict is "needs attention" if any axis is, "correct" otherwise.
+4. Present the combined review in a single response. Include the "Rejected during verification" section at the end so the user can spot verifier mistakes.
+5. End with per-axis verdicts and an overall verdict. For each axis, state "correct" or "needs attention" based on whether it has surviving P0/P1 findings. The overall verdict is "needs attention" if any axis is, "correct" otherwise.
 
