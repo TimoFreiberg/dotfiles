@@ -1,7 +1,7 @@
 ---
 name: review
 description: Code review with scope selection. Use when the user wants to review code changes - uncommitted work, a specific commit, or a GitHub PR.
-argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"]"
+argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--model opus|sonnet|haiku|<id>]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(uv run *)

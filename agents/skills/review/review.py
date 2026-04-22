@@ -33,7 +33,28 @@ from claude_agent_sdk import (
     query,
 )
 
-MODEL = os.environ.get("ANTHROPIC_DEFAULT_OPUS_MODEL") or "claude-opus-4-7"
+MODEL_ALIASES = {
+    "opus": "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "sonnet": "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "haiku": "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+}
+
+
+def resolve_model(name: str) -> str:
+    """Resolve opus/sonnet/haiku to the env-configured ID, or pass through verbatim."""
+    env_var = MODEL_ALIASES.get(name)
+    if env_var:
+        resolved = os.environ.get(env_var)
+        if not resolved:
+            sys.stderr.write(
+                f"error: --model {name} given but {env_var} is unset. "
+                f"Set it to a full model ID or pass --model <exact-id>.\n"
+            )
+            sys.exit(2)
+        return resolved
+    return name
+
+
 RETRIES = 2
 REVIEWER_TOOLS = ["Read", "Glob", "Grep", "Bash"]
 VERIFIER_TOOLS = ["Read", "Glob", "Grep", "Bash"]
@@ -378,9 +399,9 @@ Keep each verdict under 100 words. Do not include any other text.
 """
 
 
-async def call_agent(prompt: str, tools: list[str]) -> str:
+async def call_agent(prompt: str, tools: list[str], model: str) -> str:
     options = ClaudeAgentOptions(
-        model=MODEL,
+        model=model,
         allowed_tools=tools,
         disallowed_tools=DISALLOWED_TOOLS,
         permission_mode="bypassPermissions",
@@ -398,7 +419,7 @@ async def call_agent(prompt: str, tools: list[str]) -> str:
 
 
 async def call_with_retries(
-    label: str, prompt: str, tools: list[str]
+    label: str, prompt: str, tools: list[str], model: str
 ) -> tuple[str, str | None]:
     """Returns (output, error). On persistent failure, output is '' and error is set."""
     last_err: str | None = None
@@ -407,7 +428,7 @@ async def call_with_retries(
             sys.stderr.write(f"[{label}] started (attempt {attempt + 1})\n")
             sys.stderr.flush()
             t0 = time.monotonic()
-            out = await call_agent(prompt, tools)
+            out = await call_agent(prompt, tools, model)
             dt = time.monotonic() - t0
             sys.stderr.write(f"[{label}] done ({dt:.1f}s, {len(out)} chars)\n")
             sys.stderr.flush()
@@ -424,7 +445,7 @@ async def call_with_retries(
 # ---------- pipeline ------------------------------------------------------
 
 
-async def run_review(bundle: DiffBundle, instructions: str) -> str:
+async def run_review(bundle: DiffBundle, instructions: str, model: str) -> str:
     # Kick off all four reviewers in parallel.
     reviewer_tasks = {
         axis: asyncio.create_task(
@@ -432,6 +453,7 @@ async def run_review(bundle: DiffBundle, instructions: str) -> str:
                 f"reviewer-{axis}",
                 build_reviewer_prompt(axis, bundle, instructions),
                 REVIEWER_TOOLS,
+                model,
             )
         )
         for axis in REVIEWER_PROMPTS
@@ -459,7 +481,7 @@ async def run_review(bundle: DiffBundle, instructions: str) -> str:
     # Verifier: one call over the whole finding set.
     verifier_prompt = build_verifier_prompt(combined_findings, bundle)
     verifier_out, verifier_err = await call_with_retries(
-        "verifier", verifier_prompt, VERIFIER_TOOLS
+        "verifier", verifier_prompt, VERIFIER_TOOLS, model
     )
 
     # Assemble the final report. We don't attempt to mechanically reconcile
@@ -504,6 +526,15 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         description="Parallel adversarial code review over a diff.",
     )
     p.add_argument("--instructions", default="", help="Extra review instructions.")
+    p.add_argument(
+        "--model",
+        default="opus",
+        help=(
+            "Model to use. Aliases 'opus', 'sonnet', 'haiku' resolve to the "
+            "corresponding ANTHROPIC_DEFAULT_*_MODEL env var; any other value "
+            "is passed to the SDK verbatim. Default: opus."
+        ),
+    )
     sub = p.add_subparsers(dest="scope")
     sub.add_parser("uncommitted", help="Review uncommitted changes.")
     c = sub.add_parser("commit", help="Review commits (jj revset or git ref/range).")
@@ -541,12 +572,15 @@ def print_header(bundle: DiffBundle) -> None:
 
 def main(argv: list[str]) -> int:
     ns = parse_args(argv)
+    model = resolve_model(ns.model)
     bundle = gather(ns)
     if not bundle.diff.strip():
         sys.stderr.write(f"No diff to review for scope: {bundle.scope_summary}\n")
         return 1
     print_header(bundle)
-    report = asyncio.run(run_review(bundle, ns.instructions))
+    sys.stderr.write(f"Model: {model}\n\n")
+    sys.stderr.flush()
+    report = asyncio.run(run_review(bundle, ns.instructions, model))
     sys.stdout.write(report)
     if not report.endswith("\n"):
         sys.stdout.write("\n")
