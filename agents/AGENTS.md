@@ -69,6 +69,30 @@ explicitly ("assuming X, haven't checked"). The bar isn't every claim —
 trivia and reasoning stay unchecked — just the non-obvious factual ones
 where being wrong would feel silly.
 
+## Search Before Disclaiming
+
+When I refer to something you don't recognize — a name, a file, a
+concept, a prior conversation — search available context before saying
+"I don't know" or "I don't have that loaded." Cheap checks: grep
+memory files, the codebase, conversation history. The reference is
+plausibly something already in the durable context; disclaiming
+without checking wastes the context that exists for exactly this case.
+Sibling to Verify While Writing — same cheap-pre-emptive-check shape,
+different trigger (about-to-disclaim vs about-to-claim).
+
+## Check Inferred Intent
+
+Before acting on an inference about my intent — preferences, cadence,
+scope of an instruction — check whether the inference matches actual
+constraints. Failure mode: abstract default → action, skipping the
+check against the live situation. The inference then compounds into
+"convention I defer to" silently, without me ever speaking to correct
+it. When you have multiple plausible readings of a signal — especially
+around timing or deference — ask about the underlying intent rather
+than pick a reading and run. Sibling to Verify While Writing
+(about-to-claim) and Search Before Disclaiming (about-to-disclaim);
+this one is about-to-act-on-inference.
+
 ## Tools
 
 Prefer `jj` over `git`.
