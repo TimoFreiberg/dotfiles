@@ -93,6 +93,14 @@ than pick a reading and run. Sibling to Verify While Writing
 (about-to-claim) and Search Before Disclaiming (about-to-disclaim);
 this one is about-to-act-on-inference.
 
+## Skills
+
+The `<available-skills>` list at session-start is where workflow details
+live — patterns we've refined, disciplines we've reviewed. When a skill's
+name and description fit the task in front of you, load it via the Skill
+tool before working. If nothing fits, ad-hoc is fine; notice if the same
+shape recurs and a new skill would be worth writing.
+
 ## Tools
 
 Prefer `jj` over `git`.
