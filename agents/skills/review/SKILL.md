@@ -1,6 +1,6 @@
 ---
 name: review
-description: Code review with scope selection. Use when the user wants to review code changes — uncommitted work, a specific commit, a branch, a file, or a GitHub PR.
+description: "Inline review orchestration: parse scope, spawn one Opus reviewer over four axes with strict evidence-discipline, surface report verbatim; plan-alignment scoring via --description."
 argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--model opus|sonnet|haiku]"
 disable-model-invocation: true
 allowed-tools:
@@ -20,6 +20,20 @@ allowed-tools:
 
 You orchestrate: parse arguments, gather the diff, spawn one reviewer
 subagent, and surface its report verbatim. You do not review code yourself.
+
+## Core idea
+
+One Opus reviewer covers all four axes — Correctness & Security, Documentation
+& Comments, Design & Structure, Test Correctness — in a single pass. Findings
+carry axis prefixes (C1, D2, S3, T4) and are sorted by priority.
+
+**Evidence discipline is load-bearing.** Every finding needs a `file:line`
+and a quoted snippet a reader can verify in under 30 seconds. Findings
+without verifiable evidence are dropped, not emitted with `Evidence: (none)`.
+Reader trust is spent on findings they can verify cold.
+
+When `--description` is provided, the reviewer also produces a `## Plan alignment`
+section scoring each requirement against the diff before the findings list.
 
 ## Step 1: Parse `$ARGUMENTS`
 
@@ -398,3 +412,13 @@ inside `<description>`).
 - `/review --instructions "focus on XSS" pr 50` → flag plus subcommand.
 - `/review --description "Add a --verbose flag to the CLI" branch foo` →
   enables Plan-alignment scoring of the branch against the task spec.
+
+## Common mistakes
+
+| Mistake                                       | Fix                                                                   |
+|-----------------------------------------------|-----------------------------------------------------------------------|
+| Editorializing the reviewer's report          | Step 6: verbatim. No commentary, no header, no quotes wrapping.       |
+| Reviewing the diff yourself                   | You orchestrate; the reviewer subagent does the review.               |
+| Shell vars across Bash calls                  | Each call is its own process. Chain with `&&` or substitute literals. |
+| Substituting STAT into the reviewer prompt    | STAT goes in the scope header only; the reviewer gets DIFF.           |
+| Spawning the reviewer on an empty diff        | Stop and tell the user there's nothing to review.                     |
