@@ -105,3 +105,7 @@ test -e $XDG_CONFIG_HOME/fish/secrets.fish && source $XDG_CONFIG_HOME/fish/secre
 set -gx BUN_INSTALL "$HOME/.bun"
 
 type -q direnv && direnv hook fish | source
+
+if status is-interactive
+    atuin init fish | source
+end
