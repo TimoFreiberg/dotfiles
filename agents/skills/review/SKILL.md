@@ -4,7 +4,15 @@ description: Code review with scope selection. Use when the user wants to review
 argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--model opus|sonnet|haiku]"
 disable-model-invocation: true
 allowed-tools:
-  - Bash
+  - Bash(test *)
+  - Bash(jj diff*)
+  - Bash(jj log*)
+  - Bash(git diff*)
+  - Bash(git log*)
+  - Bash(git show*)
+  - Bash(git merge-base*)
+  - Bash(git rev-parse*)
+  - Bash(gh pr*)
   - Agent
 ---
 
@@ -15,7 +23,7 @@ subagent, and surface its report verbatim. You do not review code yourself.
 
 ## Step 1: Parse `$ARGUMENTS`
 
-**Subcommands** (mutually exclusive, optional — default is "trunk..@"):
+**Subcommands** (mutually exclusive, optional — default is `trunk()..@` for jj or `<merge-base>..HEAD` for git):
 
 - `uncommitted` — uncommitted working-copy changes
 - `commit <revset>` — jj revset, or git ref/range
@@ -29,7 +37,11 @@ subagent, and surface its report verbatim. You do not review code yourself.
 - `--description "..."` — task spec the diff is meant to satisfy. When set,
   the reviewer produces a `## Plan alignment` section ahead of `## Findings`,
   scoring each requirement against the diff.
-- `--model opus|sonnet|haiku` — model for the reviewer subagent. Default `opus`.
+- `--model opus|sonnet|haiku` — alias for the reviewer subagent's model.
+  Default `opus`. Aliases route through the harness's model resolution; the
+  old script's "any other value passed through verbatim" passthrough is not
+  available in the inline shape (the `Agent` tool's `model` field only
+  accepts these three aliases).
 
 If `$ARGUMENTS` is empty, run the default scope (`trunk()..@` for jj,
 `<merge-base>..HEAD` for git).
@@ -45,14 +57,25 @@ test -d .jj && echo jj || echo git
 
 ## Step 3: Gather the diff
 
-Run the commands for the chosen (subcommand, VCS) cell. Capture into
-local variables for later substitution:
+Run the commands for the chosen (subcommand, VCS) cell, then keep the
+outputs in mind for the next steps. Each `Bash` tool call is its own
+process — shell variables do NOT persist across calls. When a flow needs
+the output of one command in the next (e.g. `BASE=$(git merge-base …)`
+followed by `git diff "$BASE..HEAD"`), either chain them into a single
+Bash call with `&&`, or capture the first call's output, then substitute
+the literal value into the next call.
 
-- `DIFF` — the full `--git` diff
-- `STAT` — diffstat (may be empty for PRs)
-- `COMMITS` — newline-separated commit list (may be empty)
-- `SCOPE_SUMMARY` — one-line description, e.g. `default (trunk..@, 3 changes)`
-- `PR_CONTEXT` — PR metadata + comments (only for `pr <number>`; otherwise empty)
+The pieces you need:
+
+- `DIFF` — the git-format unified diff. Goes into the reviewer prompt.
+- `STAT` — the diffstat. Used only in the orchestrator's scope header
+  (Step 4); not substituted into the reviewer prompt.
+- `COMMITS` — newline-separated commit list (may be empty). Used only in
+  the orchestrator's scope header.
+- `SCOPE_SUMMARY` — one-line description, e.g. `default (trunk()..@, 3 changes)`.
+  Used in both the scope header and the reviewer prompt.
+- `PR_CONTEXT` — PR metadata + comments (only for `pr <number>`; otherwise
+  the empty string). Substituted into the reviewer prompt.
 
 ### Default (no subcommand)
 
@@ -65,20 +88,25 @@ jj log --no-graph -r 'trunk()..@' \
   -T 'change_id.shortest() ++ " " ++ description.first_line() ++ "\n"'
 ```
 
-`SCOPE_SUMMARY="default (trunk..@, $N change(s))"` where `$N` is the line
+`SCOPE_SUMMARY="default (trunk()..@, $N change(s))"` where `$N` is the line
 count of the log output.
 
-**git:**
+**git:** chain the merge-base lookup and the diff commands in a single
+Bash call so `BASE` is in scope:
 
 ```bash
-BASE=$(git merge-base HEAD main 2>/dev/null || git merge-base HEAD master)
-git diff "$BASE..HEAD"
-git diff --stat "$BASE..HEAD"
-git log --oneline "$BASE..HEAD"
+BASE=$(git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null) \
+  && [ -n "$BASE" ] \
+  && { echo "BASE=$BASE"; \
+       git diff "$BASE..HEAD"; \
+       echo '---STAT---'; git diff --stat "$BASE..HEAD"; \
+       echo '---LOG---'; git log --oneline "$BASE..HEAD"; }
 ```
 
-`SCOPE_SUMMARY="default (${BASE:0:8}..HEAD, $N commit(s))"`. If no merge-base
-is found against `main` or `master`, exit with an error.
+`SCOPE_SUMMARY="default (${BASE:0:8}..HEAD, $N commit(s))"`. If `BASE`
+ends up empty (the chained command exited without printing `BASE=…`),
+stop and tell the user `merge-base not found against main or master`.
+Don't spawn the subagent.
 
 ### `uncommitted`
 
@@ -103,9 +131,9 @@ is found against `main` or `master`, exit with an error.
 - **jj:** `jj diff --git --from <name> --to @`, `jj diff --stat --from <name> --to @`,
   `jj log --no-graph -r '<name>..@' -T '...'`. Summary:
   `branch <name>..@ ($N change(s))`.
-- **git:** `BASE=$(git merge-base HEAD <name>)`, then default-style
-  `git diff "$BASE..HEAD"` etc. Summary:
-  `branch <name> (${BASE:0:8}..HEAD, $N commit(s))`.
+- **git:** chain in one Bash call:
+  `BASE=$(git merge-base HEAD <name>) && git diff "$BASE..HEAD" && git diff --stat "$BASE..HEAD" && git log --oneline "$BASE..HEAD"`.
+  Summary: `branch <name> (${BASE:0:8}..HEAD, $N commit(s))`.
 
 ### `file <path>`
 
@@ -149,7 +177,8 @@ prompt or report):
   otherwise the full list. Indent each by two spaces.
 - The diffstat, if non-empty.
 
-Then mention which model the reviewer is using.
+Then a single line: `Model: opus` (or whichever value `--model` had —
+print the alias, not a resolved id).
 
 ## Step 5: Spawn the reviewer subagent
 
@@ -175,7 +204,14 @@ final message is the report.
 Print the subagent's last message as-is. Do not add commentary, summaries,
 section headers, or wrap it in quotes. Do not editorialize.
 
-If the subagent failed, surface the error and stop.
+Treat the subagent as failed if any of:
+
+- the `Agent` tool returned an error;
+- the final message is empty or whitespace-only;
+- the final message does not start with `# Code Review`.
+
+On failure, surface the message (or the tool error) verbatim under a
+`# Review failed` heading and stop.
 
 ---
 
@@ -206,9 +242,12 @@ Produce exactly this structure, in order:
    Mark a box `[~]` instead of `[x]` if you ran the pass but the diff was
    too dense or unfamiliar to give a confident answer; explain in one line
    under the item.
-4. `## Plan alignment` — emit ONLY if the `<description>` block below is
-   non-empty. Format: numbered requirements (`R1`, `R2`, …) extracted from
-   the description. For each:
+4. `## Plan alignment` — emit ONLY if the content between `<description>`
+   and `</description>` below contains at least one non-whitespace
+   character. (When the orchestrator had no `--description` flag, the tags
+   are still present but their content is empty — skip the section.)
+   Format: numbered requirements (`R1`, `R2`, …) extracted from the
+   description. For each:
    - One-line restatement of what was asked.
    - Status: one of `done`, `partial`, `missing`, `scope-deviated`.
    - `Evidence:` line with `file:line` and a quoted snippet (or, for
@@ -345,8 +384,10 @@ add commentary before or after the report.
 ```
 
 If `$INSTRUCTIONS`, `$DESCRIPTION`, or `$PR_CONTEXT` are empty, leave the
-corresponding block empty (the subagent ignores empty blocks; it triggers
-the Plan-alignment section only when `<description>` has content).
+corresponding block empty (the tags `<instructions></instructions>` and
+`<description></description>` are still emitted with empty content; the
+subagent's Plan-alignment trigger fires only on non-whitespace content
+inside `<description>`).
 
 ## Examples
 
