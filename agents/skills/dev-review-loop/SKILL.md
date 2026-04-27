@@ -1,62 +1,105 @@
 ---
 name: dev-review-loop
-description: "Orchestrate a dev→review→fix loop using subagents. Iterates until review passes or findings are rejected."
+description: "Use when the user wants a dev → review → fix loop on the current task — runs the work in this session and uses /review as the only subagent. Iterates until review passes, all findings rejected, or 3 review rounds elapse."
+argument-hint: "[<task description> | file <path>]"
 ---
 
 # Dev Review Loop
 
-You act as the **orchestrator**: you spawn subagents, gather diffs, parse
-results, and report to the user. You never write or review code yourself.
+**You are the dev.** Implement the work yourself, in this session. Don't spawn a
+dev subagent. The only subagent is the reviewer (via `/review`), which runs
+fresh each round.
 
-## Agent lifecycle
+This skill takes over the rest of the session's context budget. The user opts
+in by invoking it; once invoked, the session is given over to the loop. The
+loop ends on review-passes, all-findings-rejected, the 3-round cap, or a
+pause-for-user.
 
-- **Dev agent** — spawned once, continued via SendMessage for gap-fixes and
-  review-fixes.
-- **Review agents** — fresh each round.
-- **Gap-check agents** — fresh each round.
+The diff is the durable artifact across reviewer invocations, so commit at
+every round transition. The conversation is not the source of truth.
 
-## Overview
+## Entry points
 
-1. **Dev subagent** — builds the requested feature
-2. **Commit + diff** — you commit changes and gather the diff
-3. **Gap check** — dev agent self-check + fresh gap-check subagent
-4. **Review** — via `/review` skill
-5. **Fix round** — resume the dev subagent to triage and fix findings
-6. **Gap check**
-7. Repeat 4–6 until review passes or all findings are rejected (max 5 review rounds)
+Pick one based on `$ARGUMENTS`:
+
+| Invocation                          | Task spec is...                                                |
+|-------------------------------------|----------------------------------------------------------------|
+| `/dev-review-loop "<text>"`         | The argument string itself.                                    |
+| `/dev-review-loop file <path>`      | The contents of `<path>` (read it once, treat as the brief).   |
+| `/dev-review-loop` (bare, no args)  | The recent in-session discussion (summarize it as a task spec). |
+
+For bare mode: write a 2-5 sentence summary of the task as you understand it
+from the prior turns. Confirm it with the user before starting work, **unless
+the immediately prior message was already a clean task spec** — in that case
+proceed and note "treating <prior message> as the spec."
 
 ## Setup
 
 Detect VCS:
 
-- **jj**: `test -d .jj` — use jj commands
-- **git**: otherwise use git commands
+- **jj**: `test -d .jj` — use jj commands.
+- **git**: otherwise use git commands.
 
 Record the **base revision** for cumulative diffs:
 
-- **jj**: `jj log -r @- --no-graph -T change_id` (parent of the current empty working copy)
-- **git**: `git rev-parse HEAD`
+- **jj**: `jj log -r @- --no-graph -T change_id` (parent of the current empty working copy).
+- **git**: `git rev-parse HEAD`.
 
-**Committing:** throughout this skill, only commit if there are actual changes.
-Check first (`jj diff --stat` or `git diff --cached --stat`).
+Throughout this skill, only commit if there are real changes
+(`jj diff --stat` or `git diff --cached --stat` first). No empty commits.
 
-## Round 0: Development
+## Round 0: Develop
 
-Spawn the dev subagent. **Save its agent ID** — you will resume it via
-SendMessage for all subsequent fix rounds.
+Build what the task spec asks for, in this session. Use the tools you'd
+normally use — read files, edit, run tests. Stay scoped: a bug fix doesn't
+need a surrounding refactor.
 
-    Agent(
-      subagent_type: "general-purpose",
-      description: "Dev: <short summary>",
-      prompt: "<task>\n{user's task}\n</task>\n\nBuild this. When done, summarize what you built and list key files."
-    )
+If you hit a question that needs a human decision before you can proceed,
+**stop and report STATUS: DESIGN_QUESTION** with the question and any
+options you've considered. Don't guess. The user resumes you on response.
 
-After it returns, **commit and report**:
+## Self-recheck checklist
 
-1. Commit:
-   - **jj**: `jj commit -m "dev-review-loop round 0: dev"`
-   - **git**: `git add -A && git commit -m "dev-review-loop round 0: dev"`
-2. Report to the user: what was built, key files (2-3 lines).
+Run through this **before** committing each round, including Round 0. This
+is a gate, not a suggestion — if any of items 1-3 surface a real issue, fix
+it before continuing to the review round. Items 4-6 want concrete output,
+not adjectives — gather the numbers if you don't already have them.
+
+**Did I do what was asked?**
+
+1. Re-read the original task. For each requirement: addressed,
+   deferred-and-flagged, or missed?
+2. Anything I punted on, hardcoded, or deferred without flagging?
+3. Edge cases I noticed but didn't handle?
+
+**Verification evidence** (paste actual output, not adjectives):
+
+4. Test command + result (e.g., `pytest → 34/34 pass`, not "tests pass").
+5. Build command + exit code.
+6. Linter/typecheck command + warning/error count.
+
+**Cheap pattern catches in the diff:**
+
+7. Debug code: `console.log`, `dbg!`, `println!`, `print(`, `pp`.
+8. Commented-out blocks I forgot to remove.
+9. New TODO/FIXME I added (existing ones are fine).
+10. `.unwrap()` / `.expect()` on fallible ops outside tests.
+11. `any` / `unknown` without justification comment (in TS).
+
+**Failure-philosophy check:**
+
+12. Any try/catch swallowing errors silently? Any backwards-compat hacks
+    left in? Any "this should never happen" without a loud failure?
+
+## Commit (after Round 0 dev)
+
+Only after the checklist is clean:
+
+- **jj**: `jj commit -m "dev-review-loop round 0: dev"`
+- **git**: `git add -A && git commit -m "dev-review-loop round 0: dev"`
+
+Report briefly to the user: what was built, key files, checklist verification
+numbers (2-4 lines).
 
 ## Gather the cumulative diff
 
@@ -67,109 +110,26 @@ Always diff from the base revision to the latest commit:
 
 If the diff is empty, stop — nothing to review.
 
-## Gap Check
-
-### Step 1: Ask the dev agent
-
-    SendMessage(
-      to: <dev agent ID>,
-      message: """
-        Step back and self-review against the original task:
-
-        <task>
-        {user's original task}
-        </task>
-
-        What did you skip, punt on, hardcode, or feel uncertain about?
-        Any requirements you deliberately deferred or edge cases you noticed but didn't handle?
-
-        Be honest — this is for catching gaps before review, not for judgment.
-
-        Output:
-        - SELF_GAPS: numbered list of gaps/concerns, or "none"
-      """
-    )
-
-### Step 2: Spawn a fresh gap-check subagent
-
-Launch in a **single message** alongside step 1 so both run concurrently.
-
-    Agent(
-      subagent_type: "general-purpose",
-      description: "Gap check: round N",
-      prompt: """
-        <task>
-        {user's original task}
-        </task>
-
-        <diff>
-        {cumulative diff}
-        </diff>
-
-        You are a gap checker. Review the diff against the original task.
-        Read source files for context as needed.
-
-        Look for:
-        - Requirements from the task that aren't addressed in the diff
-        - Edge cases or error paths that were overlooked
-        - Inconsistencies between what was built and what was asked for
-        - Obvious correctness issues
-
-        Do NOT flag style, naming, or structure — that's the code reviewer's job.
-
-        Output:
-        - GAPS: numbered list of gaps found, or "none"
-        - VERDICT: CLEAN if no gaps, GAPS_FOUND if there are gaps
-      """
-    )
-
-### Step 3: Merge and act
-
-Combine gaps from both sources, deduplicating. If no gaps from either →
-continue to review (or done, if this was a post-fix gap check).
-
-If there are gaps, send the merged list to the dev agent:
-
-    SendMessage(
-      to: <dev agent ID>,
-      message: """
-        Gap check found these issues:
-
-        <self-reported>
-        {dev agent's SELF_GAPS}
-        </self-reported>
-
-        <external>
-        {gap-checker's GAPS}
-        </external>
-
-        Address each gap. Summarize what you changed.
-      """
-    )
-
-After it returns, commit:
-
-- **jj**: `jj commit -m "dev-review-loop round N: gap fixes"`
-- **git**: `git add -A && git commit -m "dev-review-loop round N: gap fixes"`
-
-Report briefly to the user, then continue (do NOT re-run the gap check — move on).
-
 ## Round N: Review
 
-Invoke the `/review` skill with the cumulative revision range:
+Invoke `/review` as a fresh subagent each round. Pass the cumulative range and
+the task spec.
 
-- **jj**: `Skill(skill: "review", args: "commit <base_change_id>::@-")`
-  where `<base_change_id>` is the change ID recorded in Setup.
-  (If `/review` doesn't understand the range syntax, fall back to passing the
-  cumulative diff as custom instructions.)
-- **git**: `Skill(skill: "review", args: "commit <base_sha>..HEAD")`
+Prefer `--description` if `/review` accepts it (it carries the task spec into
+the reviewer's plan-alignment check). If not, fall back to `--instructions`,
+which the current `/review` accepts as free-form hints.
 
-The `/review` skill will report per-axis verdicts and an overall verdict.
+- **jj**: `Skill(skill: "review", args: "commit <base_change_id>::@- --description \"<task spec>\"")`
+- **git**: `Skill(skill: "review", args: "commit <base_sha>..HEAD --description \"<task spec>\"")`
+
+If `/review` errors on `--description`, retry with `--instructions "<task spec>"`.
+
+The `/review` skill returns per-axis verdicts and an overall verdict.
 
 ### Overall verdict: correct → loop done
 
-Tell the user the review passed. Summarize total rounds.
-If there are P2/P3 findings, list them.
+Tell the user the review passed. Summarize total rounds. List any P2/P3
+findings. Skip to **Squash on completion** below.
 
 ### Overall verdict: needs attention → continue to fix
 
@@ -177,77 +137,81 @@ Pass **all** findings (not just P0/P1) to the fix step.
 
 ## Round N: Fix
 
-Resume the **same dev subagent** via SendMessage.
+Triage the findings yourself, in this session. For each finding:
 
-    SendMessage(
-      to: <dev agent ID>,
-      message: """
-        Code review findings to address:
+- **FIX** — real issue, fix is obvious. Apply it now.
+- **DISAGREE** — nitpick, hypothetical, or factually wrong. One-line reason.
+- **NEEDS_DECISION** — real issue, but the fix involves a trade-off or design
+  choice that needs human input. Describe the options briefly.
 
-        <findings>
-        {review output}
-        </findings>
+Apply all FIX changes. Leave NEEDS_DECISION items untouched.
 
-        For each finding (by number), categorize it as one of:
+If during triage (or anywhere mid-round) you hit a question of your own —
+not tied to a specific finding — that needs a human decision before you
+can proceed, **stop and report STATUS: DESIGN_QUESTION** with the question
+and any options you've considered. Don't guess.
 
-        - **FIX** — real issue, the fix is obvious. Fix it now.
-        - **DISAGREE** — nitpick, hypothetical, or factually wrong. Explain why in one line.
-        - **NEEDS_DECISION** — real issue, but the fix involves a trade-off or design
-          choice that needs human input. Describe the options briefly.
+Then run the **self-recheck checklist** again before committing.
 
-        Apply all FIX changes. Leave NEEDS_DECISION items untouched.
-
-        Output:
-        - FIXED: finding numbers, what you fixed and how
-        - DISAGREED: finding numbers, one-line reasons
-        - NEEDS_DECISION: finding numbers, each with a brief description of the options
-        - STATUS: pick the first that applies:
-          1. DECISIONS_NEEDED — if any NEEDS_DECISION items exist (even if you also fixed things)
-          2. ALL_DISAGREED — if you rejected everything
-          3. FIXES_APPLIED — if you fixed things and disagreed with the rest
-      """
-    )
-
-After it returns, **commit**:
+Commit (only if real changes):
 
 - **jj**: `jj commit -m "dev-review-loop round N: fix"`
 - **git**: `git add -A && git commit -m "dev-review-loop round N: fix"`
 
+Pick **one** STATUS, in this priority order:
+
+1. **DESIGN_QUESTION** — you raised a design question and stopped (handled
+   above; this status fires at the moment you stop, not after triage).
+2. **DECISIONS_NEEDED** — any NEEDS_DECISION items exist (even if you also fixed things).
+3. **ALL_DISAGREED** — you rejected everything.
+4. **FIXES_APPLIED** — you fixed things, disagreed with the rest.
+
 ### STATUS: ALL_DISAGREED → loop done
 
 Tell the user all remaining findings were rejected. List the rejections.
+Skip to **Squash on completion**.
 
-### STATUS: DECISIONS_NEEDED → pause for user
+### STATUS: DECISIONS_NEEDED or DESIGN_QUESTION → pause for user
 
-Report the dev agent's triage to the user (fixed, rejected, needs input).
-**Stop and wait for the user to respond.**
+Report your triage to the user (fixed, rejected, needs input). **Stop and
+wait for the user to respond.** Do not spawn another reviewer or continue
+the loop.
 
-When the user responds with their decisions, send those to the dev subagent:
+When the user responds, apply their decisions, run the checklist, commit
+(`... round N: decisions`), and continue: gather diff → review.
 
-    SendMessage(
-      to: <dev agent ID>,
-      message: "User decisions on review findings:\n\n{user's response}\n\nApply these decisions. Summarize what you changed."
-    )
+### STATUS: FIXES_APPLIED → next review round
 
-After it returns, commit and continue: gather diff → gap check → review.
+Continue: gather diff → review.
 
-### STATUS: FIXES_APPLIED → gap check, then next review round
+## Loop cap
 
-Report what was fixed and what was rejected, then continue.
+3 review rounds. If round 3 still has findings, tell the user the loop
+didn't converge and summarize outstanding findings. Don't keep trying.
+
+## Squash on completion
+
+When the loop ends (review passes, all findings rejected, or cap hit),
+**don't squash unprompted**. Surface the round commits and a starter command;
+let the user inspect and pick the granularity. They might want to keep dev,
+fix, and decisions as separate logical commits.
+
+- **jj**: "`jj log -r <base>::@-` shows the round commits. Fold them with
+  `jj squash` (interactively, or e.g. `jj squash --from "<base>+::@-" --into <base>+`
+  to collapse all into the round-0 commit). See the `jj` skill for details."
+- **git**: "`git log <base_sha>..HEAD` shows the round commits. Fold them with
+  `git reset --soft <base_sha> && git commit` (single commit) or
+  `git rebase -i <base_sha>` (keep boundaries)."
 
 ## Reporting
 
-After every subagent, give the user a concise summary:
+After each round, give the user a concise summary — don't dump full reviewer
+output, summarize it yourself.
 
-- **Round 0 Dev**: "Built X. Key files: ..."
-- **Gap check**: "Clean (both lenses)." or "Found N gaps (2 self-reported, 1 external): G1 ..., G2 .... Sending to dev agent."
-- **Round N Review**: "Needs attention — 2 findings: C1 [P0] buffer overflow in parse.c:87, S1 [P2] ..."
-- **Round N Fix**: "Fixed C1 (buffer overflow). Rejected S1 (naming nit). **S2 needs your input**: option A does X, option B does Y."
-- **Done**: "Passed review in round N" / "All findings rejected in round N". If P2/P3 findings: "Passed with 2 non-blocking findings: D1 [P2] ..., T1 [P3] ..."
-
-Do NOT dump full subagent output. Summarize it yourself.
-
-## Max rounds
-
-5 review rounds. If exceeded, tell the user the loop didn't converge and summarize
-outstanding findings.
+- **Round 0 dev**: "Built X. Key files: ... Checklist: pytest 34/34 pass, build exit 0, ruff 0 warnings."
+- **Round N review**: "Needs attention — 2 findings: C1 [P0] buffer overflow in parse.c:87, S1 [P2] ..."
+- **Round N fix**: "Fixed C1. Rejected S1 (naming nit). **S2 needs your input**: option A does X, option B does Y."
+- **DESIGN_QUESTION**: "Hit a design question mid-round: <question>. Options: A, B. Pausing."
+- **Done (passed)**: "Passed review in round N. Squash command: <…>"
+- **Done (all rejected)**: "All findings rejected in round N. Squash command: <…>"
+- **Cap hit**: "Hit 3-round cap with outstanding findings: F1 ..., F2 .... Squash command: <…>"
