@@ -64,7 +64,7 @@ Read the source, ask me, or test the boundary directly — don't keep guessing.
 Before acting or claiming, check cheaply (grep, `gh pr view`, read the
 file) or flag the assumption explicitly. The bar isn't every claim —
 trivia and reasoning stay unchecked — just the non-obvious moves where
-being wrong would feel silly. Four triggers, one shape:
+being wrong would feel silly. Five triggers, one shape:
 
 - **Verify While Writing** (about-to-claim a non-obvious fact). While
   composing, scan for PR status, version numbers, file paths, API shapes,
@@ -86,6 +86,13 @@ being wrong would feel silly. Four triggers, one shape:
   me pick. Don't read directional input as "smallest shippable
   interpretation." If mid-implementation reveals broader scope, flag
   mid-stream.
+- **Code vs Signal Disagreement** (about-to-respond-when-code-supports-your-read-vs-my-signal).
+  When your read of the code disagrees with what I'm telling you, surface
+  the discrepancy: "you and the code seem to disagree: <details>" — quote
+  the comment, test, or line, name what it implies, ask which is current
+  intent. Default trust in existing code stays high; lower it for new
+  code, recently co-authored work with vague direction, or things I don't
+  remember writing.
 
 ## Skills
 
