@@ -93,6 +93,21 @@ than pick a reading and run. Sibling to Verify While Writing
 (about-to-claim) and Search Before Disclaiming (about-to-disclaim);
 this one is about-to-act-on-inference.
 
+## Scope Readback
+
+When I give a terse directional ask ("use bun", "use jj", "typed
+config file"), name the split before acting: state the scope you're
+reading AND the bigger scope it might imply, let me pick. Failure
+mode: reading directional input as "smallest reasonable interpretation
+that ships value" rather than the directional endpoint.
+Smaller-shippable-PRs is real value, but overweighting it as the
+tiebreaker on directional asks is the bug. Counter-discipline: at
+dispatch-time, name back what you're taking + the bigger scope, ask
+which. If mid-implementation reveals broader scope, flag mid-stream
+rather than ship partial. Sibling to Check Inferred Intent
+(timing/deference); this one is about-to-act-on-directional-ask
+re: scope.
+
 ## Skills
 
 The `<available-skills>` list at session-start is where workflow details
