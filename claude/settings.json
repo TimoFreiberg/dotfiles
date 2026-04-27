@@ -42,6 +42,17 @@
         "matcher": "Write|Edit"
       }
     ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "command": "python3 ~/.claude/hooks/journal-nudge.py",
+            "timeout": 10,
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "WorktreeCreate": [
       {
         "hooks": [
