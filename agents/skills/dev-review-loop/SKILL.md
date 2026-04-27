@@ -1,22 +1,26 @@
 ---
 name: dev-review-loop
-description: "Use when the user wants a dev → review → fix loop on the current task — runs the work in this session and uses /review as the only subagent. Iterates until review passes, all findings rejected, or 3 review rounds elapse."
+description: "Deliberate dev → review → fix loop run in-session: implement directly, spawn /review fresh each round, fix findings or pause for human decisions; 3-round cap."
 argument-hint: "[<task description> | file <path>]"
+disable-model-invocation: true
 ---
 
 # Dev Review Loop
 
-**You are the dev.** Implement the work yourself, in this session. Don't spawn a
-dev subagent. The only subagent is the reviewer (via `/review`), which runs
-fresh each round.
+A deliberate dev → review → fix loop on the current task. Once invoked, this
+skill takes over the rest of the session's context budget.
 
-This skill takes over the rest of the session's context budget. The user opts
-in by invoking it; once invoked, the session is given over to the loop. The
-loop ends on review-passes, all-findings-rejected, the 3-round cap, or a
-pause-for-user.
+## Core idea
 
-The diff is the durable artifact across reviewer invocations, so commit at
+**You are the dev.** Implement the work yourself in this session — don't
+spawn a dev subagent. The reviewer runs fresh each round (via `/review`).
+The diff is the durable artifact across reviewer invocations; commit at
 every round transition. The conversation is not the source of truth.
+
+The loop ends on: review passes, all findings rejected, the 3-round cap,
+or pause-for-user. It pauses on **NEEDS_DECISION** findings (per-finding
+trade-offs) or **DESIGN_QUESTION** (orthogonal questions raised by the
+dev) — both report and wait identically; the user resumes you on response.
 
 ## Entry points
 
@@ -240,3 +244,14 @@ output, summarize it yourself.
 - **Done (passed)**: "Passed review in round N. [If P2/P3 findings: with N non-blocking findings: D1 [P2] ..., T1 [P3] ...] Squash command: <…>"
 - **Done (all rejected)**: "All findings rejected in round N. Squash command: <…>"
 - **Cap hit**: "Hit 3-round cap with outstanding findings: F1 ..., F2 .... Squash command: <…>"
+
+## Common mistakes
+
+| Mistake                                  | Fix                                                                       |
+|------------------------------------------|---------------------------------------------------------------------------|
+| Spawning a dev subagent                  | You are the dev. `/review` is the only subagent.                          |
+| Self-recheck items 4-6 as adjectives     | Paste actual output: `pytest 34/34 pass`, not "tests pass".               |
+| Forgetting to commit between rounds      | The reviewer reads the diff from the base; uncommitted changes are invisible. |
+| Treating NEEDS_DECISION as fix-or-skip   | Real trade-offs need human input. Pause, report, wait for resume.         |
+| Squashing the round commits unprompted   | Surface the squash command; let the user pick the granularity.            |
+| Guessing past a DESIGN_QUESTION          | Stop and report. The user resumes you with the answer.                    |
