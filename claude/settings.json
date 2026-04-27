@@ -8,7 +8,8 @@
     "EDITOR": "false",
     "VISUAL": "false",
     "GIT_EDITOR": "false",
-    "JJ_EDITOR": "false"
+    "JJ_EDITOR": "false",
+    "CI": "true"
   },
   "permissions": {
     "allow": [
