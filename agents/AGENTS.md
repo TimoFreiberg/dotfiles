@@ -59,54 +59,33 @@ approach not working — stop. Ask: "what am I assuming that could be wrong?"
 Shift from retrying variations to questioning the mental model entirely.
 Read the source, ask me, or test the boundary directly — don't keep guessing.
 
-## Verify While Writing
+## Cheap Pre-Checks
 
-While composing a substantive response, scan for non-obvious factual claims
-as they're being written — PR status, version numbers, file paths, API
-shapes, merge state, what someone said earlier. For each: verify cheaply
-if you can (grep, `gh pr view`, read the file), or flag the assumption
-explicitly ("assuming X, haven't checked"). The bar isn't every claim —
-trivia and reasoning stay unchecked — just the non-obvious factual ones
-where being wrong would feel silly.
+Before acting or claiming, check cheaply (grep, `gh pr view`, read the
+file) or flag the assumption explicitly. The bar isn't every claim —
+trivia and reasoning stay unchecked — just the non-obvious moves where
+being wrong would feel silly. Four triggers, one shape:
 
-## Search Before Disclaiming
-
-When I refer to something you don't recognize — a name, a file, a
-concept, a prior conversation — search available context before saying
-"I don't know" or "I don't have that loaded." Cheap checks: grep
-memory files, the codebase, conversation history. The reference is
-plausibly something already in the durable context; disclaiming
-without checking wastes the context that exists for exactly this case.
-Sibling to Verify While Writing — same cheap-pre-emptive-check shape,
-different trigger (about-to-disclaim vs about-to-claim).
-
-## Check Inferred Intent
-
-Before acting on an inference about my intent — preferences, cadence,
-scope of an instruction — check whether the inference matches actual
-constraints. Failure mode: abstract default → action, skipping the
-check against the live situation. The inference then compounds into
-"convention I defer to" silently, without me ever speaking to correct
-it. When you have multiple plausible readings of a signal — especially
-around timing or deference — ask about the underlying intent rather
-than pick a reading and run. Sibling to Verify While Writing
-(about-to-claim) and Search Before Disclaiming (about-to-disclaim);
-this one is about-to-act-on-inference.
-
-## Scope Readback
-
-When I give a terse directional ask ("use bun", "use jj", "typed
-config file"), name the split before acting: state the scope you're
-reading AND the bigger scope it might imply, let me pick. Failure
-mode: reading directional input as "smallest reasonable interpretation
-that ships value" rather than the directional endpoint.
-Smaller-shippable-PRs is real value, but overweighting it as the
-tiebreaker on directional asks is the bug. Counter-discipline: at
-dispatch-time, name back what you're taking + the bigger scope, ask
-which. If mid-implementation reveals broader scope, flag mid-stream
-rather than ship partial. Sibling to Check Inferred Intent
-(timing/deference); this one is about-to-act-on-directional-ask
-re: scope.
+- **Verify While Writing** (about-to-claim a non-obvious fact). While
+  composing, scan for PR status, version numbers, file paths, API shapes,
+  merge state, what someone said earlier. Verify or flag ("assuming X,
+  haven't checked").
+- **Search Before Disclaiming** (about-to-say "I don't know"). When I
+  refer to something you don't recognize — a name, file, concept, prior
+  conversation — grep memory files, the codebase, conversation history
+  first. The reference is plausibly already in durable context.
+- **Check Inferred Intent** (about-to-act-on-inference). Before acting
+  on an inference about my intent — preferences, cadence, scope of an
+  instruction — check whether it matches actual constraints. When there
+  are multiple plausible readings, especially around timing or deference,
+  ask about the underlying intent rather than pick and run. Inferences
+  silently compound into "convention I defer to" otherwise.
+- **Scope Readback** (about-to-act-on-directional-ask). When I give a
+  terse directional ask ("use bun", "use jj", "typed config file"), name
+  back the scope you're reading AND the bigger scope it might imply, let
+  me pick. Don't read directional input as "smallest shippable
+  interpretation." If mid-implementation reveals broader scope, flag
+  mid-stream.
 
 ## Skills
 
@@ -116,12 +95,10 @@ name and description fit the task in front of you, load it via the Skill
 tool before working. If nothing fits, ad-hoc is fine; notice if the same
 shape recurs and a new skill would be worth writing.
 
-## Tools
-
-Prefer `jj` over `git`.
-If anything goes wrong with jj, **read the jj skill file** before attempting to fix it.
-
 ## Version Control Workflow
+
+Prefer `jj` over `git`. If anything goes wrong with jj, **read the jj skill
+file** before attempting to fix it.
 
 - **Always commit changes when done.** Do NOT wait to be asked.
 - Before starting work, ensure the current change is empty (`jj show`). If not: commit stale changes or `jj new`.
