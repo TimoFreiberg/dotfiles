@@ -119,7 +119,6 @@ shape recurs and a new skill would be worth writing.
 ## Tools
 
 Prefer `jj` over `git`.
-**NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message` — bare `jj squash` opens an editor and hangs.
 If anything goes wrong with jj, **read the jj skill file** before attempting to fix it.
 
 ## Version Control Workflow
