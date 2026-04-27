@@ -37,12 +37,19 @@ Skip testing for:
 | Without | Run the scenario without the skill loaded         | Capture exactly what the agent did and how it framed it |
 | Write   | Address the specific gaps you saw                 | Skill names the actual failure modes, not imagined ones |
 | With    | Run the same scenario with the skill loaded       | Agent does the right thing under realistic pressure  |
-| Refine  | Find the cases the skill still misses             | Add targeted clarifications, not generic warnings    |
+| Refine  | Find the cases the skill still misses             | Add motivation/context first; reach for emphatic language only if that doesn't hold |
 
 The "without" step is the one people skip. Without it, you're writing the
 skill against your imagination of what an agent might do. The agent's
 actual failure modes are usually narrower and more specific than that —
 and the skill is more useful when it names them directly.
+
+In the Refine phase, try contextual reframings before reaching for forceful
+language. "X breaks the build for the team" usually beats "NEVER do X" — and
+if the contextual version doesn't hold under pressure, that's signal that
+the skill is missing the actual mechanism, not that it needs more emphasis.
+See [`writing-claude-directives`](../writing-claude-directives/SKILL.md) on
+compliance levers.
 
 ## Choosing the model
 

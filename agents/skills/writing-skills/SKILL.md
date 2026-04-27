@@ -65,7 +65,7 @@ flags, advanced syntax, edge-case recipes). Don't preemptively split.
 ```markdown
 ---
 name: skill-name
-description: "Use when [trigger/symptom] — [what it does, third person]"
+description: "Use when [trigger/symptom][, optional: — what it does, third person]"
 user-invocable: false   # omit if the user can invoke via slash command
 ---
 
@@ -99,7 +99,11 @@ Frontmatter notes:
   `debugging-flakes`).
 - `description`: starts with "Use when…", reads in third person. This is the
   string the agent searches against — load it with the symptoms a future
-  agent would actually type.
+  agent would actually type. The "what it does" half is optional: include it
+  when the high-level framing helps the agent decide this is the right tool;
+  drop it when a one-line summary would substitute for the body enough that
+  the agent might satisfice on the description and skip loading. Pure-trigger
+  descriptions force the load.
 - `user-invocable: false` for skills that the model loads on its own, not via
   `/skill-name`. Omit (or set true) for slash-command skills.
 

@@ -110,10 +110,16 @@ A motivated rule is a rule the reader can apply to cases you didn't list.
 | Explicit branches    | "If X, do Y instead" beats "consider doing Y"            |
 | Worked example       | One concrete trace beats abstract description            |
 
+**Zero-th lever — tooling and environment.** Before writing a directive,
+ask whether tooling or environment can prevent the trap entirely.
+`PAGER=cat`, a wrapper script, a pre-commit hook, a stricter type — these
+don't depend on the agent reading or remembering anything. A directive is
+the second-best fix when the failure can't be prevented at the source.
+
 **When to escalate to imperatives.** Bold or all-caps when there's a real
-trap with a costly failure mode (e.g. "**NEVER** run `jj squash` without
-`-m`" — bare squash hangs on an editor). Keep this register rare so it
-keeps its weight.
+trap with a costly failure mode and no clean tooling fix (e.g. "**NEVER**
+run `jj squash` without `-m`" — bare squash hangs on an editor). Keep this
+register rare so it keeps its weight.
 
 ## Structure patterns that earn their keep
 
