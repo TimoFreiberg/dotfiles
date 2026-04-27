@@ -1,6 +1,15 @@
 {
   "awsAuthRefresh": "aws sso login --sso-session \"$SSO_SESSION\" 2>/dev/null || aws sso login --profile \"$AWS_PROFILE\"",
   "includeGitInstructions": false,
+  "env": {
+    "PAGER": "cat",
+    "GIT_PAGER": "cat",
+    "MANPAGER": "cat",
+    "EDITOR": "false",
+    "VISUAL": "false",
+    "GIT_EDITOR": "false",
+    "JJ_EDITOR": "false"
+  },
   "permissions": {
     "allow": [
       "Bash(jj *)",
