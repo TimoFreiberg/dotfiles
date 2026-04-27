@@ -31,7 +31,9 @@ Pick one based on `$ARGUMENTS`:
 For bare mode: write a 2-5 sentence summary of the task as you understand it
 from the prior turns. Confirm it with the user before starting work, **unless
 the immediately prior message was already a clean task spec** — in that case
-proceed and note "treating <prior message> as the spec."
+proceed and note "treating <prior message> as the spec." If there are no
+relevant prior turns (fresh session), stop and ask the user for a task spec
+before going further.
 
 ## Setup
 
@@ -40,6 +42,13 @@ Detect VCS:
 - **jj**: `test -d .jj` — use jj commands.
 - **git**: otherwise use git commands.
 
+Verify the working copy is clean before recording the base. If it isn't,
+decide with the user: commit-as-prelude (so the loop's diff stays scoped to
+new work) or fold into round 0 (if the existing edits are part of this task).
+
+- **jj**: `jj diff --stat` should be empty.
+- **git**: `git status --porcelain` should be empty.
+
 Record the **base revision** for cumulative diffs:
 
 - **jj**: `jj log -r @- --no-graph -T change_id` (parent of the current empty working copy).
@@ -47,6 +56,10 @@ Record the **base revision** for cumulative diffs:
 
 Throughout this skill, only commit if there are real changes
 (`jj diff --stat` or `git diff --cached --stat` first). No empty commits.
+
+**Round numbering**: round 0 is the initial dev pass. Each subsequent review
++ fix is round N (N = 1, 2, 3). Decisions commits use the same N as the fix
+they resolve.
 
 ## Round 0: Develop
 
@@ -115,14 +128,17 @@ If the diff is empty, stop — nothing to review.
 Invoke `/review` as a fresh subagent each round. Pass the cumulative range and
 the task spec.
 
-Prefer `--description` if `/review` accepts it (it carries the task spec into
-the reviewer's plan-alignment check). If not, fall back to `--instructions`,
-which the current `/review` accepts as free-form hints.
+Today, pass the task spec via `--instructions` — the current `/review` accepts
+it as free-form hints:
 
-- **jj**: `Skill(skill: "review", args: "commit <base_change_id>::@- --description \"<task spec>\"")`
-- **git**: `Skill(skill: "review", args: "commit <base_sha>..HEAD --description \"<task spec>\"")`
+- **jj**: `Skill(skill: "review", args: "commit <base_change_id>::@- --instructions \"<task spec>\"")`
+- **git**: `Skill(skill: "review", args: "commit <base_sha>..HEAD --instructions \"<task spec>\"")`
 
-If `/review` errors on `--description`, retry with `--instructions "<task spec>"`.
+A sibling PR adds `--description` to `/review` (carries the task spec into a
+plan-alignment check). Once that lands and `uv run …/review.py --help` shows
+`--description`, prefer it over `--instructions`. The two are not synonyms:
+`--description` enables structured plan-alignment; `--instructions` is
+free-form reviewer hints.
 
 The `/review` skill returns per-axis verdicts and an overall verdict.
 
@@ -149,7 +165,8 @@ Apply all FIX changes. Leave NEEDS_DECISION items untouched.
 If during triage (or anywhere mid-round) you hit a question of your own —
 not tied to a specific finding — that needs a human decision before you
 can proceed, **stop and report STATUS: DESIGN_QUESTION** with the question
-and any options you've considered. Don't guess.
+and any options you've considered. Don't guess. (DESIGN_QUESTION is an
+early exit; if it fires, skip the STATUS picker below entirely.)
 
 Then run the **self-recheck checklist** again before committing.
 
@@ -160,11 +177,12 @@ Commit (only if real changes):
 
 Pick **one** STATUS, in this priority order:
 
-1. **DESIGN_QUESTION** — you raised a design question and stopped (handled
-   above; this status fires at the moment you stop, not after triage).
-2. **DECISIONS_NEEDED** — any NEEDS_DECISION items exist (even if you also fixed things).
-3. **ALL_DISAGREED** — you rejected everything.
-4. **FIXES_APPLIED** — you fixed things, disagreed with the rest.
+1. **DECISIONS_NEEDED** — any NEEDS_DECISION items exist (even if you also fixed things).
+2. **ALL_DISAGREED** — you rejected everything.
+3. **FIXES_APPLIED** — you fixed things, disagreed with the rest.
+
+(DESIGN_QUESTION is a separate early exit; it fires when raised, never gets
+selected from this list.)
 
 ### STATUS: ALL_DISAGREED → loop done
 
@@ -173,12 +191,17 @@ Skip to **Squash on completion**.
 
 ### STATUS: DECISIONS_NEEDED or DESIGN_QUESTION → pause for user
 
-Report your triage to the user (fixed, rejected, needs input). **Stop and
-wait for the user to respond.** Do not spawn another reviewer or continue
-the loop.
+Report your triage (or the design question) to the user. **Stop and wait for
+the user to respond.** Do not spawn another reviewer or continue the loop.
 
-When the user responds, apply their decisions, run the checklist, commit
-(`... round N: decisions`), and continue: gather diff → review.
+Resumption depends on where you paused:
+
+- **Paused mid-Round-0** (DESIGN_QUESTION before the round-0 commit): apply
+  the user's answer, keep developing the rest of round 0, run the checklist,
+  commit `round 0: dev`, and continue to gather diff → review.
+- **Paused mid-fix** (DECISIONS_NEEDED or DESIGN_QUESTION after the
+  round-N fix commit): apply the user's decisions, run the checklist, commit
+  `round N: decisions`, and continue: gather diff → review.
 
 ### STATUS: FIXES_APPLIED → next review round
 
@@ -192,13 +215,15 @@ didn't converge and summarize outstanding findings. Don't keep trying.
 ## Squash on completion
 
 When the loop ends (review passes, all findings rejected, or cap hit),
-**don't squash unprompted**. Surface the round commits and a starter command;
-let the user inspect and pick the granularity. They might want to keep dev,
-fix, and decisions as separate logical commits.
+**don't squash unprompted**. Surface the round commits and a starter command
+**for the user to run** — let them inspect and pick the granularity. They
+might want to keep dev, fix, and decisions as separate logical commits.
 
-- **jj**: "`jj log -r <base>::@-` shows the round commits. Fold them with
-  `jj squash` (interactively, or e.g. `jj squash --from "<base>+::@-" --into <base>+`
-  to collapse all into the round-0 commit). See the `jj` skill for details."
+- **jj**: "`jj log -r <base>::@-` shows the round commits. To collapse them
+  all into the round-0 commit, run
+  `jj squash --from \"<base>+::@-\" --into <base>+ --use-destination-message`.
+  See the `jj` skill for variants. **NEVER** run `jj squash` without `-m` or
+  `--use-destination-message` — bare squash hangs on the editor."
 - **git**: "`git log <base_sha>..HEAD` shows the round commits. Fold them with
   `git reset --soft <base_sha> && git commit` (single commit) or
   `git rebase -i <base_sha>` (keep boundaries)."
@@ -212,6 +237,6 @@ output, summarize it yourself.
 - **Round N review**: "Needs attention — 2 findings: C1 [P0] buffer overflow in parse.c:87, S1 [P2] ..."
 - **Round N fix**: "Fixed C1. Rejected S1 (naming nit). **S2 needs your input**: option A does X, option B does Y."
 - **DESIGN_QUESTION**: "Hit a design question mid-round: <question>. Options: A, B. Pausing."
-- **Done (passed)**: "Passed review in round N. Squash command: <…>"
+- **Done (passed)**: "Passed review in round N. [If P2/P3 findings: with N non-blocking findings: D1 [P2] ..., T1 [P3] ...] Squash command: <…>"
 - **Done (all rejected)**: "All findings rejected in round N. Squash command: <…>"
 - **Cap hit**: "Hit 3-round cap with outstanding findings: F1 ..., F2 .... Squash command: <…>"
