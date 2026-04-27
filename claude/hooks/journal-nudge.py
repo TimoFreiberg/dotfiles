@@ -43,6 +43,12 @@ WORK_TOOLS = {
 # Skills that satisfy "journaled" — we cleared the nudge.
 JOURNAL_SKILLS = {"journal", "prowl:journal"}
 
+# Substrings that, if they appear in a Bash command's command string, mean
+# the turn directly invoked the journal CLI (bypassing the Skill wrapper).
+# Both nest and prowl variants are covered because the skill symlink resolves
+# to the same script path under either repo layout.
+JOURNAL_BASH_MARKERS = ("skills/journal/scripts/journal",)
+
 # Marker text embedded in our block reason. Used to detect "did we already
 # nudge this turn?" on re-entry. Must be stable and specific.
 NUDGE_MARKER = "JOURNAL_NUDGE_v1"
@@ -181,14 +187,22 @@ def scan_turn(entries: list[dict], start: int) -> dict:
                 elif btype == "tool_use":
                     name = block.get("name", "")
                     bi = block.get("input", {}) or {}
-                    if name in WORK_TOOLS:
-                        did_work = True
-                    elif name == "Skill":
+                    if name == "Skill":
                         skill = bi.get("skill", "")
                         if skill in JOURNAL_SKILLS:
                             did_journal = True
                         # Skills other than journal don't count as "work"
                         # on their own — they could be anything.
+                    elif name == "Bash":
+                        # Direct Bash invocations of the journal script
+                        # clear the nudge too. Otherwise Bash is "work."
+                        cmd = bi.get("command", "") or ""
+                        if any(m in cmd for m in JOURNAL_BASH_MARKERS):
+                            did_journal = True
+                        else:
+                            did_work = True
+                    elif name in WORK_TOOLS:
+                        did_work = True
                     # Tool calls that aren't in WORK_TOOLS (Read, Glob,
                     # Grep, Agent, ToolSearch, etc.) are ignored.
 
