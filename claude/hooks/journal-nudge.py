@@ -3,16 +3,17 @@
 called the journal skill.
 
 Design:
+- Bail out immediately if `stop_hook_active` is true — Claude Code is
+  already continuing as a result of our prior nudge this turn, so firing
+  again would loop.
 - Read the transcript from `transcript_path` in the Stop payload.
 - Walk backward to find the start of the current turn (last user-role text
-  message that isn't one of our own injected nudges or a system-reminder).
+  message).
 - Scan assistant messages since then for (a) non-trivial tool use, (b) any
   invocation of the `journal`/`prowl:journal` skill.
 - If (a) happened and (b) didn't, emit
-    {"decision": "block", "reason": "<checklist prompt>"}
-  so Claude gets one more inference pass with the checklist visible.
-- Re-entry prevention: if our previous nudge already appeared in the turn
-  (injected as a user-role tool_result-shaped message), don't nudge again.
+    {"decision": "block", "reason": "<nudge>"}
+  so Claude gets one more inference pass with the nudge visible.
 
 Tunables near the top so they're easy to adjust.
 """
@@ -20,7 +21,6 @@ Tunables near the top so they're easy to adjust.
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -49,14 +49,10 @@ JOURNAL_SKILLS = {"journal", "prowl:journal"}
 # to the same script path under either repo layout.
 JOURNAL_BASH_MARKERS = ("skills/journal/scripts/journal",)
 
-# Marker text embedded in our block reason. Used to detect "did we already
-# nudge this turn?" on re-entry. Must be stable and specific.
-NUDGE_MARKER = "JOURNAL_NUDGE_v1"
-
 # The actual prompt Claude sees when we block. One-liner shape — Claude
 # has internalized what counts as a fork, so just the trigger + action.
 NUDGE_REASON = (
-    f"{NUDGE_MARKER}: this turn did work and didn't journal. "
+    "this turn did work and didn't journal. "
     "If a fork or correction formed, call prowl:journal now."
 )
 
@@ -86,19 +82,13 @@ def load_transcript(path: Path) -> list[dict]:
 
 def is_genuine_user_text(entry: dict) -> bool:
     """True if this entry is a real user message (start of a turn), not an
-    attachment, tool-result, or one of our injected nudges.
+    attachment or tool-result-only message.
 
     A "real user text message" is:
     - type == "user"
     - message.role == "user"
-    - message.content is a string OR a list containing a text block whose
-      text is NOT our nudge marker and NOT wrapped in system-reminder tags
-      that indicate a synthetic injection.
-
-    We err on the side of calling something genuine — misclassifying an
-    injected message as genuine means we might nudge once extra, which is
-    cheap. Misclassifying a genuine message as injected would make us
-    miss nudges, which is the bigger failure.
+    - message.content is a string OR a list containing at least one text
+      block (tool_result-only entries don't count).
     """
     if entry.get("type") != "user":
         return False
@@ -107,23 +97,13 @@ def is_genuine_user_text(entry: dict) -> bool:
         return False
     content = msg.get("content")
     if isinstance(content, str):
-        # Tool results sometimes arrive as string content; but those are
-        # usually wrapped with role != "user" in practice. If a string
-        # reaches us, treat as genuine unless it contains our marker.
-        return NUDGE_MARKER not in content
+        return True
     if isinstance(content, list):
-        # Tool-result entries are user-role messages with content being
-        # a list of tool_result blocks. Those aren't "genuine user text."
-        # Genuine user text has at least one text block that's not our
-        # injected nudge.
         has_text = False
         for block in content:
             if not isinstance(block, dict):
                 continue
             if block.get("type") == "text":
-                text = block.get("text", "")
-                if NUDGE_MARKER in text:
-                    return False
                 has_text = True
             elif block.get("type") == "tool_result":
                 # Pure tool_result turn — not a user text start.
@@ -150,57 +130,42 @@ def scan_turn(entries: list[dict], start: int) -> dict:
     Returns a dict with:
       - did_work: bool
       - did_journal: bool
-      - already_nudged: bool
     """
     did_work = False
     did_journal = False
-    already_nudged = False
 
     for entry in entries[start + 1 :]:
-        etype = entry.get("type")
         msg = entry.get("message") or {}
         content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") != "tool_use":
+                continue
+            name = block.get("name", "")
+            bi = block.get("input", {}) or {}
+            if name == "Skill":
+                skill = bi.get("skill", "")
+                if skill in JOURNAL_SKILLS:
+                    did_journal = True
+                # Skills other than journal don't count as "work"
+                # on their own — they could be anything.
+            elif name == "Bash":
+                # Direct Bash invocations of the journal script
+                # clear the nudge too. Otherwise Bash is "work."
+                cmd = bi.get("command", "") or ""
+                if any(m in cmd for m in JOURNAL_BASH_MARKERS):
+                    did_journal = True
+                else:
+                    did_work = True
+            elif name in WORK_TOOLS:
+                did_work = True
+            # Tool calls that aren't in WORK_TOOLS (Read, Glob,
+            # Grep, Agent, ToolSearch, etc.) are ignored.
 
-        # Our previously-injected nudge shows up as either:
-        # (a) a user-role message with text content containing the marker, or
-        # (b) some harness-specific shape that still surfaces the marker text.
-        # Check both.
-        if isinstance(content, str) and NUDGE_MARKER in content:
-            already_nudged = True
-        elif isinstance(content, list):
-            for block in content:
-                if not isinstance(block, dict):
-                    continue
-                btype = block.get("type")
-                if btype == "text" and NUDGE_MARKER in block.get("text", ""):
-                    already_nudged = True
-                elif btype == "tool_use":
-                    name = block.get("name", "")
-                    bi = block.get("input", {}) or {}
-                    if name == "Skill":
-                        skill = bi.get("skill", "")
-                        if skill in JOURNAL_SKILLS:
-                            did_journal = True
-                        # Skills other than journal don't count as "work"
-                        # on their own — they could be anything.
-                    elif name == "Bash":
-                        # Direct Bash invocations of the journal script
-                        # clear the nudge too. Otherwise Bash is "work."
-                        cmd = bi.get("command", "") or ""
-                        if any(m in cmd for m in JOURNAL_BASH_MARKERS):
-                            did_journal = True
-                        else:
-                            did_work = True
-                    elif name in WORK_TOOLS:
-                        did_work = True
-                    # Tool calls that aren't in WORK_TOOLS (Read, Glob,
-                    # Grep, Agent, ToolSearch, etc.) are ignored.
-
-    return {
-        "did_work": did_work,
-        "did_journal": did_journal,
-        "already_nudged": already_nudged,
-    }
+    return {"did_work": did_work, "did_journal": did_journal}
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +178,11 @@ def main() -> int:
         payload = json.load(sys.stdin)
     except json.JSONDecodeError:
         return 0  # no payload, nothing to do
+
+    # Re-entry guard: if Claude Code is already continuing because of our
+    # prior Stop-hook block this turn, don't fire again.
+    if payload.get("stop_hook_active"):
+        return 0
 
     transcript_path = payload.get("transcript_path")
     if not transcript_path:
@@ -228,9 +198,6 @@ def main() -> int:
 
     state = scan_turn(entries, start)
 
-    # Decide whether to nudge.
-    if state["already_nudged"]:
-        return 0  # re-entry: we already nudged this turn, let it end
     if not state["did_work"]:
         return 0  # trivial turn, no need to nudge
     if state["did_journal"]:
