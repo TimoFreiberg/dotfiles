@@ -17,9 +17,9 @@ The diff is the durable artifact across reviewer invocations; commit at
 every round transition. The conversation is not the source of truth.
 
 The loop ends on: review passes, all findings rejected, the 3-round cap,
-or pause-for-user. It pauses on **NEEDS_DECISION** findings (per-finding
-trade-offs) or **DESIGN_QUESTION** (orthogonal questions raised by the
-dev) — both report and wait identically; the user resumes you on response.
+or pause-for-user. It pauses on **DECISIONS_NEEDED** — either per-finding
+trade-offs or orthogonal design questions raised by the dev. The user
+resumes you on response.
 
 ## Entry points
 
@@ -71,7 +71,7 @@ normally use — read files, edit, run tests. Stay scoped: a bug fix doesn't
 need a surrounding refactor.
 
 If you hit a question that needs a human decision before you can proceed,
-**stop and report STATUS: DESIGN_QUESTION** with the question and any
+**stop and report STATUS: DECISIONS_NEEDED** with the question and any
 options you've considered. Don't guess. The user resumes you on response.
 
 ## Self-recheck checklist
@@ -158,18 +158,21 @@ Pass **all** findings (not just P0/P1) to the fix step.
 
 Triage the findings yourself, in this session. For each finding:
 
-- **FIX** — real issue, fix is obvious. Apply it now.
-- **DISAGREE** — nitpick, hypothetical, or factually wrong. One-line reason.
-- **NEEDS_DECISION** — real issue, but the fix involves a trade-off or design
-  choice that needs human input. Describe the options briefly.
+- **FIX** — real issue or easy improvement (style/clarity nit with an
+  obvious fix). Apply it now.
+- **DISAGREE** — finding is hypothetical, factually wrong, a matter of
+  taste, or would require disproportionate rework to be consistent.
+  One-line reason.
+- **NEEDS_DECISION** — real issue, but the fix involves a trade-off or
+  design choice that needs human input. Describe the options briefly.
 
 Apply all FIX changes. Leave NEEDS_DECISION items untouched.
 
 If during triage (or anywhere mid-round) you hit a question of your own —
 not tied to a specific finding — that needs a human decision before you
-can proceed, **stop and report STATUS: DESIGN_QUESTION** with the question
-and any options you've considered. Don't guess. (DESIGN_QUESTION is an
-early exit; if it fires, skip the STATUS picker below entirely.)
+can proceed, **stop and report STATUS: DECISIONS_NEEDED** with the
+question and any options you've considered. Don't guess. (This skips
+the STATUS picker below — DECISIONS_NEEDED is the top of it anyway.)
 
 Then run the **self-recheck checklist** again before committing.
 
@@ -184,25 +187,22 @@ Pick **one** STATUS, in this priority order:
 2. **ALL_DISAGREED** — you rejected everything.
 3. **FIXES_APPLIED** — you fixed things, disagreed with the rest.
 
-(DESIGN_QUESTION is a separate early exit; it fires when raised, never gets
-selected from this list.)
-
 ### STATUS: ALL_DISAGREED → loop done
 
 Tell the user all remaining findings were rejected. List the rejections.
 Skip to **Squash on completion**.
 
-### STATUS: DECISIONS_NEEDED or DESIGN_QUESTION → pause for user
+### STATUS: DECISIONS_NEEDED → pause for user
 
 Report your triage (or the design question) to the user. **Stop and wait for
 the user to respond.** Do not spawn another reviewer or continue the loop.
 
 Resumption depends on where you paused:
 
-- **Paused mid-Round-0** (DESIGN_QUESTION before the round-0 commit): apply
-  the user's answer, keep developing the rest of round 0, run the checklist,
-  commit `round 0: dev`, and continue to gather diff → review.
-- **Paused mid-fix** (DECISIONS_NEEDED or DESIGN_QUESTION after the
+- **Paused mid-Round-0** (design question raised before the round-0 commit):
+  apply the user's answer, keep developing the rest of round 0, run the
+  checklist, commit `round 0: dev`, and continue to gather diff → review.
+- **Paused mid-fix** (per-finding trade-off or design question after the
   round-N fix commit): apply the user's decisions, run the checklist, commit
   `round N: decisions`, and continue: gather diff → review.
 
@@ -239,7 +239,7 @@ output, summarize it yourself.
 - **Round 0 dev**: "Built X. Key files: ... Checklist: pytest 34/34 pass, build exit 0, ruff 0 warnings."
 - **Round N review**: "Needs attention — 2 findings: C1 [P0] buffer overflow in parse.c:87, S1 [P2] ..."
 - **Round N fix**: "Fixed C1. Rejected S1 (naming nit). **S2 needs your input**: option A does X, option B does Y."
-- **DESIGN_QUESTION**: "Hit a design question mid-round: <question>. Options: A, B. Pausing."
+- **DECISIONS_NEEDED (mid-dev question)**: "Hit a design question mid-round: <question>. Options: A, B. Pausing."
 - **Done (passed)**: "Passed review in round N. [If P2/P3 findings: with N non-blocking findings: D1 [P2] ..., T1 [P3] ...] Squash command: <…>"
 - **Done (all rejected)**: "All findings rejected in round N. Squash command: <…>"
 - **Cap hit**: "Hit 3-round cap with outstanding findings: F1 ..., F2 .... Squash command: <…>"
@@ -253,4 +253,4 @@ output, summarize it yourself.
 | Forgetting to commit between rounds      | The reviewer reads the diff from the base; uncommitted changes are invisible. |
 | Treating NEEDS_DECISION as fix-or-skip   | Real trade-offs need human input. Pause, report, wait for resume.         |
 | Squashing the round commits unprompted   | Surface the squash command; let the user pick the granularity.            |
-| Guessing past a DESIGN_QUESTION          | Stop and report. The user resumes you with the answer.                    |
+| Guessing past your own mid-dev question  | Stop and report DECISIONS_NEEDED. The user resumes you with the answer.   |
