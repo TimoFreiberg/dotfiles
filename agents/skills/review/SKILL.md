@@ -1,10 +1,10 @@
 ---
 name: review
-description: "Inline review orchestration: scope.py gathers the diff, one Opus reviewer over four axes runs with strict evidence-discipline; plan-alignment scoring via --description."
+description: "Review the diff with a subagent, returning a structured report"
 argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--model opus|sonnet|haiku]"
 disable-model-invocation: true
 allowed-tools:
-  - Bash(python3 *)
+  - Bash(uv run $HOME/dotfiles/agents/skills/review/scope.py *)
   - Read
   - Agent
 ---
@@ -17,14 +17,10 @@ code yourself.
 
 ## Core idea
 
-One Opus reviewer covers all four axes — Correctness & Security, Documentation
+One reviewer covers all four axes — Correctness & Security, Documentation
 & Comments, Design & Structure, Test Correctness — in a single pass. Findings
-carry axis prefixes (C1, D2, S3, T4) and are sorted by priority.
-
-**Evidence discipline is load-bearing.** Every finding needs a `file:line`
-and a quoted snippet a reader can verify in under 30 seconds. Findings
-without verifiable evidence are dropped, not emitted with `Evidence: (none)`.
-Reader trust is spent on findings they can verify cold.
+carry axis prefixes (C1, D2, S3, T4) and are sorted by priority. The reviewer
+evidences every finding with a `file:line` and a quoted snippet.
 
 When `--description` is provided, the reviewer also produces a `## Plan alignment`
 section scoring each requirement against the diff before the findings list.
@@ -58,7 +54,7 @@ Run `scope.py` with the subcommand + positional arg (no flags — `--instruction
 `--description`, `--model` are not passed to it):
 
 ```
-python3 $HOME/dotfiles/agents/skills/review/scope.py [<subcommand> [<arg>]]
+uv run $HOME/dotfiles/agents/skills/review/scope.py [<subcommand> [<arg>]]
 ```
 
 The script handles VCS detection (jj vs git), runs the right diff commands,
@@ -92,7 +88,7 @@ One `Agent` call. `subagent_type: "general-purpose"`. `model:` from `--model`
 Build `prompt:` from the **Reviewer prompt** template below. Substitutions:
 
 - `$SCOPE_SUMMARY` — from `scope_summary`
-- `$INSTRUCTIONS` / `$DESCRIPTION` — flag values (or empty string)
+- `$INSTRUCTIONS` / `$DESCRIPTION` — `--instructions`/`--description` flag values (or empty string)
 - `$PR_CONTEXT` — from `pr_context` (or empty string)
 - `$DIFF_ESCAPED` — `diff` with literal `</diff>` replaced by `</ diff>` so it
   can't close the data fence
