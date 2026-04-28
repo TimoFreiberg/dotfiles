@@ -37,12 +37,9 @@ section scoring each requirement against the diff before the findings list.
 **Flags** (any order, all optional):
 
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
-- `--description "..."` — task spec the diff is meant to satisfy. When set,
-  the reviewer produces a `## Plan alignment` section ahead of `## Findings`,
-  scoring each requirement against the diff.
-- `--model opus|sonnet|haiku` — alias for the reviewer subagent's model.
-  Default `opus`. The `Agent` tool's `model` field only accepts these three
-  aliases, so arbitrary model ids aren't supported here.
+- `--description "..."` — task spec; enables the Plan-alignment section (see Core idea)
+- `--model opus|sonnet|haiku` — reviewer model alias, default `opus`. The
+  `Agent` tool only accepts these three aliases.
 
 If parsing fails (unknown subcommand, missing required arg, unsupported
 `--model` value), report the usage and stop.
@@ -81,18 +78,14 @@ prompt or report):
 
 ## Step 4: Spawn the reviewer subagent
 
-One `Agent` call. `subagent_type: "general-purpose"`. `model:` from `--model`
-(default `"opus"`). `description:` something like `"Code review: <scope_summary>"`.
+One `Agent` call. `subagent_type: "general-purpose"`, `model:` from `--model`
+(default `"opus"`), `description:` like `"Code review: <scope_summary>"`.
 
 Build `prompt:` from the **Reviewer prompt** template below. Substitutions:
-
-- `$SCOPE_SUMMARY` — from `scope_summary`
-- `$INSTRUCTIONS` / `$DESCRIPTION` — `--instructions`/`--description` flag values (or empty string)
-- `$PR_CONTEXT` — from `pr_context` (or empty string)
-- `$DIFF_ESCAPED` — `diff` with literal `</diff>` replaced by `</ diff>` so it
-  can't close the data fence
-
-Pass the whole template as one string. The subagent's final message is the report.
+`$SCOPE_SUMMARY` (scope_summary), `$INSTRUCTIONS` / `$DESCRIPTION` (flag values
+or empty), `$PR_CONTEXT` (pr_context or empty), `$DIFF_ESCAPED` (diff with
+literal `</diff>` replaced by `</ diff>` so it can't close the data fence).
+Pass the whole template as one string; the subagent's final message is the report.
 
 ## Step 5: Surface the report verbatim
 
@@ -165,13 +158,10 @@ Produce exactly this structure, in order:
 Every finding in `## Findings` and every requirement in `## Plan alignment`
 MUST include an `Evidence:` line with a real `file:line` and a quoted code
 or test snippet a reader can verify in under 30 seconds without leaving
-the report. If you cannot cite specific evidence, DROP the finding. Do not
-emit a finding with `Evidence: (none)`. Do not emit a finding whose only
-evidence is a diff hunk header. Quote the actual code.
-
-This is the load-bearing discipline of this review: low-evidence findings
-should be absent, not visible-but-flagged. Reader trust is spent on
-findings they can verify cold.
+the report. If you cannot cite specific evidence, DROP the finding —
+low-evidence findings should be absent, not visible-but-flagged. Do not
+emit `Evidence: (none)` or use a diff hunk header as evidence. Quote the
+actual code.
 
 ## What to flag
 
@@ -265,27 +255,9 @@ Produce the report now. Start your response with `# Code Review`. Do not
 add commentary before or after the report.
 ```
 
-If `$INSTRUCTIONS`, `$DESCRIPTION`, or `$PR_CONTEXT` are empty, leave the
-corresponding block empty (the tags `<instructions></instructions>` and
-`<description></description>` are still emitted with empty content; the
-subagent's Plan-alignment trigger fires only on non-whitespace content
-inside `<description>`).
-
 ## Examples
 
 - `/review` → default scope, opus reviewer.
 - `/review pr 50` → PR diff + metadata.
-- `/review commit abc123` → single commit (git) or revset (jj).
-- `/review commit 'trunk()..@'` → explicit jj revset.
-- `/review --instructions "focus on XSS" pr 50` → flag plus subcommand.
-- `/review --description "Add a --verbose flag to the CLI" branch foo` →
-  enables Plan-alignment scoring of the branch against the task spec.
-
-## Common mistakes
-
-| Mistake                                       | Fix                                                                   |
-|-----------------------------------------------|-----------------------------------------------------------------------|
-| Editorializing the reviewer's report          | Step 5: verbatim. No commentary, no header, no quotes wrapping.       |
-| Reviewing the diff yourself                   | You orchestrate; the reviewer subagent does the review.               |
-| Reading `diff` for yourself before spawning   | Don't. It's reviewer fuel; you only need `scope_summary` + `header`.  |
-| Spawning the reviewer on an empty diff        | `scope.py` exits non-zero on empty diff — surface its stderr and stop.|
+- `/review --description "Add a --verbose flag" branch foo` → scope the branch
+  against a task spec, enabling Plan-alignment.
