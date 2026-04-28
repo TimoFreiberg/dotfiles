@@ -2,7 +2,6 @@
 name: dev-review-loop
 description: "Deliberate dev → review → fix loop run in-session: implement directly, spawn /review fresh each round, fix findings or pause for human decisions; 3-round cap."
 argument-hint: "[<task description> | file <path>]"
-disable-model-invocation: true
 ---
 
 # Dev Review Loop
