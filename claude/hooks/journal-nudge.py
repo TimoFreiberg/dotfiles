@@ -53,22 +53,12 @@ JOURNAL_BASH_MARKERS = ("skills/journal/scripts/journal",)
 # nudge this turn?" on re-entry. Must be stable and specific.
 NUDGE_MARKER = "JOURNAL_NUDGE_v1"
 
-# The actual prompt Claude sees when we block. Short checklist shape.
-NUDGE_REASON = f"""{NUDGE_MARKER}
-
-Before finalizing this turn: did any of these happen?
-
-- A fork where multiple plausible paths existed and you picked one
-- A correction or redirect from Timo
-- A "worth remembering later" feeling about a generalization
-
-If yes: call the `prowl:journal` skill (or `journal` in nest) now, then
-finalize. Capture at the fork, not as wrap-up summary.
-
-If no (routine work, no real judgment formed): just finalize. Not every
-turn needs a journal entry.
-
-This nudge is informational — it fires once per turn. Decide and proceed."""
+# The actual prompt Claude sees when we block. One-liner shape — Claude
+# has internalized what counts as a fork, so just the trigger + action.
+NUDGE_REASON = (
+    f"{NUDGE_MARKER}: this turn did work and didn't journal. "
+    "If a fork or correction formed, call prowl:journal now."
+)
 
 
 # ---------------------------------------------------------------------------
