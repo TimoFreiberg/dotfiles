@@ -9,9 +9,10 @@ Design:
 - Read the transcript from `transcript_path` in the Stop payload.
 - Walk backward to find the start of the current turn (last user-role text
   message).
-- Scan assistant messages since then for (a) non-trivial tool use, (b) any
-  invocation of the `journal`/`prowl:journal` skill.
-- If (a) happened and (b) didn't, emit
+- Scan assistant messages since then for (a) "work" tool uses (Edit/Write/
+  NotebookEdit/non-recon Bash), (b) any invocation of the `journal`/
+  `prowl:journal` skill.
+- If (a) happened >= MIN_WORK_COUNT times and (b) didn't, emit
     {"decision": "block", "reason": "<nudge>"}
   so Claude gets one more inference pass with the nudge visible.
 
@@ -28,17 +29,64 @@ from pathlib import Path
 # Tunables
 # ---------------------------------------------------------------------------
 
-# Tool names considered "real work" — at least one of these in the turn
-# makes the turn journal-worthy. Pure Read/Glob/Grep/Agent/ToolSearch
-# don't count.
+# Tool names considered "real work" without inspection. Bash is handled
+# separately (see BASH_WORK_MARKERS) because most Bash calls today are
+# recon (ls, git status, jj log, gh pr view) and over-counting inflates
+# the nudge. Pure Read/Glob/Grep/Agent/ToolSearch don't count.
 WORK_TOOLS = {
     "Edit",
     "Write",
     "NotebookEdit",
-    "Bash",  # Bash is work even if it's just `git status` — over-include
-    # rather than under-include; trivial turns are cheap to skip via
-    # the journal-itself decision.
 }
+
+# Minimum "work" tool-use count in a turn before the nudge fires. Single
+# actions (one commit, one edit) are usually execution of something already
+# decided; judgment-formation turns accumulate several actions.
+MIN_WORK_COUNT = 3
+
+# Bash commands count as work only if they look side-effect-y. Matched
+# against the command string as substrings (quick and good-enough —
+# false positives are cheap, false negatives just skip a nudge).
+BASH_WORK_MARKERS = (
+    "jj commit",
+    "jj squash",
+    "jj rebase",
+    "jj new",
+    "jj abandon",
+    "jj bookmark",
+    "jj describe",
+    "jj split",
+    "jj duplicate",
+    "jj push",
+    "git commit",
+    "git push",
+    "git rebase",
+    "git merge",
+    "git reset",
+    "git checkout",
+    "git add",
+    "git rm",
+    "git mv",
+    "gh pr create",
+    "gh pr edit",
+    "gh pr merge",
+    "gh pr comment",
+    "gh pr close",
+    "gh issue create",
+    "gh issue comment",
+    "gh issue close",
+    " > ",
+    " >> ",
+    "mv ",
+    "rm ",
+    "mkdir ",
+    "cp ",
+    "touch ",
+    "chmod ",
+    "ln ",
+    "sed -i",
+    "tee ",
+)
 
 # Skills that satisfy "journaled" — we cleared the nudge.
 JOURNAL_SKILLS = {"journal", "prowl:journal"}
@@ -128,10 +176,10 @@ def scan_turn(entries: list[dict], start: int) -> dict:
     """Scan entries since `start` (exclusive) for signals.
 
     Returns a dict with:
-      - did_work: bool
+      - work_count: int — number of "work" tool uses this turn
       - did_journal: bool
     """
-    did_work = False
+    work_count = 0
     did_journal = False
 
     for entry in entries[start + 1 :]:
@@ -153,19 +201,19 @@ def scan_turn(entries: list[dict], start: int) -> dict:
                 # Skills other than journal don't count as "work"
                 # on their own — they could be anything.
             elif name == "Bash":
-                # Direct Bash invocations of the journal script
-                # clear the nudge too. Otherwise Bash is "work."
                 cmd = bi.get("command", "") or ""
                 if any(m in cmd for m in JOURNAL_BASH_MARKERS):
                     did_journal = True
-                else:
-                    did_work = True
+                elif any(m in cmd for m in BASH_WORK_MARKERS):
+                    work_count += 1
+                # Recon Bash (ls, git status, jj log, gh pr view, grep,
+                # etc.) is ignored — over-counting inflates the nudge.
             elif name in WORK_TOOLS:
-                did_work = True
+                work_count += 1
             # Tool calls that aren't in WORK_TOOLS (Read, Glob,
             # Grep, Agent, ToolSearch, etc.) are ignored.
 
-    return {"did_work": did_work, "did_journal": did_journal}
+    return {"work_count": work_count, "did_journal": did_journal}
 
 
 # ---------------------------------------------------------------------------
@@ -198,8 +246,8 @@ def main() -> int:
 
     state = scan_turn(entries, start)
 
-    if not state["did_work"]:
-        return 0  # trivial turn, no need to nudge
+    if state["work_count"] < MIN_WORK_COUNT:
+        return 0  # light turn, no need to nudge
     if state["did_journal"]:
         return 0  # already journaled, condition cleared
 
