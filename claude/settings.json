@@ -1,5 +1,6 @@
 {
-  "autoDreamEnabled": true,
+  "autoDreamEnabled": false,
+  "autoMemoryEnabled": false,
   "autoMemoryDirectory": "~/dotfiles/claude/memories",
   "awsAuthRefresh": "aws sso login --sso-session \"$SSO_SESSION\" 2>/dev/null || aws sso login --profile \"$AWS_PROFILE\"",
   "effortLevel": "xhigh",
