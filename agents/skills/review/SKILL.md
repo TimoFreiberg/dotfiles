@@ -1,25 +1,19 @@
 ---
 name: review
-description: "Inline review orchestration: parse scope, spawn one Opus reviewer over four axes with strict evidence-discipline, surface report verbatim; plan-alignment scoring via --description."
+description: "Inline review orchestration: scope.py gathers the diff, one Opus reviewer over four axes runs with strict evidence-discipline; plan-alignment scoring via --description."
 argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--model opus|sonnet|haiku]"
 disable-model-invocation: true
 allowed-tools:
-  - Bash(test *)
-  - Bash(jj diff*)
-  - Bash(jj log*)
-  - Bash(git diff*)
-  - Bash(git log*)
-  - Bash(git show*)
-  - Bash(git merge-base*)
-  - Bash(git rev-parse*)
-  - Bash(gh pr*)
+  - Bash(python3 *)
+  - Read
   - Agent
 ---
 
 # Review
 
-You orchestrate: parse arguments, gather the diff, spawn one reviewer
-subagent, and surface its report verbatim. You do not review code yourself.
+You orchestrate: parse arguments, run `scope.py` to gather the diff, spawn
+one reviewer subagent, and surface its report verbatim. You do not review
+code yourself.
 
 ## Core idea
 
@@ -37,7 +31,7 @@ section scoring each requirement against the diff before the findings list.
 
 ## Step 1: Parse `$ARGUMENTS`
 
-**Subcommands** (mutually exclusive, optional — default is `trunk()..@` for jj or `<merge-base>..HEAD` for git):
+**Subcommands** (mutually exclusive, optional — default scope is `trunk()..@` for jj or `<merge-base>..HEAD` for git):
 
 - `uncommitted` — uncommitted working-copy changes
 - `commit <revset>` — jj revset, or git ref/range
@@ -52,168 +46,60 @@ section scoring each requirement against the diff before the findings list.
   the reviewer produces a `## Plan alignment` section ahead of `## Findings`,
   scoring each requirement against the diff.
 - `--model opus|sonnet|haiku` — alias for the reviewer subagent's model.
-  Default `opus`. Aliases route through the harness's model resolution; the
-  old script's "any other value passed through verbatim" passthrough is not
-  available in the inline shape (the `Agent` tool's `model` field only
-  accepts these three aliases).
-
-If `$ARGUMENTS` is empty, run the default scope (`trunk()..@` for jj,
-`<merge-base>..HEAD` for git).
+  Default `opus`. The `Agent` tool's `model` field only accepts these three
+  aliases, so arbitrary model ids aren't supported here.
 
 If parsing fails (unknown subcommand, missing required arg, unsupported
 `--model` value), report the usage and stop.
 
-## Step 2: Detect VCS
+## Step 2: Gather scope
 
-```bash
-test -d .jj && echo jj || echo git
-```
-
-## Step 3: Gather the diff
-
-Run the commands for the chosen (subcommand, VCS) cell, then keep the
-outputs in mind for the next steps. Each `Bash` tool call is its own
-process — shell variables do NOT persist across calls. When a flow needs
-the output of one command in the next (e.g. `BASE=$(git merge-base …)`
-followed by `git diff "$BASE..HEAD"`), either chain them into a single
-Bash call with `&&`, or capture the first call's output, then substitute
-the literal value into the next call.
-
-The pieces you need:
-
-- `DIFF` — the git-format unified diff. Goes into the reviewer prompt.
-- `STAT` — the diffstat. Used only in the orchestrator's scope header
-  (Step 4); not substituted into the reviewer prompt.
-- `COMMITS` — newline-separated commit list (may be empty). Used only in
-  the orchestrator's scope header.
-- `SCOPE_SUMMARY` — one-line description, e.g. `default (trunk()..@, 3 changes)`.
-  Used in both the scope header and the reviewer prompt.
-- `PR_CONTEXT` — PR metadata + comments (only for `pr <number>`; otherwise
-  the empty string). Substituted into the reviewer prompt.
-
-### Default (no subcommand)
-
-**jj:**
-
-```bash
-jj diff --git --from 'trunk()' --to @
-jj diff --stat --from 'trunk()' --to @
-jj log --no-graph -r 'trunk()..@' \
-  -T 'change_id.shortest() ++ " " ++ description.first_line() ++ "\n"'
-```
-
-`SCOPE_SUMMARY="default (trunk()..@, $N change(s))"` where `$N` is the line
-count of the log output.
-
-**git:** chain the merge-base lookup and the diff commands in a single
-Bash call so `BASE` is in scope:
-
-```bash
-BASE=$(git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null) \
-  && [ -n "$BASE" ] \
-  && { echo "BASE=$BASE"; \
-       git diff "$BASE..HEAD"; \
-       echo '---STAT---'; git diff --stat "$BASE..HEAD"; \
-       echo '---LOG---'; git log --oneline "$BASE..HEAD"; }
-```
-
-`SCOPE_SUMMARY="default (${BASE:0:8}..HEAD, $N commit(s))"`. If `BASE`
-ends up empty (the chained command exited without printing `BASE=…`),
-stop and tell the user `merge-base not found against main or master`.
-Don't spawn the subagent.
-
-### `uncommitted`
-
-- **jj:** `jj diff --git`, `jj diff --stat`. No commit list.
-- **git:** `git diff HEAD`, `git diff --stat HEAD`. No commit list.
-
-`SCOPE_SUMMARY="uncommitted changes"`.
-
-### `commit <revset>`
-
-- **jj:** `jj diff --git -r <revset>`, `jj diff --stat -r <revset>`,
-  `jj log --no-graph -r <revset> -T '...'`. Summary:
-  `commit <revset> ($N change(s))`.
-- **git:** if `<revset>` contains `..`, treat as a range (`git diff <revset>`,
-  `git diff --stat <revset>`, `git log --oneline <revset>`). Otherwise
-  treat as a single hash (`git show <revset>`,
-  `git show --stat --format= <revset>`, single-commit listing). Summary:
-  `commit <revset>`.
-
-### `branch <name>`
-
-- **jj:** `jj diff --git --from <name> --to @`, `jj diff --stat --from <name> --to @`,
-  `jj log --no-graph -r '<name>..@' -T '...'`. Summary:
-  `branch <name>..@ ($N change(s))`.
-- **git:** chain in one Bash call:
-  `BASE=$(git merge-base HEAD <name>) && git diff "$BASE..HEAD" && git diff --stat "$BASE..HEAD" && git log --oneline "$BASE..HEAD"`.
-  Summary: `branch <name> (${BASE:0:8}..HEAD, $N commit(s))`.
-
-### `file <path>`
-
-- **jj:** `jj diff --git -- <path>`, `jj diff --stat -- <path>`.
-- **git:** `git diff HEAD -- <path>`, `git diff --stat HEAD -- <path>`.
-
-`SCOPE_SUMMARY="uncommitted changes to <path>"`. No commit list.
-
-### `pr <number>`
-
-VCS-independent:
-
-```bash
-gh pr diff <number>
-gh pr view <number>
-gh pr view <number> --comments   # may exit non-zero; capture stdout anyway
-```
-
-`SCOPE_SUMMARY="PR #<number>"`. `STAT=""`. `PR_CONTEXT` is the literal:
+Run `scope.py` with the subcommand + positional arg (no flags — `--instructions`,
+`--description`, `--model` are not passed to it):
 
 ```
-## PR metadata
-<output of gh pr view>
-
-## PR comments
-<output of gh pr view --comments>
+python3 $HOME/dotfiles/agents/skills/review/scope.py [<subcommand> [<arg>]]
 ```
 
-### Empty diff
+The script handles VCS detection (jj vs git), runs the right diff commands,
+and writes four files to a fresh temp dir whose path it prints on stdout:
 
-If `DIFF` is whitespace-only after gathering, stop and tell the user
-`No diff to review for scope: $SCOPE_SUMMARY`. Don't spawn the subagent.
+- `scope_summary` — one-line description (e.g. `default (trunk()..@, 3 changes)`)
+- `header` — commit list + diffstat for the orchestrator's scope header
+- `diff` — unified diff for the reviewer prompt
+- `pr_context` — PR metadata + comments (only for `pr <number>`; otherwise empty)
 
-## Step 4: Print a brief scope header
+If the script exits non-zero, surface its stderr and stop. It already
+handles the empty-diff and missing-merge-base cases.
+
+Read the files you need with the `Read` tool.
+
+## Step 3: Print a brief scope header
 
 Two or three lines in your normal response stream (NOT in the subagent's
 prompt or report):
 
-- `Reviewing: $SCOPE_SUMMARY`
-- The first 2 + last 2 commits (with `…` in between) if more than 5;
-  otherwise the full list. Indent each by two spaces.
-- The diffstat, if non-empty.
+- `Reviewing: <scope_summary>`
+- `<header>` indented as-is (the script already formats commit list + diffstat)
+- `Model: <alias>` (the value `--model` had — `opus` by default; print the
+  alias, not a resolved id)
 
-Then a single line: `Model: opus` (or whichever value `--model` had —
-print the alias, not a resolved id).
+## Step 4: Spawn the reviewer subagent
 
-## Step 5: Spawn the reviewer subagent
+One `Agent` call. `subagent_type: "general-purpose"`. `model:` from `--model`
+(default `"opus"`). `description:` something like `"Code review: <scope_summary>"`.
 
-Single `Agent` call. `subagent_type: "general-purpose"`. `model:` from
-`--model` (default `"opus"`). `description:` something like
-`"Code review: $SCOPE_SUMMARY"`.
+Build `prompt:` from the **Reviewer prompt** template below. Substitutions:
 
-Construct the `prompt:` by interpolating into the template in
-**Reviewer prompt** below:
+- `$SCOPE_SUMMARY` — from `scope_summary`
+- `$INSTRUCTIONS` / `$DESCRIPTION` — flag values (or empty string)
+- `$PR_CONTEXT` — from `pr_context` (or empty string)
+- `$DIFF_ESCAPED` — `diff` with literal `</diff>` replaced by `</ diff>` so it
+  can't close the data fence
 
-- `$SCOPE_SUMMARY` — your scope string.
-- `$INSTRUCTIONS` — the `--instructions` text (or the empty string).
-- `$DESCRIPTION` — the `--description` text (or the empty string).
-- `$PR_CONTEXT` — the PR metadata block (or the empty string).
-- `$DIFF_ESCAPED` — `$DIFF` with literal `</diff>` replaced by `</ diff>`
-  so it can't close the data fence.
+Pass the whole template as one string. The subagent's final message is the report.
 
-Pass the whole template as a single string to `prompt`. The subagent's
-final message is the report.
-
-## Step 6: Surface the report verbatim
+## Step 5: Surface the report verbatim
 
 Print the subagent's last message as-is. Do not add commentary, summaries,
 section headers, or wrap it in quotes. Do not editorialize.
@@ -266,7 +152,7 @@ Produce exactly this structure, in order:
    - Status: one of `done`, `partial`, `missing`, `scope-deviated`.
    - `Evidence:` line with `file:line` and a quoted snippet (or, for
      `missing`, a one-line note on what you searched and didn't find).
-5. `## Findings` — surviving findings, sorted by priority (P0 → P1 → P2 → P3),
+5. `## Findings` — surviving findings, sorted by priority (P0 → P1 → P2),
    keeping axis prefixes. Use a level-3 heading per finding:
    `### C1 [P0] src/foo.rs:42 — buffer overflow on resize`. Then:
    - One paragraph explaining the issue and the impact.
@@ -299,25 +185,27 @@ or maintainability; (b) are discrete and actionable; (c) don't demand
 rigor inconsistent with the rest of the codebase; (d) the author would
 likely fix if aware; (e) have provable impact on other parts of the code.
 
-Tag each finding: `[P0]` blocking, `[P1]` urgent, `[P2]` normal, `[P3]` low.
-Don't stop at the first finding — list every qualifying issue. Ignore
-trivial style issues unless they obscure meaning.
+Tag each finding:
+- `[P0]` blocking — must fix before this lands.
+- `[P1]` normal — real concern, fix in this PR or follow-up.
+- `[P2]` nit — style or minor polish; skip unless it obscures meaning.
+
+Don't stop at the first finding — list every qualifying issue.
 
 ## Per-axis guidance
 
 ### C — Correctness & Security
-- Logic bugs, off-by-one, incorrect control flow.
+- Logic bugs, off-by-one, incorrect control flow, boundary/edge cases (nil,
+  empty collections, integer limits, Unicode edges).
 - Memory safety (use-after-free, double-free, uninitialized reads, unsound
   `unsafe`, lifetime issues); integer issues (overflow/truncation on cast,
   unchecked arithmetic); untrusted input → shell/path/format/serialization
   (prefer escaping over sanitization); concurrency (data races, missing
   synchronization, lock ordering, TOCTOU); resource leaks.
-- Error handling: unchecked errors, wrong error codes, log-and-continue.
-- Fail-fast violations, silent degradation.
+- Error handling: unchecked errors, wrong error codes, log-and-continue,
+  fail-fast violations, silent degradation.
 - Behavioral regressions: changed return values, dropped side effects,
   altered invariants.
-- Boundary/edge cases: nil, empty collections, integer limits, Unicode
-  edges.
 
 ### D — Documentation & Comments
 - Comments that restate what the code visibly does.
@@ -328,38 +216,26 @@ trivial style issues unless they obscure meaning.
 - TODO/FIXME/HACK: new ones deferring work that should land in this diff,
   or existing ones in touched code referencing resolved issues / deleted
   code.
-- Dead references: links to functions, files, tickets, URLs that no
-  longer exist.
-- Commit-message / PR-description accuracy relative to the diff.
 
 Read the full source files (not just the diff) when verifying doc claims.
 
 ### S — Design & Structure
 - New dependencies: justified?
 - Unnecessary abstractions, wrappers, indirection.
-- API design: clear, minimal, hard to misuse?
+- API design: clear, minimal, hard to misuse? Helpers, types, constants
+  unnecessarily public.
 - Code organization: does the change belong where it's placed?
 - Naming: do names accurately reflect behavior?
 - Consistency with surrounding code patterns.
-- Layering / dependency direction: lower-level modules importing
-  higher-level ones, circular dependencies, utilities reaching into
-  application-specific code.
-- Visibility / exposure: helpers, types, constants unnecessarily public.
-- In expressive type systems (Rust, TypeScript, …): prefer types that
-  enforce invariants over runtime checks — parse, don't validate.
 - Line-level readability: nested ternaries, long chains, dense
   comprehensions; functions doing too many things; AI-generated verbosity
   where idiomatic code would be shorter.
-- Architectural legibility: can a reader follow the flow and predict what
-  comes next?
 
 ### T — Test Correctness (only review test code added or modified)
 - Tautological assertions: passing regardless of the code under test.
 - Wrong expected values.
 - Tests that pass for the wrong reason (e.g. testing an error path that
   never triggers, a condition that's always true).
-- Insufficient assertions: scenario set up but the interesting part not
-  verified.
 - Flaky patterns: time-dependent, order-dependent on unordered data,
   missing cleanup.
 - Not exercising production code: helpers / fixtures that reimplement the
@@ -367,9 +243,6 @@ Read the full source files (not just the diff) when verifying doc claims.
 - Wrong test layer: heavy mocking that only tests implementation details
   when an integration test would cover the same behavior without
   brittleness.
-- Overly specific assertions: exact error messages, snapshot-matching
-  large objects when only a few fields matter, asserting internal state
-  instead of observable behavior.
 
 If the diff contains no test code, mark the Test Correctness coverage
 line accordingly and emit no T-prefixed findings.
@@ -417,8 +290,7 @@ inside `<description>`).
 
 | Mistake                                       | Fix                                                                   |
 |-----------------------------------------------|-----------------------------------------------------------------------|
-| Editorializing the reviewer's report          | Step 6: verbatim. No commentary, no header, no quotes wrapping.       |
+| Editorializing the reviewer's report          | Step 5: verbatim. No commentary, no header, no quotes wrapping.       |
 | Reviewing the diff yourself                   | You orchestrate; the reviewer subagent does the review.               |
-| Shell vars across Bash calls                  | Each call is its own process. Chain with `&&` or substitute literals. |
-| Substituting STAT into the reviewer prompt    | STAT goes in the scope header only; the reviewer gets DIFF.           |
-| Spawning the reviewer on an empty diff        | Stop and tell the user there's nothing to review.                     |
+| Reading `diff` for yourself before spawning   | Don't. It's reviewer fuel; you only need `scope_summary` + `header`.  |
+| Spawning the reviewer on an empty diff        | `scope.py` exits non-zero on empty diff — surface its stderr and stop.|
