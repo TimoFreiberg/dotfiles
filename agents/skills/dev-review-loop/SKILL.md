@@ -55,9 +55,10 @@ Record the **base revision** for cumulative diffs:
 Throughout this skill, only commit if there are real changes
 (`jj diff --stat` or `git diff --cached --stat` first). No empty commits.
 
-**Round numbering**: round 0 is the initial dev pass. Each subsequent review
-+ fix is round N (N = 1, 2, 3). A decisions commit uses the same N as the
-fix round whose decisions it applies.
+**Round numbering**: round 0 is the initial dev pass. Each subsequent
+review + fix pair is round N (N = 1, 2). Round 3 is review-only — see
+[Loop cap](#loop-cap). A decisions commit uses the same N as the fix
+round whose decisions it applies.
 
 ## Round 0: Develop
 
@@ -113,8 +114,7 @@ If the diff is empty, stop — nothing to review.
 ## Round N: Review
 
 Invoke `/review` as a fresh subagent each round. Pass the cumulative range and
-the task spec via `--instructions` (free-form reviewer hints). The flag must
-come **before** the subcommand — argparse rejects it after:
+the task spec via `--instructions` (free-form reviewer hints):
 
 - **jj**: `Skill(skill: "review", args: "--instructions \"<task spec>\" commit <base_change_id>..@-")`
 - **git**: `Skill(skill: "review", args: "--instructions \"<task spec>\" commit <base_sha>..HEAD")`
@@ -196,10 +196,11 @@ on where you paused:
 
 ## Loop cap
 
-3 review rounds. After round 3's review, if findings remain: triage and
-apply FIX changes one last time, commit `round 3: fix`, then stop and tell
-the user the loop didn't converge — list outstanding findings (rejections,
-NEEDS_DECISION items, anything you fixed). Don't run a 4th review.
+3 review rounds total. The full shape is `dev → review₁ → fix₁ → review₂
+→ fix₂ → review₃`. If review₃ still surfaces findings, **stop and
+escalate to the user** — do not apply fixes after the final review. List
+outstanding findings (per-axis verdicts, P0/P1 items, anything you'd
+otherwise fix) and let the user decide what to do.
 
 ## Squash on completion
 
