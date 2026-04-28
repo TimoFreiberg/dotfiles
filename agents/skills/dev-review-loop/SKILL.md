@@ -1,7 +1,7 @@
 ---
 name: dev-review-loop
 description: "Deliberate dev → review → fix loop run in-session: implement directly, spawn /review fresh each round, fix findings or pause for human decisions; 3-round cap."
-argument-hint: "[<task description> | file <path> | (bare: summarize from prior turns)]"
+argument-hint: "[<task description> | file <path>]"
 ---
 
 # Dev Review Loop
@@ -24,12 +24,12 @@ resumes you on response.
 
 ## Entry points
 
-The task spec comes from `$ARGUMENTS`: the argument string, the contents of
-`file <path>` if `$ARGUMENTS` starts with `file `, or — when bare — a 2-5
-sentence summary of the prior in-session discussion. Confirm bare-mode summaries
-with the user before starting (skip confirmation only if the immediately prior
-message was already a clean task spec; note "treating <prior message> as the
-spec"). Fresh session with no prior context: stop and ask.
+The task spec comes from `$ARGUMENTS`: the argument string, or — if it starts
+with `file ` — the contents of the named path (read once, treat as the brief).
+When bare (no args), summarize the prior in-session discussion in 2-5 sentences
+and confirm with the user before starting (skip confirmation only if the
+immediately prior message was already a clean task spec; note "treating <prior
+message> as the spec"). Fresh session with no prior context: stop and ask.
 
 ## Setup
 
@@ -72,10 +72,11 @@ see [Resumption](#resumption) for what to do then.
 
 ## Self-recheck checklist
 
-Run through this **before** committing each round, including Round 0. All
-items gate the commit — if any surface a real issue, fix it before
-continuing. Diff-pattern catches (debug prints, stray `.unwrap()`,
-swallowed errors, etc.) are the reviewer's job; don't pre-empt them here.
+Run through this **before** committing each round, including Round 0. Items
+1-3 gate the commit — fix anything that surfaces. Items 4-6 are evidence:
+paste actual output (numbers, exit codes), not adjectives. Diff-pattern
+catches (debug prints, stray `.unwrap()`, swallowed errors, etc.) are the
+reviewer's job; don't pre-empt them here.
 
 **Did I do what was asked?**
 
@@ -115,11 +116,8 @@ Invoke `/review` as a fresh subagent each round. Pass the cumulative range and
 the task spec via `--instructions` (free-form reviewer hints). The flag must
 come **before** the subcommand — argparse rejects it after:
 
-- **jj**: `Skill(skill: "review", args: "--instructions \"<task spec>\" commit <base_change_id>::@-")`
+- **jj**: `Skill(skill: "review", args: "--instructions \"<task spec>\" commit <base_change_id>..@-")`
 - **git**: `Skill(skill: "review", args: "--instructions \"<task spec>\" commit <base_sha>..HEAD")`
-
-If quoting in the task spec breaks the single-string `args` format, strip the
-offending characters (or pause with DECISIONS_NEEDED if they're load-bearing).
 
 The `/review` skill returns per-axis verdicts and an overall verdict.
 
@@ -224,9 +222,9 @@ might want to keep dev, fix, and decisions as separate logical commits.
 After each round, give the user a concise summary — don't dump full reviewer
 output, summarize it yourself. The shape:
 
-- **Per-round**: what changed (or what findings, then what was fixed/rejected)
-  + checklist verification numbers. E.g., "Fixed C1. Rejected S1 (naming nit).
-  **S2 needs your input**: option A does X, option B does Y."
+- **Per-round**: what changed (round 0) or what findings + how you triaged
+  (round N) + checklist verification numbers. E.g., "Built X. pytest 34/34
+  pass." or "Fixed C1, rejected S1 (naming nit). Tests still 34/34."
 - **DECISIONS_NEEDED**: state the question, options considered, that you're
   pausing. E.g., "Hit a design question mid-round: <question>. Options: A, B."
 - **Loop end**: which exit (passed / all rejected / cap hit), outstanding
