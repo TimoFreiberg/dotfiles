@@ -24,20 +24,12 @@ resumes you on response.
 
 ## Entry points
 
-Pick one based on `$ARGUMENTS`:
-
-| Invocation                          | Task spec is...                                                |
-|-------------------------------------|----------------------------------------------------------------|
-| `/dev-review-loop "<text>"`         | The argument string itself.                                    |
-| `/dev-review-loop file <path>`      | The contents of `<path>` (read it once, treat as the brief).   |
-| `/dev-review-loop` (bare, no args)  | The recent in-session discussion (summarize it as a task spec). |
-
-For bare mode: write a 2-5 sentence summary of the task as you understand it
-from the prior turns. Confirm it with the user before starting work, **unless
-the immediately prior message was already a clean task spec** — in that case
-proceed and note "treating <prior message> as the spec." If there are no
-relevant prior turns (fresh session), stop and ask the user for a task spec
-before going further.
+The task spec comes from `$ARGUMENTS`: the argument string, the contents of
+`file <path>` if `$ARGUMENTS` starts with `file `, or — when bare — a 2-5
+sentence summary of the prior in-session discussion. Confirm bare-mode summaries
+with the user before starting (skip confirmation only if the immediately prior
+message was already a clean task spec; note "treating <prior message> as the
+spec"). Fresh session with no prior context: stop and ask.
 
 ## Setup
 
@@ -82,9 +74,8 @@ see [Resumption](#resumption) for what to do then.
 
 Run through this **before** committing each round, including Round 0. All
 items gate the commit — if any surface a real issue, fix it before
-continuing. Items 4-6 want concrete output, not adjectives (paste the
-numbers, don't claim "tests pass"). Items 7-12 are diff-pattern catches,
-usually one-line fixes when present.
+continuing. Diff-pattern catches (debug prints, stray `.unwrap()`,
+swallowed errors, etc.) are the reviewer's job; don't pre-empt them here.
 
 **Did I do what was asked?**
 
@@ -98,19 +89,6 @@ usually one-line fixes when present.
 4. Test command + result (e.g., `pytest → 34/34 pass`, not "tests pass").
 5. Build command + exit code.
 6. Linter/typecheck command + warning/error count.
-
-**Cheap pattern catches in the diff:**
-
-7. Debug code: `console.log`, `dbg!`, `println!`, `print(`, `pp`.
-8. Commented-out blocks I forgot to remove.
-9. New TODO/FIXME I added (existing ones are fine).
-10. `.unwrap()` / `.expect()` on fallible ops outside tests.
-11. `any` / `unknown` without justification comment (in TS).
-
-**Failure-philosophy check:**
-
-12. Any try/catch swallowing errors silently? Any backwards-compat hacks
-    left in? Any "this should never happen" without a loud failure?
 
 ## Commit (after Round 0 dev)
 
@@ -140,9 +118,8 @@ come **before** the subcommand — argparse rejects it after:
 - **jj**: `Skill(skill: "review", args: "--instructions \"<task spec>\" commit <base_change_id>::@-")`
 - **git**: `Skill(skill: "review", args: "--instructions \"<task spec>\" commit <base_sha>..HEAD")`
 
-If the task spec contains `"`, newlines, or backslashes, the single-string
-`args` format breaks. Strip those from the spec before passing, or pause and
-report DECISIONS_NEEDED if the spec genuinely needs them.
+If quoting in the task spec breaks the single-string `args` format, strip the
+offending characters (or pause with DECISIONS_NEEDED if they're load-bearing).
 
 The `/review` skill returns per-axis verdicts and an overall verdict.
 
@@ -245,15 +222,15 @@ might want to keep dev, fix, and decisions as separate logical commits.
 ## Reporting
 
 After each round, give the user a concise summary — don't dump full reviewer
-output, summarize it yourself.
+output, summarize it yourself. The shape:
 
-- **Round 0 dev**: "Built X. Key files: ... Checklist: pytest 34/34 pass, build exit 0, ruff 0 warnings."
-- **Round N review**: "Needs attention — 2 findings: C1 [P0] buffer overflow in parse.c:87, S1 [P2] ..."
-- **Round N fix**: "Fixed C1. Rejected S1 (naming nit). **S2 needs your input**: option A does X, option B does Y."
-- **DECISIONS_NEEDED (mid-dev question)**: "Hit a design question mid-round: <question>. Options: A, B. Pausing."
-- **Done (passed)**: "Passed review in round N. [If P2/P3 findings: with N non-blocking findings: D1 [P2] ..., T1 [P3] ...] Squash command: <…>"
-- **Done (all rejected)**: "All findings rejected in round N. Squash command: <…>"
-- **Cap hit**: "Hit 3-round cap with outstanding findings: F1 ..., F2 .... Squash command: <…>"
+- **Per-round**: what changed (or what findings, then what was fixed/rejected)
+  + checklist verification numbers. E.g., "Fixed C1. Rejected S1 (naming nit).
+  **S2 needs your input**: option A does X, option B does Y."
+- **DECISIONS_NEEDED**: state the question, options considered, that you're
+  pausing. E.g., "Hit a design question mid-round: <question>. Options: A, B."
+- **Loop end**: which exit (passed / all rejected / cap hit), outstanding
+  findings if any, plus the squash command for the user to inspect and run.
 
 ## Common mistakes
 
