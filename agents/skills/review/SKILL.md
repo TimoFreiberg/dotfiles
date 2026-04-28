@@ -2,7 +2,6 @@
 name: review
 description: "Review the diff with a subagent, returning a structured report"
 argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--model opus|sonnet|haiku]"
-disable-model-invocation: true
 allowed-tools:
   - Bash(uv run $HOME/dotfiles/agents/skills/review/scope.py *)
   - Read
