@@ -2,9 +2,7 @@
 .vscode/launch.json
 .zed
 .pi
-.claude
 .todo
-AGENTS.md
-CLAUDE.md
 __pycache__
 CLAUDE.local.md
+.claude/format.json
