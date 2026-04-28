@@ -64,11 +64,10 @@ Then commit: `jj commit -m "dev-review-loop round N: <dev|fix|decisions>"`
 
 ## Round N: review
 
-Cumulative diff from the base:
-- jj: `Skill(skill: "review", args: "--instructions \"<task spec>\" commit <base>..@-")`
-- git: `Skill(skill: "review", args: "--instructions \"<task spec>\" commit <base>..HEAD")`
-
-If the diff is empty, stop — nothing to review.
+Pass the task spec via `--description` so the reviewer produces a Plan-alignment
+section ("did the dev do what was asked?") ahead of findings:
+- jj: `Skill(skill: "review", args: "--description \"<task spec>\" commit <base>..@-")`
+- git: `Skill(skill: "review", args: "--description \"<task spec>\" commit <base>..HEAD")`
 
 **Review passes** → loop done. Skip to completion.
 **Needs attention** → all findings (not just P0/P1) go to fix.
