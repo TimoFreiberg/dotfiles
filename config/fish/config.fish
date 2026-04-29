@@ -17,10 +17,6 @@ set -x XDG_CONFIG_HOME $HOME/.config
 set -x EMACS_HOME $XDG_CONFIG_HOME/emacs/
 set -x NOTE_FILE ~/Dropbox/notes/notes.md
 
-# Primary prompt — fish_prompt.fish is the fallback on systems without starship
-if type starship > /dev/null 2>&1
-    eval (starship init fish)
-end
 
 # Abbreviations
 if status is-interactive
@@ -90,22 +86,22 @@ if status is-interactive
         abbr --add --global ll 'eza -l'
         abbr --add --global la 'eza -la'
     end
+
+    # Primary prompt — fish_prompt.fish is the fallback on systems without starship
+    if type starship > /dev/null 2>&1
+        eval (starship init fish)
+    end
+
+    type -q zoxide && zoxide init fish | source
+    type -q atuin && atuin init fish | source
 end
 
 setenv FZF_DEFAULT_COMMAND 'fd --type file --follow'
 setenv FZF_CTRL_T_COMMAND 'fd --type file --follow'
 setenv FZF_DEFAULT_OPTS '--height 20%'
 
-type -q zoxide && zoxide init fish | source
-
-alias pi='PI_CODING_AGENT_DIR=$XDG_CONFIG_HOME/pi/agent command pi'
-
 test -e $XDG_CONFIG_HOME/fish/fastly-config.fish && source $XDG_CONFIG_HOME/fish/fastly-config.fish
 test -e $XDG_CONFIG_HOME/fish/secrets.fish && source $XDG_CONFIG_HOME/fish/secrets.fish
 set -gx BUN_INSTALL "$HOME/.bun"
 
 type -q direnv && direnv hook fish | source
-
-if status is-interactive
-    atuin init fish | source
-end
