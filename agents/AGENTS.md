@@ -52,6 +52,14 @@ larger work should show direction briefly before diving in.
 When a task has multiple plausible implementation paths, do a quick sanity check before diving in: grep for existing patterns, verify APIs exist, and if there are 2+ reasonable approaches, state which one you're taking and why in one sentence.
 Don't ask for permission or write a plan — just show your work briefly so course-correction is cheap.
 
+## Audit All Readers When Changing State Interpretation
+
+When you change how state is interpreted in one place — a flag overriding
+auto-detection, a removed fallback, a new detector — audit every other place
+that reads that state. The change only applies where it's wired; independent
+readers silently defeat it. On finding one incomplete site, check for siblings —
+the same shape usually appears more than once.
+
 ## When Stuck
 
 After 2 same-class failures — same tool failing, same correction, same
