@@ -38,7 +38,7 @@ section scoring each requirement against the diff before the findings list.
 
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
 - `--description "..."` — task spec; enables the Plan-alignment section (see Core idea)
-- `--model opus|sonnet|haiku` — reviewer model alias, default `opus`. The
+- `--model opus|sonnet|haiku` — reviewer model alias, default `sonnet`. The
   `Agent` tool only accepts these three aliases.
 
 If parsing fails (unknown subcommand, missing required arg, unsupported
@@ -75,13 +75,13 @@ prompt or report):
 
 - `Reviewing: <scope_summary>`
 - `<header>` indented as-is (the script already formats commit list + diffstat)
-- `Model: <alias>` (the value `--model` had — `opus` by default; print the
+- `Model: <alias>` (the value `--model` had — `sonnet` by default; print the
   alias, not a resolved id)
 
 ## Step 4: Spawn the reviewer subagent
 
 One `Agent` call. `subagent_type: "general-purpose"`, `model:` from `--model`
-(default `"opus"`), `description:` like `"Code review: <scope_summary>"`.
+(default `"sonnet"`), `description:` like `"Code review: <scope_summary>"`.
 
 Build `prompt:` from the **Reviewer prompt** template below. Substitutions:
 `$SCOPE_SUMMARY` (scope_summary), `$INSTRUCTIONS` / `$DESCRIPTION` (flag values
@@ -150,28 +150,21 @@ Produce exactly this structure, in order:
    - Code snippet under 3 lines if it sharpens the point.
    - `Evidence:` line with `file:line` and a quoted snippet from the source
      or test file (NOT the diff hunk header — quote the actual code).
+   Every finding MUST cite real `file:line` + quoted code a reader can
+   verify in under 30 seconds. If you cannot, DROP the finding — absent
+   beats visible-but-flagged.
    Note whether each finding is in newly added or pre-existing code; treat
    non-critical findings in pre-existing code as informational.
 6. `## Verdict` — one short line per axis (C/D/S/T): `correct` if no
    surviving P0/P1 in that axis, else `needs attention`. Then one overall
    line: `needs attention` if any axis is, else `correct`.
 
-## Evidence discipline (load-bearing)
-
-Every finding in `## Findings` and every requirement in `## Plan alignment`
-MUST include an `Evidence:` line with a real `file:line` and a quoted code
-or test snippet a reader can verify in under 30 seconds without leaving
-the report. If you cannot cite specific evidence, DROP the finding —
-low-evidence findings should be absent, not visible-but-flagged. Do not
-emit `Evidence: (none)` or use a diff hunk header as evidence. Quote the
-actual code.
-
 ## What to flag
 
-Issues that: (a) meaningfully impact correctness, performance, security,
-or maintainability; (b) are discrete and actionable; (c) don't demand
-rigor inconsistent with the rest of the codebase; (d) the author would
-likely fix if aware; (e) have provable impact on other parts of the code.
+Issues that meaningfully impact correctness, performance, security, or
+maintainability, and are discrete and actionable. Don't demand rigor
+inconsistent with the rest of the codebase. Do not emit `Evidence: (none)`
+or use a diff hunk header as evidence.
 
 Tag each finding:
 - `[P0]` blocking — must fix before this lands.
