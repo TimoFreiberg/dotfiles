@@ -4,6 +4,8 @@
  * Makes tool output minimal in the default (collapsed) view:
  * a single line showing the tool name, args, and line count.
  * Ctrl+O still shows the full expanded output.
+ *
+ * Always shows first 2 lines of output (5 for write) in collapsed view.
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -151,6 +153,16 @@ function cachedLazyLine(prefix: string, state: any, context: any): any {
   return comp;
 }
 
+/**
+ * Format a preview of the first N lines of text, each line styled.
+ * Returns a string prepended with a newline (for stacking below the header line).
+ */
+function buildPreviewLines(text: string, maxLines: number, theme: any): string {
+  const lines = text.split("\n").slice(0, maxLines);
+  if (lines.length === 0) return "";
+  return "\n" + lines.map((l: string) => theme.fg("toolOutput", l)).join("\n");
+}
+
 // ── extension ───────────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
@@ -216,13 +228,14 @@ export default function (pi: ExtensionAPI) {
         return new Text(text, 0, 0);
       }
 
-      // Collapsed: set suffix for the lazy header line
+      // Collapsed: suffix for the lazy header line + first 2 lines of output
       context.state.resultSuffix = expandSuffix(
         countLines(output),
         theme,
         warning || undefined,
       );
-      return new Container();
+      const readPreview = buildPreviewLines(output, 2, theme);
+      return new Text(readPreview, 0, 0);
     },
   });
 
@@ -274,8 +287,10 @@ export default function (pi: ExtensionAPI) {
         );
       }
 
+      // Collapsed: suffix for the lazy header line + first 5 lines of written content
       context.state.resultSuffix = expandSuffix(countLines(fileContent), theme);
-      return new Container();
+      const writePreview = buildPreviewLines(fileContent, 5, theme);
+      return new Text(writePreview, 0, 0);
     },
   });
 
@@ -329,7 +344,7 @@ export default function (pi: ExtensionAPI) {
         return new Text(text, 0, 0);
       }
 
-      // Collapsed: single-line suffix
+      // Collapsed: single-line suffix + first 2 lines of output
       let warningText: string | undefined;
       const tr = result.details?.truncation;
       const fp = result.details?.fullOutputPath;
@@ -344,7 +359,8 @@ export default function (pi: ExtensionAPI) {
         theme,
         warningText,
       );
-      return new Container();
+      const bashPreview = buildPreviewLines(output, 2, theme);
+      return new Text(bashPreview, 0, 0);
     },
   });
 
