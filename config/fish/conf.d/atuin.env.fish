@@ -1,2 +1,2 @@
 
-source "$HOME/.atuin/bin/env.fish"
+test -f "$HOME/.atuin/bin/env.fish" && source "$HOME/.atuin/bin/env.fish"
