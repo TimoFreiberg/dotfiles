@@ -1,12 +1,5 @@
 {
-  "autoDreamEnabled": false,
-  "autoMemoryEnabled": false,
-  "autoMemoryDirectory": "~/dotfiles/claude/memories",
   "awsAuthRefresh": "aws sso login --sso-session \"$SSO_SESSION\" 2>/dev/null || aws sso login --profile \"$AWS_PROFILE\"",
-  "effortLevel": "xhigh",
-  "enabledPlugins": {
-    "learning-opportunities@learning-opportunities": true
-  },
   "env": {
     "CI": "true",
     "EDITOR": "false",
@@ -14,66 +7,7 @@
     "GIT_PAGER": "cat",
     "JJ_EDITOR": "false",
     "MANPAGER": "cat",
-    "PAGER": "cat",
-    "VISUAL": "false"
-  },
-  "extraKnownMarketplaces": {
-    "learning-opportunities": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/DrCatHicks/learning-opportunities.git"
-      }
-    }
-  },
-  "hooks": {
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "command": "python3 ~/.claude/hooks/post-edit-format.py",
-            "timeout": 30,
-            "type": "command"
-          },
-          {
-            "command": "bash ~/.claude/hooks/auto-commit-memories.sh",
-            "timeout": 30,
-            "type": "command"
-          }
-        ],
-        "matcher": "Write|Edit"
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "command": "python3 ~/.claude/hooks/journal-nudge.py",
-            "timeout": 10,
-            "type": "command"
-          }
-        ]
-      }
-    ],
-    "WorktreeCreate": [
-      {
-        "hooks": [
-          {
-            "command": "bash ~/.claude/hooks/worktree-create.sh",
-            "type": "command"
-          }
-        ]
-      }
-    ],
-    "WorktreeRemove": [
-      {
-        "hooks": [
-          {
-            "command": "bash ~/.claude/hooks/worktree-remove.sh",
-            "type": "command"
-          }
-        ]
-      }
-    ]
+    "PAGER": "cat"
   },
   "includeGitInstructions": false,
   "permissions": {
@@ -156,9 +90,74 @@
     ],
     "defaultMode": "acceptEdits"
   },
-  "skipDangerousModePermissionPrompt": true,
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/post-edit-format.py",
+            "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/auto-commit-memories.sh",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/journal-nudge.py",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/worktree-create.sh"
+          }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/worktree-remove.sh"
+          }
+        ]
+      }
+    ]
+  },
   "statusLine": {
-    "command": "bash ~/.claude/statusline.sh",
-    "type": "command"
-  }
+    "type": "command",
+    "command": "bash ~/.claude/statusline.sh"
+  },
+  "enabledPlugins": {
+    "learning-opportunities@learning-opportunities": true
+  },
+  "extraKnownMarketplaces": {
+    "learning-opportunities": {
+      "source": {
+        "source": "git",
+        "url": "https://github.com/DrCatHicks/learning-opportunities.git"
+      }
+    }
+  },
+  "effortLevel": "xhigh",
+  "autoMemoryEnabled": false,
+  "autoMemoryDirectory": "~/dotfiles/claude/memories",
+  "autoDreamEnabled": false,
+  "skipDangerousModePermissionPrompt": true
 }
