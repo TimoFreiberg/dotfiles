@@ -5,7 +5,10 @@
  * a single line showing the tool name, args, and line count.
  * Ctrl+O still shows the full expanded output.
  *
- * Always shows first 2 lines of output (5 for write) in collapsed view.
+ * Preview lines shown in collapsed view:
+ *   read, bash: first 2 lines
+ *   write: first 5 lines
+ *   grep, find: zero lines (header only)
  */
 
 import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
@@ -13,6 +16,8 @@ import {
   createReadTool,
   createBashTool,
   createWriteTool,
+  createGrepTool,
+  createFindTool,
   keyHint,
   highlightCode,
   getLanguageFromPath,
@@ -168,8 +173,8 @@ function buildPreviewLines(text: string, maxLines: number, theme: any): string {
 export default function (pi: ExtensionAPI) {
   const cwd = process.cwd();
 
-  // Only override read, write, bash, and grep with compact rendering.
-  // ls and find are left as built-in tools to avoid unnecessary
+  // Override read, write, bash, grep, and find with compact rendering.
+  // ls is left as a built-in tool to avoid unnecessary
   // tool registrations (saves tokens in the tool schema).
 
   // For the single-line collapsed view, renderResult stores a suffix string
@@ -364,9 +369,9 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  // --- grep (disabled – not needed, default pi doesn't use it) --------
-  // const builtinGrep = createGrepTool(cwd);
-  /* pi.registerTool({
+  // --- grep -----------------------------------------------------------
+  const builtinGrep = createGrepTool(cwd);
+  pi.registerTool({
     ...builtinGrep,
     parameters: { ...builtinGrep.parameters },
     renderCall(args: any, theme: any, context: any) {
@@ -384,8 +389,7 @@ export default function (pi: ExtensionAPI) {
       if (args?.limit) detail += theme.fg("muted", ` --limit ${args.limit}`);
 
       const prefix = `${theme.fg("toolTitle", theme.bold("grep"))} ${detail}`;
-      const state = context.state;
-      return lazyLine(() => prefix + (state.resultSuffix || ""));
+      return cachedLazyLine(prefix, context.state, context);
     },
     renderResult(
       result: any,
@@ -417,7 +421,7 @@ export default function (pi: ExtensionAPI) {
         return new Text(`\n${styled}`, 0, 0);
       }
 
-      // Collapsed: single-line suffix
+      // Collapsed: header only, zero preview lines
       let warningText: string | undefined;
       const details = result.details;
       const notices: string[] = [];
@@ -435,5 +439,71 @@ export default function (pi: ExtensionAPI) {
       );
       return new Container();
     },
-  }); */
+  });
+
+  // --- find (glob search) ---------------------------------------------
+  const builtinFind = createFindTool(cwd);
+  pi.registerTool({
+    ...builtinFind,
+    parameters: { ...builtinFind.parameters },
+    renderCall(args: any, theme: any, context: any) {
+      context.state.resultSuffix = "";
+      const pattern = str(args?.pattern) || "...";
+      const rawPath = str(args?.path);
+
+      let detail = theme.fg("accent", pattern);
+      if (rawPath) detail += ` ${pathDisplay(rawPath, cwd, theme)}`;
+      if (args?.limit) detail += theme.fg("muted", ` --limit ${args.limit}`);
+
+      const prefix = `${theme.fg("toolTitle", theme.bold("find"))} ${detail}`;
+      return cachedLazyLine(prefix, context.state, context);
+    },
+    renderResult(
+      result: any,
+      { expanded, isPartial }: any,
+      theme: any,
+      context: any,
+    ) {
+      if (isPartial) {
+        context.state.resultSuffix = "";
+        return new Container();
+      }
+      const output = getTextOutput(result).trim();
+      if (!output) {
+        context.state.resultSuffix = "";
+        return new Container();
+      }
+
+      if (result.isError) {
+        context.state.resultSuffix = "";
+        return new Text(theme.fg("error", output), 0, 0);
+      }
+
+      if (expanded) {
+        context.state.resultSuffix = "";
+        const styled = output
+          .split("\n")
+          .map((l: string) => theme.fg("toolOutput", l))
+          .join("\n");
+        return new Text(`\n${styled}`, 0, 0);
+      }
+
+      // Collapsed: header only, zero preview lines
+      let warningText: string | undefined;
+      const details = result.details;
+      const notices: string[] = [];
+      if (details?.resultLimitReached)
+        notices.push(`${details.resultLimitReached} result limit`);
+      if (details?.truncation?.truncated) notices.push("output truncated");
+      if (notices.length > 0)
+        warningText = theme.fg("warning", `[${notices.join(". ")}]`);
+
+      context.state.resultSuffix = expandSuffix(
+        countLines(output),
+        theme,
+        warningText,
+      );
+      return new Container();
+    },
+  });
 }
