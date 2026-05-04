@@ -1,6 +1,6 @@
 ---
 name: dev-review-loop
-description: "Deliberate dev → review → fix loop run in-session: implement directly, spawn /review fresh each round, fix findings or pause for human decisions; 3-round cap."
+description: "Deliberate dev → review → fix loop run in-session: implement directly, spawn the `review` skill fresh each round, fix findings or pause for human decisions; 3-round cap."
 argument-hint: "[<task description> | file <path>]"
 ---
 
@@ -10,7 +10,7 @@ A deliberate dev → review → fix loop on the current task. Once invoked, this
 skill drives the session until it ends.
 
 **You are the dev.** Implement the work yourself — don't spawn a dev subagent.
-`/review` is the only subagent, fresh each round. Commit between rounds: the
+The `review` skill is the only subagent, fresh each round. Commit between rounds: the
 cumulative diff is what each reviewer sees, and committed rounds keep subsequent
 reviews fast and let the reviewer check out context at a definite state.
 
@@ -65,9 +65,10 @@ Then commit: `jj commit -m "dev-review-loop round N: <dev|fix|decisions>"`
 ## Round N: review
 
 Pass the task spec via `--description` so the reviewer produces a Plan-alignment
-section ("did the dev do what was asked?") ahead of findings:
-- jj: `Skill(skill: "review", args: "--description \"<task spec>\" commit <base>..@-")`
-- git: `Skill(skill: "review", args: "--description \"<task spec>\" commit <base>..HEAD")`
+section ("did the dev do what was asked?") ahead of findings. Invoke the `review`
+skill with these args:
+- jj: `--description "<task spec>" commit <base>..@-`
+- git: `--description "<task spec>" commit <base>..HEAD`
 
 **Review passes** → loop done. Skip to completion.
 **Needs attention** → all findings (not just P0/P1) go to fix.
