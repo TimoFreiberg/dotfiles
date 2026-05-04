@@ -44,6 +44,18 @@ function replaceTabs(s: string): string {
   return s.replace(/\t/g, "  ");
 }
 
+/** Terminal width, or 200 if stdout isn't a TTY. */
+function maxLineLength(): number {
+  const cols = process.stdout.columns;
+  return cols && cols > 0 ? cols : 200;
+}
+
+/** Truncate a line to `width` visible chars, appending `…` if cut. */
+function truncateLine(line: string, width: number): string {
+  if (width <= 0 || line.length <= width) return line;
+  return line.slice(0, width - 1) + "…";
+}
+
 function str(v: unknown): string | null {
   return typeof v === "string" ? v : null;
 }
@@ -165,7 +177,13 @@ function cachedLazyLine(prefix: string, state: any, context: any): any {
 function buildPreviewLines(text: string, maxLines: number, theme: any): string {
   const lines = text.split("\n").slice(0, maxLines);
   if (lines.length === 0) return "";
-  return "\n" + lines.map((l: string) => theme.fg("toolOutput", l)).join("\n");
+  const width = maxLineLength();
+  return (
+    "\n" +
+    lines
+      .map((l: string) => theme.fg("toolOutput", truncateLine(l, width)))
+      .join("\n")
+  );
 }
 
 // ── extension ───────────────────────────────────────────────────────
