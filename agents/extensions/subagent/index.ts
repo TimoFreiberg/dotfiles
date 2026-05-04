@@ -520,7 +520,7 @@ export default function (pi: ExtensionAPI) {
     model: Type.Optional(
       Type.String({
         description:
-          "Optional model override (e.g. 'claude-sonnet-4-5', 'claude-haiku-4-5'). If omitted, uses the agent's configured model.",
+          "Optional model override. Accepts short aliases like 'sonnet', 'haiku', 'opus' (resolves to the latest model of that family for the active provider), full canonical IDs like 'claude-sonnet-4-5', or any pattern pi's fuzzy matcher accepts. If omitted, uses the agent's configured model.",
       }),
     ),
   });
