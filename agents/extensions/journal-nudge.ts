@@ -12,23 +12,18 @@
  * - pi built-in tool names are lowercase (`bash`, `edit`, `write`).
  * - pi skills are prompt expansions, not tool calls, so the only signal
  *   that journaling happened is a `bash` call running the journal script.
- * - Re-injection uses `pi.sendMessage` with `triggerTurn: true`; the
- *   re-entry guard checks for our customType in the current prompt's
- *   messages, plus a module-level timestamp belt-and-suspenders.
+ * - Re-injection requires deferring until `isStreaming=false`. At the
+ *   moment `agent_end` fires, the run's `runWithLifecycle` hasn't reached
+ *   its `finally` block yet, so `isStreaming` is still true. pi's
+ *   `sendCustomMessage` branches on `isStreaming` before `triggerTurn`,
+ *   so a direct call silently queues to the follow-up queue instead of
+ *   starting a new run. We use `setImmediate` to wait until the next
+ *   event-loop tick, after `finishRun()` has flipped `isStreaming=false`.
  *
- * Design:
- * - Fires on `agent_end`. `event.messages` is the conversation slice for
- *   this prompt (one user message plus whatever the agent produced).
- * - Counts "work" tool uses: `edit`, `write`, plus `bash` commands that
- *   match side-effect-y substrings. Recon bash (ls, jj log, git status,
- *   gh pr view, grep, etc.) is ignored — over-counting inflates the nudge.
- * - Detects journaling: any `bash` command whose string contains
- *   `skills/journal/scripts/journal`.
- * - If `work >= MIN_WORK_COUNT` and `!didJournal`, injects a custom
- *   message with `triggerTurn: true` so the agent gets one more inference
- *   pass with the nudge visible.
- * - Re-entry guard: if any message in the current prompt is already our
- *   custom type, bail. Plus a 10s timestamp cooldown as a safety net.
+ * Re-entry guard: when the fix above works, the new run started by the
+ * nudge begins with `newMessages = [customMessage, ...]`, so the scan
+ * catches `alreadyNudged` on that run's `agent_end` and bails cleanly.
+ * A 10-second timestamp cooldown remains as a safety net.
  */
 
 import type {
@@ -112,8 +107,8 @@ const NUDGE_REASON =
   "this turn did work and didn't journal. " +
   "if a fork or correction formed, call the journal skill now.";
 
-// Safety-net cooldown to avoid tight loops if event.messages unexpectedly
-// doesn't include our injected custom message.
+// Safety-net cooldown in case the `alreadyNudged` scan doesn't catch
+// something and we'd otherwise hot-loop.
 const NUDGE_COOLDOWN_MS = 10_000;
 
 // ---------------------------------------------------------------------------
@@ -184,19 +179,23 @@ export default function (pi: ExtensionAPI) {
     if (didJournal) return;
     if (workCount < MIN_WORK_COUNT) return;
 
-    // Cooldown safety-net: if something went sideways with the
-    // alreadyNudged detection, at least don't hot-loop.
     const now = Date.now();
     if (now - lastNudgeAt < NUDGE_COOLDOWN_MS) return;
     lastNudgeAt = now;
 
-    pi.sendMessage(
-      {
-        customType: NUDGE_CUSTOM_TYPE,
-        content: NUDGE_REASON,
-        display: true,
-      },
-      { triggerTurn: true, deliverAs: "followUp" },
-    );
+    // Defer until after `runWithLifecycle`'s `finally` flips
+    // `isStreaming = false`. Without this, `sendCustomMessage` takes
+    // the streaming branch and silently queues to the follow-up queue
+    // instead of starting a new run. See header comment.
+    setImmediate(() => {
+      pi.sendMessage(
+        {
+          customType: NUDGE_CUSTOM_TYPE,
+          content: NUDGE_REASON,
+          display: true,
+        },
+        { triggerTurn: true },
+      );
+    });
   });
 }
