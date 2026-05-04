@@ -307,6 +307,7 @@ async function runSingleAgent(
   onUpdate: OnUpdateCallback | undefined,
   parentProvider?: string,
   parentThinking?: string,
+  modelOverride?: string,
 ): Promise<SingleResult> {
   const agent = agents.find((a) => a.name === agentName);
 
@@ -336,11 +337,12 @@ async function runSingleAgent(
   const provider = agent.provider ?? parentProvider;
   if (provider) args.push("--provider", provider);
 
-  if (agent.model) {
+  const effectiveModel = modelOverride?.trim() || agent.model;
+  if (effectiveModel) {
     const resolvedModel =
       provider === "amazon-bedrock"
-        ? (BEDROCK_MODEL_MAP[agent.model] ?? agent.model)
-        : agent.model;
+        ? (BEDROCK_MODEL_MAP[effectiveModel] ?? effectiveModel)
+        : effectiveModel;
     args.push("--model", resolvedModel);
   }
 
@@ -369,7 +371,7 @@ async function runSingleAgent(
       contextTokens: 0,
       turns: 0,
     },
-    model: agent.model,
+    model: effectiveModel,
   };
 
   const emitUpdate = () => {
@@ -515,6 +517,12 @@ export default function (pi: ExtensionAPI) {
     task: Type.String({
       description: "The task description to send to the agent",
     }),
+    model: Type.Optional(
+      Type.String({
+        description:
+          "Optional model override (e.g. 'claude-sonnet-4-5', 'claude-haiku-4-5'). If omitted, uses the agent's configured model.",
+      }),
+    ),
   });
 
   const SubagentParams = Type.Object({
@@ -649,6 +657,7 @@ export default function (pi: ExtensionAPI) {
             },
             parentProvider,
             parentThinking !== "off" ? parentThinking : undefined,
+            t.model,
           );
           allResults[index] = result;
           emitParallelUpdate();
