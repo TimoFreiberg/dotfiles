@@ -22,6 +22,17 @@ C_CYAN=$'\033[38;5;73m'
 C_GRAY=$'\033[38;5;250m'
 C_GREEN=$'\033[38;5;108m'
 C_DARKGRAY=$'\033[38;5;240m'
+C_SPIDER=$'\033[38;5;79m'
+
+# Harness marker — Thiania bhamoensis kaomoji shown when running
+# under a Thia harness (thia-prowl, future thia-nest). THIANIA_ROLE
+# is set by the launcher; stock Claude Code leaves it unset.
+# /\ are the front legs, ◉ are the forward-facing eyes, vv are the
+# chelicerae (fangs).
+harness_info=""
+if [[ -n "${THIANIA_ROLE:-}" ]]; then
+    harness_info="${C_SPIDER}/(◉ᴗᴗ◉)\\${RST} | "
+fi
 
 # VCS branch/bookmark + dirty state
 vcs_info=""
@@ -82,7 +93,8 @@ if [[ -n "${total_cost}" ]]; then
 fi
 
 # Output the status line
-printf "%s%s%s | %s%s%s%s%s%s" \
+printf "%s%s%s%s | %s%s%s%s%s%s" \
+    "${harness_info}" \
     "${C_TAN}" "${display_path}" \
     "${C_CYAN}" "${model_name}" \
     "${vcs_info}" \
