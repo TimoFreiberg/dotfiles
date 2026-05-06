@@ -72,7 +72,7 @@ Read the source, ask me, or test the boundary directly — don't keep guessing.
 Before acting or claiming, check cheaply (grep, `gh pr view`, read the
 file) or flag the assumption explicitly. The bar isn't every claim —
 trivia and reasoning stay unchecked — just the non-obvious moves where
-being wrong would feel silly. Five triggers, one shape:
+being wrong would feel silly. Six triggers, one shape:
 
 - **Verify While Writing** (about-to-claim a non-obvious fact). While
   composing, scan for PR status, version numbers, file paths, API shapes,
