@@ -837,6 +837,8 @@ export default function (pi: ExtensionAPI) {
             maxHeight: "78%",
             anchor: "top-center",
             margin: { top: 1, left: 2, right: 2 },
+            // SPIKE: verify nonCapturing + focus()/unfocus() round-trip with main editor.
+            nonCapturing: true,
           },
           onHandle: (handle) => {
             runtime.handle = handle;
@@ -1056,6 +1058,32 @@ export default function (pi: ExtensionAPI) {
 
     await runBtwPrompt(ctx, question);
   }
+
+  pi.registerShortcut("ctrl+shift+b", {
+    description:
+      "Toggle focus between BTW side-chat overlay and main editor (SPIKE)",
+    handler: async (ctx) => {
+      const handle = overlayRuntime?.handle;
+      if (!handle) {
+        notify(ctx, "BTW side-chat is not open. Use /btw to open it.", "info");
+        return;
+      }
+      if (handle.isFocused()) {
+        handle.unfocus();
+        setOverlayStatus(
+          "Unfocused — main editor has input. Ctrl+Shift+B to return.",
+        );
+      } else {
+        handle.focus();
+        setOverlayStatus(
+          overlayStatus.startsWith("Unfocused") ||
+            overlayStatus.startsWith("Focused")
+            ? "Focused — BTW input active. Ctrl+Shift+B to release."
+            : overlayStatus,
+        );
+      }
+    },
+  });
 
   pi.registerCommand("btw", {
     description:
