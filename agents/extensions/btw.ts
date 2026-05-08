@@ -244,6 +244,18 @@ class BtwOverlay extends Container implements Focusable {
   private readonly onDismissCallback: () => void;
   private _focused = false;
 
+  // Scroll state for transcript viewport.
+  // scrollOffset is the absolute line index in the transcript of the first
+  // visible line. followBottom auto-pins to the tail so streaming tokens
+  // keep the latest content visible; it's turned off by PageUp and re-armed
+  // when the user scrolls back to the bottom or submits a new question.
+  private scrollOffset = 0;
+  private followBottom = true;
+  // Cached from render() so PageUp/PageDown can size a scroll step and clamp
+  // the offset without duplicating the dialog-height calculation.
+  private lastViewportHeight = 10;
+  private lastTranscriptLength = 0;
+
   get focused(): boolean {
     return this._focused;
   }
@@ -276,6 +288,9 @@ class BtwOverlay extends Container implements Focusable {
 
     this.input = new Input();
     this.input.onSubmit = (value) => {
+      // A new question re-engages the follow-bottom behavior so the
+      // streaming response is visible regardless of prior scroll position.
+      this.followBottom = true;
       this.onSubmitCallback(value);
     };
     this.input.onEscape = () => {
@@ -286,6 +301,29 @@ class BtwOverlay extends Container implements Focusable {
   handleInput(data: string): void {
     if (this.keybindings.matches(data, "tui.select.cancel")) {
       this.onDismissCallback();
+      return;
+    }
+
+    if (this.keybindings.matches(data, "tui.editor.pageUp")) {
+      this.followBottom = false;
+      const step = Math.max(1, this.lastViewportHeight - 2);
+      this.scrollOffset = Math.max(0, this.scrollOffset - step);
+      this.tui.requestRender();
+      return;
+    }
+
+    if (this.keybindings.matches(data, "tui.editor.pageDown")) {
+      const step = Math.max(1, this.lastViewportHeight - 2);
+      const maxOffset = Math.max(
+        0,
+        this.lastTranscriptLength - this.lastViewportHeight,
+      );
+      const next = Math.min(maxOffset, this.scrollOffset + step);
+      this.scrollOffset = next;
+      if (next >= maxOffset) {
+        this.followBottom = true;
+      }
+      this.tui.requestRender();
       return;
     }
 
@@ -320,20 +358,35 @@ class BtwOverlay extends Container implements Focusable {
     const dialogWidth = Math.max(56, Math.min(width, Math.floor(width * 0.9)));
     const innerWidth = Math.max(40, dialogWidth - 2);
     const terminalRows = process.stdout.rows ?? 30;
-    const dialogHeight = Math.max(
-      16,
-      Math.min(30, Math.floor(terminalRows * 0.75)),
-    );
+    // No hardcoded upper cap — let the overlay layer's maxHeight bound the
+    // outer size. More terminal rows => more transcript visible before
+    // scroll is needed.
+    const dialogHeight = Math.max(16, Math.floor(terminalRows * 0.75));
     const chromeHeight = 7;
     const transcriptHeight = Math.max(6, dialogHeight - chromeHeight);
 
     // Markdown renders to innerWidth already — no manual wrapping needed
     const transcript = this.getTranscript(innerWidth, this.theme);
-    const visibleTranscript = transcript.slice(-transcriptHeight);
+    const maxOffset = Math.max(0, transcript.length - transcriptHeight);
+    if (this.followBottom) {
+      this.scrollOffset = maxOffset;
+    } else {
+      this.scrollOffset = Math.min(this.scrollOffset, maxOffset);
+    }
+    // Stash for PageUp/PageDown handlers; they run between renders.
+    this.lastViewportHeight = transcriptHeight;
+    this.lastTranscriptLength = transcript.length;
+
+    const visibleTranscript = transcript.slice(
+      this.scrollOffset,
+      this.scrollOffset + transcriptHeight,
+    );
     const transcriptPadding = Math.max(
       0,
       transcriptHeight - visibleTranscript.length,
     );
+    const canScrollUp = this.scrollOffset > 0;
+    const canScrollDown = this.scrollOffset < maxOffset;
 
     const status = this.getStatus();
 
@@ -369,7 +422,12 @@ class BtwOverlay extends Container implements Focusable {
     );
     lines.push(
       this.frameLine(
-        this.theme.fg("dim", "Enter submit · Esc close"),
+        this.theme.fg(
+          "dim",
+          canScrollUp || canScrollDown
+            ? `Enter submit · Esc close · PgUp/PgDn scroll ${canScrollUp ? "↑" : " "}${canScrollDown ? "↓" : " "}`
+            : "Enter submit · Esc close",
+        ),
         innerWidth,
       ),
     );
@@ -491,7 +549,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     const lines: string[] = [];
-    for (const item of thread.slice(-6)) {
+    for (const item of thread) {
       // User message
       const userText = item.question.trim().split("\n")[0];
       lines.push(
