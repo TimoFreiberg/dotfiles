@@ -20,7 +20,7 @@
  * If omitted, the path is appended as the last argument.
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { readFile } from "fs/promises";
 import { extname, resolve } from "path";
 

@@ -12,7 +12,7 @@ import {
   type ExtensionAPI,
   type ExtensionContext,
   type Theme,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import path from "node:path";
 import { readFileSync, readdirSync } from "node:fs";
 import { execSync } from "node:child_process";
@@ -32,7 +32,7 @@ import {
   matchesKey,
   truncateToWidth,
   visibleWidth,
-} from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-tui";
 
 // ---------------------------------------------------------------------------
 // Types

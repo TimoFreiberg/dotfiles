@@ -12,7 +12,7 @@
  *         < 2026-02-03 09:38:25+01
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 function formatTimestamp(): string {
   const now = new Date();

@@ -11,7 +11,7 @@
  *   grep, find: zero lines (header only)
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
   createReadTool,
   createBashTool,
@@ -23,8 +23,8 @@ import {
   getLanguageFromPath,
   formatSize,
   DEFAULT_MAX_BYTES,
-} from "@mariozechner/pi-coding-agent";
-import { Text, Container } from "@mariozechner/pi-tui";
+} from "@earendil-works/pi-coding-agent";
+import { Text, Container } from "@earendil-works/pi-tui";
 import { relative } from "path";
 
 // ── helpers ─────────────────────────────────────────────────────────

@@ -29,7 +29,7 @@
 import type {
   AgentEndEvent,
   ExtensionAPI,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 
 // AgentMessage isn't re-exported from the package root, but we can pull its
 // shape off AgentEndEvent.messages without relying on the internal export.

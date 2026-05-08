@@ -20,7 +20,7 @@ The npm-installed package ships `README.md`, `docs/`, and `examples/` under
 its install root. Find the root with:
 
 ```bash
-echo "$(npm root -g)/@mariozechner/pi-coding-agent"
+echo "$(npm root -g)/@earendil-works/pi-coding-agent"
 ```
 
 All paths in the table below are relative to that directory.
