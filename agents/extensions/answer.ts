@@ -3,7 +3,7 @@
  *
  * Custom interactive TUI for answering questions.
  *
- * 1. /answer command (or Ctrl+Shift+A) gets the last assistant message
+ * 1. /answer command (or Ctrl+.) gets the last assistant message
  * 2. Shows a spinner while extracting questions as structured JSON
  * 3. Presents an interactive TUI to navigate and answer questions
  * 4. Submits the compiled answers when done
@@ -14,13 +14,15 @@ import {
   type Model,
   type Api,
   type UserMessage,
-} from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
-import { BorderedLoader } from "@mariozechner/pi-coding-agent";
-import type { KeybindingsManager } from "@mariozechner/pi-coding-agent";
+  KeybindingsManager,
+  ModelRegistry,
+  Theme,
+} from "@earendil-works/pi-coding-agent";
+import { BorderedLoader } from "@earendil-works/pi-coding-agent";
 import {
   type Component,
   Editor,
@@ -32,8 +34,7 @@ import {
   type TUI,
   visibleWidth,
   wrapTextWithAnsi,
-} from "@mariozechner/pi-tui";
-import type { Theme } from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-tui";
 
 // --- Types ---
 
@@ -82,24 +83,27 @@ Example output:
 
 // --- Model selection ---
 
-// Preferred model patterns for cheaper/faster extraction, in priority order.
+// Model patterns for extraction, in priority order. Sonnet 4.6 first
+// (haiku makes too many mistakes on this task); we fall through to any
+// available Sonnet, then the session model itself.
+//
 // Only models from the same provider as the session model are considered,
 // so we reuse the same auth config that's already working.
 //
 // NOTE (Bedrock): prefer `global.` prefixed model IDs — those are the
 // cross-region inference profiles that work for the current setup.
 // Update this if the Bedrock config changes.
-const CHEAPER_MODEL_PATTERNS: (string | RegExp)[] = [
-  /global\.anthropic\.claude-haiku/, // Bedrock Haiku (global)
-  /haiku/, // Haiku (other providers)
+const EXTRACTION_MODEL_PATTERNS: (string | RegExp)[] = [
   /global\.anthropic\.claude-sonnet-4-6/, // Bedrock Sonnet 4.6 (global)
-  /sonnet/, // Sonnet (other providers)
-  "flash", // Gemini Flash
+  /sonnet-4-6/, // Sonnet 4.6 (other providers)
+  /global\.anthropic\.claude-sonnet/, // Bedrock Sonnet (any, fallback)
+  /sonnet/, // Sonnet (other providers, fallback)
 ];
 
 interface ModelCandidate {
   model: Model<Api>;
-  apiKey: string;
+  apiKey?: string;
+  headers?: Record<string, string>;
 }
 
 /**
@@ -109,23 +113,23 @@ interface ModelCandidate {
  */
 async function getCandidateModels(
   currentModel: Model<Api>,
-  modelRegistry: {
-    getAvailable: () => Model<Api>[];
-    getApiKey: (model: Model<Api>) => Promise<string | undefined>;
-  },
+  modelRegistry: ModelRegistry,
 ): Promise<ModelCandidate[]> {
-  const apiKey = await modelRegistry.getApiKey(currentModel);
-  if (!apiKey) {
-    // Session model has no resolvable key — nothing we can do
-    return [];
-  }
-
   const candidates: ModelCandidate[] = [];
   const seen = new Set<string>();
   const available = modelRegistry.getAvailable();
 
-  // Look for cheaper models from the same provider
-  for (const pattern of CHEAPER_MODEL_PATTERNS) {
+  const pushCandidate = async (model: Model<Api>): Promise<void> => {
+    const key = `${model.provider}/${model.id}`;
+    if (seen.has(key)) return;
+    const auth = await modelRegistry.getApiKeyAndHeaders(model);
+    if (auth.ok === false) return;
+    candidates.push({ model, apiKey: auth.apiKey, headers: auth.headers });
+    seen.add(key);
+  };
+
+  // Look for preferred models from the same provider
+  for (const pattern of EXTRACTION_MODEL_PATTERNS) {
     const match = available.find(
       (m) =>
         m.provider === currentModel.provider &&
@@ -134,18 +138,12 @@ async function getCandidateModels(
           : m.id.toLowerCase().includes(pattern)),
     );
     if (match) {
-      const key = `${match.provider}/${match.id}`;
-      if (seen.has(key)) continue;
-      candidates.push({ model: match, apiKey });
-      seen.add(key);
+      await pushCandidate(match);
     }
   }
 
   // Always include the session model as the final (most reliable) fallback
-  const currentKey = `${currentModel.provider}/${currentModel.id}`;
-  if (!seen.has(currentKey)) {
-    candidates.push({ model: currentModel, apiKey });
-  }
+  await pushCandidate(currentModel);
 
   return candidates;
 }
@@ -304,7 +302,10 @@ class QnAComponent implements Component, Focusable {
 
   handleInput(data: string): void {
     // Expand/collapse tool output (Ctrl+O by default)
-    if (this.keybindings?.matches(data, "expandTools") && this.onToggleExpand) {
+    if (
+      this.keybindings?.matches(data, "app.tools.expand") &&
+      this.onToggleExpand
+    ) {
       this.onToggleExpand();
       return;
     }
@@ -619,7 +620,11 @@ export default function (pi: ExtensionAPI) {
         const response = await complete(
           candidate.model,
           { systemPrompt: SYSTEM_PROMPT, messages: [userMessage] },
-          { apiKey: candidate.apiKey, signal: loader.signal },
+          {
+            apiKey: candidate.apiKey,
+            headers: candidate.headers,
+            signal: loader.signal,
+          },
         );
 
         if (response.stopReason === "aborted") {
@@ -696,7 +701,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     // Show the interactive Q&A form
-    pi.events.emit("answer:open");
+    pi.events.emit("answer:open", undefined);
 
     const answersResult = await ctx.ui.custom<string | null>(
       (tui, theme, kb, done) => {
@@ -729,11 +734,10 @@ export default function (pi: ExtensionAPI) {
         };
       },
     );
-    pi.events.emit("answer:close");
+    pi.events.emit("answer:close", undefined);
 
     if (answersResult === null) {
       ctx.ui.notify("Cancelled", "info");
-
       return;
     }
 
@@ -754,7 +758,7 @@ export default function (pi: ExtensionAPI) {
     handler: (_args, ctx) => answerHandler(ctx),
   });
 
-  pi.registerShortcut("ctrl+shift+a", {
+  pi.registerShortcut("ctrl+.", {
     description: "Extract and answer questions",
     handler: answerHandler,
   });
