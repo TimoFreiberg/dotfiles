@@ -461,13 +461,55 @@ export default function (pi: ExtensionAPI) {
   let pendingError: string | null = null;
   let pendingToolCalls: ToolCallInfo[] = [];
   let sideBusy = false;
+  let hasUnread = false;
   let overlayStatus = "Ready";
   let overlayDraft = "";
   let overlayRuntime: OverlayRuntime | null = null;
   let activeSideSession: SideSessionRuntime | null = null;
   let overlayRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+  // Stashed so hideOverlay() (called from BtwOverlay.handleInput without a
+  // ctx in scope) can still update the main-view widget.
+  let lastCtx: ExtensionContext | null = null;
+
+  const BTW_WIDGET_KEY = "btw";
 
   const mdTheme = getMarkdownTheme();
+
+  function rememberCtx(ctx: ExtensionContext): void {
+    if (ctx.hasUI) {
+      lastCtx = ctx;
+    }
+  }
+
+  function isOverlayVisible(): boolean {
+    const handle = overlayRuntime?.handle;
+    if (!handle) return false;
+    return !handle.isHidden();
+  }
+
+  function updateWidget(): void {
+    const ctx = lastCtx;
+    if (!ctx?.hasUI) return;
+    if (isOverlayVisible()) {
+      ctx.ui.setWidget(BTW_WIDGET_KEY, undefined);
+      return;
+    }
+    if (sideBusy) {
+      ctx.ui.setWidget(BTW_WIDGET_KEY, [
+        ctx.ui.theme.fg("dim", "⋯ ") +
+          ctx.ui.theme.fg("accent", "BTW streaming"),
+      ]);
+      return;
+    }
+    if (hasUnread) {
+      ctx.ui.setWidget(BTW_WIDGET_KEY, [
+        ctx.ui.theme.fg("accent", "● ") +
+          ctx.ui.theme.fg("accent", "BTW has a new response"),
+      ]);
+      return;
+    }
+    ctx.ui.setWidget(BTW_WIDGET_KEY, undefined);
+  }
 
   function getModelKey(ctx: ExtensionContext): string {
     const model = ctx.model;
@@ -649,6 +691,7 @@ export default function (pi: ExtensionAPI) {
     // Ctrl+Shift+B (or /btw) brings back the same transcript and draft.
     // pi-tui's setHidden handles the focus handoff back to the main editor.
     overlayRuntime?.handle?.setHidden(true);
+    updateWidget();
   }
 
   function setOverlayDraft(value: string): void {
@@ -692,6 +735,7 @@ export default function (pi: ExtensionAPI) {
     pendingError = null;
     pendingToolCalls = [];
     sideBusy = false;
+    hasUnread = false;
     setOverlayDraft("");
     setOverlayStatus("Ready");
     await disposeSideSession();
@@ -700,6 +744,8 @@ export default function (pi: ExtensionAPI) {
       pi.appendEntry(BTW_RESET_TYPE, details);
     }
     syncOverlay();
+    rememberCtx(ctx);
+    updateWidget();
   }
 
   async function restoreThread(ctx: ExtensionContext): Promise<void> {
@@ -710,6 +756,7 @@ export default function (pi: ExtensionAPI) {
     pendingError = null;
     pendingToolCalls = [];
     sideBusy = false;
+    hasUnread = false;
     overlayStatus = "Ready";
     overlayDraft = "";
     const branch = ctx.sessionManager.getBranch();
@@ -733,6 +780,8 @@ export default function (pi: ExtensionAPI) {
     }
 
     syncOverlay();
+    rememberCtx(ctx);
+    updateWidget();
   }
 
   async function createSideSession(
@@ -851,13 +900,20 @@ export default function (pi: ExtensionAPI) {
     if (!ctx.hasUI) {
       return;
     }
+    rememberCtx(ctx);
 
     if (overlayRuntime?.handle) {
       overlayRuntime.handle.setHidden(false);
       overlayRuntime.handle.focus();
       overlayRuntime.refresh?.();
+      hasUnread = false;
+      updateWidget();
       return;
     }
+
+    // About to create a fresh overlay — clear any unread marker since the
+    // user is opening the side view.
+    hasUnread = false;
 
     const runtime: OverlayRuntime = {};
     const closeRuntime = () => {
@@ -929,6 +985,9 @@ export default function (pi: ExtensionAPI) {
             if (runtime.closed) {
               closeRuntime();
             }
+            // Handle is now live; isOverlayVisible() returns true so this
+            // clears the widget if it was streaming/unread from a prior hide.
+            updateWidget();
           },
         },
       )
@@ -1023,7 +1082,12 @@ export default function (pi: ExtensionAPI) {
   async function closeOverlayFlow(
     ctx: ExtensionContext | ExtensionCommandContext,
   ): Promise<void> {
+    rememberCtx(ctx);
     dismissOverlay();
+    // Overlay is gone; re-evaluate whether a streaming/unread indicator
+    // should appear. ("Keep side thread" keeps the session alive, so the
+    // next response can still fire the unread widget.)
+    updateWidget();
     if (!ctx.hasUI) {
       return;
     }
@@ -1078,6 +1142,8 @@ export default function (pi: ExtensionAPI) {
     pendingToolCalls = [];
     setOverlayStatus("Streaming side response...");
     syncOverlay();
+    rememberCtx(ctx);
+    updateWidget();
 
     try {
       await side.session.prompt(question, { source: "extension" });
@@ -1105,6 +1171,9 @@ export default function (pi: ExtensionAPI) {
       };
       thread.push(details);
       pi.appendEntry(BTW_ENTRY_TYPE, details);
+      if (!isOverlayVisible()) {
+        hasUnread = true;
+      }
 
       pendingQuestion = null;
       pendingAnswer = "";
@@ -1118,6 +1187,7 @@ export default function (pi: ExtensionAPI) {
     } finally {
       sideBusy = false;
       syncOverlay();
+      updateWidget();
     }
   }
 
@@ -1139,6 +1209,7 @@ export default function (pi: ExtensionAPI) {
     description:
       "Toggle the BTW side-chat overlay (session stays alive when hidden).",
     handler: async (ctx) => {
+      rememberCtx(ctx);
       const handle = overlayRuntime?.handle;
       if (!handle) {
         // No overlay runtime — open one, resuming whatever thread we have.
@@ -1149,6 +1220,8 @@ export default function (pi: ExtensionAPI) {
       if (handle.isHidden()) {
         handle.setHidden(false);
         handle.focus();
+        hasUnread = false;
+        updateWidget();
       } else {
         hideOverlay();
       }
@@ -1202,5 +1275,8 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", async () => {
     await disposeSideSession();
     dismissOverlay();
+    if (lastCtx?.hasUI) {
+      lastCtx.ui.setWidget(BTW_WIDGET_KEY, undefined);
+    }
   });
 }
