@@ -102,10 +102,15 @@ const JOURNAL_BASH_MARKERS: readonly string[] = [
 ];
 
 // Content of the injected nudge. Kept short — the agent has internalized
-// what counts as a fork.
+// what counts as a fork. Wrapped in <auto-nudge> so the agent can tell
+// this is an extension-injected message, not something Timo typed —
+// pi's convertToLlm renders custom messages as plain user-role text
+// with no metadata, so the tag is the only attribution signal.
 const NUDGE_REASON =
+  "<auto-nudge>" +
   "this turn did work and didn't journal. " +
-  "if a fork or correction formed, call the journal skill now.";
+  "if a fork or correction formed, call the journal skill now." +
+  "</auto-nudge>";
 
 // Safety-net cooldown in case the `alreadyNudged` scan doesn't catch
 // something and we'd otherwise hot-loop.
