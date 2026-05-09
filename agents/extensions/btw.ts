@@ -736,7 +736,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function createSideSession(
-    ctx: ExtensionCommandContext,
+    ctx: ExtensionContext,
   ): Promise<SideSessionRuntime | null> {
     if (!ctx.model) {
       return null;
@@ -829,7 +829,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function ensureSideSession(
-    ctx: ExtensionCommandContext,
+    ctx: ExtensionContext,
   ): Promise<SideSessionRuntime | null> {
     if (!ctx.model) {
       return null;
@@ -1042,7 +1042,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function runBtwPrompt(
-    ctx: ExtensionCommandContext,
+    ctx: ExtensionContext,
     question: string,
   ): Promise<void> {
     const model = ctx.model;
@@ -1122,7 +1122,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function submitFromOverlay(
-    ctx: ExtensionContext | ExtensionCommandContext,
+    ctx: ExtensionContext,
     rawValue: string,
   ): Promise<void> {
     const question = rawValue.trim();
@@ -1132,13 +1132,6 @@ export default function (pi: ExtensionAPI) {
     }
 
     setOverlayDraft("");
-    if (!("waitForIdle" in ctx)) {
-      setOverlayStatus(
-        "BTW submit requires command context. Re-open with /btw.",
-      );
-      return;
-    }
-
     await runBtwPrompt(ctx, question);
   }
 
