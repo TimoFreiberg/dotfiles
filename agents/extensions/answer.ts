@@ -741,15 +741,13 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
-    pi.sendMessage(
-      {
-        customType: "answers",
-        content:
-          "I answered your questions in the following way:\n\n" + answersResult,
-        display: true,
-      },
-      { triggerTurn: true },
-    );
+    const message =
+      "I answered your questions in the following way:\n\n" + answersResult;
+    if (ctx.isIdle()) {
+      pi.sendUserMessage(message);
+    } else {
+      pi.sendUserMessage(message, { deliverAs: "followUp" });
+    }
   };
 
   pi.registerCommand("answer", {
