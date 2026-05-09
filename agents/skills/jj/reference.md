@@ -11,6 +11,20 @@ exceptions that need special handling:
   Bare `jj squash` opens an interactive editor and hangs.
 - **`jj split`** — interactive, will hang. See below.
 
+## Cross-Repo Operations
+
+When working across multiple repos in one session, prefer
+`jj -R <abs-path>` over `cd /path && jj`. Each shell tool call usually
+runs in its own subshell, so a `cd` from a previous call doesn't
+persist — a follow-up `jj` then reads the wrong repo. Either chain
+`cd && jj` in a single call, or pass `-R` explicitly:
+
+    jj -R /path/to/other/repo log
+    jj -R /path/to/other/repo show <rev>
+
+`-R` is more explicit about which repo each command targets, which
+also makes the call easier to read back later.
+
 ## Splitting Commits (Agent-Friendly)
 
 `jj split` is interactive and will hang. Use one of these approaches instead.
