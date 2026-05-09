@@ -102,15 +102,18 @@ const JOURNAL_BASH_MARKERS: readonly string[] = [
 ];
 
 // Content of the injected nudge. Kept short — the agent has internalized
-// what counts as a fork. Wrapped in <auto-nudge> so the agent can tell
-// this is an extension-injected message, not something Timo typed —
-// pi's convertToLlm renders custom messages as plain user-role text
-// with no metadata, so the tag is the only attribution signal.
+// what counts as a fork. Wrapped in <system-reminder> because pi's
+// convertToLlm renders custom messages as plain user-role text with no
+// metadata, so the XML tag is the only attribution signal. Claude models
+// are trained on <system-reminder> as the canonical wrapper for
+// automated system notes (Claude Code uses it inside tool_result
+// messages for things like offset-past-EOF warnings), so it reads as
+// more obviously-not-user-speech than an invented tag would.
 const NUDGE_REASON =
-  "<auto-nudge>" +
+  "<system-reminder>" +
   "this turn did work and didn't journal. " +
   "if a fork or correction formed, call the journal skill now." +
-  "</auto-nudge>";
+  "</system-reminder>";
 
 // Safety-net cooldown in case the `alreadyNudged` scan doesn't catch
 // something and we'd otherwise hot-loop.
