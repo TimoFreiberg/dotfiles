@@ -33,6 +33,7 @@ import {
   Container,
   Input,
   Markdown,
+  matchesKey,
   truncateToWidth,
   visibleWidth,
   type Focusable,
@@ -40,6 +41,8 @@ import {
   type OverlayHandle,
   type TUI,
 } from "@earendil-works/pi-tui";
+
+const BTW_TOGGLE_SHORTCUT = "ctrl+shift+b";
 
 const BTW_ENTRY_TYPE = "btw-thread-entry";
 const BTW_RESET_TYPE = "btw-thread-reset";
@@ -242,6 +245,7 @@ class BtwOverlay extends Container implements Focusable {
   private readonly getStatus: () => string;
   private readonly onSubmitCallback: (value: string) => void;
   private readonly onDismissCallback: () => void;
+  private readonly onHideCallback: () => void;
   private _focused = false;
 
   // Scroll state for transcript viewport.
@@ -276,6 +280,7 @@ class BtwOverlay extends Container implements Focusable {
     getStatus: () => string,
     onSubmit: (value: string) => void,
     onDismiss: () => void,
+    onHide: () => void,
   ) {
     super();
     this.tui = tui;
@@ -285,6 +290,7 @@ class BtwOverlay extends Container implements Focusable {
     this.getStatus = getStatus;
     this.onSubmitCallback = onSubmit;
     this.onDismissCallback = onDismiss;
+    this.onHideCallback = onHide;
 
     this.input = new Input();
     this.input.onSubmit = (value) => {
@@ -299,6 +305,14 @@ class BtwOverlay extends Container implements Focusable {
   }
 
   handleInput(data: string): void {
+    // Mirror the extension-level shortcut so Ctrl+Shift+B hides the overlay
+    // even when the overlay has focus (pi's extension shortcut dispatch only
+    // fires on the main editor, so we need to trap it here too).
+    if (matchesKey(data, BTW_TOGGLE_SHORTCUT)) {
+      this.onHideCallback();
+      return;
+    }
+
     if (this.keybindings.matches(data, "tui.select.cancel")) {
       this.onDismissCallback();
       return;
@@ -402,7 +416,10 @@ class BtwOverlay extends Container implements Focusable {
         innerWidth,
       ),
       this.frameLine(
-        this.theme.fg("dim", "Separate side conversation. Esc closes."),
+        this.theme.fg(
+          "dim",
+          "Separate side conversation. Ctrl+Shift+B hides, Esc closes.",
+        ),
         innerWidth,
       ),
       this.theme.fg("borderMuted", `├${"─".repeat(innerWidth)}┤`),
@@ -425,8 +442,8 @@ class BtwOverlay extends Container implements Focusable {
         this.theme.fg(
           "dim",
           canScrollUp || canScrollDown
-            ? `Enter submit · Esc close · PgUp/PgDn scroll ${canScrollUp ? "↑" : " "}${canScrollDown ? "↓" : " "}`
-            : "Enter submit · Esc close",
+            ? `Enter submit · Esc close · Ctrl+Shift+B hide · PgUp/PgDn scroll ${canScrollUp ? "↑" : " "}${canScrollDown ? "↓" : " "}`
+            : "Enter submit · Esc close · Ctrl+Shift+B hide",
         ),
         innerWidth,
       ),
@@ -625,6 +642,13 @@ export default function (pi: ExtensionAPI) {
       clearTimeout(overlayRefreshTimer);
       overlayRefreshTimer = null;
     }
+  }
+
+  function hideOverlay(): void {
+    // Temporarily hide but keep the runtime + session alive, so the next
+    // Ctrl+Shift+B (or /btw) brings back the same transcript and draft.
+    // pi-tui's setHidden handles the focus handoff back to the main editor.
+    overlayRuntime?.handle?.setHidden(true);
   }
 
   function setOverlayDraft(value: string): void {
@@ -867,6 +891,9 @@ export default function (pi: ExtensionAPI) {
             () => {
               void closeOverlayFlow(ctx);
             },
+            () => {
+              hideOverlay();
+            },
           );
 
           overlay.focused = true;
@@ -895,8 +922,6 @@ export default function (pi: ExtensionAPI) {
             maxHeight: "78%",
             anchor: "top-center",
             margin: { top: 1, left: 2, right: 2 },
-            // SPIKE: verify nonCapturing + focus()/unfocus() round-trip with main editor.
-            nonCapturing: true,
           },
           onHandle: (handle) => {
             runtime.handle = handle;
@@ -1117,28 +1142,22 @@ export default function (pi: ExtensionAPI) {
     await runBtwPrompt(ctx, question);
   }
 
-  pi.registerShortcut("ctrl+shift+b", {
+  pi.registerShortcut(BTW_TOGGLE_SHORTCUT, {
     description:
-      "Toggle focus between BTW side-chat overlay and main editor (SPIKE)",
+      "Toggle the BTW side-chat overlay (session stays alive when hidden).",
     handler: async (ctx) => {
       const handle = overlayRuntime?.handle;
       if (!handle) {
-        notify(ctx, "BTW side-chat is not open. Use /btw to open it.", "info");
+        // No overlay runtime — open one, resuming whatever thread we have.
+        // No continue-vs-fresh prompt; that's the /btw command's job.
+        await ensureOverlay(ctx);
         return;
       }
-      if (handle.isFocused()) {
-        handle.unfocus();
-        setOverlayStatus(
-          "Unfocused — main editor has input. Ctrl+Shift+B to return.",
-        );
-      } else {
+      if (handle.isHidden()) {
+        handle.setHidden(false);
         handle.focus();
-        setOverlayStatus(
-          overlayStatus.startsWith("Unfocused") ||
-            overlayStatus.startsWith("Focused")
-            ? "Focused — BTW input active. Ctrl+Shift+B to release."
-            : overlayStatus,
-        );
+      } else {
+        hideOverlay();
       }
     },
   });
