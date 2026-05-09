@@ -10,7 +10,8 @@
  * The Thia kaomoji only appears when THIANIA_ROLE env var is set (stock pi
  * leaves it unset).
  *
- * Context % colors by threshold:
+ * Context % colors by threshold; context window size is shown in dim next to
+ * it (e.g. `42%/200k`, `?/200k` right after compaction).
  *   <30%  success (green)
  *   ≥30%  warning (yellow)
  *   ≥50%  ANSI 256 color 208 (orange; no matching theme slot)
@@ -119,8 +120,14 @@ function friendlyModel(modelId: string | undefined): string {
   return m[3] ? `${family} ${m[2]}.${m[3]}` : `${family} ${m[2]}`;
 }
 
-function formatContextPct(pct: number, theme: Theme): string {
-  const display = `${Math.round(pct)}%`;
+function formatTokens(n: number): string {
+  if (n < 1000) return `${n}`;
+  if (n < 10000) return `${(n / 1000).toFixed(1)}k`;
+  if (n < 1000000) return `${Math.round(n / 1000)}k`;
+  return `${(n / 1000000).toFixed(1)}M`;
+}
+
+function colorPct(pct: number, display: string, theme: Theme): string {
   if (pct >= 70) return theme.fg("error", display);
   // ANSI 256 color 208 is a saturated orange. No theme slot matches — theme
   // colors skip straight from warning (yellow) to error (red).
@@ -205,10 +212,19 @@ export default function (pi: ExtensionAPI) {
       parts.push(theme.fg("success", bookmark));
     }
 
-    // 5. Context percentage (colored by threshold).
+    // 5. Context percentage / window size (percent colored by threshold,
+    //    window size dimmed).
     const ctxUsage = ctx.getContextUsage();
-    if (ctxUsage?.percent != null) {
-      parts.push(formatContextPct(ctxUsage.percent, theme));
+    if (ctxUsage) {
+      const windowStr = formatTokens(ctxUsage.contextWindow);
+      if (ctxUsage.percent != null) {
+        const pctStr = `${Math.round(ctxUsage.percent)}%`;
+        parts.push(
+          `${colorPct(ctxUsage.percent, pctStr, theme)}${theme.fg("dim", `/${windowStr}`)}`,
+        );
+      } else {
+        parts.push(theme.fg("dim", `?/${windowStr}`));
+      }
     }
 
     // 6. Session cost.
