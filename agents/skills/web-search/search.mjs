@@ -177,6 +177,10 @@ function findPiExecutable() {
 	return first || undefined;
 }
 
+// pi-ai was renamed from @mariozechner/pi-ai → @earendil-works/pi-ai.
+// Try the new namespace first; fall back to the old one for older installs.
+const PI_AI_PACKAGES = ["@earendil-works/pi-ai", "@mariozechner/pi-ai"];
+
 function collectModuleCandidates() {
 	const candidates = new Set();
 
@@ -193,7 +197,9 @@ function collectModuleCandidates() {
 	for (const start of [cwd, scriptDir]) {
 		let dir = start;
 		for (let i = 0; i < 8; i++) {
-			add(join(dir, "node_modules", "@mariozechner", "pi-ai", "dist", "index.js"));
+			for (const pkg of PI_AI_PACKAGES) {
+				add(join(dir, "node_modules", ...pkg.split("/"), "dist", "index.js"));
+			}
 			add(join(dir, "packages", "ai", "dist", "index.js"));
 			add(join(dir, "ai", "dist", "index.js"));
 			const parent = dirname(dir);
@@ -209,8 +215,11 @@ function collectModuleCandidates() {
 			const piDir = dirname(piReal);
 			add(join(piDir, "..", "..", "ai", "dist", "index.js"));
 			add(join(piDir, "..", "..", "pi-ai", "dist", "index.js"));
-			add(join(piDir, "..", "node_modules", "@mariozechner", "pi-ai", "dist", "index.js"));
-			add(join(piDir, "..", "..", "node_modules", "@mariozechner", "pi-ai", "dist", "index.js"));
+			for (const pkg of PI_AI_PACKAGES) {
+				const parts = pkg.split("/");
+				add(join(piDir, "..", "node_modules", ...parts, "dist", "index.js"));
+				add(join(piDir, "..", "..", "node_modules", ...parts, "dist", "index.js"));
+			}
 		} catch {
 			// ignore
 		}
@@ -224,10 +233,12 @@ function collectModuleCandidates() {
 async function loadPiAi() {
 	const tried = [];
 
-	try {
-		return await import("@mariozechner/pi-ai");
-	} catch (err) {
-		tried.push(`@mariozechner/pi-ai (${err?.code || err?.message || "not found"})`);
+	for (const pkg of PI_AI_PACKAGES) {
+		try {
+			return await import(pkg);
+		} catch (err) {
+			tried.push(`${pkg} (${err?.code || err?.message || "not found"})`);
+		}
 	}
 
 	for (const candidate of collectModuleCandidates()) {
@@ -240,7 +251,7 @@ async function loadPiAi() {
 	}
 
 	throw new Error(
-		`Could not load @mariozechner/pi-ai. Set PI_AI_MODULE_PATH to its dist/index.js.\nTried:\n- ${tried.join("\n- ")}`,
+		`Could not load pi-ai (tried ${PI_AI_PACKAGES.join(", ")}). Set PI_AI_MODULE_PATH to its dist/index.js.\nTried:\n- ${tried.join("\n- ")}`,
 	);
 }
 

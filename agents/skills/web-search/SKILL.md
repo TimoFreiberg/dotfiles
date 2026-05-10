@@ -1,5 +1,5 @@
 ---
-name: native-web-search
+name: web-search
 description: "Quick internet research via a web-search-enabled model. Returns summaries with source URLs."
 ---
 
@@ -49,4 +49,4 @@ The script instructs the model to:
 ## Notes
 
 - No extra npm install is required.
-- If module resolution fails, set `PI_AI_MODULE_PATH` to `@mariozechner/pi-ai`'s `dist/index.js` path.
+- If module resolution fails, set `PI_AI_MODULE_PATH` to pi-ai's `dist/index.js` (try `@earendil-works/pi-ai` first; older installs may still use `@mariozechner/pi-ai`).
