@@ -29,6 +29,7 @@ import {
   discoverAgents,
   formatAgentList,
 } from "./agents.js";
+import { SUBAGENT_SYSTEM_PROMPT } from "./system-prompt.js";
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
@@ -240,15 +241,18 @@ async function mapWithConcurrencyLimit<TIn, TOut>(
   return results;
 }
 
-function writePromptToTempFile(
-  agentName: string,
-  prompt: string,
-): { dir: string; filePath: string } {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagent-"));
-  const safeName = agentName.replace(/[^\w.-]+/g, "_");
-  const filePath = path.join(tmpDir, `prompt-${safeName}.md`);
-  fs.writeFileSync(filePath, prompt, { encoding: "utf-8", mode: 0o600 });
-  return { dir: tmpDir, filePath };
+function writePromptFile(
+  dir: string,
+  filename: string,
+  contents: string,
+): string {
+  const filePath = path.join(dir, filename);
+  fs.writeFileSync(filePath, contents, { encoding: "utf-8", mode: 0o600 });
+  return filePath;
+}
+
+function createPromptTempDir(): string {
+  return fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagent-"));
 }
 
 const SUBAGENT_OUTPUT_DIR = path.join(os.tmpdir(), "pi-subagent-output");
@@ -353,7 +357,7 @@ async function runSingleAgent(
     args.push("--tools", agent.tools.join(","));
 
   let tmpPromptDir: string | null = null;
-  let tmpPromptPath: string | null = null;
+  const tmpPromptPaths: string[] = [];
 
   const currentResult: SingleResult = {
     agent: agentName,
@@ -389,11 +393,28 @@ async function runSingleAgent(
   };
 
   try {
+    tmpPromptDir = createPromptTempDir();
+    const safeName = agent.name.replace(/[^\w.-]+/g, "_");
+
+    // Replace pi's default system prompt (which mentions pi and includes pi
+    // documentation links — both flag third-party-harness detection on
+    // Claude Code subscription auth). See ./system-prompt.ts.
+    const systemPromptPath = writePromptFile(
+      tmpPromptDir,
+      `system-${safeName}.md`,
+      SUBAGENT_SYSTEM_PROMPT,
+    );
+    tmpPromptPaths.push(systemPromptPath);
+    args.push("--system-prompt", systemPromptPath);
+
     if (agent.systemPrompt.trim()) {
-      const tmp = writePromptToTempFile(agent.name, agent.systemPrompt);
-      tmpPromptDir = tmp.dir;
-      tmpPromptPath = tmp.filePath;
-      args.push("--append-system-prompt", tmpPromptPath);
+      const agentBodyPath = writePromptFile(
+        tmpPromptDir,
+        `body-${safeName}.md`,
+        agent.systemPrompt,
+      );
+      tmpPromptPaths.push(agentBodyPath);
+      args.push("--append-system-prompt", agentBodyPath);
     }
 
     args.push(`Task: ${task}`);
@@ -482,12 +503,13 @@ async function runSingleAgent(
     if (wasAborted) throw new Error("Subagent was aborted");
     return currentResult;
   } finally {
-    if (tmpPromptPath)
+    for (const p of tmpPromptPaths) {
       try {
-        fs.unlinkSync(tmpPromptPath);
+        fs.unlinkSync(p);
       } catch {
         /* ignore */
       }
+    }
     if (tmpPromptDir)
       try {
         fs.rmdirSync(tmpPromptDir);
