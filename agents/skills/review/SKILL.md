@@ -38,7 +38,7 @@ section scoring each requirement against the diff before the findings list.
 
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
 - `--description "..."` — task spec; enables the Plan-alignment section (see Core idea)
-- `--model opus|sonnet|haiku` — reviewer model alias, default `sonnet`. The
+- `--model opus|sonnet|haiku` — reviewer model alias, default `opus`. The
   `Agent` tool only accepts these three aliases.
 
 If parsing fails (unknown subcommand, missing required arg, unsupported
@@ -75,13 +75,13 @@ prompt or report):
 
 - `Reviewing: <scope_summary>`
 - `<header>` indented as-is (the script already formats commit list + diffstat)
-- `Model: <alias>` (the value `--model` had — `sonnet` by default; print the
+- `Model: <alias>` (the value `--model` had — `opus` by default; print the
   alias, not a resolved id)
 
 ## Step 4: Spawn the reviewer subagent
 
 One `Agent` call. `subagent_type: "general-purpose"`, `model:` from `--model`
-(default `"sonnet"`), `description:` like `"Code review: <scope_summary>"`.
+(default `"opus"`), `description:` like `"Code review: <scope_summary>"`.
 
 Build `prompt:` from the **Reviewer prompt** template below. Substitutions:
 `$SCOPE_SUMMARY` (scope_summary), `$INSTRUCTIONS` / `$DESCRIPTION` (flag values
