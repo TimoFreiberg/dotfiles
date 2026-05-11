@@ -37,10 +37,18 @@ const COLLAPSED_ITEM_COUNT = 10;
 
 /**
  * Map generic model names to Amazon Bedrock model IDs.
+ *
+ * Short aliases (`opus`, `sonnet`, `haiku`) resolve to the latest version of
+ * that family. Bump them when a newer version lands.
  */
 const BEDROCK_MODEL_MAP: Record<string, string> = {
+  opus: "global.anthropic.claude-opus-4-7",
+  sonnet: "global.anthropic.claude-sonnet-4-6",
+  haiku: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "claude-opus-4-7": "global.anthropic.claude-opus-4-7",
   "claude-opus-4-6": "global.anthropic.claude-opus-4-6-v1",
   "claude-opus-4-5": "global.anthropic.claude-opus-4-5-20251101-v1:0",
+  "claude-sonnet-4-6": "global.anthropic.claude-sonnet-4-6",
   "claude-sonnet-4-5": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
   "claude-sonnet-4": "global.anthropic.claude-sonnet-4-20250514-v1:0",
   "claude-haiku-4-5": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
