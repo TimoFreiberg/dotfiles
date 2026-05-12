@@ -101,7 +101,7 @@ setenv FZF_CTRL_T_COMMAND 'fd --type file --follow'
 setenv FZF_DEFAULT_OPTS '--height 20%'
 
 test -e $XDG_CONFIG_HOME/fish/fastly-config.fish && source $XDG_CONFIG_HOME/fish/fastly-config.fish
-test -e $XDG_CONFIG_HOME/fish/secrets.fish && source $XDG_CONFIG_HOME/fish/secrets.fish
+test -e $HOME/.local/share/fish/secrets.fish && source $HOME/.local/share/fish/secrets.fish
 set -gx BUN_INSTALL "$HOME/.bun"
 
 type -q direnv && direnv hook fish | source
