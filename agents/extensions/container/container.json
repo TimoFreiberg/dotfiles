@@ -1,0 +1,10 @@
+{
+  "image": "pi-container",
+  "runtime": "docker",
+  "network": true,
+  "dotfiles": "~/dotfiles",
+  "workspace": null,
+  "extraMounts": [],
+  "env": {},
+  "dockerfile": null
+}
