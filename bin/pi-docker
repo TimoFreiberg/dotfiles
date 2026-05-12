@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+# pi-docker — run pi (coding agent) interactively inside a Docker container
+#
+# Usage:
+#   pi-docker [options] [--] <command...>
+#   pi-docker                        # runs `pi` with configured defaults
+#   pi-docker bash                   # interactive shell in the container
+#   pi-docker pi --provider deepseek --model deepseek-v4-flash
+#   pi-docker -- --provider deepseek "Refactor the error handling"
+#
+# Options:
+#   --workspace DIR       Project directory to mount (default: current directory)
+#   --image NAME          Container image (default: pi-container)
+#   --name NAME           Container name (default: pi-<random>)
+#   --no-build            Don't try to build the image, fail if absent
+#   --provider NAME       LLM provider (overrides settings.json)
+#   --model NAME          Model name (overrides settings.json)
+#   --persist-sessions    Mount host's ~/.pi/agent/sessions/ into container
+#   --host-network         Use host network stack (default: isolated bridge, API only)
+#   --help                Show this message
+#
+# Environment:
+#   CONTAINER_CMD         Container runtime (default: docker)
+#   PI_DOCKER_IMAGE       Image name override
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+
+IMAGE="${PI_DOCKER_IMAGE:-pi-container}"
+WORKSPACE=""
+CONTAINER_NAME=""
+NO_BUILD=""
+PROVIDER=""
+MODEL=""
+PERSIST_SESSIONS=""
+NETWORK=""
+RUNTIME="${CONTAINER_CMD:-docker}"
+DOTFILES_DIR="$HOME/dotfiles"
+EXTENSION_DIR="$DOTFILES_DIR/agents/extensions/container"
+HOST_UID="$(id -u)"
+HOST_GID="$(id -g)"
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --workspace) WORKSPACE="$2"; shift 2 ;;
+        --image) IMAGE="$2"; shift 2 ;;
+        --name) CONTAINER_NAME="$2"; shift 2 ;;
+        --no-build) NO_BUILD=1; shift ;;
+        --provider) PROVIDER="$2"; shift 2 ;;
+        --model) MODEL="$2"; shift 2 ;;
+        --persist-sessions) PERSIST_SESSIONS=1; shift ;;
+        --host-network) NETWORK=1; shift ;;
+        --help)
+            sed -n '2,/^$/{ /^$/d; p; }' "$0"
+            exit 0
+            ;;
+        --) shift; POSITIONAL+=("$@"); break ;;
+        -*) echo "error: unknown option: $1" >&2; exit 1 ;;
+        *) POSITIONAL+=("$1"); shift ;;
+    esac
+done
+
+# ---------------------------------------------------------------------------
+# Defaults
+# ---------------------------------------------------------------------------
+
+: "${WORKSPACE:=$(pwd)}"
+: "${CONTAINER_NAME:=pi-$(openssl rand -hex 4)}"
+
+# Resolve to absolute paths
+WORKSPACE="$(cd "$WORKSPACE" 2>/dev/null && pwd)" || {
+    echo "error: workspace not found: $WORKSPACE" >&2
+    exit 1
+}
+
+# ---------------------------------------------------------------------------
+# Runtime check
+# ---------------------------------------------------------------------------
+
+if ! command -v "$RUNTIME" &>/dev/null; then
+    echo "error: container runtime '$RUNTIME' not found" >&2
+    echo "Install Docker (orbstack, docker desktop) or set CONTAINER_CMD" >&2
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# Build image if needed
+# ---------------------------------------------------------------------------
+
+if [ "$NO_BUILD" != "1" ]; then
+    if ! "$RUNTIME" image inspect "$IMAGE" &>/dev/null; then
+        echo "Building image '$IMAGE' from $EXTENSION_DIR..."
+        "$RUNTIME" build -t "$IMAGE" -f "$EXTENSION_DIR/Dockerfile" "$EXTENSION_DIR"
+        echo "done."
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# Prepare pi config overlay
+# ---------------------------------------------------------------------------
+
+# We create a temp dir on the host that serves as the writable pi config
+# directory inside the container. This avoids root-owned files on bind mounts
+# that would happen with --tmpfs + container-as-root.
+#
+# The wrapper auto-clears this on exit, so sessions are ephemeral by default.
+# Pass --persist-sessions to keep sessions between runs (mounts host sessions).
+
+PI_CONFIG_DIR="$(mktemp -d)"
+trap 'rm -rf "$PI_CONFIG_DIR"' EXIT
+
+# Pre-populate writable state dirs so pi doesn't complain about missing dirs
+mkdir -p "$PI_CONFIG_DIR/sessions"
+touch "$PI_CONFIG_DIR/prompt-history.jsonl"
+touch "$PI_CONFIG_DIR/todos.md"
+
+# Copy auth.json separately (it's inside dotfiles but we want to preserve
+# the file-based auth flow rather than forcing env var injection).
+# Use -p to preserve permissions (source is 600).
+if [ -f "$DOTFILES_DIR/config/pi/agent/auth.json" ]; then
+    cp -p "$DOTFILES_DIR/config/pi/agent/auth.json" "$PI_CONFIG_DIR/auth.json"
+fi
+
+# ---------------------------------------------------------------------------
+# Build docker run command
+# ---------------------------------------------------------------------------
+
+DOCKER_ARGS=(
+    run
+    -it --rm
+    --name "$CONTAINER_NAME"
+    --hostname pi-container
+    -u "$HOST_UID:$HOST_GID"
+)
+
+# --- Network ---
+# Default bridge: containers can reach the internet (API access works).
+# --host-network: share host network stack (for git remotes on localhost, etc.)
+if [ "$NETWORK" = "1" ]; then
+    DOCKER_ARGS+=(--network host)
+fi
+
+# --- Mounts ---
+DOCKER_ARGS+=(-v "$WORKSPACE:/workspace:rw")
+DOCKER_ARGS+=(-v "$DOTFILES_DIR:/dotfiles:ro")
+DOCKER_ARGS+=(-v "$PI_CONFIG_DIR:/pi-config:rw")
+
+# Optional: persist sessions between runs
+if [ "$PERSIST_SESSIONS" = "1" ]; then
+    mkdir -p "$HOME/.pi/agent/sessions"
+    DOCKER_ARGS+=(-v "$HOME/.pi/agent/sessions:/pi-config/sessions:rw")
+fi
+
+# Optional: mount .gitconfig for sensible commits inside the container.
+# /home/node matches the node:22-bookworm-slim base image's default user.
+# If you change the base image, update this path to match USER's home.
+if [ -f "$HOME/.gitconfig" ]; then
+    DOCKER_ARGS+=(-v "$HOME/.gitconfig:/home/node/.gitconfig:ro")
+fi
+
+# --- Environment ---
+DOCKER_ARGS+=(
+    -e PI_CODING_AGENT_DIR=/pi-config
+    -e PI_DOTFILES_DIR=/dotfiles
+    -e PI_OFFLINE=1
+    -e HOME=/home/node
+)
+
+# --- Working directory ---
+DOCKER_ARGS+=(-w /workspace)
+
+# --- Image ---
+DOCKER_ARGS+=("$IMAGE")
+
+# --- Command ---
+PI_ARGS=()
+[ -n "$PROVIDER" ] && PI_ARGS+=(--provider "$PROVIDER")
+[ -n "$MODEL" ] && PI_ARGS+=(--model "$MODEL")
+
+if [ ${#POSITIONAL[@]} -eq 0 ]; then
+    # Default: run pi interactively
+    DOCKER_ARGS+=(pi "${PI_ARGS[@]}")
+else
+    DOCKER_ARGS+=("${POSITIONAL[@]}")
+fi
+
+# ---------------------------------------------------------------------------
+# Summary
+# ---------------------------------------------------------------------------
+
+echo "🚀  pi-container: $CONTAINER_NAME"
+echo "    workspace:  $WORKSPACE"
+echo "    dotfiles:   $DOTFILES_DIR"
+echo "    user:       $HOST_UID:$HOST_GID"
+[ -n "$PROVIDER" ] && echo "    provider:   $PROVIDER"
+[ -n "$MODEL" ] && echo "    model:      $MODEL"
+[ "$PERSIST_SESSIONS" = "1" ] && echo "    sessions:   persistent (host-backed)"
+echo ""
+
+# ---------------------------------------------------------------------------
+# Run
+# ---------------------------------------------------------------------------
+
+# Intentionally not using exec: the EXIT trap needs the shell to stay alive
+# so it can clean up $PI_CONFIG_DIR after docker exits.
+"$RUNTIME" "${DOCKER_ARGS[@]}"
