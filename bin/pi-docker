@@ -154,12 +154,18 @@ if [ -f "$HOME/.gitconfig" ]; then
     DOCKER_ARGS+=(-v "$HOME/.gitconfig:/home/pi/.gitconfig:ro")
 fi
 
-# Optional: mount jj config for correct commit authorship inside the container.
-# jj reads config from $HOME/.config/jj/ (including conf.d/*.toml for
-# user.name/user.email and SSH signing settings).
-if [ -d "$HOME/.config/jj" ]; then
-    DOCKER_ARGS+=(-v "$HOME/.config/jj:/home/pi/.config/jj:ro")
+# Mount jj config for correct commit authorship inside the container.
+# Mount individual files (config.toml, conf.d/user.toml) + a container-specific
+# override that disables SSH commit signing (keys aren't available in container).
+# We mount files individually rather than the whole directory to allow layering
+# the signing override alongside the user's existing config.
+if [ -f "$HOME/.config/jj/config.toml" ]; then
+    DOCKER_ARGS+=(-v "$HOME/.config/jj/config.toml:/home/pi/.config/jj/config.toml:ro")
 fi
+if [ -f "$HOME/.config/jj/conf.d/user.toml" ]; then
+    DOCKER_ARGS+=(-v "$HOME/.config/jj/conf.d/user.toml:/home/pi/.config/jj/conf.d/user.toml:ro")
+fi
+DOCKER_ARGS+=(-v "$EXTENSION_DIR/jj-disable-signing.toml:/home/pi/.config/jj/conf.d/z-disable-signing.toml:ro")
 
 # --- Environment ---
 DOCKER_ARGS+=(

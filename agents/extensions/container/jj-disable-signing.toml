@@ -1,0 +1,5 @@
+# Container-specific override: disable SSH commit signing.
+# SSH keys are intentionally not mounted into the container for security,
+# so jj must not attempt to sign commits here.
+[signing]
+behavior = "drop"
