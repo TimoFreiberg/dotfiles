@@ -160,6 +160,22 @@ function formatTaskList(items: TaskItem[]): string {
   return items.map((t) => `[ ] #${t.id}: ${t.description}`).join("\n");
 }
 
+// ---------------------------------------------------------------------------
+// Persistent widget (above editor, shown while tasks are nonempty)
+// ---------------------------------------------------------------------------
+
+function updateWidget(ui: ExtensionContext["ui"]): void {
+  if (tasks.length === 0) {
+    ui.setWidget("tasklist", undefined);
+    return;
+  }
+  const lines: string[] = [
+    `Open Tasks (${tasks.length}):`,
+    ...tasks.map((t) => `  \u25cb #${t.id}: ${t.description}`),
+  ];
+  ui.setWidget("tasklist", lines);
+}
+
 /**
  * One-line summary for pre-flight injection.
  * Always injected on non-use turns so the model knows tasks are pending
@@ -220,6 +236,8 @@ export default function tasklistExtension(pi: ExtensionAPI) {
       tasks = saved.tasks;
       turnsSinceTasklistUse = saved.turnsSinceTasklistUse ?? 0;
     }
+
+    updateWidget(ctx.ui);
   });
 
   pi.on("session_shutdown", async () => {
@@ -266,7 +284,7 @@ export default function tasklistExtension(pi: ExtensionAPI) {
         },
       ),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       // Truncate descriptions first so we count accurately
       const normalized = params.descriptions.map((d) =>
         d.length > MAX_DESC_LENGTH ? d.slice(0, MAX_DESC_LENGTH) : d,
@@ -288,6 +306,7 @@ export default function tasklistExtension(pi: ExtensionAPI) {
       }
       markToolUsed();
       writeFile();
+      updateWidget(ctx.ui);
 
       const lines: string[] = [];
       if (added.length > 0) {
@@ -330,7 +349,7 @@ export default function tasklistExtension(pi: ExtensionAPI) {
           "Task ID or identifier (exact ID, partial ID prefix, or description fragment)",
       }),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const result = findTask(params.taskId);
       if ("error" in result) {
         return {
@@ -347,6 +366,7 @@ export default function tasklistExtension(pi: ExtensionAPI) {
       const done = tasks.splice(idx, 1)[0];
       markToolUsed();
       writeFile();
+      updateWidget(ctx.ui);
       return {
         content: [
           {
@@ -376,7 +396,7 @@ export default function tasklistExtension(pi: ExtensionAPI) {
           "Task ID or identifier (exact ID, partial ID prefix, or description fragment)",
       }),
     }),
-    async execute(_toolCallId, params, _signal, _onUpdate, _ctx) {
+    async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
       const result = findTask(params.taskId);
       if ("error" in result) {
         return {
@@ -393,6 +413,7 @@ export default function tasklistExtension(pi: ExtensionAPI) {
       const removed = tasks.splice(idx, 1)[0];
       markToolUsed();
       writeFile();
+      updateWidget(ctx.ui);
       return {
         content: [
           {

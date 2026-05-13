@@ -57,7 +57,7 @@ const BEDROCK_MODEL_MAP: Record<string, string> = {
 const DEEPSEEK_MODEL_MAP: Record<string, string> = {
   sonnet: "deepseek-v4-flash",
   haiku: "deepseek-v4-flash",
-  opus: "deepseek-v4-pro",
+  opus: "deepseek-v4-flash",
 };
 
 /**
