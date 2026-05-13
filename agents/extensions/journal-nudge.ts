@@ -178,6 +178,8 @@ function scanPrompt(messages: readonly AgentMessage[]): ScanResult {
 // ---------------------------------------------------------------------------
 
 export default function (pi: ExtensionAPI) {
+  if (!process.env.THIANIA_ROLE) return;
+
   let lastNudgeAt = 0;
 
   pi.on("agent_end", async (event) => {
