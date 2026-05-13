@@ -54,6 +54,29 @@ const BEDROCK_MODEL_MAP: Record<string, string> = {
   "claude-haiku-4-5": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
 };
 
+const DEEPSEEK_MODEL_MAP: Record<string, string> = {
+  sonnet: "deepseek-v4-flash",
+  haiku: "deepseek-v4-flash",
+  opus: "deepseek-v4-pro",
+};
+
+/**
+ * Resolve a model alias to a provider-specific model ID.
+ *
+ * Short aliases (`opus`, `sonnet`, `haiku`) map to the latest version of
+ * that family per provider. Known Claude model IDs are also mapped where
+ * the provider has a reasonable equivalent. Unknown aliases pass through.
+ */
+function resolveModelAlias(model: string, provider?: string): string {
+  if (!provider) return model;
+  const maps: Record<string, Record<string, string> | undefined> = {
+    "amazon-bedrock": BEDROCK_MODEL_MAP,
+    deepseek: DEEPSEEK_MODEL_MAP,
+  };
+  const map = maps[provider];
+  return map ? (map[model] ?? model) : model;
+}
+
 function formatTokens(count: number): string {
   if (count < 1000) return count.toString();
   if (count < 10000) return `${(count / 1000).toFixed(1)}k`;
@@ -351,10 +374,7 @@ async function runSingleAgent(
 
   const effectiveModel = modelOverride?.trim() || agent.model;
   if (effectiveModel) {
-    const resolvedModel =
-      provider === "amazon-bedrock"
-        ? (BEDROCK_MODEL_MAP[effectiveModel] ?? effectiveModel)
-        : effectiveModel;
+    const resolvedModel = resolveModelAlias(effectiveModel, provider);
     args.push("--model", resolvedModel);
   }
 
