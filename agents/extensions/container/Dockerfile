@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     file \
     git \
+    unzip \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
@@ -26,18 +27,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # and cargo need a writable HOME for caches and config.
 RUN mkdir -p /home/node && chmod 777 /home/node
 
-# --- Rust (via rustup) ---
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-    | sh -s -- -y --no-modify-path
-
 # --- Bun ---
-ENV BUN_INSTALL=/usr/local/bun \
-    PATH=/usr/local/bun/bin:$PATH
-RUN curl -fsSL https://bun.sh/install \
-    | bash -s -- -y
+# Install via npm (already available from the Node base image) rather than
+# the curl|bash installer, which keeps breaking on argument parsing changes.
+RUN npm install -g bun
 
 # --- uv (Python package manager) ---
 ENV UV_INSTALL=/usr/local/uv \
@@ -47,6 +40,14 @@ RUN curl -LsSf https://astral.sh/uv/install.sh \
 
 # --- pi (coding agent harness) ---
 RUN npm install -g @earendil-works/pi-coding-agent
+
+# --- Rust (via rustup) ---
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --no-modify-path
+
 
 # --- Entrypoint for config setup ---
 COPY entrypoint.sh /entrypoint.sh
