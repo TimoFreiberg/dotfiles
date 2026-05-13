@@ -8,9 +8,7 @@
 #
 # Build: docker build -t pi-container .
 #
-# Based on Node.js 22 (Debian bookworm-slim) — pi requires Node >= 20.6
-
-FROM node:22-bookworm-slim
+FROM ubuntu:rolling
 
 # --- System dependencies ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -19,39 +17,92 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     file \
     git \
     unzip \
+    fd-find ripgrep \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Make the node user's home world-writable so the container works with
-# arbitrary --user UID:GID (host UID passthrough). Tools like git, npm,
-# and cargo need a writable HOME for caches and config.
-RUN mkdir -p /home/node && chmod 777 /home/node
+# Create the pi user that will own all installed tools and run the container.
+# Fixed UID means host file ownership won't match — the trade-off for
+# having a consistent, predictable user environment inside the container.
+RUN useradd -m -s /bin/bash pi
 
-# --- Bun ---
-# Install via npm (already available from the Node base image) rather than
-# the curl|bash installer, which keeps breaking on argument parsing changes.
-RUN npm install -g bun
-
-# --- uv (Python package manager) ---
-ENV UV_INSTALL=/usr/local/uv \
-    PATH=/usr/local/uv:$PATH
-RUN curl -LsSf https://astral.sh/uv/install.sh \
-    | sh -s -- -y
-
-# --- pi (coding agent harness) ---
-RUN npm install -g @earendil-works/pi-coding-agent
+# Everything from here runs as pi, so tools install into /home/pi/*
+USER pi
 
 # --- Rust (via rustup) ---
 ENV RUSTUP_HOME=/usr/local/rustup \
     CARGO_HOME=/usr/local/cargo \
     PATH=/usr/local/cargo/bin:$PATH
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-    | sh -s -- -y --no-modify-path
+    | sh -s -- -y --no-modify-path \
+    && echo "=== rust/cargo ===" \
+    && which cargo && cargo --version \
+    && ls -la /usr/local/cargo/bin/ | head -5
 
+# cargo-binstall
+RUN curl -L --proto '=https' --tlsv1.2 -sSf \
+    https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh \
+    | bash \
+    && echo "=== cargo-binstall ===" \
+    && which cargo-binstall
+
+# jj
+RUN cargo binstall --strategies crate-meta-data jj-cli \
+    && echo "=== jj ===" \
+    && which jj && jj --version
+
+# --- Bun ---
+RUN curl -fsSL https://bun.com/install | bash \
+    && echo "=== bun ===" \
+    && which bun && bun --version \
+    && ls -la $(which bun) \
+    && echo "bun global bin: $(bun pm bin)" \
+    && ls -la $(bun pm bin) 2>/dev/null || true
+
+# --- uv (Python package manager) ---
+ENV UV_INSTALL=/usr/local/uv \
+    PATH=/usr/local/uv:$PATH
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
+    && echo "=== uv ===" \
+    && which uv && uv --version
+
+# --- pi (coding agent harness) ---
+RUN $HOME/.bun/bin/bun add -g @earendil-works/pi-coding-agent \
+    && echo "=== pi ===" \
+    && which pi 2>/dev/null || echo "pi NOT on PATH" \
+    && ls -la $(bun pm bin)/pi* 2>/dev/null || echo "pi not in bun global bin either" \
+    && find / -name pi -type f,l 2>/dev/null | head -5 || true
+
+# --- Final: verify all tools on PATH ---
+RUN echo "=== runtime PATH check (simulating container entry) ===" \
+    && PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/pi/.bun/bin:/home/pi/.local/bin" \
+       HOME=/home/pi \
+    && for tool in cargo jj bun uv pi rustc; do \
+        if command -v "$tool" &>/dev/null; then \
+            echo "  ✅ $tool: $(command -v $tool)"; \
+        else \
+            echo "  ❌ $tool: NOT on PATH"; \
+        fi; \
+    done
+
+# --- Make tools accessible to any runtime UID ---
+# The container runs as HOST_UID:HOST_GID (pi-docker -u), not as the pi
+# user that owns these installs. Make the home dir writable for caches
+# and the tool dirs world-readable/executable.
+USER root
+RUN chmod 777 /home/pi \
+    && chmod -R o+rX /home/pi/
+
+# These ENVs are inherited by any user — the runtime user (host UID)
+# inherits the right PATH and HOME even though they aren't the pi user.
+ENV PATH="/home/pi/.bun/bin:$PATH" \
+    HOME=/home/pi
 
 # --- Entrypoint for config setup ---
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
-WORKDIR /workspace
+# Default user (overridden at runtime by pi-docker -u HOST_UID:HOST_GID)
+USER pi
+WORKDIR /workspace 

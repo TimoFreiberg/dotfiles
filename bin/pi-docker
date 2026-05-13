@@ -160,10 +160,8 @@ if [ "$PERSIST_SESSIONS" = "1" ]; then
 fi
 
 # Optional: mount .gitconfig for sensible commits inside the container.
-# /home/node matches the node:22-bookworm-slim base image's default user.
-# If you change the base image, update this path to match USER's home.
 if [ -f "$HOME/.gitconfig" ]; then
-    DOCKER_ARGS+=(-v "$HOME/.gitconfig:/home/node/.gitconfig:ro")
+    DOCKER_ARGS+=(-v "$HOME/.gitconfig:/home/pi/.gitconfig:ro")
 fi
 
 # --- Environment ---
@@ -171,7 +169,7 @@ DOCKER_ARGS+=(
     -e PI_CODING_AGENT_DIR=/pi-config
     -e PI_DOTFILES_DIR=/dotfiles
     -e PI_OFFLINE=1
-    -e HOME=/home/node
+    -e HOME=/home/pi
 )
 
 # --- Working directory ---
