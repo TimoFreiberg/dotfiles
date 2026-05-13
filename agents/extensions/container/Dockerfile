@@ -30,14 +30,16 @@ RUN useradd -m -s /bin/bash pi
 USER pi
 
 # --- Rust (via rustup) ---
-ENV RUSTUP_HOME=/usr/local/rustup \
-    CARGO_HOME=/usr/local/cargo \
-    PATH=/usr/local/cargo/bin:$PATH
+# No ENV overrides — defaults to $HOME/.rustup and $HOME/.cargo (/home/pi/.*)
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     | sh -s -- -y --no-modify-path \
     && echo "=== rust/cargo ===" \
+    && . "$HOME/.cargo/env" \
     && which cargo && cargo --version \
-    && ls -la /usr/local/cargo/bin/ | head -5
+    && ls -la "$HOME/.cargo/bin/" | head -5
+
+# Put cargo on PATH for subsequent layers
+ENV PATH="/home/pi/.cargo/bin:$PATH"
 
 # cargo-binstall
 RUN curl -L --proto '=https' --tlsv1.2 -sSf \
@@ -60,11 +62,10 @@ RUN curl -fsSL https://bun.com/install | bash \
     && ls -la $(bun pm bin) 2>/dev/null || true
 
 # --- uv (Python package manager) ---
-ENV UV_INSTALL=/usr/local/uv \
-    PATH=/usr/local/uv:$PATH
+# No ENV override — defaults to $HOME/.local/bin/uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
     && echo "=== uv ===" \
-    && which uv && uv --version
+    && "$HOME/.local/bin/uv" --version
 
 # --- pi (coding agent harness) ---
 RUN $HOME/.bun/bin/bun add -g @earendil-works/pi-coding-agent \
@@ -75,7 +76,7 @@ RUN $HOME/.bun/bin/bun add -g @earendil-works/pi-coding-agent \
 
 # --- Final: verify all tools on PATH ---
 RUN echo "=== runtime PATH check (simulating container entry) ===" \
-    && PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/pi/.bun/bin:/home/pi/.local/bin" \
+    && PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/pi/.cargo/bin:/home/pi/.bun/bin:/home/pi/.local/bin" \
        HOME=/home/pi \
     && for tool in cargo jj bun uv pi rustc; do \
         if command -v "$tool" &>/dev/null; then \
@@ -90,12 +91,11 @@ RUN echo "=== runtime PATH check (simulating container entry) ===" \
 # user that owns these installs. Make the home dir writable for caches
 # and the tool dirs world-readable/executable.
 USER root
-RUN chmod 777 /home/pi \
-    && chmod -R o+rX /home/pi/
+RUN chmod -R 777 /home/pi/
 
 # These ENVs are inherited by any user — the runtime user (host UID)
 # inherits the right PATH and HOME even though they aren't the pi user.
-ENV PATH="/home/pi/.bun/bin:$PATH" \
+ENV PATH="/home/pi/.cargo/bin:/home/pi/.bun/bin:/home/pi/.local/bin:$PATH" \
     HOME=/home/pi
 
 # --- Entrypoint for config setup ---
