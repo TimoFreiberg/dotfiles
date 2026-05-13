@@ -100,20 +100,31 @@ RUN echo "=== runtime PATH check (simulating container entry) ===" \
 
 # --- Make tools accessible to any runtime UID ---
 # The container runs as HOST_UID:HOST_GID (pi-docker -u), not as the pi
-# user that owns these installs. Make the home dir writable for caches
-# and the tool dirs world-readable/executable.
+# user that owns these installs. Make /home/pi world-writable so tool
+# caches (.cargo, .bun, .local, .rustup, .cache), config subdirs, and
+# new installs all work for the runtime user.
+#
+# `a+rwX`: read+write for everyone; execute only on directories and
+# files already executable — so data files don't become executable,
+# but existing binaries keep their exec bit.
+#
+# Trade-off: a process in the container can overwrite installed
+# binaries (since dirs are world-writable, rename-replace is possible
+# regardless of the file bits). Acceptable because `--rm` discards
+# the writable layer at exit; the mutation doesn't persist across
+# runs, and the image layers stay clean.
+#
+# Pre-create .cache and .config/jj/{repos,conf.d}. .cache is an
+# XDG-compliant default that some tools expect to exist. The jj dirs
+# are needed because pi-docker bind-mounts individual files under
+# conf.d/ (config.toml, user.toml, z-disable-signing.toml) — if those
+# dirs don't exist, Docker creates them as root:root 755 for the mount
+# parents, and jj can't write repos/<hash>/ config for per-repo state.
 USER root
-RUN chmod -R a+rX /home/pi/ \
-    && mkdir -p /home/pi/.cache \
-    && chmod a+rwx /home/pi/ /home/pi/.cache
-
-# Pre-create jj's repos directory with world-writable permissions so the
-# runtime user (host UID, not the pi user from the image) can create per-repo
-# config subdirectories. Without this, Docker creates intermediate dirs as
-# root:root 755 for the individual file mounts (config.toml, conf.d/*.toml),
-# and jj can't write repos/<hash>/ inside them.
-RUN mkdir -p /home/pi/.config/jj/repos /home/pi/.config/jj/conf.d \
-    && chmod a+rwx /home/pi/.config/jj /home/pi/.config/jj/repos /home/pi/.config/jj/conf.d
+RUN mkdir -p /home/pi/.cache \
+             /home/pi/.config/jj/repos \
+             /home/pi/.config/jj/conf.d \
+    && chmod -R a+rwX /home/pi/
 
 # These ENVs are inherited by any user — the runtime user (host UID)
 # inherits the right PATH and HOME even though they aren't the pi user.
