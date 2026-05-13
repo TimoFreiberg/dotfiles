@@ -27,6 +27,7 @@
  */
 
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { basename } from "node:path";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
@@ -40,6 +41,11 @@ import {
   visibleWidth,
   type TUI,
 } from "@earendil-works/pi-tui";
+
+// ── container detection ───────────────────────────────────────────────────
+
+// Invariant for the process lifetime — check once at module load.
+const isContainer = existsSync("/.dockerenv") || existsSync("/.containerenv");
 
 // ── helpers ──────────────────────────────────────────────────────────────
 
@@ -231,6 +237,11 @@ export default function (pi: ExtensionAPI) {
     const cost = aggregateCost(ctx);
     if (cost > 0) {
       parts.push(theme.fg("success", `$${cost.toFixed(2)}`));
+    }
+
+    // 7. Container indicator (at the end so truncation drops this first).
+    if (isContainer) {
+      parts.push(theme.fg("dim", "container"));
     }
 
     const sep = theme.fg("dim", " | ");
