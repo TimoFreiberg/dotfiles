@@ -15,13 +15,15 @@
 #   --no-build            Don't try to build the image, fail if absent
 #   --provider NAME       LLM provider (overrides settings.json)
 #   --model NAME          Model name (overrides settings.json)
-#   --host-network         Use host network stack (default: isolated bridge, API only)
+#   --host-network        Use host network stack (default: isolated bridge)
 #   --help                Show this message
 #
 # Environment:
 #   CONTAINER_CMD         Container runtime (default: docker)
 #   PI_DOCKER_IMAGE       Image name override
-#   PI_OFFLINE            Disable pi online features (default: 1 in container)
+#
+# Network: the container's default bridge allows unrestricted outbound
+# internet access. Nothing here filters egress to just LLM APIs.
 
 set -euo pipefail
 
@@ -32,10 +34,10 @@ set -euo pipefail
 IMAGE="${PI_DOCKER_IMAGE:-pi-container}"
 WORKSPACE=""
 CONTAINER_NAME=""
-NO_BUILD=""
+NO_BUILD=0
 PROVIDER=""
 MODEL=""
-NETWORK=""
+NETWORK=0
 RUNTIME="${CONTAINER_CMD:-docker}"
 DOTFILES_DIR="$HOME/dotfiles"
 EXTENSION_DIR="$DOTFILES_DIR/agents/extensions/container"
@@ -56,10 +58,7 @@ while [[ $# -gt 0 ]]; do
         --provider) PROVIDER="$2"; shift 2 ;;
         --model) MODEL="$2"; shift 2 ;;
         --host-network) NETWORK=1; shift ;;
-        --help)
-            sed -n '2,/^$/{ /^$/d; p; }' "$0"
-            exit 0
-            ;;
+        --help) sed -n '2,/^$/{ /^$/d; p; }' "$0"; exit 0 ;;
         --) shift; POSITIONAL+=("$@"); break ;;
         -*) echo "error: unknown option: $1" >&2; exit 1 ;;
         *) POSITIONAL+=("$1"); shift ;;
@@ -76,7 +75,7 @@ done
 # Resolve to absolute paths
 CALLER_PWD="$(pwd)"
 WORKSPACE="$(cd "$WORKSPACE" 2>/dev/null && pwd)" || {
-    echo "error: workspace not found: $WORKSPACE" >&2
+    echo "error: workspace not found" >&2
     exit 1
 }
 
@@ -94,12 +93,14 @@ fi
 # Build image if needed
 # ---------------------------------------------------------------------------
 
-if [ "$NO_BUILD" != "1" ]; then
-    if ! "$RUNTIME" image inspect "$IMAGE" &>/dev/null; then
-        echo "Building image '$IMAGE' from $EXTENSION_DIR..."
-        "$RUNTIME" build -t "$IMAGE" -f "$EXTENSION_DIR/Dockerfile" "$EXTENSION_DIR"
-        echo "done."
+if ! "$RUNTIME" image inspect "$IMAGE" &>/dev/null; then
+    if [ "$NO_BUILD" = "1" ]; then
+        echo "error: image '$IMAGE' not found and --no-build is set" >&2
+        exit 1
     fi
+    echo "Building image '$IMAGE' from $EXTENSION_DIR..."
+    "$RUNTIME" build -t "$IMAGE" -f "$EXTENSION_DIR/Dockerfile" "$EXTENSION_DIR"
+    echo "done."
 fi
 
 # ---------------------------------------------------------------------------
@@ -107,13 +108,16 @@ fi
 # ---------------------------------------------------------------------------
 
 # Mount the host's pi config directory directly so sessions, history,
-# auth, and todos persist seamlessly across container runs.
+# auth, and todos persist seamlessly across container runs. Trade-off:
+# anything inside the container can read/write the real ~/.pi/agent tree,
+# including any provider credentials stored there. Accepted because we
+# trust pi and what it runs at the level of the host user.
 #
 # Resolve symlinks to get the real path: ~/.pi/agent is usually a symlink
 # to ~/dotfiles/config/pi/agent/, and the AGENTS.md/skills symlinks inside
 # it are relative to that real location. Mounting at the real path keeps
 # those relative symlinks resolving correctly.
-PI_CONFIG_REAL="$(cd "$HOME/.pi/agent" && pwd -P 2>/dev/null)" || {
+PI_CONFIG_REAL="$(cd "$HOME/.pi/agent" 2>/dev/null && pwd -P)" || {
     echo "error: pi config dir not found at $HOME/.pi/agent" >&2
     exit 1
 }
@@ -170,7 +174,6 @@ DOCKER_ARGS+=(-v "$EXTENSION_DIR/jj-disable-signing.toml:/home/pi/.config/jj/con
 # --- Environment ---
 DOCKER_ARGS+=(
     -e PI_CODING_AGENT_DIR="$PI_CONFIG_REAL"
-    -e "PI_OFFLINE=${PI_OFFLINE:-1}"
     -e HOME=/home/pi
 )
 
@@ -181,13 +184,16 @@ DOCKER_ARGS+=(-w "$CALLER_PWD")
 DOCKER_ARGS+=("$IMAGE")
 
 # --- Command ---
+# Note: ${arr[@]+"${arr[@]}"} guards against bash 3.2's "unbound variable"
+# error under `set -u` when the array is empty. macOS ships bash 3.2 as
+# /bin/bash, which is what /usr/bin/env bash picks up without homebrew.
 PI_ARGS=()
 [ -n "$PROVIDER" ] && PI_ARGS+=(--provider "$PROVIDER")
 [ -n "$MODEL" ] && PI_ARGS+=(--model "$MODEL")
 
 if [ ${#POSITIONAL[@]} -eq 0 ]; then
     # Default: run pi interactively
-    DOCKER_ARGS+=(pi "${PI_ARGS[@]}")
+    DOCKER_ARGS+=(pi ${PI_ARGS[@]+"${PI_ARGS[@]}"})
 else
     DOCKER_ARGS+=("${POSITIONAL[@]}")
 fi
