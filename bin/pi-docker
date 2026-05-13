@@ -76,10 +76,19 @@ done
 : "${CONTAINER_NAME:=pi-$(openssl rand -hex 4)}"
 
 # Resolve to absolute paths
+CALLER_PWD="$(pwd)"
 WORKSPACE="$(cd "$WORKSPACE" 2>/dev/null && pwd)" || {
     echo "error: workspace not found: $WORKSPACE" >&2
     exit 1
 }
+
+# Compute the working directory inside the container: if the caller's
+# actual working directory is under the workspace mount point, cd into
+# the corresponding subdirectory rather than always landing at /workspace.
+WORKDIR="/workspace"
+if [[ "${CALLER_PWD#$WORKSPACE/}" != "$CALLER_PWD" ]]; then
+    WORKDIR="/workspace/${CALLER_PWD#$WORKSPACE/}"
+fi
 
 # ---------------------------------------------------------------------------
 # Runtime check
@@ -173,7 +182,7 @@ DOCKER_ARGS+=(
 )
 
 # --- Working directory ---
-DOCKER_ARGS+=(-w /workspace)
+DOCKER_ARGS+=(-w "$WORKDIR")
 
 # --- Image ---
 DOCKER_ARGS+=("$IMAGE")
@@ -196,6 +205,7 @@ fi
 
 echo "🚀  pi-container: $CONTAINER_NAME"
 echo "    workspace:  $WORKSPACE"
+echo "    workdir:    $WORKDIR"
 echo "    dotfiles:   $DOTFILES_DIR"
 echo "    user:       $HOST_UID:$HOST_GID"
 [ -n "$PROVIDER" ] && echo "    provider:   $PROVIDER"
