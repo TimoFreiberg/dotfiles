@@ -241,7 +241,7 @@ export default function (pi: ExtensionAPI) {
 
     // 7. Container indicator (at the end so truncation drops this first).
     if (isContainer) {
-      parts.push(theme.fg("dim", "container"));
+      parts.push(theme.fg("dim", "🧊"));
     }
 
     const sep = theme.fg("dim", " | ");
