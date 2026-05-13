@@ -107,6 +107,14 @@ RUN chmod -R a+rX /home/pi/ \
     && mkdir -p /home/pi/.cache \
     && chmod a+rwx /home/pi/ /home/pi/.cache
 
+# Pre-create jj's repos directory with world-writable permissions so the
+# runtime user (host UID, not the pi user from the image) can create per-repo
+# config subdirectories. Without this, Docker creates intermediate dirs as
+# root:root 755 for the individual file mounts (config.toml, conf.d/*.toml),
+# and jj can't write repos/<hash>/ inside them.
+RUN mkdir -p /home/pi/.config/jj/repos /home/pi/.config/jj/conf.d \
+    && chmod a+rwx /home/pi/.config/jj /home/pi/.config/jj/repos /home/pi/.config/jj/conf.d
+
 # These ENVs are inherited by any user — the runtime user (host UID)
 # inherits the right PATH and HOME even though they aren't the pi user.
 ENV PATH="/home/pi/.cargo/bin:/home/pi/.bun/bin:/home/pi/.local/bin:$PATH" \
