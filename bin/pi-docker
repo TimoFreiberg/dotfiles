@@ -203,14 +203,14 @@ fi
 # Summary
 # ---------------------------------------------------------------------------
 
-echo "🚀  pi-container: $CONTAINER_NAME"
-echo "    workspace:  $WORKSPACE"
-echo "    workdir:    $WORKDIR"
-echo "    dotfiles:   $DOTFILES_DIR"
-echo "    user:       $HOST_UID:$HOST_GID"
-[ -n "$PROVIDER" ] && echo "    provider:   $PROVIDER"
-[ -n "$MODEL" ] && echo "    model:      $MODEL"
-[ "$PERSIST_SESSIONS" = "1" ] && echo "    sessions:   persistent (host-backed)"
+echo "pi-container: $CONTAINER_NAME"
+echo "  workspace: $WORKSPACE"
+echo "  workdir:   $WORKDIR"
+echo "  dotfiles:  $DOTFILES_DIR"
+echo "  user:      $HOST_UID:$HOST_GID"
+[ -n "$PROVIDER" ] && echo "  provider:  $PROVIDER"
+[ -n "$MODEL" ] && echo "  model:     $MODEL"
+[ "$PERSIST_SESSIONS" = "1" ] && echo "  sessions:  persistent (host-backed)"
 echo ""
 
 # ---------------------------------------------------------------------------
