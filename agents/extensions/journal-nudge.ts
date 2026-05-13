@@ -26,6 +26,7 @@
  * A 10-second timestamp cooldown remains as a safety net.
  */
 
+import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type {
   AgentEndEvent,
   ExtensionAPI,
@@ -174,6 +175,30 @@ function scanPrompt(messages: readonly AgentMessage[]): ScanResult {
 }
 
 // ---------------------------------------------------------------------------
+// Helpers: error detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns true if the run ended with an error or user cancellation.
+ *
+ * An `AssistantMessage` with `stopReason === "error"` or `"aborted"` means
+ * the provider returned an error (rate limit, usage limit, etc.) or the user
+ * cancelled via Escape. In either case nudging would be noise.
+ */
+function didEndAbnormally(messages: readonly AgentMessage[]): boolean {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role === "assistant" && "stopReason" in msg) {
+      const assistant = msg as AssistantMessage;
+      return (
+        assistant.stopReason === "error" || assistant.stopReason === "aborted"
+      );
+    }
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
 // Extension
 // ---------------------------------------------------------------------------
 
@@ -183,6 +208,10 @@ export default function (pi: ExtensionAPI) {
   let lastNudgeAt = 0;
 
   pi.on("agent_end", async (event) => {
+    // Don't nudge when the run ended abnormally — the user already knows
+    // something went wrong or they deliberately stopped it.
+    if (didEndAbnormally(event.messages)) return;
+
     const { workCount, didJournal, alreadyNudged } = scanPrompt(event.messages);
 
     if (alreadyNudged) return; // re-entry after our own nudge
