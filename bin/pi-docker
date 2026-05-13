@@ -108,7 +108,15 @@ fi
 
 # Mount the host's pi config directory directly so sessions, history,
 # auth, and todos persist seamlessly across container runs.
-PI_CONFIG_DIR="$HOME/.pi/agent"
+#
+# Resolve symlinks to get the real path: ~/.pi/agent is usually a symlink
+# to ~/dotfiles/config/pi/agent/, and the AGENTS.md/skills symlinks inside
+# it are relative to that real location. Mounting at the real path keeps
+# those relative symlinks resolving correctly.
+PI_CONFIG_REAL="$(cd "$HOME/.pi/agent" && pwd -P 2>/dev/null)" || {
+    echo "error: pi config dir not found at $HOME/.pi/agent" >&2
+    exit 1
+}
 
 # ---------------------------------------------------------------------------
 # Build docker run command
@@ -139,7 +147,7 @@ if [ "$WORKSPACE" != "$DOTFILES_DIR" ]; then
     DOCKER_ARGS+=(-v "$DOTFILES_DIR:$DOTFILES_DIR:ro")
 fi
 # Mount pi config directly from the host — sessions, auth, history persist.
-DOCKER_ARGS+=(-v "$PI_CONFIG_DIR:/pi-config:rw")
+DOCKER_ARGS+=(-v "$PI_CONFIG_REAL:$PI_CONFIG_REAL:rw")
 
 # Optional: mount .gitconfig for sensible commits inside the container.
 if [ -f "$HOME/.gitconfig" ]; then
@@ -148,7 +156,7 @@ fi
 
 # --- Environment ---
 DOCKER_ARGS+=(
-    -e PI_CODING_AGENT_DIR=/pi-config
+    -e PI_CODING_AGENT_DIR="$PI_CONFIG_REAL"
     -e "PI_OFFLINE=${PI_OFFLINE:-1}"
     -e HOME=/home/pi
 )
