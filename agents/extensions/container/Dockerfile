@@ -21,6 +21,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Node.js 22.x (required by pi — a Node.js app)
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/* \
+    && echo "=== node ===" \
+    && node --version && npm --version
+
 # Create the pi user that will own all installed tools and run the container.
 # Fixed UID means host file ownership won't match — the trade-off for
 # having a consistent, predictable user environment inside the container.
