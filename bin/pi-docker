@@ -154,9 +154,17 @@ PI_CONFIG_REAL="$(cd "$HOME/.pi/agent" 2>/dev/null && pwd -P)" || {
 # Build docker run command
 # ---------------------------------------------------------------------------
 
+# Auto-detect TTY: when stdin is a pipe (no terminal), omit `-t` so the
+# container works with piped I/O (e.g. pi --mode rpc from a daemon).
+# With a real terminal, `-it` gives proper interactive TTY support.
+TTY_FLAG="-i"
+if [ -t 0 ]; then
+    TTY_FLAG="-it"
+fi
+
 DOCKER_ARGS=(
     run
-    -it --rm
+    "$TTY_FLAG" --rm
     --name "$CONTAINER_NAME"
     --hostname pi-container
     -u "$HOST_UID:$HOST_GID"
@@ -255,4 +263,9 @@ echo ""
 # Run
 # ---------------------------------------------------------------------------
 
-"$RUNTIME" "${DOCKER_ARGS[@]}"
+# Kill the container on exit so signals from the parent (Node harness)
+# cascade through pi-docker into Docker itself. Without this, SIGTERM
+# kills the bash script but leaves docker as an orphan.
+trap '$RUNTIME kill "$CONTAINER_NAME" 2>/dev/null' EXIT TERM INT
+
+exec "$RUNTIME" "${DOCKER_ARGS[@]}"
