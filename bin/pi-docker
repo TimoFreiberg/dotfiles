@@ -134,7 +134,10 @@ DOCKER_ARGS+=(-v "$WORKSPACE:$WORKSPACE:rw")
 
 # Mount dotfiles at its real host path so existing symlinks inside the
 # pi config dir (which point to ~/dotfiles/agents/*) resolve correctly.
-DOCKER_ARGS+=(-v "$DOTFILES_DIR:$DOTFILES_DIR:ro")
+# Skip if workspace is already the dotfiles dir (would be a duplicate mount).
+if [ "$WORKSPACE" != "$DOTFILES_DIR" ]; then
+    DOCKER_ARGS+=(-v "$DOTFILES_DIR:$DOTFILES_DIR:ro")
+fi
 # Mount pi config directly from the host — sessions, auth, history persist.
 DOCKER_ARGS+=(-v "$PI_CONFIG_DIR:/pi-config:rw")
 
