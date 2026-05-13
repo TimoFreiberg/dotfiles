@@ -11,6 +11,7 @@
 FROM ubuntu:rolling
 
 # --- System dependencies ---
+# build-essential: needed by cargo for native crate compilation
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
@@ -19,6 +20,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     fd-find ripgrep \
     build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install GitHub CLI (needed by pi skills for PR/issue/CI workflows)
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+        | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+        | tee /etc/apt/sources.list.d/github-cli.list >/dev/null \
+    && apt-get update && apt-get install -y gh \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 22.x (required by pi — a Node.js app)
@@ -94,7 +103,9 @@ RUN echo "=== runtime PATH check (simulating container entry) ===" \
 # user that owns these installs. Make the home dir writable for caches
 # and the tool dirs world-readable/executable.
 USER root
-RUN chmod -R 777 /home/pi/
+RUN chmod -R a+rX /home/pi/ \
+    && mkdir -p /home/pi/.cache \
+    && chmod a+rwx /home/pi/ /home/pi/.cache
 
 # These ENVs are inherited by any user — the runtime user (host UID)
 # inherits the right PATH and HOME even though they aren't the pi user.

@@ -46,6 +46,8 @@ export interface ContainerConfig {
   env?: Record<string, string>;
   /** Container workspace root path (default: process.cwd()) */
   workspace?: string;
+  /** User to run the container as (e.g. "1000:1000"). Default: container default (pi user, UID mismatch risk). */
+  user?: string;
 }
 
 export interface ContainerState {
@@ -197,6 +199,10 @@ export async function startContainer(
 
   if (config.network === false) {
     args.push("--network", "none");
+  }
+
+  if (config.user) {
+    args.push("-u", config.user);
   }
 
   for (const [k, v] of Object.entries(config.env || {})) {

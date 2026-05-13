@@ -22,6 +22,7 @@
 # Environment:
 #   CONTAINER_CMD         Container runtime (default: docker)
 #   PI_DOCKER_IMAGE       Image name override
+#   PI_OFFLINE            Disable pi online features (default: 1 in container)
 
 set -euo pipefail
 
@@ -169,7 +170,7 @@ fi
 DOCKER_ARGS+=(
     -e PI_CODING_AGENT_DIR=/pi-config
     -e PI_DOTFILES_DIR=/dotfiles
-    -e PI_OFFLINE=1
+    -e "PI_OFFLINE=${PI_OFFLINE:-1}"
     -e HOME=/home/pi
 )
 
