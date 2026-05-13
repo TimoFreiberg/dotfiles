@@ -149,9 +149,16 @@ fi
 # Mount pi config directly from the host — sessions, auth, history persist.
 DOCKER_ARGS+=(-v "$PI_CONFIG_REAL:$PI_CONFIG_REAL:rw")
 
-# Optional: mount .gitconfig for sensible commits inside the container.
+# Optional: mount .gitconfig for sensible git commits inside the container.
 if [ -f "$HOME/.gitconfig" ]; then
     DOCKER_ARGS+=(-v "$HOME/.gitconfig:/home/pi/.gitconfig:ro")
+fi
+
+# Optional: mount jj config for correct commit authorship inside the container.
+# jj reads config from $HOME/.config/jj/ (including conf.d/*.toml for
+# user.name/user.email and SSH signing settings).
+if [ -d "$HOME/.config/jj" ]; then
+    DOCKER_ARGS+=(-v "$HOME/.config/jj:/home/pi/.config/jj:ro")
 fi
 
 # --- Environment ---
