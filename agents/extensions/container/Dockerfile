@@ -112,11 +112,6 @@ RUN chmod -R a+rX /home/pi/ \
 ENV PATH="/home/pi/.cargo/bin:/home/pi/.bun/bin:/home/pi/.local/bin:$PATH" \
     HOME=/home/pi
 
-# --- Entrypoint for config setup ---
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-ENTRYPOINT ["/entrypoint.sh"]
-
 # Default user (overridden at runtime by pi-docker -u HOST_UID:HOST_GID)
 USER pi
 WORKDIR /workspace
