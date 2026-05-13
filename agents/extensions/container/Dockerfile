@@ -28,6 +28,11 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && echo "=== node ===" \
     && node --version && npm --version
 
+# Install pi globally via npm (runs as root so it lands in /usr/lib/node_modules)
+RUN npm install -g @earendil-works/pi-coding-agent \
+    && echo "=== pi ===" \
+    && which pi && pi --help >/dev/null && echo "=== pi works ==="
+
 # Create the pi user that will own all installed tools and run the container.
 # Fixed UID means host file ownership won't match — the trade-off for
 # having a consistent, predictable user environment inside the container.
@@ -42,8 +47,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
     | sh -s -- -y --no-modify-path \
     && echo "=== rust/cargo ===" \
     && . "$HOME/.cargo/env" \
-    && which cargo && cargo --version \
-    && ls -la "$HOME/.cargo/bin/" | head -5
+    && which cargo && cargo --version
 
 # Put cargo on PATH for subsequent layers
 ENV PATH="/home/pi/.cargo/bin:$PATH"
@@ -63,23 +67,15 @@ RUN cargo binstall --strategies crate-meta-data jj-cli \
 # --- Bun ---
 RUN curl -fsSL https://bun.com/install | bash \
     && echo "=== bun ===" \
+    && export PATH="$HOME/.bun/bin:$PATH" \
     && which bun && bun --version \
-    && ls -la $(which bun) \
-    && echo "bun global bin: $(bun pm bin)" \
-    && ls -la $(bun pm bin) 2>/dev/null || true
+    && echo "bun global bin: $(bun pm bin)"
 
 # --- uv (Python package manager) ---
 # No ENV override — defaults to $HOME/.local/bin/uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh \
     && echo "=== uv ===" \
     && "$HOME/.local/bin/uv" --version
-
-# --- pi (coding agent harness) ---
-RUN $HOME/.bun/bin/bun add -g @earendil-works/pi-coding-agent \
-    && echo "=== pi ===" \
-    && which pi 2>/dev/null || echo "pi NOT on PATH" \
-    && ls -la $(bun pm bin)/pi* 2>/dev/null || echo "pi not in bun global bin either" \
-    && find / -name pi -type f,l 2>/dev/null | head -5 || true
 
 # --- Final: verify all tools on PATH ---
 RUN echo "=== runtime PATH check (simulating container entry) ===" \
@@ -112,4 +108,4 @@ ENTRYPOINT ["/entrypoint.sh"]
 
 # Default user (overridden at runtime by pi-docker -u HOST_UID:HOST_GID)
 USER pi
-WORKDIR /workspace 
+WORKDIR /workspace
