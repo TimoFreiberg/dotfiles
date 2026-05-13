@@ -82,14 +82,6 @@ WORKSPACE="$(cd "$WORKSPACE" 2>/dev/null && pwd)" || {
     exit 1
 }
 
-# Compute the working directory inside the container: if the caller's
-# actual working directory is under the workspace mount point, cd into
-# the corresponding subdirectory rather than always landing at /workspace.
-WORKDIR="/workspace"
-if [[ "${CALLER_PWD#$WORKSPACE/}" != "$CALLER_PWD" ]]; then
-    WORKDIR="/workspace/${CALLER_PWD#$WORKSPACE/}"
-fi
-
 # ---------------------------------------------------------------------------
 # Runtime check
 # ---------------------------------------------------------------------------
@@ -158,7 +150,7 @@ if [ "$NETWORK" = "1" ]; then
 fi
 
 # --- Mounts ---
-DOCKER_ARGS+=(-v "$WORKSPACE:/workspace:rw")
+DOCKER_ARGS+=(-v "$WORKSPACE:$WORKSPACE:rw")
 DOCKER_ARGS+=(-v "$DOTFILES_DIR:/dotfiles:ro")
 DOCKER_ARGS+=(-v "$PI_CONFIG_DIR:/pi-config:rw")
 
@@ -182,7 +174,7 @@ DOCKER_ARGS+=(
 )
 
 # --- Working directory ---
-DOCKER_ARGS+=(-w "$WORKDIR")
+DOCKER_ARGS+=(-w "$CALLER_PWD")
 
 # --- Image ---
 DOCKER_ARGS+=("$IMAGE")
@@ -205,7 +197,7 @@ fi
 
 echo "pi-container: $CONTAINER_NAME"
 echo "  workspace: $WORKSPACE"
-echo "  workdir:   $WORKDIR"
+echo "  workdir:   $CALLER_PWD"
 echo "  dotfiles:  $DOTFILES_DIR"
 echo "  user:      $HOST_UID:$HOST_GID"
 [ -n "$PROVIDER" ] && echo "  provider:  $PROVIDER"
