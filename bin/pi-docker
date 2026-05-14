@@ -128,11 +128,20 @@ PI_CONFIG_REAL="$(cd "$HOME/.pi/agent" 2>/dev/null && pwd -P)" || {
 
 DOCKER_ARGS=(
     run
-    -it --rm
+    --rm
     --name "$CONTAINER_NAME"
     --hostname pi-container
     -u "$HOST_UID:$HOST_GID"
 )
+
+# Attach a TTY only when stdin is one. Callers like the thiania harness
+# pipe stdin (RPC mode), and `docker run -t` against a non-TTY stdin
+# would emit ANSI escape codes onto the JSONL stream and break parsing.
+if [ -t 0 ]; then
+    DOCKER_ARGS+=(-it)
+else
+    DOCKER_ARGS+=(-i)
+fi
 
 # --- Network ---
 # Default bridge: containers can reach the internet (API access works).
