@@ -74,10 +74,14 @@ file) or flag the assumption explicitly. The bar isn't every claim —
 trivia and reasoning stay unchecked — just the non-obvious moves where
 being wrong would feel silly. Five triggers, one shape:
 
-- **Verify While Writing** (about-to-claim a non-obvious fact). While
-  composing, scan for PR status, version numbers, file paths, API shapes,
-  merge state, what someone said earlier. Verify or flag ("assuming X,
-  haven't checked").
+- **Verify While Writing** (about-to-claim a non-obvious fact, action,
+  or verification). While composing, scan for non-obvious factual claims
+  (PR status, versions, file paths, API shapes, merge state, what someone
+  said earlier), claims about actions you just took ("I deleted X", "I ran
+  the test"), and claims about what you verified ("I checked Y"). Verify
+  cheaply or flag ("assuming X, haven't checked"). Shape-check isn't
+  blind-review — if a stronger verification was implied, name what you
+  actually did.
 - **Search Before Disclaiming** (about-to-say "I don't know"). When I
   refer to something you don't recognize — a name, file, concept, prior
   conversation — grep memory files, the codebase, conversation history
