@@ -15,6 +15,10 @@
 #   --no-build            Don't try to build the image, fail if absent
 #   --provider NAME       LLM provider (overrides settings.json)
 #   --model NAME          Model name (overrides settings.json)
+#   --mount SRC[:DEST]     Bind mount a directory (rw). SRC alone mounts at same path.
+#                         Repeatable.
+#   --readonly-mount SRC[:DEST]  Bind mount a directory (ro). SRC alone mounts at same path.
+#                         Repeatable.
 #   --host-network        Use host network stack (default: isolated bridge)
 #   --help                Show this message
 #
@@ -39,6 +43,8 @@ PROVIDER=""
 MODEL=""
 NETWORK=0
 RUNTIME="${CONTAINER_CMD:-docker}"
+declare -a MOUNTS=()
+declare -a READONLY_MOUNTS=()
 DOTFILES_DIR="$HOME/dotfiles"
 EXTENSION_DIR="$DOTFILES_DIR/agents/extensions/container"
 HOST_UID="$(id -u)"
@@ -58,6 +64,28 @@ while [[ $# -gt 0 ]]; do
         --provider) PROVIDER="$2"; shift 2 ;;
         --model) MODEL="$2"; shift 2 ;;
         --host-network) NETWORK=1; shift ;;
+        --mount)
+            if [[ "$2" == *:* ]]; then
+                MOUNTS+=("$2")
+            else
+                resolved="$(cd "$2" 2>/dev/null && pwd)" || {
+                    echo "error: --mount source not found: $2" >&2
+                    exit 1
+                }
+                MOUNTS+=("$resolved:$resolved")
+            fi
+            shift 2 ;;
+        --readonly-mount)
+            if [[ "$2" == *:* ]]; then
+                READONLY_MOUNTS+=("$2")
+            else
+                resolved="$(cd "$2" 2>/dev/null && pwd)" || {
+                    echo "error: --readonly-mount source not found: $2" >&2
+                    exit 1
+                }
+                READONLY_MOUNTS+=("$resolved:$resolved")
+            fi
+            shift 2 ;;
         --help) sed -n '2,/^$/{ /^$/d; p; }' "$0"; exit 0 ;;
         --) shift; POSITIONAL+=("$@"); break ;;
         -*) echo "error: unknown option: $1" >&2; exit 1 ;;
@@ -143,6 +171,18 @@ fi
 
 # --- Mounts ---
 DOCKER_ARGS+=(-v "$WORKSPACE:$WORKSPACE:rw")
+
+# --- Extra mounts (--mount / --readonly-mount) ---
+if [ ${#MOUNTS[@]} -gt 0 ]; then
+    for mnt in "${MOUNTS[@]}"; do
+        DOCKER_ARGS+=(-v "$mnt:rw")
+    done
+fi
+if [ ${#READONLY_MOUNTS[@]} -gt 0 ]; then
+    for mnt in "${READONLY_MOUNTS[@]}"; do
+        DOCKER_ARGS+=(-v "$mnt:ro")
+    done
+fi
 
 # Mount dotfiles at its real host path so existing symlinks inside the
 # pi config dir (which point to ~/dotfiles/agents/*) resolve correctly.
