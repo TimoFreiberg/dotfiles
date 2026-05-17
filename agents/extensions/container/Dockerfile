@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     file \
     git \
+    jq \
     unzip \
     fd-find ripgrep \
     build-essential \
