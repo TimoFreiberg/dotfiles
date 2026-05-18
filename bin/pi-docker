@@ -6,7 +6,7 @@
 #   pi-docker                        # runs `pi` with configured defaults
 #   pi-docker bash                   # interactive shell in the container
 #   pi-docker pi --provider deepseek --model deepseek-v4-flash
-#   pi-docker -- --provider deepseek "Refactor the error handling"
+#   pi-docker -- pi --provider deepseek "Refactor the error handling"
 #
 # Options:
 #   --workspace DIR       Project directory to mount (default: current directory)
@@ -16,12 +16,18 @@
 #   --rebuild             Force-rebuild the image even if it already exists
 #   --provider NAME       LLM provider (overrides settings.json)
 #   --model NAME          Model name (overrides settings.json)
-#   --mount SRC[:DEST]     Bind mount a directory (rw). SRC alone mounts at same path.
+#   --port HOST:CONTAINER Publish a container port to the host. Repeatable.
+#   --env KEY[=VALUE]     Set an environment variable in the container. KEY alone
+#                         passes the value through from the host env. Repeatable.
+#   --mount SRC[:DEST]    Bind mount a directory (rw). SRC alone mounts at same path.
 #                         Repeatable.
 #   --readonly-mount SRC[:DEST]  Bind mount a directory (ro). SRC alone mounts at same path.
 #                         Repeatable.
 #   --host-network        Use host network stack (default: isolated bridge)
 #   --help                Show this message
+#
+# SSH agent forwarding is automatic when SSH_AUTH_SOCK is set in the host
+# environment and points to a valid socket.
 #
 # Environment:
 #   CONTAINER_CMD         Container runtime (default: docker)
@@ -47,6 +53,8 @@ NETWORK=0
 RUNTIME="${CONTAINER_CMD:-docker}"
 declare -a MOUNTS=()
 declare -a READONLY_MOUNTS=()
+declare -a PORTS=()
+declare -a EXTRA_ENVS=()
 DOTFILES_DIR="$HOME/dotfiles"
 EXTENSION_DIR="$DOTFILES_DIR/agents/extensions/container"
 HOST_UID="$(id -u)"
@@ -67,6 +75,8 @@ while [[ $# -gt 0 ]]; do
         --provider) PROVIDER="$2"; shift 2 ;;
         --model) MODEL="$2"; shift 2 ;;
         --host-network) NETWORK=1; shift ;;
+        --port) PORTS+=("$2"); shift 2 ;;
+        --env) EXTRA_ENVS+=("$2"); shift 2 ;;
         --mount)
             if [[ "$2" == *:* ]]; then
                 src="${2%%:*}"
@@ -242,6 +252,13 @@ if [ ${#READONLY_MOUNTS[@]} -gt 0 ]; then
     done
 fi
 
+# --- Port mappings (--port) ---
+if [ ${#PORTS[@]} -gt 0 ]; then
+    for port in "${PORTS[@]}"; do
+        DOCKER_ARGS+=(-p "$port")
+    done
+fi
+
 # Mount dotfiles at its real host path so existing symlinks inside the
 # pi config dir (which point to ~/dotfiles/agents/*) resolve correctly.
 # Skip if workspace is already the dotfiles dir (would be a duplicate mount).
@@ -269,11 +286,29 @@ if [ -f "$HOME/.config/jj/conf.d/user.toml" ]; then
 fi
 DOCKER_ARGS+=(-v "$EXTENSION_DIR/jj-disable-signing.toml:/home/pi/.config/jj/conf.d/z-disable-signing.toml:ro")
 
+# --- SSH agent forwarding ---
+# Auto-wire when SSH_AUTH_SOCK is set and points to a live socket.
+# Mounted at a fixed container path so the env var is stable regardless
+# of the host's tmpdir layout.
+if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "$SSH_AUTH_SOCK" ]; then
+    DOCKER_ARGS+=(
+        -v "$SSH_AUTH_SOCK:/run/ssh-agent.sock"
+        -e SSH_AUTH_SOCK=/run/ssh-agent.sock
+    )
+fi
+
 # --- Environment ---
 DOCKER_ARGS+=(
     -e PI_CODING_AGENT_DIR="$PI_CONFIG_REAL"
     -e HOME=/home/pi
 )
+
+# --- Extra environment (--env) ---
+if [ ${#EXTRA_ENVS[@]} -gt 0 ]; then
+    for env_entry in "${EXTRA_ENVS[@]}"; do
+        DOCKER_ARGS+=(-e "$env_entry")
+    done
+fi
 
 # --- Working directory ---
 DOCKER_ARGS+=(-w "$CALLER_PWD")
@@ -307,6 +342,8 @@ echo "  dotfiles:  $DOTFILES_DIR"
 echo "  user:      $HOST_UID:$HOST_GID"
 [ -n "$PROVIDER" ] && echo "  provider:  $PROVIDER"
 [ -n "$MODEL" ] && echo "  model:     $MODEL"
+[ ${#PORTS[@]} -gt 0 ] && echo "  ports:     ${PORTS[*]}"
+[ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "${SSH_AUTH_SOCK:-}" ] && echo "  ssh-agent: forwarded"
 echo ""
 
 # ---------------------------------------------------------------------------
