@@ -86,7 +86,7 @@ while [[ $# -gt 0 ]]; do
                 READONLY_MOUNTS+=("$resolved:$resolved")
             fi
             shift 2 ;;
-        --help) sed -n '2,/^$/{ /^$/d; p; }' "$0"; exit 0 ;;
+        --help) sed -n '2,/^$/{ /^#$/d; s/^# //p; }' "$0"; exit 0 ;;
         --) shift; POSITIONAL+=("$@"); break ;;
         -*) echo "error: unknown option: $1" >&2; exit 1 ;;
         *) POSITIONAL+=("$1"); shift ;;
