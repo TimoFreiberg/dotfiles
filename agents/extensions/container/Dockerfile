@@ -18,10 +18,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     file \
     git \
     jq \
-    unzip \
+    python3 python3-venv \
+    shellcheck \
+    sqlite3 \
+    unzip zip \
+    wget \
     fd-find ripgrep \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# yq (mikefarah's Go-based yq — simpler .foo.bar syntax, not the Python jq wrapper)
+RUN curl -fsSL \
+    "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_$(dpkg --print-architecture)" \
+    -o /usr/local/bin/yq \
+    && chmod +x /usr/local/bin/yq \
+    && echo "=== yq ===" \
+    && yq --version
 
 # Install GitHub CLI (needed by pi skills for PR/issue/CI workflows)
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
