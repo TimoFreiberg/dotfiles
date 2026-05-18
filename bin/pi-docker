@@ -13,6 +13,7 @@
 #   --image NAME          Container image (default: pi-container)
 #   --name NAME           Container name (default: pi-<random>)
 #   --no-build            Don't try to build the image, fail if absent
+#   --rebuild             Force-rebuild the image even if it already exists
 #   --provider NAME       LLM provider (overrides settings.json)
 #   --model NAME          Model name (overrides settings.json)
 #   --mount SRC[:DEST]     Bind mount a directory (rw). SRC alone mounts at same path.
@@ -39,6 +40,7 @@ IMAGE="${PI_DOCKER_IMAGE:-pi-container}"
 WORKSPACE=""
 CONTAINER_NAME=""
 NO_BUILD=0
+REBUILD=0
 PROVIDER=""
 MODEL=""
 NETWORK=0
@@ -61,6 +63,7 @@ while [[ $# -gt 0 ]]; do
         --image) IMAGE="$2"; shift 2 ;;
         --name) CONTAINER_NAME="$2"; shift 2 ;;
         --no-build) NO_BUILD=1; shift ;;
+        --rebuild) REBUILD=1; shift ;;
         --provider) PROVIDER="$2"; shift 2 ;;
         --model) MODEL="$2"; shift 2 ;;
         --host-network) NETWORK=1; shift ;;
@@ -127,13 +130,54 @@ fi
 # Build image if needed
 # ---------------------------------------------------------------------------
 
-if ! "$RUNTIME" image inspect "$IMAGE" &>/dev/null; then
+if [ "$REBUILD" = "1" ] && [ "$NO_BUILD" = "1" ]; then
+    echo "error: --rebuild and --no-build are mutually exclusive" >&2
+    exit 1
+fi
+
+# Compute a hash of the Dockerfile. The Dockerfile is the only file that
+# affects the image — nothing from the build context is COPY'd in.
+# sha256sum on Linux, shasum on macOS (sha256sum is not in macOS base).
+_dockerfile_hash() {
+    if command -v sha256sum &>/dev/null; then
+        sha256sum "$EXTENSION_DIR/Dockerfile" | awk '{print $1}'
+    else
+        shasum -a 256 "$EXTENSION_DIR/Dockerfile" | awk '{print $1}'
+    fi
+}
+
+CURRENT_HASH="$(_dockerfile_hash)"
+STORED_HASH="$(
+    "$RUNTIME" image inspect "$IMAGE" \
+        --format '{{index .Config.Labels "pi-docker.dockerfile-hash"}}' \
+        2>/dev/null || true
+)"
+
+NEEDS_BUILD=0
+if [ "$REBUILD" = "1" ]; then
+    NEEDS_BUILD=1
+elif ! "$RUNTIME" image inspect "$IMAGE" &>/dev/null; then
     if [ "$NO_BUILD" = "1" ]; then
         echo "error: image '$IMAGE' not found and --no-build is set" >&2
         exit 1
     fi
+    NEEDS_BUILD=1
+elif [ "$STORED_HASH" != "$CURRENT_HASH" ]; then
+    if [ "$NO_BUILD" = "1" ]; then
+        echo "warning: Dockerfile changed (hash mismatch) but --no-build is set, using stale image" >&2
+    else
+        echo "Dockerfile changed, rebuilding image '$IMAGE'..."
+        NEEDS_BUILD=1
+    fi
+fi
+
+if [ "$NEEDS_BUILD" = "1" ]; then
     echo "Building image '$IMAGE' from $EXTENSION_DIR..."
-    "$RUNTIME" build -t "$IMAGE" -f "$EXTENSION_DIR/Dockerfile" "$EXTENSION_DIR"
+    "$RUNTIME" build \
+        --label "pi-docker.dockerfile-hash=$CURRENT_HASH" \
+        -t "$IMAGE" \
+        -f "$EXTENSION_DIR/Dockerfile" \
+        "$EXTENSION_DIR"
     echo "done."
 fi
 
