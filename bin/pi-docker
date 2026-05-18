@@ -66,25 +66,31 @@ while [[ $# -gt 0 ]]; do
         --host-network) NETWORK=1; shift ;;
         --mount)
             if [[ "$2" == *:* ]]; then
-                MOUNTS+=("$2")
+                src="${2%%:*}"
+                dest="${2#*:}"
             else
-                resolved="$(cd "$2" 2>/dev/null && pwd)" || {
-                    echo "error: --mount source not found: $2" >&2
-                    exit 1
-                }
-                MOUNTS+=("$resolved:$resolved")
+                src="$2"
+                dest=""
             fi
+            resolved="$(cd "$src" 2>/dev/null && pwd)" || {
+                echo "error: --mount source not found: $src" >&2
+                exit 1
+            }
+            MOUNTS+=("$resolved:${dest:-$resolved}")
             shift 2 ;;
         --readonly-mount)
             if [[ "$2" == *:* ]]; then
-                READONLY_MOUNTS+=("$2")
+                src="${2%%:*}"
+                dest="${2#*:}"
             else
-                resolved="$(cd "$2" 2>/dev/null && pwd)" || {
-                    echo "error: --readonly-mount source not found: $2" >&2
-                    exit 1
-                }
-                READONLY_MOUNTS+=("$resolved:$resolved")
+                src="$2"
+                dest=""
             fi
+            resolved="$(cd "$src" 2>/dev/null && pwd)" || {
+                echo "error: --readonly-mount source not found: $src" >&2
+                exit 1
+            }
+            READONLY_MOUNTS+=("$resolved:${dest:-$resolved}")
             shift 2 ;;
         --help) sed -n '2,/^$/{ /^#$/d; s/^# //p; }' "$0"; exit 0 ;;
         --) shift; POSITIONAL+=("$@"); break ;;
