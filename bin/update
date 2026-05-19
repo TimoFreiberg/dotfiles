@@ -19,6 +19,16 @@ echo "────────────────────────�
 brew upgrade; or begin
     echo "  ⚠ brew upgrade failed (exit $status)"; set had_errors 1
 end
+
+echo "  Cleaning up old versions..."
+brew cleanup; or begin
+    echo "  ⚠ brew cleanup failed (exit $status)"; set had_errors 1
+end
+
+echo "  Removing unused dependencies..."
+brew autoremove; or begin
+    echo "  ⚠ brew autoremove failed (exit $status)"; set had_errors 1
+end
 echo ""
 
 # ──────────────────────────────────────────────
