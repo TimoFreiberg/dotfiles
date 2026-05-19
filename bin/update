@@ -1,0 +1,205 @@
+#!/usr/bin/env fish
+
+# Daily system updater
+# Runs all update commands sequentially, printing normal output.
+
+set -l had_errors 0
+
+echo "========================================"
+echo "           Daily System Update"
+echo "========================================"
+echo ""
+
+# ──────────────────────────────────────────────
+# 1. Homebrew
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " 1/6  brew upgrade"
+echo "──────────────────────────────────────────"
+brew upgrade; or begin
+    echo "  ⚠ brew upgrade failed (exit $status)"; set had_errors 1
+end
+echo ""
+
+# ──────────────────────────────────────────────
+# 2. Rust toolchain
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " 2/6  rustup update"
+echo "──────────────────────────────────────────"
+rustup update; or begin
+    echo "  ⚠ rustup update failed (exit $status)"; set had_errors 1
+end
+echo ""
+
+echo "──────────────────────────────────────────"
+echo "      cargo tool updates"
+echo "──────────────────────────────────────────"
+
+# Install cargo-binstall if missing, otherwise update it.
+if command -v cargo-binstall > /dev/null 2>&1
+    echo "  Updating cargo-binstall..."
+    cargo binstall cargo-binstall -y; or begin
+        echo "  ⚠ cargo-binstall update failed (exit $status)"; set had_errors 1
+    end
+else
+    echo "  Installing cargo-binstall..."
+    curl -L --proto '=https' --tlsv1.2 -sSf \
+        https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh \
+        | bash; or begin
+        echo "  ⚠ cargo-binstall installation failed (exit $status)"; set had_errors 1
+    end
+end
+
+# Update cargo-installed tools via binstall (pre-built binaries)
+echo "  Updating cargo-nextest, cargo-sweep..."
+cargo binstall cargo-nextest cargo-sweep -y; or begin
+    echo "  ⚠ cargo binstall failed (exit $status)"; set had_errors 1
+end
+echo ""
+
+echo "──────────────────────────────────────────"
+echo "      cargo sweep (clean old builds)"
+echo "──────────────────────────────────────────"
+# --time 3 = remove artifacts older than 3 days.
+# -r = recursive scan for Cargo workspaces.
+cargo sweep --time 3 -r ~/src; or begin
+    echo "  ⚠ cargo sweep failed (exit $status)"; set had_errors 1
+end
+echo ""
+
+# ──────────────────────────────────────────────
+# 3. Claude Code
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " 3/6  claude update"
+echo "──────────────────────────────────────────"
+claude update; or begin
+    echo "  ⚠ claude update failed (exit $status)"; set had_errors 1
+end
+echo ""
+
+# ──────────────────────────────────────────────
+# 4. Pi agent harness
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " 4/6  pi update"
+echo "──────────────────────────────────────────"
+pi update; or begin
+    echo "  ⚠ pi update failed (exit $status)"; set had_errors 1
+end
+echo ""
+
+# ──────────────────────────────────────────────
+# 5. Neovim plugins
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " 5/6  nvim +PlugClean +PlugInstall +PlugUpdate"
+echo "──────────────────────────────────────────"
+nvim +PlugClean +PlugInstall +PlugUpdate +qall; or begin
+    echo "  ⚠ nvim plugin update failed (exit $status)"; set had_errors 1
+end
+echo ""
+
+# ──────────────────────────────────────────────
+# 6. Dotfiles (jj)
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " 6/6  dotfiles (jj git fetch + fast-forward)"
+echo "──────────────────────────────────────────"
+
+set -l dotfiles_dir "$HOME/dotfiles"
+
+if test -d "$dotfiles_dir"
+    cd "$dotfiles_dir"
+
+    echo "  Fetching from origin..."
+    jj git fetch; or begin
+        echo "  ⚠ jj git fetch failed (exit $status)"; set had_errors 1
+    end
+
+    # Check if main@origin exists after fetch
+    if jj log -r 'main@origin' --no-graph 2>/dev/null | head -1 | string match -q '*'
+        set -l main_id (jj log -r 'main' --no-graph -T 'commit_id' 2>/dev/null)
+        set -l origin_id (jj log -r 'main@origin' --no-graph -T 'commit_id' 2>/dev/null)
+
+        if test "$main_id" = "$origin_id"
+            echo "  ✓ main is already up to date with origin"
+        else if jj log -r 'main::main@origin' --no-graph 2>/dev/null | grep -q .
+            echo "  Fast-forwarding main to main@origin..."
+            jj bookmark set main -r main@origin; and echo "  ✓ main fast-forwarded"; or begin
+                echo "  ⚠ fast-forward failed (exit $status)"; set had_errors 1
+            end
+        else
+            echo "  ⚠ main has diverged from origin — cannot fast-forward"
+            echo "     (local main is not an ancestor of origin's main)"
+        end
+    else
+        echo "  ℹ  main@origin not found after fetch — skipping fast-forward"
+    end
+
+    cd -
+else
+    echo "  ⚠ $dotfiles_dir not found — skipping"
+    set had_errors 1
+end
+echo ""
+
+# ──────────────────────────────────────────────
+# Tool presence check
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " Tool presence check"
+echo "──────────────────────────────────────────"
+
+set -l tools_to_check \
+    atuin bat brew bun cargo cargo-binstall cargo-nextest cargo-sweep \
+    claude curl direnv eza fd fzf gh git jj just nvim pi rg rustup \
+    shellcheck ssh starship tig tmux tokei trash uv zoxide zstd
+
+set -l missing_tools
+for tool in $tools_to_check
+    if not command -v $tool > /dev/null 2>&1
+        set -a missing_tools $tool
+    end
+end
+
+set -l tool_count (count $tools_to_check)
+set -l missing_count (count $missing_tools)
+
+if set -q missing_tools[1]
+    echo "  ⚠ Missing tools ($missing_count):"
+    for tool in $missing_tools
+        echo "     - $tool"
+    end
+else
+    echo "  ✓ All $tool_count tools checked — none missing"
+end
+echo ""
+
+# ──────────────────────────────────────────────
+echo "========================================"
+echo "            Summary"
+echo "========================================"
+
+set -l summary_items
+
+if test $had_errors -eq 0
+    set -a summary_items "  ✓ All updates completed"
+else
+    set -a summary_items "  ⚠ Some updates had errors (see above)"
+end
+
+if set -q missing_tools[1]
+    set -a summary_items "  ⚠ $missing_count tool(s) not found in PATH"
+    for tool in $missing_tools
+        set -a summary_items "       - $tool"
+    end
+else
+    set -a summary_items "  ✓ All $tool_count tools found in PATH"
+end
+
+for item in $summary_items
+    echo $item
+end
+echo "========================================"
