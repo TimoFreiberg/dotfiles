@@ -37,9 +37,26 @@ echo ""
 echo "──────────────────────────────────────────"
 echo "      softwareupdate (list only)"
 echo "──────────────────────────────────────────"
-softwareupdate --list; or begin
-    echo "  ⚠ softwareupdate --list failed (exit $status)"; set had_errors 1
+
+set -l swupd_tmp (mktemp)
+softwareupdate --list > $swupd_tmp 2>&1
+set -l swupd_exit $status
+
+cat $swupd_tmp
+
+if test $swupd_exit -ne 0
+    echo "  ⚠ softwareupdate --list failed"
+    set had_errors 1
+    set -g swupd_pending 0
+else if grep -q "No new software available" $swupd_tmp
+    set -g swupd_pending 0
+else
+    set -g swupd_pending (grep -c "^* Label:" $swupd_tmp)
+    echo ""
+    echo "  → $swupd_pending update(s) available (install manually: softwareupdate --install --all)"
 end
+
+rm -f $swupd_tmp
 echo ""
 
 # ──────────────────────────────────────────────
@@ -213,6 +230,11 @@ if test $had_errors -eq 0
     set -a summary_items "  ✓ All updates completed"
 else
     set -a summary_items "  ⚠ Some updates had errors (see above)"
+end
+
+if set -q swupd_pending[1]; and test $swupd_pending -gt 0
+    set -a summary_items "  ℹ  $swupd_pending macOS update(s) pending"
+    set -a summary_items "       (run: softwareupdate --install --all)"
 end
 
 if set -q missing_tools[1]
