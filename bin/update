@@ -52,6 +52,7 @@ else if grep -q "No new software available" $swupd_tmp
     set -g swupd_pending 0
 else
     set -g swupd_pending (grep -c "^* Label:" $swupd_tmp)
+    set -g swupd_labels (grep "^* Label:" $swupd_tmp | sed 's/^* Label: //')
     echo ""
     echo "  → $swupd_pending update(s) available (install manually: softwareupdate --install --all)"
 end
@@ -233,7 +234,10 @@ else
 end
 
 if set -q swupd_pending[1]; and test $swupd_pending -gt 0
-    set -a summary_items "  ℹ  $swupd_pending macOS update(s) pending"
+    set -a summary_items "  ℹ  $swupd_pending macOS update(s) pending:"
+    for label in $swupd_labels
+        set -a summary_items "       - $label"
+    end
     set -a summary_items "       (run: softwareupdate --install --all)"
 end
 
