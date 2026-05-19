@@ -52,8 +52,12 @@ else
 end
 
 # Update cargo-installed tools via binstall (pre-built binaries)
-echo "  Updating cargo-nextest, cargo-sweep..."
-cargo binstall cargo-nextest cargo-sweep -y; or begin
+echo "  Updating cargo-nextest..."
+cargo nextest self update -y; or begin
+    echo "  ⚠ cargo-nextest update failed (exit $status)"; set had_errors 1
+end
+echo "  Updating cargo-sweep..."
+cargo binstall cargo-sweep -y; or begin
     echo "  ⚠ cargo binstall failed (exit $status)"; set had_errors 1
 end
 echo ""
