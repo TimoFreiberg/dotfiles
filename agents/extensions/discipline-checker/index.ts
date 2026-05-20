@@ -8,8 +8,10 @@
  *
  * Fire-and-forget: the main session does NOT wait for the checker. The
  * extension's `turn_end` handler returns immediately; the child runs in
- * the background and writes its finding to
- * `~/thiania/identity/assistant-scratchpad/discipline-findings.jsonl`.
+ * the background and writes its finding to the file named by the
+ * `DISCIPLINE_CHECKER_FINDINGS_PATH` env var. Without that env var set
+ * the extension is inert (logs a warning at load and registers no
+ * handler) — there is no default path, by design.
  *
  * Subconscious framing: no UI surfacing in v0. Findings are reviewed
  * out-of-band (e.g., during weaving). Future versions can add Discord
@@ -21,7 +23,6 @@
 
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
-import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -31,10 +32,10 @@ import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 // Configuration
 // ---------------------------------------------------------------------------
 
-const FINDINGS_PATH = path.join(
-  os.homedir(),
-  "thiania/identity/assistant-scratchpad/discipline-findings.jsonl",
-);
+// Required: absolute path the child writes JSONL findings to. No default —
+// the extension is inert (warns + registers no handler) if this isn't set,
+// so other dotfiles consumers don't get writes to a thiania-specific path.
+const FINDINGS_PATH = process.env.DISCIPLINE_CHECKER_FINDINGS_PATH;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -93,6 +94,13 @@ interface ToolResultMessage {
 // ---------------------------------------------------------------------------
 
 export default function (pi: ExtensionAPI) {
+  if (!FINDINGS_PATH) {
+    console.warn(
+      "[discipline-checker] DISCIPLINE_CHECKER_FINDINGS_PATH not set — " +
+        "extension inert. Set it to an absolute path to enable.",
+    );
+    return;
+  }
   pi.on("turn_end", async (event, ctx) => {
     try {
       const message = event.message as AssistantMessage | undefined;
@@ -458,6 +466,12 @@ function runChecker(transcript: string, meta: FindingMeta): Promise<void> {
       "json",
       "-p",
       "--no-session",
+      // v0: text-only checker, no tool access. A future version could give
+      // the checker read/grep to verify world-state claims (e.g., re-read
+      // a file the agent claims to have written) instead of inferring from
+      // the toolcall trace alone — would catch hidden-failure patterns the
+      // trace doesn't surface. Out of scope for v0; latency budget and
+      // failure modes both widen.
       "--no-tools",
       "--no-extensions",
       "--no-skills",
@@ -465,7 +479,11 @@ function runChecker(transcript: string, meta: FindingMeta): Promise<void> {
       "--no-context-files",
       "--model",
       CHECKER_MODEL,
-      "--append-system-prompt",
+      // Replace pi's default coding-assistant system prompt with the
+      // discipline spec — the child is not a coding agent and shouldn't
+      // inherit a coding-agent role. `--system-prompt <path>` reads the
+      // file the same way `--append-system-prompt` does.
+      "--system-prompt",
       DISCIPLINE_PATH,
       transcript,
     ];
@@ -629,6 +647,10 @@ function isNoViolationsResponse(text: string): boolean {
 // ---------------------------------------------------------------------------
 
 async function appendFinding(record: Record<string, unknown>): Promise<void> {
+  // Defensive — the extension entry early-returns when FINDINGS_PATH is
+  // unset, so handlers below this point shouldn't reach here. Belt-and-
+  // suspenders for any future caller that bypasses the entry guard.
+  if (!FINDINGS_PATH) return;
   await withFileMutationQueue(FINDINGS_PATH, async () => {
     await fs.promises.mkdir(path.dirname(FINDINGS_PATH), { recursive: true });
     await fs.promises.appendFile(
