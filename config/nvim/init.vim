@@ -1,13 +1,7 @@
 source ~/.config/nvim/plug.vim
 source ~/.config/nvim/leader.lua
 source ~/.config/nvim/appearance.vim
-" source ~/.config/nvim/lsp.lua
-" source ~/.config/nvim/rust.lua
-" source ~/.config/nvim/complete.lua
-" source ~/.config/nvim/telescope.lua
-source ~/.config/nvim/treesitter.lua
 source ~/.config/nvim/git.lua
-" source ~/.config/nvim/autopairs.lua
 
 nnoremap <silent> <C-l> :nohlsearch<CR><C-l>
 nnoremap <silent> <C-n> :nohlsearch<CR><C-l>
@@ -148,8 +142,7 @@ endfunction
 " nnoremap <leader>* yiw:Rg \b<C-R>"\b<CR>
 " map <leader>: :Commands<CR>
 
-" Rust
-
+" F1 is too easy to hit by accident; treat it as Esc
 map <F1> <Esc>
 imap <F1> <Esc>
 
