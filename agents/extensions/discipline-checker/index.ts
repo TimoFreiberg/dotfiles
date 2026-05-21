@@ -1,53 +1,76 @@
 /**
  * Discipline Checker Extension (v0 MVP)
  *
- * On `turn_end`, spawns a fast/cheap child pi process (deepseek-v4-flash)
- * to apply the `verify-action-claims` discipline to the just-finished
- * turn. The child compares the agent's text claims against the actual
- * tool calls + results and reports any mismatches.
+ * On `turn_end`, runs a fast/cheap LLM in-process (via `complete()` from
+ * `@earendil-works/pi-ai`) to apply the `verify-action-claims` discipline
+ * to the just-finished turn. The checker compares the agent's text
+ * claims against the actual tool calls + results and writes any
+ * findings to a JSONL file.
  *
- * Fire-and-forget: the main session does NOT wait for the checker. The
- * extension's `turn_end` handler returns immediately; the child runs in
- * the background and writes its finding to the file named by the
- * `DISCIPLINE_CHECKER_FINDINGS_PATH` env var. Without that env var set
- * the extension is inert (logs a warning at load and registers no
- * handler) — there is no default path, by design.
+ * The handler `await`s the checker call. With one in-process LLM call
+ * and an `AbortSignal.timeout`, there's no parent-vs-child lifecycle
+ * dance — the await holds whether we're in TUI or `pi -p` mode.
  *
- * Subconscious framing: no UI surfacing in v0. Findings are reviewed
- * out-of-band (e.g., during weaving). Future versions can add Discord
- * pings, severity-gated surfacing, or inline notifications.
+ * Subconscious framing: no UI surfacing in v0 for findings themselves.
+ * Findings are reviewed out-of-band (e.g., during weaving). Setup
+ * problems (model unavailable, auth missing) DO surface via
+ * `ctx.ui.notify` so a misconfigured extension doesn't silently rot.
  *
- * Project doc:
- *   /Users/thiania/thiania/identity/state/projects/discipline-checker.md
+ * Configuration (all env vars, all optional):
+ *   DISCIPLINE_CHECKER_MODEL          provider/modelId; default
+ *                                     deepseek/deepseek-v4-flash. Set
+ *                                     to e.g. bedrock/anthropic.claude-3-5-haiku
+ *                                     on machines without deepseek auth.
+ *   DISCIPLINE_CHECKER_FINDINGS_PATH  absolute path for JSONL findings;
+ *                                     default os.tmpdir()/pi-discipline-
+ *                                     findings-<sessionId>.jsonl.
+ *   DISCIPLINE_CHECKER_DEBUG=1        write a heartbeat record on every
+ *                                     turn_end fire (off by default).
  */
 
-import { spawn } from "node:child_process";
+import { complete } from "@earendil-works/pi-ai";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
-// Required: absolute path the child writes JSONL findings to. No default —
-// the extension is inert (warns + registers no handler) if this isn't set,
-// so other dotfiles consumers don't get writes to a thiania-specific path.
-const FINDINGS_PATH = process.env.DISCIPLINE_CHECKER_FINDINGS_PATH;
+const DEFAULT_MODEL_SPEC = "deepseek/deepseek-v4-flash";
+const MODEL_SPEC = process.env.DISCIPLINE_CHECKER_MODEL ?? DEFAULT_MODEL_SPEC;
+const FINDINGS_PATH_OVERRIDE = process.env.DISCIPLINE_CHECKER_FINDINGS_PATH;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DISCIPLINE_PATH = path.join(__dirname, "discipline.md");
-
-const CHECKER_MODEL = "deepseek/deepseek-v4-flash";
+// Read once at module load; the spec is static and small.
+const DISCIPLINE_SPEC = fs.readFileSync(DISCIPLINE_PATH, "utf-8");
 
 // Truncate huge tool results to keep the checker prompt manageable.
 // Calibration #1 ran on ~5k input tokens and worked well; production
 // turns can have read() outputs of 100k+ chars.
 const MAX_TOOL_RESULT_CHARS = 4000;
 const MAX_TOTAL_PROMPT_CHARS = 40000;
+
+// Hard ceiling for the checker call. PR description observed 11.7s and
+// 2.9s in the wild on deepseek-v4-flash; 60s is a generous timeout that
+// still bounds the worst case.
+const CHECKER_TIMEOUT_MS = 60_000;
+
+function parseModelSpec(
+  spec: string,
+): { provider: string; modelId: string } | null {
+  const slash = spec.indexOf("/");
+  if (slash < 1 || slash === spec.length - 1) return null;
+  return { provider: spec.slice(0, slash), modelId: spec.slice(slash + 1) };
+}
 
 // ---------------------------------------------------------------------------
 // Types (light — only the shape we need from event payloads)
@@ -94,14 +117,28 @@ interface ToolResultMessage {
 // ---------------------------------------------------------------------------
 
 export default function (pi: ExtensionAPI) {
-  if (!FINDINGS_PATH) {
+  const modelSpec = parseModelSpec(MODEL_SPEC);
+  if (!modelSpec) {
     console.warn(
-      "[discipline-checker] DISCIPLINE_CHECKER_FINDINGS_PATH not set — " +
-        "extension inert. Set it to an absolute path to enable.",
+      `[discipline-checker] Invalid DISCIPLINE_CHECKER_MODEL=${MODEL_SPEC} ` +
+        `(expected "provider/modelId") — extension inert.`,
     );
     return;
   }
+
+  // Resolved on first turn (we need ctx for the session id default) and
+  // cached for the rest of the session.
+  let findingsPath: string | null = null;
+  // Once we determine the configured model+auth doesn't work, stop trying
+  // every turn. Notify the user the first time it happens; stay quiet after.
+  let inert = false;
+
   pi.on("turn_end", async (event, ctx) => {
+    if (inert) return;
+    if (!findingsPath) {
+      findingsPath = resolveFindingsPath(ctx);
+      console.log(`[discipline-checker] findings → ${findingsPath}`);
+    }
     try {
       const message = event.message as AssistantMessage | undefined;
 
@@ -142,13 +179,13 @@ export default function (pi: ExtensionAPI) {
             /* best-effort debug */
           }
         }
-        void appendFinding({
+        void appendFinding(findingsPath, {
           timestamp: new Date().toISOString(),
           sessionId: null,
           sessionFile: null,
           turnIndex: event.turnIndex,
-          cwd: ctx?.cwd ?? "",
-          checker: CHECKER_MODEL,
+          cwd: ctx.cwd,
+          checker: MODEL_SPEC,
           discipline: "verify-action-claims",
           debug: "turn_end-fired",
           messageRole: msg?.role ?? null,
@@ -198,52 +235,169 @@ export default function (pi: ExtensionAPI) {
         sessionFile,
         turnIndex: event.turnIndex,
         cwd: ctx.cwd,
-        checker: CHECKER_MODEL,
+        checker: MODEL_SPEC,
         discipline: "verify-action-claims",
       };
 
-      if (process.env.DISCIPLINE_CHECKER_DEBUG === "1") {
-        void appendFinding({
+      if (transcript.length > MAX_TOTAL_PROMPT_CHARS) {
+        // Don't ship a 40k+ char prompt at the checker; truncating it
+        // could misdiagnose. Record the skip so the audit trail is
+        // honest about what we did and didn't check.
+        await appendFinding(findingsPath, {
           ...meta,
-          debug: "about-to-spawn-checker",
+          stage: "skipped",
+          reason: "oversized",
+          transcriptLen: transcript.length,
+          maxPromptChars: MAX_TOTAL_PROMPT_CHARS,
+        }).catch(() => {});
+        return;
+      }
+
+      // Resolve model + auth lazily on first turn that needs them. Failure
+      // here is a setup problem we want the user to see, not a silent skip.
+      const model = ctx.modelRegistry.find(
+        modelSpec.provider,
+        modelSpec.modelId,
+      );
+      if (!model) {
+        notifyUser(
+          ctx,
+          `discipline-checker: model "${MODEL_SPEC}" not found in registry. ` +
+            `Set DISCIPLINE_CHECKER_MODEL to a configured model (e.g. ` +
+            `amazon-bedrock/global.anthropic.claude-haiku-4-5, ` +
+            `google/gemini-2.5-flash) or unset to use the ` +
+            `default (${DEFAULT_MODEL_SPEC}). Extension inert for the rest of this session.`,
+          "error",
+        );
+        await appendFinding(findingsPath, {
+          ...meta,
+          stage: "model-unavailable",
+          requestedModel: MODEL_SPEC,
+        }).catch(() => {});
+        inert = true;
+        return;
+      }
+      if (!ctx.modelRegistry.hasConfiguredAuth(model)) {
+        notifyUser(
+          ctx,
+          `discipline-checker: provider "${modelSpec.provider}" has no ` +
+            `configured auth on this machine. Set DISCIPLINE_CHECKER_MODEL ` +
+            `to a model whose provider is configured (run \`pi\` and check ` +
+            `available models). Extension inert for the rest of this session.`,
+          "error",
+        );
+        await appendFinding(findingsPath, {
+          ...meta,
+          stage: "auth-not-configured",
+          requestedModel: MODEL_SPEC,
+        }).catch(() => {});
+        inert = true;
+        return;
+      }
+      const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+      if (!auth.ok) {
+        notifyUser(
+          ctx,
+          `discipline-checker: auth for "${MODEL_SPEC}" unavailable: ${auth.error}. ` +
+            `Extension inert for the rest of this session.`,
+          "error",
+        );
+        await appendFinding(findingsPath, {
+          ...meta,
+          stage: "auth-unavailable",
+          requestedModel: MODEL_SPEC,
+          authError: auth.error,
+        }).catch(() => {});
+        inert = true;
+        return;
+      }
+
+      if (process.env.DISCIPLINE_CHECKER_DEBUG === "1") {
+        void appendFinding(findingsPath, {
+          ...meta,
+          debug: "about-to-call-checker",
           transcriptLen: transcript.length,
         }).catch(() => {});
       }
 
-      // Fire-and-forget by default. `DISCIPLINE_CHECKER_SYNC=1` makes the
-      // handler await — needed in `-p` mode (parent exits before child
-      // closes, so no finding gets written) and useful in tests.
-      const checkerPromise = runChecker(transcript, meta).catch(async (err) => {
-        // Last-resort logging — write a debug record so silent failures don't disappear.
-        await appendFinding({
+      const startedAt = Date.now();
+      try {
+        const result = await complete(
+          model,
+          {
+            systemPrompt: DISCIPLINE_SPEC,
+            messages: [
+              {
+                role: "user",
+                content: transcript,
+                timestamp: Date.now(),
+              },
+            ],
+          },
+          {
+            apiKey: auth.apiKey,
+            headers: auth.headers,
+            signal: AbortSignal.timeout(CHECKER_TIMEOUT_MS),
+          },
+        );
+        const durationMs = Date.now() - startedAt;
+        const reportText = extractAssistantText(result);
+        const stopReason = result.stopReason ?? null;
+        const errorMessage = (result as { errorMessage?: string }).errorMessage;
+        const isError = stopReason === "error" || stopReason === "aborted";
+        if (isError) {
+          notifyUser(
+            ctx,
+            `discipline-checker: checker call failed: ${errorMessage ?? "unknown"}. ` +
+              `Extension inert for the rest of this session.`,
+            "error",
+          );
+          inert = true;
+        }
+        const noViolations = !isError && isNoViolationsResponse(reportText);
+        await appendFinding(findingsPath, {
           ...meta,
-          error: err instanceof Error ? err.message : String(err),
-          stage: "runChecker",
-        }).catch(() => {
-          /* truly best-effort */
+          durationMs,
+          stopReason,
+          model: result.responseModel ?? result.model ?? MODEL_SPEC,
+          usage: result.usage ?? null,
+          ...(isError
+            ? {
+                stage: "complete-error",
+                error: errorMessage ?? "unknown",
+              }
+            : {
+                noViolations,
+                report: reportText,
+              }),
         });
-      });
-
-      if (process.env.DISCIPLINE_CHECKER_SYNC === "1") {
-        await checkerPromise;
-      } else {
-        void checkerPromise;
+      } catch (err) {
+        const durationMs = Date.now() - startedAt;
+        await appendFinding(findingsPath, {
+          ...meta,
+          durationMs,
+          error: err instanceof Error ? err.message : String(err),
+          stage: "complete",
+        }).catch(() => {});
       }
     } catch (err) {
       // Never let the extension crash the main turn lifecycle.
-      void appendFinding({
-        timestamp: new Date().toISOString(),
-        sessionId: null,
-        sessionFile: null,
-        turnIndex: event?.turnIndex ?? -1,
-        cwd: ctx?.cwd ?? "",
-        checker: CHECKER_MODEL,
-        discipline: "verify-action-claims",
-        error: err instanceof Error ? err.message : String(err),
-        stage: "turn_end-handler",
-      }).catch(() => {
-        /* best-effort */
-      });
+      const fp = findingsPath ?? FINDINGS_PATH_OVERRIDE ?? null;
+      if (fp) {
+        void appendFinding(fp, {
+          timestamp: new Date().toISOString(),
+          sessionId: null,
+          sessionFile: null,
+          turnIndex: event.turnIndex,
+          cwd: ctx.cwd,
+          checker: MODEL_SPEC,
+          discipline: "verify-action-claims",
+          error: err instanceof Error ? err.message : String(err),
+          stage: "turn_end-handler",
+        }).catch(() => {
+          /* best-effort */
+        });
+      }
     }
   });
 }
@@ -287,9 +441,11 @@ interface CheckerWindow {
  * The current `turn_end` event only carries the immediate message, so we
  * pull the wider context from the session manager.
  *
- * The `currentMessage` param is the message from this `turn_end` event;
- * `sessionManager.getEntries()` may not have committed it yet (timing
- * varies), so we include it explicitly.
+ * Reading the agent-session.js flow, `message_end` (which calls
+ * `appendMessage`) fires before `turn_end`, so by the time we run here
+ * the current message should already be in `getEntries()`. The
+ * dedup-by-content-identity + fallback append is defensive against a
+ * future change to that ordering invariant.
  */
 function collectWindowSinceLastUserMessage(
   ctx: { sessionManager?: { getEntries?: () => unknown[] } },
@@ -411,13 +567,19 @@ function formatTranscript(
   return lines.join("\n");
 }
 
+function safeSlice(s: string, n: number): string {
+  if (s.length <= n) return s;
+  let cut = s.slice(0, n);
+  // Avoid splitting a UTF-16 surrogate pair: if we ended on a high
+  // surrogate (D800-DBFF), drop it so the slice ends on a complete code point.
+  const last = cut.charCodeAt(cut.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1);
+  return cut + "\n... (truncated)";
+}
+
 function safeJson(obj: unknown): string {
   try {
-    const s = JSON.stringify(obj, null, 2);
-    if (s.length > MAX_TOOL_RESULT_CHARS) {
-      return s.slice(0, MAX_TOOL_RESULT_CHARS) + "\n... (truncated)";
-    }
-    return s;
+    return safeSlice(JSON.stringify(obj, null, 2), MAX_TOOL_RESULT_CHARS);
   } catch {
     return "(unserializable)";
   }
@@ -439,14 +601,12 @@ function formatToolResultContent(result: ToolResultMessage): string {
   } else {
     text = String(result.content);
   }
-  if (text.length > MAX_TOOL_RESULT_CHARS) {
-    return text.slice(0, MAX_TOOL_RESULT_CHARS) + "\n... (truncated)";
-  }
-  return text;
+  return safeSlice(text, MAX_TOOL_RESULT_CHARS);
 }
 
 // ---------------------------------------------------------------------------
-// Child process spawn (fire-and-forget)
+// ---------------------------------------------------------------------------
+// Checker output + helpers
 // ---------------------------------------------------------------------------
 
 interface FindingMeta {
@@ -459,173 +619,15 @@ interface FindingMeta {
   discipline: string;
 }
 
-function runChecker(transcript: string, meta: FindingMeta): Promise<void> {
-  return new Promise((resolve) => {
-    const args = [
-      "--mode",
-      "json",
-      "-p",
-      "--no-session",
-      // v0: text-only checker, no tool access. A future version could give
-      // the checker read/grep to verify world-state claims (e.g., re-read
-      // a file the agent claims to have written) instead of inferring from
-      // the toolcall trace alone — would catch hidden-failure patterns the
-      // trace doesn't surface. Out of scope for v0; latency budget and
-      // failure modes both widen.
-      "--no-tools",
-      "--no-extensions",
-      "--no-skills",
-      "--no-prompt-templates",
-      "--no-context-files",
-      "--model",
-      CHECKER_MODEL,
-      // Replace pi's default coding-assistant system prompt with the
-      // discipline spec — the child is not a coding agent and shouldn't
-      // inherit a coding-agent role. `--system-prompt <path>` reads the
-      // file the same way `--append-system-prompt` does.
-      "--system-prompt",
-      DISCIPLINE_PATH,
-      transcript,
-    ];
-
-    let proc;
-    try {
-      proc = spawn("pi", args, {
-        stdio: ["ignore", "pipe", "pipe"],
-        // Detach so the child outlives the parent in -p mode (the parent
-        // exits as soon as the turn ends, so without detach the child
-        // gets killed before it can write its finding). Don't unref —
-        // we still want the parent's await on `runChecker` to actually
-        // hold the event loop open until the child closes.
-        detached: true,
-      });
-    } catch (err) {
-      void appendFinding({
-        ...meta,
-        error: err instanceof Error ? err.message : String(err),
-        stage: "spawn",
-      });
-      resolve();
-      return;
-    }
-
-    let stdout = "";
-    let stderr = "";
-    const startedAt = Date.now();
-
-    proc.stdout!.on("data", (d) => {
-      stdout += d.toString();
-    });
-    proc.stderr!.on("data", (d) => {
-      stderr += d.toString();
-    });
-
-    proc.on("close", async (exitCode) => {
-      const durationMs = Date.now() - startedAt;
-      try {
-        const { reportText, usage, model, stopReason } =
-          parseChildOutput(stdout);
-        const noViolations = isNoViolationsResponse(reportText);
-
-        await appendFinding({
-          ...meta,
-          durationMs,
-          exitCode: exitCode ?? null,
-          stopReason: stopReason ?? null,
-          model: model ?? CHECKER_MODEL,
-          usage: usage ?? null,
-          noViolations,
-          report: reportText,
-          ...(stderr.trim() ? { stderr: stderr.slice(-2000) } : {}),
-        });
-      } catch (err) {
-        await appendFinding({
-          ...meta,
-          durationMs,
-          exitCode: exitCode ?? null,
-          error: err instanceof Error ? err.message : String(err),
-          stage: "parseChildOutput",
-          rawStdoutTail: stdout.slice(-2000),
-          ...(stderr.trim() ? { stderr: stderr.slice(-2000) } : {}),
-        }).catch(() => {
-          /* best-effort */
-        });
-      }
-      resolve();
-    });
-
-    proc.on("error", (err) => {
-      void appendFinding({
-        ...meta,
-        error: err.message,
-        stage: "child-error",
-      }).catch(() => {
-        /* best-effort */
-      });
-      resolve();
-    });
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Child output parsing
-// ---------------------------------------------------------------------------
-
-interface ChildUsage {
-  input?: number;
-  output?: number;
-  cacheRead?: number;
-  cacheWrite?: number;
-  cost?: number;
-  totalTokens?: number;
-}
-
-function parseChildOutput(stdout: string): {
-  reportText: string;
-  usage: ChildUsage | null;
-  model: string | null;
-  stopReason: string | null;
-} {
-  const lines = stdout.split("\n");
-  let reportText = "";
-  let usage: ChildUsage | null = null;
-  let model: string | null = null;
-  let stopReason: string | null = null;
-
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    let event: any;
-    try {
-      event = JSON.parse(line);
-    } catch {
-      continue;
-    }
-    if (event.type === "message_end" && event.message?.role === "assistant") {
-      const msg = event.message;
-      // Take the LAST assistant message's text — that's the final report.
-      const text = (msg.content ?? [])
-        .filter((p: any) => p.type === "text")
-        .map((p: any) => String(p.text ?? ""))
-        .join("\n")
-        .trim();
-      if (text) reportText = text;
-      if (msg.usage) {
-        const u = msg.usage;
-        usage = {
-          input: u.input,
-          output: u.output,
-          cacheRead: u.cacheRead,
-          cacheWrite: u.cacheWrite,
-          cost: u.cost?.total,
-          totalTokens: u.totalTokens,
-        };
-      }
-      if (msg.model) model = msg.model;
-      if (msg.stopReason) stopReason = msg.stopReason;
-    }
-  }
-
-  return { reportText, usage, model, stopReason };
+/** Pull the text content out of a complete()-returned AssistantMessage. */
+function extractAssistantText(msg: {
+  content?: Array<{ type?: string; text?: unknown }>;
+}): string {
+  return (msg.content ?? [])
+    .filter((p) => p.type === "text")
+    .map((p) => String(p.text ?? ""))
+    .join("\n")
+    .trim();
 }
 
 function isNoViolationsResponse(text: string): boolean {
@@ -642,19 +644,39 @@ function isNoViolationsResponse(text: string): boolean {
   return false;
 }
 
+function notifyUser(
+  ctx: ExtensionContext,
+  message: string,
+  level: "info" | "warning" | "error",
+): void {
+  if (ctx.hasUI) {
+    ctx.ui.notify(message, level);
+  } else {
+    // Print mode (`pi -p`): no UI, fall back to stderr so the user still sees it.
+    console.error(`[discipline-checker] ${message}`);
+  }
+}
+
+function resolveFindingsPath(ctx: ExtensionContext): string {
+  if (FINDINGS_PATH_OVERRIDE) return FINDINGS_PATH_OVERRIDE;
+  // Per-session default file under tmpdir so concurrent sessions don't
+  // compete for one file. Findings persist for the OS's tmp lifetime.
+  const sid = ctx.sessionManager?.getSessionId?.() ?? "unknown";
+  return path.join(os.tmpdir(), `pi-discipline-findings-${sid}.jsonl`);
+}
+
 // ---------------------------------------------------------------------------
 // Finding output (jsonl append, queued for write safety)
 // ---------------------------------------------------------------------------
 
-async function appendFinding(record: Record<string, unknown>): Promise<void> {
-  // Defensive — the extension entry early-returns when FINDINGS_PATH is
-  // unset, so handlers below this point shouldn't reach here. Belt-and-
-  // suspenders for any future caller that bypasses the entry guard.
-  if (!FINDINGS_PATH) return;
-  await withFileMutationQueue(FINDINGS_PATH, async () => {
-    await fs.promises.mkdir(path.dirname(FINDINGS_PATH), { recursive: true });
+async function appendFinding(
+  findingsPath: string,
+  record: Record<string, unknown>,
+): Promise<void> {
+  await withFileMutationQueue(findingsPath, async () => {
+    await fs.promises.mkdir(path.dirname(findingsPath), { recursive: true });
     await fs.promises.appendFile(
-      FINDINGS_PATH,
+      findingsPath,
       JSON.stringify(record) + "\n",
       "utf-8",
     );
