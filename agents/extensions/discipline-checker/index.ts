@@ -190,6 +190,17 @@ export default function (pi: ExtensionAPI) {
   // Tracks the last `cfg.modelSpec` we observed. Comparing across turns
   // lets us detect a config edit and retry the extension.
   let lastResolvedModelSpec: string | null = null;
+  // Watermark into `sessionManager.getEntries()`: the index of the last
+  // entry that has been considered by (or written off by) this extension.
+  // The next turn's trace window collects entries[lastCheckedEntryIndex+1
+  // .. end]. Advances on every `turn_end` *except* when the just-finished
+  // turn was pure tool-calls-without-text — in that case we hold the
+  // watermark so a subsequent text-bearing turn can verify a claim about
+  // those tool calls (the cross-turn pattern: emit toolcall-only message,
+  // then text summary in the next message). All other paths advance,
+  // including inert / early-skip / fired-and-found-no-violations, so
+  // already-evaluated claims are never re-evaluated.
+  let lastCheckedEntryIndex = -1;
 
   pi.on("turn_end", async (event, ctx) => {
     const cfg = resolveConfig();
@@ -201,60 +212,94 @@ export default function (pi: ExtensionAPI) {
       inert = false;
     }
 
-    if (inert) return;
+    // Snapshot entries up front so we can advance the watermark in
+    // `finally` regardless of which return path the handler takes. The
+    // current message is normally already in entries by `turn_end` time
+    // (message_end fires first), but the snapshot captures whatever's
+    // there now and we use it consistently for both the trace window and
+    // the watermark update.
+    const entries =
+      (ctx.sessionManager?.getEntries?.() as Array<{
+        type?: string;
+        message?: {
+          role?: string;
+          content?: unknown;
+          toolCallId?: string;
+          toolName?: string;
+          isError?: boolean;
+        };
+      }>) ?? [];
+    let shouldAdvance = true;
 
-    if (cfg.configError) {
-      notifyUser(
-        ctx,
-        `discipline-checker: ${cfg.configError}. Fix the file (or remove it) ` +
-          `and the next turn will retry. Inert for now.`,
-        "error",
-      );
-      inert = true;
-      return;
-    }
-
-    if (!cfg.modelSpec) {
-      notifyUser(
-        ctx,
-        `discipline-checker: no model configured. Set "model" in ${CONFIG_PATH} ` +
-          `(e.g. {"model": "deepseek/deepseek-v4-flash"}) or DISCIPLINE_CHECKER_MODEL ` +
-          `env var. Inert.`,
-        "error",
-      );
-      inert = true;
-      return;
-    }
-
-    if (cfg.debug) {
-      const partCount =
-        (event.message as { content?: unknown[] } | undefined)?.content
-          ?.length ?? 0;
-      console.error(
-        `[discipline-checker] turn ${event.turnIndex} fired ` +
-          `(model=${cfg.modelSpec}, partCount=${partCount})`,
-      );
-    }
     try {
+      if (inert) return;
+
+      if (cfg.configError) {
+        notifyUser(
+          ctx,
+          `discipline-checker: ${cfg.configError}. Fix the file (or remove it) ` +
+            `and the next turn will retry. Inert for now.`,
+          "error",
+        );
+        inert = true;
+        return;
+      }
+
+      if (!cfg.modelSpec) {
+        notifyUser(
+          ctx,
+          `discipline-checker: no model configured. Set "model" in ${CONFIG_PATH} ` +
+            `(e.g. {"model": "deepseek/deepseek-v4-flash"}) or DISCIPLINE_CHECKER_MODEL ` +
+            `env var. Inert.`,
+          "error",
+        );
+        inert = true;
+        return;
+      }
+
+      if (cfg.debug) {
+        const partCount =
+          (event.message as { content?: unknown[] } | undefined)?.content
+            ?.length ?? 0;
+        console.error(
+          `[discipline-checker] turn ${event.turnIndex} fired ` +
+            `(model=${cfg.modelSpec}, partCount=${partCount})`,
+        );
+      }
+
       const message = event.message as AssistantMessage | undefined;
       if (!message || message.role !== "assistant") return;
 
-      // Trigger: this turn contains text (claim moment). Toolcall-only turns
-      // are skipped because there's nothing to verify against the trace yet.
+      // Trigger: this turn contains text (a claim moment). Toolcall-only
+      // turns are skipped — there's nothing to verify yet — and we hold
+      // the watermark so the next text-bearing turn can claim about these
+      // tool calls (cross-turn pattern).
       const currentParts = partitionMessageContent(message.content);
-      if (currentParts.texts.length === 0) return;
+      if (currentParts.texts.length === 0) {
+        if (currentParts.toolCalls.length > 0) {
+          shouldAdvance = false;
+        }
+        return;
+      }
 
-      // Window: all entries since the last user message (the current
-      // claim+action exchange). The model often emits toolcalls and the
-      // accompanying claim text in SEPARATE turns, so the current
-      // message alone doesn't carry the trace.
-      const window = collectWindowSinceLastUserMessage(ctx, message);
-      if (window.toolCalls.length === 0) return; // no actions in the window → nothing to verify
+      // Trace window: tool calls and results since the last check (per
+      // `lastCheckedEntryIndex`). Claims under review come from the
+      // *current* message's text only — prior turns' text was already
+      // evaluated when those turns fired, so re-evaluating it would
+      // re-flag uncorrected violations on every subsequent text-bearing
+      // turn. The wider trace window still covers cross-turn cases where
+      // a current-turn claim references a prior-turn tool call.
+      const trace = collectTraceSinceIndex(
+        entries,
+        lastCheckedEntryIndex,
+        message,
+      );
+      if (trace.toolCalls.length === 0) return; // no actions in the window → nothing to verify
 
       const transcript = formatTranscript(
-        window.texts,
-        window.toolCalls,
-        window.toolResults,
+        currentParts.texts,
+        trace.toolCalls,
+        trace.toolResults,
       );
       if (transcript.length > MAX_TOTAL_PROMPT_CHARS) {
         // Skip oversized turns rather than truncate-and-misdiagnose.
@@ -403,6 +448,10 @@ export default function (pi: ExtensionAPI) {
             (err instanceof Error ? err.message : String(err)),
         );
       }
+    } finally {
+      if (shouldAdvance) {
+        lastCheckedEntryIndex = entries.length - 1;
+      }
     }
   });
 }
@@ -430,21 +479,17 @@ function partitionMessageContent(content: MessagePart[]): {
   return { texts, toolCalls };
 }
 
-interface CheckerWindow {
-  texts: string[];
+interface CheckerTrace {
   toolCalls: ToolCallPart[];
   toolResults: ToolResultMessage[];
 }
 
 /**
- * Walk the session backwards to find the most recent user message, then
- * forward-collect every assistant text / toolCall / toolResult since.
- *
- * Why: the claim/trace pair that the discipline cares about often spans
- * multiple turns — the model frequently emits a toolcall-only assistant
- * message, then a text-only summary message after the tool result lands.
- * The current `turn_end` event only carries the immediate message, so we
- * pull the wider context from the session manager.
+ * Forward-collect tool calls and tool results from session entries
+ * after the watermark `lastCheckedEntryIndex`. Assistant text from
+ * prior turns is intentionally NOT collected — only the current
+ * turn's text is sent to the checker as claims-under-review (see the
+ * handler), so prior text would just be noise here.
  *
  * Reading the agent-session.js flow, `message_end` (which calls
  * `appendMessage`) fires before `turn_end`, so by the time we run here
@@ -452,41 +497,31 @@ interface CheckerWindow {
  * dedup-by-content-identity + fallback append is defensive against a
  * future change to that ordering invariant.
  */
-function collectWindowSinceLastUserMessage(
-  ctx: { sessionManager?: { getEntries?: () => unknown[] } },
+function collectTraceSinceIndex(
+  entries: Array<{
+    type?: string;
+    message?: {
+      role?: string;
+      content?: unknown;
+      toolCallId?: string;
+      toolName?: string;
+      isError?: boolean;
+    };
+  }>,
+  lastCheckedEntryIndex: number,
   currentMessage: AssistantMessage,
-): CheckerWindow {
-  const window: CheckerWindow = {
-    texts: [],
+): CheckerTrace {
+  const trace: CheckerTrace = {
     toolCalls: [],
     toolResults: [],
   };
 
-  const entries =
-    (ctx.sessionManager?.getEntries?.() as Array<{
-      type?: string;
-      message?: {
-        role?: string;
-        content?: unknown;
-        toolCallId?: string;
-        toolName?: string;
-        isError?: boolean;
-      };
-    }>) ?? [];
-
-  // Find index of the most recent user message.
-  let startIdx = 0;
-  for (let i = entries.length - 1; i >= 0; i--) {
-    const e = entries[i];
-    if (e.type === "message" && e.message?.role === "user") {
-      startIdx = i + 1; // start AFTER the user message
-      break;
-    }
-  }
-
-  // Forward-collect from startIdx to the end of entries.
   let currentMessageSeenInEntries = false;
-  for (let i = startIdx; i < entries.length; i++) {
+  for (
+    let i = Math.max(0, lastCheckedEntryIndex + 1);
+    i < entries.length;
+    i++
+  ) {
     const e = entries[i];
     if (e.type !== "message" || !e.message) continue;
     const msg = e.message;
@@ -494,8 +529,7 @@ function collectWindowSinceLastUserMessage(
       const parts = partitionMessageContent(
         (msg.content as MessagePart[]) ?? [],
       );
-      window.texts.push(...parts.texts);
-      window.toolCalls.push(...parts.toolCalls);
+      trace.toolCalls.push(...parts.toolCalls);
       // Best-effort detection: is this entry the same message as the one
       // from the event? Compare content shallowly. If we see it, we know
       // we don't need to append it again below.
@@ -503,19 +537,19 @@ function collectWindowSinceLastUserMessage(
         currentMessageSeenInEntries = true;
       }
     } else if (msg.role === "toolResult") {
-      window.toolResults.push(msg as unknown as ToolResultMessage);
+      trace.toolResults.push(msg as unknown as ToolResultMessage);
     }
   }
 
-  // Append the current event's message if it wasn't already in entries
-  // (timing variance — `turn_end` may fire before the entry is committed).
+  // Append the current event's message's tool calls if it wasn't already
+  // in entries (timing variance — `turn_end` may fire before the entry
+  // is committed).
   if (!currentMessageSeenInEntries) {
     const parts = partitionMessageContent(currentMessage.content);
-    window.texts.push(...parts.texts);
-    window.toolCalls.push(...parts.toolCalls);
+    trace.toolCalls.push(...parts.toolCalls);
   }
 
-  return window;
+  return trace;
 }
 
 function formatTranscript(
@@ -538,7 +572,15 @@ function formatTranscript(
     lines.push("");
   }
 
-  lines.push("## Tool calls and results (the trace)");
+  lines.push("## Tool calls and results (the trace since last check)");
+  lines.push("");
+  lines.push(
+    "This trace covers actions taken since the previous verification. " +
+      "Earlier actions in this session were verified in prior checks and " +
+      "are out of scope for this one. If a claim references an action " +
+      "outside this window, do not flag it as phantom — it was either " +
+      "already checked or is from before the checker started running.",
+  );
   lines.push("");
   toolCalls.forEach((tc, i) => {
     lines.push(`### [${i + 1}] ${tc.name}`);
