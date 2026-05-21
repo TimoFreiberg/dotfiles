@@ -111,10 +111,10 @@ const JOURNAL_BASH_MARKERS: readonly string[] = [
 // messages for things like offset-past-EOF warnings), so it reads as
 // more obviously-not-user-speech than an invented tag would.
 const NUDGE_REASON =
-  "<system-reminder>" +
+  "<journal-nudge>" +
   "this turn did work and didn't journal. " +
   "if a fork or correction formed, call the journal skill now." +
-  "</system-reminder>";
+  "</journal-nudge>";
 
 // Safety-net cooldown in case the `alreadyNudged` scan doesn't catch
 // something and we'd otherwise hot-loop.
