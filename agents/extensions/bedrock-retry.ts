@@ -1,20 +1,38 @@
 /**
- * Bedrock empty-stop retry extension
+ * Bedrock workarounds extension
  *
- * Bedrock's Converse stream occasionally closes cleanly with a
- * `messageStop` that has `stopReason: "stop"`, zero tokens, and no
- * content blocks — or no `messageStop` at all, which surfaces the same
- * shape. pi's default provider treats that as "assistant finished"
- * and ends the turn silently. See earendil-works/pi#4210.
+ * Wraps `streamBedrock` / `streamSimpleBedrock` via
+ * `setBedrockProviderModule` to patch two upstream pi-ai bugs that
+ * both cause turns to end with the agent obviously unfinished:
  *
- * This extension wraps `streamBedrock` / `streamSimpleBedrock` via
- * `setBedrockProviderModule`. When the wrapped stream emits a `done`
- * event whose message looks empty, we rewrite it to an `error` event
- * with a message matching pi's agent-session retry regex
- * (`/provider.?returned.?error/i`), so the turn is retried with
- * backoff instead of ended.
+ * 1. earendil-works/pi#4210 — Bedrock's Converse stream occasionally
+ *    closes cleanly with a `messageStop` that has `stopReason:
+ *    "stop"`, zero tokens, and no content blocks — or no `messageStop`
+ *    at all, which surfaces the same shape. pi's default provider
+ *    treats that as "assistant finished" and ends the turn silently.
+ *    We rewrite the empty `done` event to an `error` event whose
+ *    message matches pi's agent-session retry regex
+ *    (`/provider.?returned.?error/i`), so the turn is retried with
+ *    backoff instead of ended.
  *
- * Adapted from the sketch in
+ * 2. earendil-works/pi#4848 — for Claude models with adaptive thinking
+ *    (Opus 4.6+, Sonnet 4.6+) running with reasoning enabled,
+ *    `streamSimpleBedrock` takes a branch that does not set
+ *    `options.maxTokens`. `streamBedrock` only puts `maxTokens` in
+ *    the Converse `inferenceConfig` when defined, so Bedrock falls
+ *    back to its per-model default of 4096. Result: the model spends
+ *    its whole output budget inside one thinking block and emits no
+ *    visible text or tool call. We inject `maxTokens: model.maxTokens`
+ *    (e.g. 128_000 for Opus 4.7) when the caller hasn't set one and
+ *    the model is on the broken path.
+ *
+ * Both wraps are temporary — delete the corresponding piece when each
+ * upstream issue lands. Combined into one file because
+ * `setBedrockProviderModule` is global: two separate extensions would
+ * each read the un-wrapped original module, and the second
+ * `setBedrockProviderModule` call would clobber the first.
+ *
+ * The empty-stop wrap is adapted from the sketch in
  * https://github.com/earendil-works/pi/issues/4210 (OP's extension).
  *
  * ## Resolving @earendil-works/pi-ai/bedrock-provider
@@ -76,6 +94,52 @@ function isEmptyStop(message: AssistantMessage): boolean {
     return false;
   });
   return tokens === 0 && !hasContent;
+}
+
+/**
+ * Mirror pi-ai's own conditions for the broken adaptive-thinking branch:
+ * `isAnthropicClaudeModel(model) && supportsAdaptiveThinking(model.id, model.name)
+ * && options.reasoning` (see providers/amazon-bedrock.js streamSimpleBedrock).
+ * When all three are true and the caller has not set `options.maxTokens`,
+ * pi sends no `maxTokens` to Bedrock, so Bedrock applies its 4096 default.
+ * We inject `model.maxTokens` precisely on that path; everywhere else this
+ * is a no-op.
+ */
+function shouldInjectMaxTokens(model: unknown, options: unknown): boolean {
+  if (model === null || typeof model !== "object") return false;
+  if (
+    options !== undefined &&
+    (options === null || typeof options !== "object")
+  )
+    return false;
+  const m = model as { id?: unknown; name?: unknown; maxTokens?: unknown };
+  const o = (options ?? {}) as { maxTokens?: unknown; reasoning?: unknown };
+  if (o.maxTokens !== undefined) return false;
+  if (typeof m.maxTokens !== "number" || m.maxTokens <= 4096) return false;
+  if (typeof m.id !== "string") return false;
+  const id = m.id.toLowerCase();
+  const name = typeof m.name === "string" ? m.name.toLowerCase() : "";
+  const isClaude =
+    id.includes("anthropic.claude") ||
+    id.includes("anthropic/claude") ||
+    name.includes("claude");
+  if (!isClaude) return false;
+  const candidates = [id, name];
+  const isAdaptive = candidates.some(
+    (s) =>
+      s.includes("opus-4-6") ||
+      s.includes("opus-4-7") ||
+      s.includes("sonnet-4-6"),
+  );
+  if (!isAdaptive) return false;
+  if (o.reasoning === undefined || o.reasoning === null) return false;
+  return true;
+}
+
+function injectMaxTokensIfNeeded(model: unknown, options: unknown): unknown {
+  if (!shouldInjectMaxTokens(model, options)) return options;
+  const modelMax = (model as { maxTokens: number }).maxTokens;
+  return { ...((options ?? {}) as object), maxTokens: modelMax };
 }
 
 async function* rewriteEmptyStop(
@@ -148,11 +212,19 @@ export default async function (_pi: ExtensionAPI): Promise<void> {
   setBedrockProviderModule({
     streamBedrock: ((model, context, options) =>
       rewriteEmptyStop(
-        inner.streamBedrock(model, context, options),
+        inner.streamBedrock(
+          model,
+          context,
+          injectMaxTokensIfNeeded(model, options),
+        ),
       )) as typeof inner.streamBedrock,
     streamSimpleBedrock: ((model, context, options) =>
       rewriteEmptyStop(
-        inner.streamSimpleBedrock(model, context, options),
+        inner.streamSimpleBedrock(
+          model,
+          context,
+          injectMaxTokensIfNeeded(model, options),
+        ),
       )) as typeof inner.streamSimpleBedrock,
   });
 }
