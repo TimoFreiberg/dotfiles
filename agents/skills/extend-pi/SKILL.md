@@ -1,6 +1,6 @@
 ---
 name: extend-pi
-description: "Use when working with the pi coding agent harness: extensions, skills, themes, prompt templates, TUI components, keybindings, SDK, custom providers, custom models, pi packages, custom tools. Points at pi's local docs and examples on disk."
+description: "Use when working on the pi coding agent harness or writing pi extensions."
 user-invocable: false
 ---
 
