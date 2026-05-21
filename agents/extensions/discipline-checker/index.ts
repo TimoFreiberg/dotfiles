@@ -1,31 +1,50 @@
 /**
- * Discipline Checker Extension (v0 MVP)
+ * Discipline Checker Extension
  *
  * On `turn_end`, runs a fast/cheap LLM in-process (via `complete()` from
  * `@earendil-works/pi-ai`) to apply the `verify-action-claims` discipline
  * to the just-finished turn. The checker compares the agent's text
- * claims against the actual tool calls + results and writes any
- * findings to a JSONL file.
+ * claims against the actual tool calls + results.
+ *
+ * If the checker reports violations, the extension injects a
+ * `<discipline-checker>...</discipline-checker>`-wrapped message into the
+ * session via `pi.sendMessage`. The next turn's LLM context includes it,
+ * so the main agent sees the nudge and can self-correct. The TUI also
+ * renders the message inline (purple custom-message box) so the human
+ * user sees that a check fired.
+ *
+ * No-violations turns are silent — no notification, no entry, no log.
+ * The whole point is to free up the main task; "all clear" every turn
+ * is anti-noise.
+ *
+ * Setup problems (model unavailable, auth missing, malformed config)
+ * surface via `ctx.ui.notify` at error level and the extension goes
+ * inert for the session — until the resolved model spec changes (e.g.
+ * the user edits the config file), which resets inert and retries.
  *
  * The handler `await`s the checker call. With one in-process LLM call
  * and an `AbortSignal.timeout`, there's no parent-vs-child lifecycle
  * dance — the await holds whether we're in TUI or `pi -p` mode.
  *
- * Subconscious framing: no UI surfacing in v0 for findings themselves.
- * Findings are reviewed out-of-band (e.g., during weaving). Setup
- * problems (model unavailable, auth missing) DO surface via
- * `ctx.ui.notify` so a misconfigured extension doesn't silently rot.
+ * Configuration
+ * -------------
+ * Config file: ~/.config/pi/agent/discipline-checker.json (gitignored).
+ * Re-read every turn — edit the file, the next turn picks it up. No
+ * pi/shell restart needed.
  *
- * Configuration (all env vars, all optional):
- *   DISCIPLINE_CHECKER_MODEL          provider/modelId; default
- *                                     deepseek/deepseek-v4-flash. Set
- *                                     to e.g. bedrock/anthropic.claude-3-5-haiku
- *                                     on machines without deepseek auth.
- *   DISCIPLINE_CHECKER_FINDINGS_PATH  absolute path for JSONL findings;
- *                                     default os.tmpdir()/pi-discipline-
- *                                     findings-<sessionId>.jsonl.
- *   DISCIPLINE_CHECKER_DEBUG=1        write a heartbeat record on every
- *                                     turn_end fire (off by default).
+ * Shape (all keys optional):
+ *   {
+ *     "model": "provider/modelId",   // e.g. "deepseek/deepseek-v4-flash"
+ *     "debug": false                 // log heartbeat lines to stderr
+ *   }
+ *
+ * Env vars are respected as a per-key fallback when the config file
+ * doesn't set the corresponding value:
+ *   DISCIPLINE_CHECKER_MODEL    → config.model
+ *   DISCIPLINE_CHECKER_DEBUG=1  → config.debug
+ *
+ * No default model. If neither config nor env provides one, the
+ * extension goes inert with a notification.
  */
 
 import { complete } from "@earendil-works/pi-ai";
@@ -37,15 +56,17 @@ import type {
   ExtensionAPI,
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
-import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
-const DEFAULT_MODEL_SPEC = "deepseek/deepseek-v4-flash";
-const MODEL_SPEC = process.env.DISCIPLINE_CHECKER_MODEL ?? DEFAULT_MODEL_SPEC;
-const FINDINGS_PATH_OVERRIDE = process.env.DISCIPLINE_CHECKER_FINDINGS_PATH;
+const CONFIG_PATH = path.join(
+  process.env.XDG_CONFIG_HOME ?? path.join(os.homedir(), ".config"),
+  "pi",
+  "agent",
+  "discipline-checker.json",
+);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -63,6 +84,51 @@ const MAX_TOTAL_PROMPT_CHARS = 40000;
 // 2.9s in the wild on deepseek-v4-flash; 60s is a generous timeout that
 // still bounds the worst case.
 const CHECKER_TIMEOUT_MS = 60_000;
+
+interface ResolvedConfig {
+  /** "provider/modelId" or null if nothing is configured. */
+  modelSpec: string | null;
+  debug: boolean;
+  /** Set if the config file exists but couldn't be read/parsed. */
+  configError: string | null;
+}
+
+/**
+ * Read ~/.config/pi/agent/discipline-checker.json fresh every call.
+ * File missing is fine — fall through to env vars / null. Malformed JSON
+ * or unreadable file surfaces as `configError` so the caller can notify
+ * and go inert.
+ */
+function resolveConfig(): ResolvedConfig {
+  let fileModel: string | undefined;
+  let fileDebug: boolean | undefined;
+  let configError: string | null = null;
+
+  try {
+    const text = fs.readFileSync(CONFIG_PATH, "utf-8");
+    try {
+      const parsed = JSON.parse(text) as Record<string, unknown>;
+      if (typeof parsed.model === "string") fileModel = parsed.model;
+      if (typeof parsed.debug === "boolean") fileDebug = parsed.debug;
+    } catch (e) {
+      configError = `malformed JSON in ${CONFIG_PATH}: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      configError = `cannot read ${CONFIG_PATH}: ${e instanceof Error ? e.message : String(e)}`;
+    }
+    // ENOENT: file doesn't exist — fall through to env / null.
+  }
+
+  const envModel = process.env.DISCIPLINE_CHECKER_MODEL;
+  const envDebug = process.env.DISCIPLINE_CHECKER_DEBUG === "1";
+
+  return {
+    modelSpec: fileModel ?? envModel ?? null,
+    debug: fileDebug ?? envDebug,
+    configError,
+  };
+}
 
 function parseModelSpec(
   spec: string,
@@ -117,88 +183,60 @@ interface ToolResultMessage {
 // ---------------------------------------------------------------------------
 
 export default function (pi: ExtensionAPI) {
-  const modelSpec = parseModelSpec(MODEL_SPEC);
-  if (!modelSpec) {
-    console.warn(
-      `[discipline-checker] Invalid DISCIPLINE_CHECKER_MODEL=${MODEL_SPEC} ` +
-        `(expected "provider/modelId") — extension inert.`,
-    );
-    return;
-  }
-
-  // Resolved on first turn (we need ctx for the session id default) and
-  // cached for the rest of the session.
-  let findingsPath: string | null = null;
-  // Once we determine the configured model+auth doesn't work, stop trying
-  // every turn. Notify the user the first time it happens; stay quiet after.
+  // True after a fatal setup problem (model unavailable, auth missing,
+  // checker call always erroring). Reset to false when the resolved model
+  // spec changes — e.g. the user edits the config file to fix things.
   let inert = false;
+  // Tracks the last `cfg.modelSpec` we observed. Comparing across turns
+  // lets us detect a config edit and retry the extension.
+  let lastResolvedModelSpec: string | null = null;
 
   pi.on("turn_end", async (event, ctx) => {
+    const cfg = resolveConfig();
+
+    // Config-driven inert reset: if the model spec changed since last
+    // turn, give the extension another chance.
+    if (cfg.modelSpec !== lastResolvedModelSpec) {
+      lastResolvedModelSpec = cfg.modelSpec;
+      inert = false;
+    }
+
     if (inert) return;
-    if (!findingsPath) {
-      findingsPath = resolveFindingsPath(ctx);
-      console.log(`[discipline-checker] findings → ${findingsPath}`);
+
+    if (cfg.configError) {
+      notifyUser(
+        ctx,
+        `discipline-checker: ${cfg.configError}. Fix the file (or remove it) ` +
+          `and the next turn will retry. Inert for now.`,
+        "error",
+      );
+      inert = true;
+      return;
+    }
+
+    if (!cfg.modelSpec) {
+      notifyUser(
+        ctx,
+        `discipline-checker: no model configured. Set "model" in ${CONFIG_PATH} ` +
+          `(e.g. {"model": "deepseek/deepseek-v4-flash"}) or DISCIPLINE_CHECKER_MODEL ` +
+          `env var. Inert.`,
+        "error",
+      );
+      inert = true;
+      return;
+    }
+
+    if (cfg.debug) {
+      const partCount =
+        (event.message as { content?: unknown[] } | undefined)?.content
+          ?.length ?? 0;
+      console.error(
+        `[discipline-checker] turn ${event.turnIndex} fired ` +
+          `(model=${cfg.modelSpec}, partCount=${partCount})`,
+      );
     }
     try {
       const message = event.message as AssistantMessage | undefined;
-
-      // Heartbeat: prove the hook fires even when we early-return below.
-      // Gated on env so it disappears in normal use.
-      if (process.env.DISCIPLINE_CHECKER_DEBUG === "1") {
-        const msg = message;
-        const partCount = msg?.content?.length ?? 0;
-        const trCount =
-          (event.toolResults as unknown[] | undefined)?.length ?? 0;
-        const entries =
-          (ctx.sessionManager?.getEntries?.() as unknown[] | undefined) ?? [];
-        let entryRoles: string[] = [];
-        try {
-          entryRoles = (
-            entries as Array<{
-              type?: string;
-              message?: { role?: string };
-            }>
-          ).map((e) =>
-            e.type === "message"
-              ? `msg:${e.message?.role ?? "?"}`
-              : `${e.type ?? "?"}`,
-          );
-        } catch {
-          /* shape unknown */
-        }
-        let windowSummary: Record<string, number> | null = null;
-        if (msg && msg.role === "assistant") {
-          try {
-            const w = collectWindowSinceLastUserMessage(ctx, msg);
-            windowSummary = {
-              texts: w.texts.length,
-              toolCalls: w.toolCalls.length,
-              toolResults: w.toolResults.length,
-            };
-          } catch {
-            /* best-effort debug */
-          }
-        }
-        void appendFinding(findingsPath, {
-          timestamp: new Date().toISOString(),
-          sessionId: null,
-          sessionFile: null,
-          turnIndex: event.turnIndex,
-          cwd: ctx.cwd,
-          checker: MODEL_SPEC,
-          discipline: "verify-action-claims",
-          debug: "turn_end-fired",
-          messageRole: msg?.role ?? null,
-          partCount,
-          toolResultCount: trCount,
-          entriesCount: entries.length,
-          entryRoles,
-          windowSummary,
-        }).catch(() => {
-          /* best-effort */
-        });
-      }
-
       if (!message || message.role !== "assistant") return;
 
       // Trigger: this turn contains text (claim moment). Toolcall-only turns
@@ -219,37 +257,25 @@ export default function (pi: ExtensionAPI) {
         window.toolResults,
       );
       if (transcript.length > MAX_TOTAL_PROMPT_CHARS) {
-        // Skip oversized turns rather than truncate-and-misdiagnose for v0.
-        // We can revisit with smarter windowing once we see how often this fires.
+        // Skip oversized turns rather than truncate-and-misdiagnose.
+        if (cfg.debug) {
+          console.error(
+            `[discipline-checker] turn ${event.turnIndex} skipped ` +
+              `(transcript ${transcript.length} > ${MAX_TOTAL_PROMPT_CHARS} chars)`,
+          );
+        }
         return;
       }
 
-      const sessionFile = ctx.sessionManager?.getSessionFile?.() ?? null;
-      const sessionId = sessionFile
-        ? path.basename(sessionFile, ".jsonl")
-        : null;
-
-      const meta: FindingMeta = {
-        timestamp: new Date().toISOString(),
-        sessionId,
-        sessionFile,
-        turnIndex: event.turnIndex,
-        cwd: ctx.cwd,
-        checker: MODEL_SPEC,
-        discipline: "verify-action-claims",
-      };
-
-      if (transcript.length > MAX_TOTAL_PROMPT_CHARS) {
-        // Don't ship a 40k+ char prompt at the checker; truncating it
-        // could misdiagnose. Record the skip so the audit trail is
-        // honest about what we did and didn't check.
-        await appendFinding(findingsPath, {
-          ...meta,
-          stage: "skipped",
-          reason: "oversized",
-          transcriptLen: transcript.length,
-          maxPromptChars: MAX_TOTAL_PROMPT_CHARS,
-        }).catch(() => {});
+      const modelSpec = parseModelSpec(cfg.modelSpec);
+      if (!modelSpec) {
+        notifyUser(
+          ctx,
+          `discipline-checker: invalid model spec "${cfg.modelSpec}" ` +
+            `(expected "provider/modelId"). Inert.`,
+          "error",
+        );
+        inert = true;
         return;
       }
 
@@ -262,18 +288,11 @@ export default function (pi: ExtensionAPI) {
       if (!model) {
         notifyUser(
           ctx,
-          `discipline-checker: model "${MODEL_SPEC}" not found in registry. ` +
-            `Set DISCIPLINE_CHECKER_MODEL to a configured model (e.g. ` +
-            `amazon-bedrock/global.anthropic.claude-haiku-4-5, ` +
-            `google/gemini-2.5-flash) or unset to use the ` +
-            `default (${DEFAULT_MODEL_SPEC}). Extension inert for the rest of this session.`,
+          `discipline-checker: model "${cfg.modelSpec}" not found in registry. ` +
+            `Set "model" in ${CONFIG_PATH} to a configured model and the next ` +
+            `turn will retry. Inert for now.`,
           "error",
         );
-        await appendFinding(findingsPath, {
-          ...meta,
-          stage: "model-unavailable",
-          requestedModel: MODEL_SPEC,
-        }).catch(() => {});
         inert = true;
         return;
       }
@@ -281,16 +300,9 @@ export default function (pi: ExtensionAPI) {
         notifyUser(
           ctx,
           `discipline-checker: provider "${modelSpec.provider}" has no ` +
-            `configured auth on this machine. Set DISCIPLINE_CHECKER_MODEL ` +
-            `to a model whose provider is configured (run \`pi\` and check ` +
-            `available models). Extension inert for the rest of this session.`,
+            `configured auth on this machine. Inert.`,
           "error",
         );
-        await appendFinding(findingsPath, {
-          ...meta,
-          stage: "auth-not-configured",
-          requestedModel: MODEL_SPEC,
-        }).catch(() => {});
         inert = true;
         return;
       }
@@ -298,26 +310,18 @@ export default function (pi: ExtensionAPI) {
       if (!auth.ok) {
         notifyUser(
           ctx,
-          `discipline-checker: auth for "${MODEL_SPEC}" unavailable: ${auth.error}. ` +
-            `Extension inert for the rest of this session.`,
+          `discipline-checker: auth for "${cfg.modelSpec}" unavailable: ${auth.error}. Inert.`,
           "error",
         );
-        await appendFinding(findingsPath, {
-          ...meta,
-          stage: "auth-unavailable",
-          requestedModel: MODEL_SPEC,
-          authError: auth.error,
-        }).catch(() => {});
         inert = true;
         return;
       }
 
-      if (process.env.DISCIPLINE_CHECKER_DEBUG === "1") {
-        void appendFinding(findingsPath, {
-          ...meta,
-          debug: "about-to-call-checker",
-          transcriptLen: transcript.length,
-        }).catch(() => {});
+      if (cfg.debug) {
+        console.error(
+          `[discipline-checker] turn ${event.turnIndex} calling checker ` +
+            `(transcript=${transcript.length} chars)`,
+        );
       }
 
       const startedAt = Date.now();
@@ -345,58 +349,59 @@ export default function (pi: ExtensionAPI) {
         const stopReason = result.stopReason ?? null;
         const errorMessage = (result as { errorMessage?: string }).errorMessage;
         const isError = stopReason === "error" || stopReason === "aborted";
+
         if (isError) {
           notifyUser(
             ctx,
-            `discipline-checker: checker call failed: ${errorMessage ?? "unknown"}. ` +
-              `Extension inert for the rest of this session.`,
+            `discipline-checker: checker call failed: ${errorMessage ?? "unknown"}. Inert.`,
             "error",
           );
           inert = true;
+          return;
         }
-        const noViolations = !isError && isNoViolationsResponse(reportText);
-        await appendFinding(findingsPath, {
-          ...meta,
-          durationMs,
-          stopReason,
-          model: result.responseModel ?? result.model ?? MODEL_SPEC,
-          usage: result.usage ?? null,
-          ...(isError
-            ? {
-                stage: "complete-error",
-                error: errorMessage ?? "unknown",
-              }
-            : {
-                noViolations,
-                report: reportText,
-              }),
+
+        if (cfg.debug) {
+          const usageStr = result.usage ? JSON.stringify(result.usage) : "-";
+          console.error(
+            `[discipline-checker] turn ${event.turnIndex} done ` +
+              `(${durationMs}ms, stopReason=${stopReason}, usage=${usageStr})`,
+          );
+        }
+
+        if (isNoViolationsResponse(reportText) || !reportText) {
+          // Silent on "all clear" — no notification, no entry. The whole
+          // point of this extension is to free up the main task; "no
+          // violations" every turn would be noise.
+          return;
+        }
+
+        // Inject the violation report into the session. The agent sees it
+        // in next-turn context (so it can self-correct or acknowledge);
+        // the TUI renders it inline as a custom message so the user can
+        // see that a check fired. The <discipline-checker> wrapper makes
+        // the side-channel nature unambiguous to the next-turn LLM.
+        const wrapped = `<discipline-checker>\n${reportText}\n</discipline-checker>`;
+        pi.sendMessage({
+          customType: "discipline-checker",
+          content: wrapped,
+          display: true,
         });
       } catch (err) {
         const durationMs = Date.now() - startedAt;
-        await appendFinding(findingsPath, {
-          ...meta,
-          durationMs,
-          error: err instanceof Error ? err.message : String(err),
-          stage: "complete",
-        }).catch(() => {});
+        if (cfg.debug) {
+          console.error(
+            `[discipline-checker] turn ${event.turnIndex} failed ` +
+              `after ${durationMs}ms: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
       }
     } catch (err) {
       // Never let the extension crash the main turn lifecycle.
-      const fp = findingsPath ?? FINDINGS_PATH_OVERRIDE ?? null;
-      if (fp) {
-        void appendFinding(fp, {
-          timestamp: new Date().toISOString(),
-          sessionId: null,
-          sessionFile: null,
-          turnIndex: event.turnIndex,
-          cwd: ctx.cwd,
-          checker: MODEL_SPEC,
-          discipline: "verify-action-claims",
-          error: err instanceof Error ? err.message : String(err),
-          stage: "turn_end-handler",
-        }).catch(() => {
-          /* best-effort */
-        });
+      if (cfg.debug) {
+        console.error(
+          `[discipline-checker] turn ${event.turnIndex} handler error: ` +
+            (err instanceof Error ? err.message : String(err)),
+        );
       }
     }
   });
@@ -605,19 +610,8 @@ function formatToolResultContent(result: ToolResultMessage): string {
 }
 
 // ---------------------------------------------------------------------------
-// ---------------------------------------------------------------------------
 // Checker output + helpers
 // ---------------------------------------------------------------------------
-
-interface FindingMeta {
-  timestamp: string;
-  sessionId: string | null;
-  sessionFile: string | null;
-  turnIndex: number;
-  cwd: string;
-  checker: string;
-  discipline: string;
-}
 
 /** Pull the text content out of a complete()-returned AssistantMessage. */
 function extractAssistantText(msg: {
@@ -655,30 +649,4 @@ function notifyUser(
     // Print mode (`pi -p`): no UI, fall back to stderr so the user still sees it.
     console.error(`[discipline-checker] ${message}`);
   }
-}
-
-function resolveFindingsPath(ctx: ExtensionContext): string {
-  if (FINDINGS_PATH_OVERRIDE) return FINDINGS_PATH_OVERRIDE;
-  // Per-session default file under tmpdir so concurrent sessions don't
-  // compete for one file. Findings persist for the OS's tmp lifetime.
-  const sid = ctx.sessionManager?.getSessionId?.() ?? "unknown";
-  return path.join(os.tmpdir(), `pi-discipline-findings-${sid}.jsonl`);
-}
-
-// ---------------------------------------------------------------------------
-// Finding output (jsonl append, queued for write safety)
-// ---------------------------------------------------------------------------
-
-async function appendFinding(
-  findingsPath: string,
-  record: Record<string, unknown>,
-): Promise<void> {
-  await withFileMutationQueue(findingsPath, async () => {
-    await fs.promises.mkdir(path.dirname(findingsPath), { recursive: true });
-    await fs.promises.appendFile(
-      findingsPath,
-      JSON.stringify(record) + "\n",
-      "utf-8",
-    );
-  });
 }
