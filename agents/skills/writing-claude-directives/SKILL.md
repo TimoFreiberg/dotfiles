@@ -32,6 +32,12 @@ because untested commits break CI for the team" beats a bare "run tests
 before commit." Don't repeat the why every time the rule applies; once is
 enough.
 
+**Honest vagueness over fake precision.** Precise-looking claims (versions,
+dates, counts, authorship) not grounded in primary evidence rot and
+propagate — downstream agents cite them without re-verifying. See
+[writing-claude-md-files](../writing-claude-md-files/SKILL.md) for the
+doc-level treatment.
+
 **Placement matters.** First and last lines of a prompt get the most
 attention. Put critical constraints at the boundaries.
 

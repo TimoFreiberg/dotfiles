@@ -165,6 +165,16 @@ Stale CLAUDE.md is worse than missing CLAUDE.md — it's wrong with
 confidence. When you touch a domain whose contracts changed, update the
 date in the same change.
 
+## Honest vagueness over fake precision
+
+The claim-level version of the freshness concern: a precise claim sourced
+from prose rather than primary evidence — version numbers, dates, counts,
+authorship, fork points — rots over time AND propagates forward, because
+downstream agents cite the number as authoritative without re-verifying.
+"A long time ago" beats "forked from 2.1.4" unless 2.1.4 is grounded in
+git log, release notes, or package metadata. Applies to all agent-facing
+prose: CLAUDE.md, AGENTS.md, team READMEs, PR descriptions.
+
 ## When to add a subdirectory file
 
 Add one when the domain has:
