@@ -119,6 +119,17 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.claude/hooks/user-prompt-timestamp.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "WorktreeCreate": [
       {
         "hooks": [
