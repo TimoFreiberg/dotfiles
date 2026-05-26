@@ -95,12 +95,27 @@ const BASH_WORK_MARKERS: readonly string[] = [
   "tee ",
 ];
 
-// Substrings that mean the prompt directly invoked the journal CLI.
-// Clears the nudge AND doesn't count as "work" (journaling is cleanup,
-// not fresh judgment-formation).
-const JOURNAL_BASH_MARKERS: readonly string[] = [
-  "skills/journal/scripts/journal",
-];
+// Pattern matching a journal-CLI invocation. Clears the nudge AND
+// doesn't count as "work" (journaling is cleanup, not fresh
+// judgment-formation).
+//
+// We match on the invocation shape (`scripts/journal` followed by a
+// mode arg) rather than on a path substring like
+// `skills/journal/scripts/journal`, because the path-substring check
+// silently misses two real shapes the agent uses:
+//
+// - `cd /…/skills/journal && ./scripts/journal observation "…"` —
+//   the `&& ./` between `skills/journal` and `scripts/journal` breaks
+//   the contiguous match.
+// - `SKILL_DIR=/…/skills/journal; $SKILL_DIR/scripts/journal observation "…"`
+//   — once bash expands the variable the literal `skills/journal/`
+//   prefix is gone from the second statement.
+//
+// The mode-arg anchor (` decision ` / ` observation `) avoids matching
+// `scripts/journal-extract-*` (different skill, distinct scripts) and
+// non-invoking reads like `cat scripts/journal`.
+const JOURNAL_INVOCATION_PATTERN =
+  /scripts\/journal\s+(?:decision|observation)\b/;
 
 // Content of the injected nudge. Kept short — the agent has internalized
 // what counts as a fork. Wrapped in <system-reminder> because pi's
@@ -158,7 +173,7 @@ function scanPrompt(messages: readonly AgentMessage[]): ScanResult {
 
       if (name === "bash") {
         const cmd = typeof args.command === "string" ? args.command : "";
-        if (JOURNAL_BASH_MARKERS.some((m) => cmd.includes(m))) {
+        if (JOURNAL_INVOCATION_PATTERN.test(cmd)) {
           didJournal = true;
         } else if (BASH_WORK_MARKERS.some((m) => cmd.includes(m))) {
           workCount += 1;
