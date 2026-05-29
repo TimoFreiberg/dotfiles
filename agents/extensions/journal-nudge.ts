@@ -128,7 +128,9 @@ const JOURNAL_INVOCATION_PATTERN =
 const NUDGE_REASON =
   "<journal-nudge>" +
   "this turn did work and didn't journal. " +
-  "if a fork or correction formed, call the journal skill now." +
+  "if a fork or correction formed that's generally applicable AND isn't " +
+  "already in your blocks/skills/AGENTS.md, call the journal skill now. " +
+  "if multiple forks qualify, pick the single most durable — don't batch." +
   "</journal-nudge>";
 
 // Safety-net cooldown in case the `alreadyNudged` scan doesn't catch
