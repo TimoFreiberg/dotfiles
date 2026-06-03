@@ -10,13 +10,17 @@
  * without tool registration conflicts.
  */
 
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+  ExtensionAPI,
+  ExtensionContext,
+} from "@earendil-works/pi-coding-agent";
 import {
-  createReadTool,
-  createBashTool,
-  createWriteTool,
-  createGrepTool,
-  createFindTool,
+  createBashToolDefinition,
+  createReadToolDefinition,
+  createWriteToolDefinition,
+  createGrepToolDefinition,
+  createFindToolDefinition,
+  type ToolDefinition,
 } from "@earendil-works/pi-coding-agent";
 import {
   readToolRender,
@@ -26,59 +30,83 @@ import {
   findToolRender,
 } from "./lib/compact-tool-render.ts";
 
+type ToolFactory = (cwd: string) => ToolDefinition;
+
+function registerCompactTool(
+  pi: ExtensionAPI,
+  factory: ToolFactory,
+  render: Record<string, unknown>,
+  displayCwd: string,
+): void {
+  const def = factory(displayCwd);
+  pi.registerTool({
+    name: def.name,
+    label: def.label,
+    description: def.description,
+    parameters: def.parameters as any,
+    promptSnippet: def.promptSnippet,
+    execute: async (toolCallId, params, signal, onUpdate, ctx) => {
+      // Use the session's actual cwd at execution time, not process.cwd()
+      const actualCwd =
+        (ctx as ExtensionContext | undefined)?.cwd ?? displayCwd;
+      const actual = factory(actualCwd);
+      return actual.execute(toolCallId, params, signal, onUpdate);
+    },
+    ...render,
+  });
+}
+
 export default function (pi: ExtensionAPI) {
-  const cwd = process.cwd();
+  // process.cwd() is fine for display (path shortening), but the tool's
+  // execute function must use ctx.cwd (the session workspace path) at
+  // runtime — especially in pi-gui where the Electron process CWD differs
+  // from the workspace.
+  const displayCwd = process.cwd();
 
-  // Override read, write, bash, grep, and find with compact rendering.
-  // ls and edit are left as built-in (compact rendering overhead not worth it).
-
-  const readDef = createReadTool(cwd);
-  pi.registerTool({
-    ...readDef,
-    parameters: { ...(readDef.parameters as any) },
-    ...readToolRender(cwd),
-  });
-
-  const writeDef = createWriteTool(cwd);
-  pi.registerTool({
-    ...writeDef,
-    parameters: { ...(writeDef.parameters as any) },
-    ...writeToolRender(cwd),
-  });
-
-  const bashDef = createBashTool(cwd, {
-    spawnHook: ({ command, cwd, env }) => ({
-      command,
-      cwd,
-      env: {
-        ...env,
-        CI: "true",
-        EDITOR: "false",
-        GIT_EDITOR: "false",
-        GIT_PAGER: "cat",
-        JJ_EDITOR: "false",
-        MANPAGER: "cat",
-        PAGER: "cat",
-      },
-    }),
-  });
-  pi.registerTool({
-    ...bashDef,
-    parameters: { ...(bashDef.parameters as any) },
-    ...bashToolRender(cwd),
-  });
-
-  const grepDef = createGrepTool(cwd);
-  pi.registerTool({
-    ...grepDef,
-    parameters: { ...(grepDef.parameters as any) },
-    ...grepToolRender(cwd),
-  });
-
-  const findDef = createFindTool(cwd);
-  pi.registerTool({
-    ...findDef,
-    parameters: { ...(findDef.parameters as any) },
-    ...findToolRender(cwd),
-  });
+  registerCompactTool(
+    pi,
+    createReadToolDefinition,
+    readToolRender(displayCwd),
+    displayCwd,
+  );
+  registerCompactTool(
+    pi,
+    createWriteToolDefinition,
+    writeToolRender(displayCwd),
+    displayCwd,
+  );
+  registerCompactTool(
+    pi,
+    (cwd) =>
+      createBashToolDefinition(cwd, {
+        spawnHook: ({ command, cwd, env }) => ({
+          command,
+          cwd,
+          env: {
+            ...env,
+            CI: "true",
+            EDITOR: "false",
+            GIT_EDITOR: "false",
+            GIT_PAGER: "cat",
+            JJ_EDITOR: "false",
+            MANPAGER: "cat",
+            PAGER: "cat",
+          },
+        }),
+      }),
+    bashToolRender(displayCwd),
+    displayCwd,
+  );
+  registerCompactTool(
+    pi,
+    createGrepToolDefinition,
+    grepToolRender(displayCwd),
+    displayCwd,
+  );
+  registerCompactTool(
+    pi,
+    createFindToolDefinition,
+    findToolRender(displayCwd),
+    displayCwd,
+  );
 }
