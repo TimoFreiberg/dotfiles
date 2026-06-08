@@ -46,7 +46,22 @@ export default function (pi: ExtensionAPI) {
     ...writeToolRender(cwd),
   });
 
-  const bashDef = createBashTool(cwd);
+  const bashDef = createBashTool(cwd, {
+    spawnHook: ({ command, cwd, env }) => ({
+      command,
+      cwd,
+      env: {
+        ...env,
+        CI: "true",
+        EDITOR: "false",
+        GIT_EDITOR: "false",
+        GIT_PAGER: "cat",
+        JJ_EDITOR: "false",
+        MANPAGER: "cat",
+        PAGER: "cat",
+      },
+    }),
+  });
   pi.registerTool({
     ...bashDef,
     parameters: { ...(bashDef.parameters as any) },
