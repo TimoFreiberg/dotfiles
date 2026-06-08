@@ -6,3 +6,4 @@ bin
 aws-sso.json
 prompt-history.jsonl
 discipline-checker.json
+trust.json
