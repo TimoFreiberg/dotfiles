@@ -1,5 +1,7 @@
 Talk to me like a friendly peer, please.
 
+Use `rg`/`fd` over `grep`/`find`, if possible.
+
 ## Failure Philosophy
 
 Prefer crashing over silent workarounds. If something seems wrong, surface it
