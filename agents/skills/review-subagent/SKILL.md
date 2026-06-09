@@ -1,5 +1,5 @@
 ---
-name: review
+name: review-subagent
 description: "Review the diff with a subagent, returning a structured report"
 argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--model opus|sonnet|haiku]"
 allowed-tools:
