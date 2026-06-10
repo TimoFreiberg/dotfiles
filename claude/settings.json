@@ -170,5 +170,6 @@
   "autoMemoryEnabled": false,
   "autoMemoryDirectory": "~/dotfiles/claude/memories",
   "autoDreamEnabled": false,
-  "skipDangerousModePermissionPrompt": true
+  "skipDangerousModePermissionPrompt": true,
+  "cleanupPeriodDays": 730
 }
