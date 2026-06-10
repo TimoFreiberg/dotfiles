@@ -5,6 +5,47 @@
 
 set -l had_errors 0
 
+# Fetch + fast-forward a jj-backed repo's bookmark to its origin counterpart.
+# Returns nonzero if a step failed; a missing dir is a soft skip (return 0),
+# since some repos (e.g. work checkouts) only exist on certain machines.
+function update_jj_repo --argument-names name dir bookmark
+    if not test -d "$dir"
+        echo "  ℹ  $dir not found — skipping $name"
+        return 0
+    end
+
+    cd "$dir"
+    set -l had_err 0
+
+    echo "  $name: fetching from origin..."
+    jj git fetch; or begin
+        echo "  ⚠ $name: jj git fetch failed (exit $status)"; set had_err 1
+    end
+
+    # Check if $bookmark@origin exists after fetch
+    if jj log -r "$bookmark@origin" --no-graph 2>/dev/null | head -1 | string match -q '*'
+        set -l local_id (jj log -r "$bookmark" --no-graph -T 'commit_id' 2>/dev/null)
+        set -l origin_id (jj log -r "$bookmark@origin" --no-graph -T 'commit_id' 2>/dev/null)
+
+        if test "$local_id" = "$origin_id"
+            echo "  ✓ $name: $bookmark is already up to date with origin"
+        else if jj log -r "$bookmark::$bookmark@origin" --no-graph 2>/dev/null | grep -q .
+            echo "  $name: fast-forwarding $bookmark to $bookmark@origin..."
+            jj bookmark set $bookmark -r $bookmark@origin; and echo "  ✓ $name: $bookmark fast-forwarded"; or begin
+                echo "  ⚠ $name: fast-forward failed (exit $status)"; set had_err 1
+            end
+        else
+            echo "  ⚠ $name: $bookmark has diverged from origin — cannot fast-forward"
+            echo "     (local $bookmark is not an ancestor of origin's $bookmark)"
+        end
+    else
+        echo "  ℹ  $name: $bookmark@origin not found after fetch — skipping fast-forward"
+    end
+
+    cd -
+    return $had_err
+end
+
 echo "========================================"
 echo "           Daily System Update"
 echo "========================================"
@@ -145,47 +186,14 @@ end
 echo ""
 
 # ──────────────────────────────────────────────
-# 6. Dotfiles (jj)
+# 6. jj-backed repos (fetch + fast-forward)
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 6/6  dotfiles (jj git fetch + fast-forward)"
+echo " 6/6  repos (jj git fetch + fast-forward)"
 echo "──────────────────────────────────────────"
 
-set -l dotfiles_dir "$HOME/dotfiles"
-
-if test -d "$dotfiles_dir"
-    cd "$dotfiles_dir"
-
-    echo "  Fetching from origin..."
-    jj git fetch; or begin
-        echo "  ⚠ jj git fetch failed (exit $status)"; set had_errors 1
-    end
-
-    # Check if main@origin exists after fetch
-    if jj log -r 'main@origin' --no-graph 2>/dev/null | head -1 | string match -q '*'
-        set -l main_id (jj log -r 'main' --no-graph -T 'commit_id' 2>/dev/null)
-        set -l origin_id (jj log -r 'main@origin' --no-graph -T 'commit_id' 2>/dev/null)
-
-        if test "$main_id" = "$origin_id"
-            echo "  ✓ main is already up to date with origin"
-        else if jj log -r 'main::main@origin' --no-graph 2>/dev/null | grep -q .
-            echo "  Fast-forwarding main to main@origin..."
-            jj bookmark set main -r main@origin; and echo "  ✓ main fast-forwarded"; or begin
-                echo "  ⚠ fast-forward failed (exit $status)"; set had_errors 1
-            end
-        else
-            echo "  ⚠ main has diverged from origin — cannot fast-forward"
-            echo "     (local main is not an ancestor of origin's main)"
-        end
-    else
-        echo "  ℹ  main@origin not found after fetch — skipping fast-forward"
-    end
-
-    cd -
-else
-    echo "  ⚠ $dotfiles_dir not found — skipping"
-    set had_errors 1
-end
+update_jj_repo dotfiles "$HOME/dotfiles" main; or set had_errors 1
+update_jj_repo skepsis "$HOME/src/skepsis" main; or set had_errors 1
 echo ""
 
 # ──────────────────────────────────────────────
