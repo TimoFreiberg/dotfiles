@@ -171,5 +171,6 @@
   "autoMemoryDirectory": "~/dotfiles/claude/memories",
   "autoDreamEnabled": false,
   "skipDangerousModePermissionPrompt": true,
-  "cleanupPeriodDays": 730
+  "cleanupPeriodDays": 730,
+  "skipWorkflowUsageWarning": true
 }
