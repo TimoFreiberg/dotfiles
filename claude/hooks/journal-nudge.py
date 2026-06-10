@@ -10,8 +10,10 @@ Design:
 - Walk backward to find the start of the current turn (last user-role text
   message).
 - Scan assistant messages since then for (a) "work" tool uses (Edit/Write/
-  NotebookEdit/non-recon Bash), (b) any invocation of the `journal`/
-  `prowl:journal` skill.
+  NotebookEdit/non-recon Bash), (b) any invocation of a journal skill
+  (any skill whose name contains "journal", e.g. `journal`, `journal-thia`,
+  `prowl:journal-thia`) or a direct `journal <decision|observation>` CLI
+  call.
 - If (a) happened >= MIN_WORK_COUNT times and (b) didn't, emit
     {"decision": "block", "reason": "<nudge>"}
   so Claude gets one more inference pass with the nudge visible.
@@ -22,6 +24,7 @@ Tunables near the top so they're easy to adjust.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -88,14 +91,25 @@ BASH_WORK_MARKERS = (
     "tee ",
 )
 
-# Skills that satisfy "journaled" — we cleared the nudge.
-JOURNAL_SKILLS = {"journal", "prowl:journal"}
 
-# Substrings that, if they appear in a Bash command's command string, mean
-# the turn directly invoked the journal CLI (bypassing the Skill wrapper).
-# Both nest and prowl variants are covered because the skill symlink resolves
-# to the same script path under either repo layout.
-JOURNAL_BASH_MARKERS = ("skills/journal/scripts/journal",)
+# A Skill use satisfies "journaled" if its skill name contains "journal".
+# Substring (not an exact set) so the check survives renames and namespacing:
+# `journal` (generic), `journal-thia` (identity), `prowl:journal-thia` (plugin
+# namespace) all clear the nudge without per-name maintenance.
+def is_journal_skill(skill: str) -> bool:
+    return "journal" in skill.lower()
+
+
+# A direct CLI call to the journal script also satisfies "journaled". Match
+# `scripts/journal` followed by a mode arg, rather than a fixed full path
+# like `skills/journal/scripts/journal`. The script filename stays `journal`
+# under any skill dir, so this is path-prefix-agnostic — it survives the
+# skill dir rename (skills/journal → skills/journal-thia) and catches direct
+# invocations regardless of where the skill lives. The `scripts/journal`
+# anchor + mode arg avoids matching `scripts/journal-extract-*` (different
+# skill) and non-invoking reads like `cat scripts/journal`. Mirrors the pi
+# extension's JOURNAL_INVOCATION_PATTERN.
+JOURNAL_BASH_RE = re.compile(r"scripts/journal\s+(?:decision|observation)\b")
 
 # The actual prompt Claude sees when we block. One-liner shape — Claude
 # has internalized what counts as a fork, so just the trigger + action.
@@ -198,13 +212,13 @@ def scan_turn(entries: list[dict], start: int) -> dict:
             bi = block.get("input", {}) or {}
             if name == "Skill":
                 skill = bi.get("skill", "")
-                if skill in JOURNAL_SKILLS:
+                if is_journal_skill(skill):
                     did_journal = True
                 # Skills other than journal don't count as "work"
                 # on their own — they could be anything.
             elif name == "Bash":
                 cmd = bi.get("command", "") or ""
-                if any(m in cmd for m in JOURNAL_BASH_MARKERS):
+                if JOURNAL_BASH_RE.search(cmd):
                     did_journal = True
                 elif any(m in cmd for m in BASH_WORK_MARKERS):
                     work_count += 1
