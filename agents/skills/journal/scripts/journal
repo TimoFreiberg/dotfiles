@@ -1,0 +1,195 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
+"""Append a journal entry as one timestamped markdown file.
+
+This is the persona-less journal for generic coding agents (bare pi, the Claude
+app, Claude Code without an identity layer).
+It is deliberately not tailed to a persistent agent persona.
+Each call writes a single self-contained markdown file so concurrent agents on
+different machines never produce merge conflicts when the store is later synced
+— append-and-go, never edit-in-place.
+
+Entries land in a *staging* directory, not a synced repo. The default
+(~/agent-journal-staging) is a plain local buffer: a machine with no
+configuration can never leak work content to a synced personal remote.
+A machine that wants entries to flow into the shared memory inbox opts
+in by exporting AGENT_JOURNAL_DIR. That inversion is the safety property
+— absent config fails safe, not open.
+
+Output dir resolution (first match wins):
+  1. --dir <path>           explicit override (testing, routing)
+  2. $AGENT_JOURNAL_DIR     opt-in synced inbox on personal machines
+  3. ~/agent-journal-staging  local buffer default (created if missing)
+
+Each entry file carries YAML frontmatter the future scrub/consolidation
+pass reads for routing — most importantly `repo`, which lets that pass
+tell work-repo findings (scrub or drop) from personal ones (promote).
+
+Usage:
+  journal decision "Chose X over Y because ..." \
+      --alternative "Y: too slow on the hot path" \
+      --alternative "Z: rejected on cost"
+  journal observation "pi on Bedrock retries 429s with no backoff jitter"
+  journal observation "..." --tags pi,bedrock
+"""
+
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+DEFAULT_DIR = Path.home() / "agent-journal-staging"
+
+
+def detect_harness() -> str:
+    """Best-effort harness tag. Claude Code sets CLAUDECODE=1 in the tool
+    environment; pi does not. Used only for provenance, so a wrong guess
+    is cosmetic, never load-bearing."""
+    if os.environ.get("CLAUDECODE"):
+        return "claude"
+    return "pi"
+
+
+def detect_repo(cwd: Path) -> str:
+    """The repo root of cwd, if any — the work/personal routing signal the
+    scrub pass keys off. Tries jj first (preferred here), then git. Returns
+    an empty string when cwd isn't in a repo."""
+    for cmd in (["jj", "root"], ["git", "rev-parse", "--show-toplevel"]):
+        try:
+            out = subprocess.run(
+                cmd, cwd=cwd, capture_output=True, text=True, timeout=5
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if out.returncode == 0 and out.stdout.strip():
+            return out.stdout.strip()
+    return ""
+
+
+def detect_session() -> str:
+    """Harness session id when exposed, for cross-referencing an entry back
+    to its transcript. Absent under bare pi (no --session-id); that's fine."""
+    return (
+        os.environ.get("CLAUDE_CODE_SESSION_ID")
+        or os.environ.get("THIANIA_CLAUDE_SESSION")
+        or ""
+    )
+
+
+def slugify(text: str, max_words: int = 6) -> str:
+    """A short filename-safe slug from the entry's opening words. Only for
+    human-scannable filenames; the timestamp guarantees uniqueness, so a
+    collision-y slug is harmless."""
+    words = re.findall(r"[a-z0-9]+", text.lower())
+    slug = "-".join(words[:max_words])
+    return slug or "entry"
+
+
+def resolve_dir(override: str | None) -> Path:
+    if override:
+        return Path(override).expanduser()
+    env = os.environ.get("AGENT_JOURNAL_DIR")
+    if env:
+        return Path(env).expanduser()
+    return DEFAULT_DIR
+
+
+def build_entry(
+    *,
+    mode: str,
+    entry: str,
+    alternatives: list[str],
+    tags: list[str],
+    now: datetime,
+    harness: str,
+    repo: str,
+    cwd: Path,
+    session: str,
+) -> str:
+    lines = ["---", f"timestamp: {now.strftime('%Y-%m-%dT%H:%M:%SZ')}"]
+    lines.append(f"type: {mode}")
+    lines.append(f"harness: {harness}")
+    lines.append(f"cwd: {cwd}")
+    if repo:
+        lines.append(f"repo: {repo}")
+    if session:
+        lines.append(f"session: {session}")
+    if tags:
+        lines.append(f"tags: [{', '.join(tags)}]")
+    lines.append("---")
+    lines.append("")
+    lines.append(entry.strip())
+    if alternatives:
+        lines.append("")
+        lines.append("## Alternatives considered")
+        for alt in alternatives:
+            lines.append(f"- {alt}")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="journal", add_help=True)
+    parser.add_argument("mode", choices=["decision", "observation"])
+    parser.add_argument("entry", help="the entry text (prose)")
+    parser.add_argument(
+        "--alternative",
+        action="append",
+        default=[],
+        dest="alternatives",
+        help="decision-mode only; an option not chosen + why. Repeatable.",
+    )
+    parser.add_argument(
+        "--tags",
+        default="",
+        help="comma-separated freeform tags",
+    )
+    parser.add_argument(
+        "--dir",
+        default=None,
+        help="output dir override (else $AGENT_JOURNAL_DIR, else "
+        "~/agent-journal-staging)",
+    )
+    args = parser.parse_args()
+
+    if args.mode == "observation" and args.alternatives:
+        parser.error("--alternative is decision-mode only")
+
+    tags = [t.strip() for t in args.tags.split(",") if t.strip()]
+    now = datetime.now(timezone.utc)
+    cwd = Path.cwd()
+
+    out_dir = resolve_dir(args.dir)
+    # mkdir -p: a missing staging dir is first-run, not an error. The
+    # written path is printed below, so creation is never silent.
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    fname = f"{now.strftime('%Y-%m-%dT%H%M%SZ')}-{slugify(args.entry)}.md"
+    out_path = out_dir / fname
+
+    content = build_entry(
+        mode=args.mode,
+        entry=args.entry,
+        alternatives=args.alternatives,
+        tags=tags,
+        now=now,
+        harness=detect_harness(),
+        repo=detect_repo(cwd),
+        cwd=cwd,
+        session=detect_session(),
+    )
+    out_path.write_text(content)
+    print(f"journaled → {out_path}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

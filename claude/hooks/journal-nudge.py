@@ -102,7 +102,7 @@ JOURNAL_BASH_MARKERS = ("skills/journal/scripts/journal",)
 NUDGE_REASON = (
     "this turn did work and didn't journal. "
     "If a fork or correction formed that's generally applicable AND isn't "
-    "already in your blocks/skills/AGENTS.md, call prowl:journal now. "
+    "already in your skills/AGENTS.md, call the journal skill now. "
     "If multiple forks qualify, pick the single most durable — don't batch."
 )
 

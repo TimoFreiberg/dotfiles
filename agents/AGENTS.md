@@ -129,6 +129,17 @@ name and description fit the task in front of you, load it via the Skill
 tool before working. If nothing fits, ad-hoc is fine; notice if the same
 shape recurs and a new skill would be worth writing.
 
+## Journal
+
+When a judgment forms that a future session would benefit from — a
+correction from me, a wrong assumption about the environment, a fork you
+resolved, something you had to rediscover — capture it with the `journal`
+skill **at the moment of resolution**, not as session wrap-up. A later
+consolidation pass mines these entries for improvements to this file and
+the shared skills; that's how generic agents slowly learn from our work.
+Under-capture is the bigger risk than over-capture. Entries stage locally
+by default and never auto-sync, so journaling is always safe.
+
 ## Version Control Workflow
 
 Prefer `jj` over `git`. If anything goes wrong with jj, **read the jj skill

@@ -129,7 +129,7 @@ const NUDGE_REASON =
   "<journal-nudge>" +
   "this turn did work and didn't journal. " +
   "if a fork or correction formed that's generally applicable AND isn't " +
-  "already in your blocks/skills/AGENTS.md, call the journal skill now. " +
+  "already in your skills/AGENTS.md, call the journal skill now. " +
   "if multiple forks qualify, pick the single most durable — don't batch." +
   "</journal-nudge>";
 
@@ -220,7 +220,12 @@ function didEndAbnormally(messages: readonly AgentMessage[]): boolean {
 // ---------------------------------------------------------------------------
 
 export default function (pi: ExtensionAPI) {
-  if (!process.env.THIANIA_ROLE) return;
+  // Nudge every pi session, not just Thia's. The generic `journal` skill
+  // (dotfiles/agents/skills/journal) is available to bare pi, and the
+  // nudge text + JOURNAL_INVOCATION_PATTERN are skill-agnostic, so the
+  // detection works for both. Thia's prowl harness also loads this
+  // extension; a redundant nudge there is harmless (and prowl-Thia is
+  // being retired anyway).
 
   let lastNudgeAt = 0;
 
