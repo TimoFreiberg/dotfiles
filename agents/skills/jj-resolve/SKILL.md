@@ -1,118 +1,141 @@
 ---
 name: jj-resolve
-description: "Resolve jj (Jujutsu) conflicts. Use when jj log/status shows conflicted revisions."
+description: "Resolve jj (Jujutsu) conflicts. Use when jj log/status shows conflicted revisions, a rebase/squash/abandon reports 'new conflicts appeared', or files contain jj conflict markers."
 argument-hint: "[<change-id>]"
 ---
 
 # Resolve jj Conflicts
 
-Resolve conflicts in jj revisions by understanding the intent of both sides, then
-writing the merged result and squashing into the conflicted commit.
+Resolve conflicts by understanding the intent of both sides, then editing the
+conflict markers out of the file and squashing the fix into the conflicted
+commit.
 
-## Step 1: Identify conflicted revision
+## Core idea
 
-If `$ARGUMENTS` contains a change ID, use that. Otherwise find conflicts:
+jj conflicts are not a stop-the-world state. A rebase never halts halfway:
+conflicts are recorded *inside* the affected commits (shown as `×` /
+`(conflict)` in `jj log`), and the markers are materialized in the working
+copy when a conflicted commit is checked out. Resolving means rewriting the
+conflicted commit so its tree is conflict-free — descendants rebase
+automatically and their conflicts usually disappear with the parent's.
+
+**Never run bare `jj resolve`** (with or without a file argument) — it
+launches an interactive merge TUI, which errors out without a TTY and hangs
+with one. The agent-friendly path is editing the markers in the file
+directly; jj's snapshotting picks the resolution up. `jj resolve --list` is
+fine (read-only, lists conflicted files).
+
+## Step 1: Find the conflicted revisions
+
+If `$ARGUMENTS` contains a change ID, use that. Otherwise:
 
 ```bash
 jj log --no-pager -r 'conflicts()'
 ```
 
-If multiple conflicts exist, start with the earliest ancestor (topologically first) —
+Start with the earliest conflicted revision — `roots(conflicts())` — since
 resolving a parent often auto-resolves descendants.
 
-## Step 2: Examine the conflict
+## Step 2: Get the markers into the working copy
 
-Show the full conflict diff:
+- If `@` is the earliest conflicted revision, the markers are already
+  materialized in the working copy. Edit them in place; the next snapshot
+  records the resolution. No squash needed — skip Step 6.
+- Otherwise, create a resolution change on top of the conflicted commit
+  (don't describe it — see Step 6):
 
 ```bash
-jj show <change-id> --no-pager
+jj new <change-id>
+jj resolve --list   # which files are conflicted
 ```
-
-This shows conflict markers in the format:
-
-```
-<<<<<<< conflict N of M
-+++++++ <side-a info>
-<side A content>
-%%%%%%% <diff description>
-\\\\\\\        to: <side B info>
- <context>
-+<added by side B>
--<removed by side B>
->>>>>>> conflict N of M ends
-```
-
-Or the alternate form where `%%%%%%%` (a diff) comes first and `+++++++` (snapshot) second.
-
-**Read both descriptions** in the conflict markers — they name the commits/changes
-involved and explain what each side intended.
 
 ## Step 3: Understand both sides
 
-For each conflict:
+Markers look like this (sections can appear in either order; a merge of more
+than two sides adds more sections):
 
-1. **Identify the upstream change**: The rebase destination or the change being rebased onto.
-2. **Identify the local change**: The rebased revision (your change).
-3. **Determine if they conflict logically** or just textually:
-   - **Same intent** (both fix the same bug differently): Pick the better one, or drop yours if upstream's is merged.
-   - **Orthogonal changes** (touching the same lines for different reasons): Merge both — take upstream's structural changes and integrate your additions.
-   - **Contradictory changes**: Flag to the user and ask which direction to go.
+```
+<<<<<<< conflict 1 of 1
+%%%%%%% diff from: voptwvkk 3ca4473a "base" (parents of rebased revision)
+\\\\\\\        to: ovmtrtnw 1e713d41 "side A" (rebase destination)
+-line2
++line2 changed by A
++++++++ tzytqppo a545ed55 "side B" (rebased revision)
+line2 changed by B
+>>>>>>> conflict 1 of 1 ends
+```
 
-When unsure about a change's purpose, examine it in isolation:
+The `+++++++` section is a snapshot of one side; the `%%%%%%%` section is a
+diff showing what the other side changed relative to the common base. The
+mechanical resolution is "apply that diff to the snapshot" — but read the
+labels first: they name the commits involved and what role each played.
+
+Then decide whether the sides conflict logically or just textually:
+
+- **Same intent** (both fix the same bug differently): pick the better one,
+  or drop yours if upstream's is already merged.
+- **Orthogonal changes** (same lines, different reasons): merge both — take
+  upstream's structural changes and integrate your additions into them, using
+  upstream's new helpers/patterns where applicable.
+- **Contradictory changes**: flag to the user and ask which direction to go.
+
+When unsure about a side's purpose, examine it in isolation:
 
 ```bash
 jj diff --no-pager --git -r <change-id>
 ```
 
-Or look at the upstream commit directly:
+## Step 4: Write the resolution
+
+Read the **full** conflicted file first — markers are inline and you need the
+surrounding context. Then write the complete resolved file with every marker
+line removed. Leftover markers mean the conflict is still recorded.
+
+## Step 5: Verify
 
 ```bash
-git show <commit-hash> -- <file-path>
+jj st --no-pager
 ```
 
-## Step 4: Read the full conflicted file
+The conflict warning should be gone. In the `jj new` workflow it shows:
+`Hint: Conflict in parent commit has been resolved in working copy`.
 
-**Always** read the full file before editing — the conflict markers are inline and
-you need the surrounding context:
-
-```
-read packages/foo/src/bar.ts
-```
-
-## Step 5: Write the resolved file
-
-Write the complete resolved file (no conflict markers). When merging orthogonal changes:
-
-- Take upstream's structural refactors (renames, new abstractions, new methods)
-- Integrate your additions into the new structure
-- Use upstream's new helpers/patterns where applicable (e.g., if upstream added
-  `notifyBranchChange()`, use it instead of manually iterating callbacks)
-
-## Step 6: Verify and squash
-
-Check the resolution resolved the conflict:
-
-```bash
-jj status --no-pager
-```
-
-Should show: `Hint: Conflict in parent commit has been resolved in working copy`
-
-Squash the resolution into the conflicted commit:
+## Step 6: Squash the resolution (jj new workflow only)
 
 ```bash
 jj squash --no-pager
 ```
 
-Check if descendant conflicts were also resolved:
+Bare `jj squash` is safe *only because* the resolution change has no
+description — jj keeps the destination's message silently. If the change got
+described, bare squash opens an editor and hangs; use
+`jj squash -u` (`--use-destination-message`) instead.
+
+Expect `Existing conflicts were resolved or abandoned from N commits` —
+descendants rebased on the fix. The working copy is left as a new empty
+change on top of the fixed commit; if you were elsewhere before, return with
+`jj edit <change-id>` (the empty, description-less change is abandoned
+automatically).
+
+## Step 7: Repeat and run checks
 
 ```bash
 jj log --no-pager -r 'conflicts()'
 ```
 
-If descendants still have conflicts, repeat from Step 2 for the next one.
+If conflicts remain, repeat from Step 2 for the next earliest. Once clean,
+run the project's check command (build/lint/tests) — a textually clean merge
+can still be semantically wrong.
 
-## Step 7: Run checks
+## Common mistakes
 
-After all conflicts are resolved, run the project's check command if available
-(e.g., `npm run check`) to verify the merged code compiles and passes lint.
+- **Bare `jj resolve`** — interactive merge TUI; errors without a TTY, hangs
+  with one. Edit the file directly instead.
+- **Resolving descendants before ancestors** — wasted work; the parent's
+  resolution propagates down.
+- **Describing the resolution change, then bare `jj squash`** — opens an
+  editor. Use `-m` or `-u`.
+- **Squashing while `jj st` still warns about conflicts** — some marker or
+  file was missed; re-check `jj resolve --list`.
+- **Botched squash or lost edit** — don't hand-repair the commits; `jj undo`
+  and retry (see the [jj skill](../jj/SKILL.md)).
