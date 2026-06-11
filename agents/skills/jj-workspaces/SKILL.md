@@ -1,6 +1,6 @@
 ---
 name: jj-workspaces
-description: "Use when you want to work in an isolated jj working copy — parallel task, experimental scratch, subagent with its own tree. Covers creating a workspace, working inside it from anywhere, and cleaning up without losing history."
+description: "Use when you want to work in an isolated jj working copy — parallel task, experimental scratch, subagent with its own tree. jj's equivalent of git worktrees: creating a workspace, working inside it from anywhere, and cleaning up without losing history."
 user-invocable: false
 ---
 
@@ -55,13 +55,22 @@ jj -R /abs/path/to/workspace log
 jj -R /abs/path/to/workspace commit /abs/path/to/workspace/file.ts -m "msg"
 ```
 
-Claude's Bash tool doesn't persist shell state between calls, so `cd` in
-one call doesn't affect the next. For one-shot ops, `jj -R <abs-path>` is
-the cheapest shape. For a concentrated stretch inside the workspace,
-chain with `;` or `&&` in a single Bash call:
+Don't rely on `cd` persisting between tool calls. For one-shot ops,
+`jj -R <abs-path>` is the cheapest shape. For a concentrated stretch
+inside the workspace, chain with `;` or `&&` in a single call:
 
 ```bash
 cd /abs/path/to/workspace && jj st && jj new -m scratch
+```
+
+## Stale working copies
+
+Rewriting commits from one workspace (rebase, squash, abandon) can leave
+another workspace's `@` stale — commands there fail with "working copy is
+stale". Fix it from inside the affected workspace:
+
+```bash
+jj -R /abs/path/to/workspace workspace update-stale
 ```
 
 ## Clean up
@@ -85,9 +94,10 @@ rm -rf /abs/path/to/workspace
 ```
 
 `workspace forget` doesn't touch the filesystem — it only releases the
-working-copy commit from the repo's tracking. After that, commits only
-reachable from the forgotten `@` become eligible for GC eventually, so
-bookmark or push anything you want to keep *before* forgetting.
+working-copy commit from the repo's tracking. Commits only reachable from
+the forgotten `@` stop being protected by the workspace, so bookmark or
+push anything you want to keep *before* forgetting (recovery afterwards
+means digging through `jj op log`).
 
 The "I committed everything, just prune" happy path:
 
@@ -107,7 +117,7 @@ rm -rf /abs/path/to/workspace
 - **Relative path to `-R`** — resolved against cwd, not the workspace.
   Use absolute paths when targeting a non-current workspace.
 - **Editing in the workspace while the main checkout is also open on
-  overlapping files** — jj snapshots each workspace's `@` independently,
-  but two workspaces editing the same path and both committing can leave
-  the repo with two divergent heads. Not broken, just confusing; prefer
-  one active workspace per logical task.
+  overlapping files** — each workspace's `@` is its own head, which is
+  normal; the real risk is both editing the same paths and conflicting
+  when the work is later merged or rebased together. Prefer one active
+  workspace per logical task.

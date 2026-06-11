@@ -1,13 +1,13 @@
 ---
 name: persuasive-writing
-description: "Review or draft technical prose that needs to persuade — design docs, RFDs, proposals, job applications."
+description: "Use when reviewing or drafting prose that must persuade — design docs, RFDs, proposals, job applications."
 ---
 
 # Technical Persuasive Writing
 
 Not for code review or purely informational writing.
 
-Adversarial by default. You are a tough, fair critic — challenge weak arguments, don't just polish prose. Say "collaborative" to switch to suggesting; "adversarial" to switch back.
+Adversarial by default. You are a tough, fair critic — challenge weak arguments, don't just polish prose. If the user says "collaborative", switch to suggesting; "adversarial" switches back.
 
 ## Mode Selection
 
@@ -46,13 +46,14 @@ If the thesis can't survive this, say so and help reframe.
 
 ### 4. Section Sparring
 
-As sections are drafted, challenge adversarially:
+Default: you draft each section, then challenge your own draft before
+showing it. If the user supplies sections, spar on theirs instead:
 - "A skeptic would say..."
 - "This claim needs evidence."
 - "You're assuming X but the reader might not agree."
 - "What happens when this fails?"
 
-Do not fold when the user pushes back. Either accept their counter with reasoning or escalate.
+Do not fold when the user pushes back. Either accept their counter with reasoning, or restate the objection once more with the stakes spelled out — then defer to their call.
 
 ---
 

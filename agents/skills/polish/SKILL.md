@@ -4,19 +4,11 @@ description: Analyze a codebase for improvements across multiple dimensions — 
 argument-hint: "[dimension ...] (e.g. tests, docs, perf, api, correctness — or empty for all)"
 disable-model-invocation: true
 allowed-tools:
-  - Bash(cargo test *)
-  - Bash(cargo check *)
-  - Bash(cargo clippy *)
   - Agent
   - Read
   - Glob
   - Grep
 ---
-
-## Repo state
-
-- VCS: !`test -d .jj && echo "jj" || echo "git"`
-- Language: !`test -f Cargo.toml && echo "rust" || (test -f package.json && echo "node" || (test -f go.mod && echo "go" || echo "unknown"))`
 
 ## Step 1: Determine scope
 
@@ -60,7 +52,7 @@ Analyze the **entire codebase**, not just recent changes. Read every source file
 
 Identify gaps in test coverage and test quality.
 
-- List every public function/method/type. For each, note whether it has direct test coverage.
+- Inventory the public functions/methods/types and check each for direct test coverage. Report the top gaps (most important first) within the word cap, stating the total count found.
 - Flag untested public API surface — these are the highest priority.
 - Flag untested error paths and edge cases.
 - Check for missing integration tests of key workflows (especially any documented in specs/README).
@@ -75,7 +67,7 @@ Don't suggest tests for trivial getters/setters or boilerplate impls. Focus on b
 Evaluate documentation completeness and quality.
 
 - Check for crate/module/package-level docs (the overview a new user sees first).
-- List every public item without a doc comment.
+- Inventory public items without a doc comment; report the most important ones within the word cap, stating the total count found.
 - Check README: does it exist? Does it have a usage example? Is it accurate?
 - Check for runnable examples (doctests, examples/ directory).
 - Evaluate existing doc comments: do they explain *why*, not just *what*? Are they accurate?

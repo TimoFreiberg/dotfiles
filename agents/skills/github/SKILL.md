@@ -1,6 +1,6 @@
 ---
 name: github
-description: "Interact with GitHub using the `gh` CLI — issues, PRs, CI runs, and API queries."
+description: "Use when checking PR status, debugging failed CI runs, or querying GitHub issues/PRs/data — recipes for the gh CLI."
 ---
 
 # GitHub Skill
@@ -14,12 +14,14 @@ Check CI status on a PR:
 gh pr checks 55 --repo owner/repo
 ```
 
-List recent workflow runs:
+List recent workflow runs (this is also where the `<run-id>` for the
+commands below comes from — or take it from a failing check's details URL):
 ```bash
 gh run list --repo owner/repo --limit 10
+gh run list --repo owner/repo --branch <branch>
 ```
 
-View a run and see which steps failed:
+View a run and see which jobs failed (add `--verbose` for per-step detail):
 ```bash
 gh run view <run-id> --repo owner/repo
 ```

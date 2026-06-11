@@ -1,6 +1,6 @@
 ---
 name: dev-review-loop
-description: "Deliberate dev → review → fix loop run in-session: implement directly, spawn the `review-subagent` skill fresh each round, fix findings or pause for human decisions; 3-round cap."
+description: "Use when implementing a change that should be reviewed before it ships — runs an implement → review → fix loop with a fresh review each round, 3-round cap."
 argument-hint: "[<task description> | file <path>]"
 ---
 
@@ -28,7 +28,8 @@ with no prior context: stop and ask.
 
 ## Setup
 
-Detect VCS: `test -d .jj` → jj, otherwise git. Verify working copy is clean
+Detect VCS: `jj root >/dev/null 2>&1` → jj, otherwise git (works from
+subdirectories, unlike checking for `./.jj`). Verify working copy is clean
 (`jj diff --stat` / `git status --porcelain` empty). If not, decide with the
 user: commit-as-prelude, or fold pre-existing edits into round 0 (re-read the
 task spec against the combined scope for the self-recheck).
@@ -37,8 +38,9 @@ Record the **base revision** for cumulative diffs:
 - jj: `jj log -r @- --no-graph -T change_id`
 - git: `git rev-parse HEAD`
 
-Only commit when there are real changes (`jj diff --stat` / `git diff --cached --stat`
-non-empty). No empty commits anywhere in the loop.
+Only commit when there are real changes (jj: `jj diff --stat` non-empty;
+git: stage first with `git add -A`, then check `git diff --cached --stat`).
+No empty commits anywhere in the loop.
 
 ## Round 0: develop
 
@@ -65,12 +67,14 @@ Then commit: `jj commit -m "dev-review-loop round N: <dev|fix|decisions>"`
 ## Round N: review
 
 Pass the task spec via `--description` so the reviewer produces a Plan-alignment
-section ("did the dev do what was asked?") ahead of findings. Invoke the `review`
-skill with these args:
+section ("did the dev do what was asked?") ahead of findings. Invoke the
+`review-subagent` skill with these args:
 - jj: `--description "<task spec>" commit <base>..@-`
 - git: `--description "<task spec>" commit <base>..HEAD`
 
-**Review passes** → loop done. Skip to completion.
+**Review passes** (verdict `correct` — P2-only findings still count as a
+pass) → apply trivial P2 fixes, carry the rest into the completion summary,
+then loop done. Skip to completion.
 **Needs attention** → all findings (not just P0/P1) go to fix.
 
 ## Round N: fix
@@ -82,7 +86,9 @@ DECISIONS_NEEDED. Run self-recheck, commit (if real changes).
 
 Exit status, priority order:
 1. **DECISIONS_NEEDED** — any NEEDS_DECISION exists → pause, report triage, wait.
-2. **ALL_DISAGREED** — everything rejected → loop done, skip to completion.
+2. **ALL_DISAGREED** — everything rejected → loop done, but surface it:
+   list each finding with your rejection reason in the completion report
+   so the user can overrule.
 3. **FIXES_APPLIED** → next review round.
 
 ## Resumption
@@ -91,6 +97,8 @@ When the user answers a DECISIONS_NEEDED pause, apply the answer, finish any
 unfinished triage/development from the paused round, run the checklist, commit
 with the appropriate round-N tag (`dev`, `fix`, or `decisions` for per-finding
 trade-offs resolved after the round-N fix commit), and continue: diff → review.
+If the pause came after review₃ (the loop cap), answers feed fixes only — do
+not start a fourth review round.
 
 ## Loop cap
 
@@ -107,4 +115,3 @@ for the user to inspect and run:
   **Never** bare `jj squash` — hangs on the editor.
 - git: `git log <base>..HEAD`; fold with `git reset --soft <base> && git commit`
   or `git rebase -i <base>` to keep boundaries.
-</content>

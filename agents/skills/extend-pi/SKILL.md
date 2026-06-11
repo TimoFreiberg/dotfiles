@@ -6,9 +6,9 @@ user-invocable: false
 
 # Extending pi
 
-You're running inside pi, a minimal coding agent harness by @mariozechner. The
-docs and examples shipped with pi are the contract for hooking into it — read
-them before guessing at APIs.
+Pi is a minimal coding agent harness by @mariozechner. The docs and examples
+shipped with the pi package are the contract for hooking into it — read them
+before guessing at APIs.
 
 This skill exists for setups that use a custom system prompt and therefore
 drop pi's default "where to find pi docs" block. Without that pointer, the
@@ -23,7 +23,12 @@ its install root. Find the root with:
 echo "$(npm root -g)/@earendil-works/pi-coding-agent"
 ```
 
-All paths in the table below are relative to that directory.
+If that path doesn't exist (pi installed via pnpm/bun/curl), try
+`pnpm root -g` / `bun pm ls -g`, or ask the user where pi is installed.
+
+All paths in the table below are relative to that directory. The package's
+own `docs/index.md` is the authoritative index — trust it over the table
+below if they disagree.
 
 ## What's documented
 

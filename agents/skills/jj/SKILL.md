@@ -1,6 +1,6 @@
 ---
 name: jj
-description: "Use when committing, rebasing, inspecting history, or fixing repo state with jj (Jujutsu) — including colocated .git/.jj repos and detached-HEAD confusion."
+description: "Use when committing, rebasing, inspecting history, or fixing repo state with jj (Jujutsu) — including colocated .git/.jj repos and detached-HEAD confusion. Flags interactive commands that hang agents."
 ---
 
 # jj Command Reference
@@ -13,11 +13,13 @@ See [reference.md](reference.md) for advanced topics (rewriting history, splitti
 
 - **Working copy (`@`)**: The current change, automatically tracks file modifications.
 - **Changes vs commits**: A change has a stable _change ID_ (short, letters only); a commit has a _commit ID_ (hex). Prefer change IDs in commands.
-- **Immutable revisions**: Commits on bookmarked/tagged/remote branches are immutable by default. Use `jj new` to create a mutable change on top.
+- **Immutable revisions**: By default, `trunk()`, tags, and untracked remote bookmarks (and their ancestors) are immutable. Local bookmarks off trunk are mutable. Use `jj new` to create a mutable change on top.
 
 ## Squashing
 
 **NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message`. Bare `jj squash` opens an interactive editor and will hang.
+
+The same trap applies to bare `jj describe` and `jj commit` — always pass `-m "msg"`. Avoid `jj diffedit` entirely (always interactive).
 
 ## Splitting Commits
 
@@ -44,3 +46,5 @@ If a command puts the wrong changes into the wrong commit (e.g. squash into the 
 1. Check the commit log: `jj log`
 2. Check the operation log: `jj op log`
 3. Revert the bad operation: `jj op revert <op_id>` (the op ID is shown in `jj op log`)
+
+`jj op revert` undoes one operation; `jj op restore <op_id>` resets the whole repo to the state as of that operation (undoing everything after it).

@@ -1,6 +1,6 @@
 ---
 name: debug
-description: Trace a code path end-to-end to find bugs. Use when the user reports a bug, unexpected behavior, or wants to understand why something fails.
+description: Use when a bug, unexpected behavior, or failing flow needs explaining — traces the code path end-to-end before forming any hypothesis.
 argument-hint: "<description of the bug or unexpected behavior>"
 ---
 
@@ -20,7 +20,8 @@ If any of these are unclear, ask before proceeding.
 
 Starting from the entry point, trace every function call, branch, and early
 return on the path to the expected endpoint. Read each file — do not assume
-what a function does from its name.
+what a function does from its name. Trace project code; stop at
+library/framework boundaries unless the evidence points inside them.
 
 For each function in the chain, note:
 - Error handlers: do they exist? Are they reachable? Do they propagate or swallow?
@@ -47,4 +48,5 @@ Propose a minimal fix. Explain:
 - What it does NOT change (scope boundaries)
 - How to verify it works (test command, reproduction steps)
 
-Do not implement the fix unless the user asks you to.
+Do not implement the fix unless the user asks you to — the deliverable of
+this skill is the diagnosis; fixing is a separate decision.

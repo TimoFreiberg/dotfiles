@@ -21,7 +21,7 @@ fi
 # Auto-install mermaid on first run
 if [ ! -d "$SCRIPT_DIR/node_modules/mermaid" ]; then
     echo "Installing mermaid (first run only, no Chromium)..."
-    (cd "$SCRIPT_DIR" && npm install --silent 2>&1)
+    (cd "$SCRIPT_DIR" && npm install --no-audit --no-fund 2>&1)
 fi
 
 echo "Validating: $1"

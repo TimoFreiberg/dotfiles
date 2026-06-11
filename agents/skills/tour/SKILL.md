@@ -1,7 +1,7 @@
 ---
 name: tour
 description: "Build a mental model of code changes — guided reading order, conceptual grouping, and context."
-argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name> | <path>...]"
+argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name> | file <path> | <path>...]"
 disable-model-invocation: true
 allowed-tools:
   - Bash(git diff *)
@@ -13,7 +13,9 @@ allowed-tools:
   - Bash(git rev-parse *)
   - Bash(gh pr diff *)
   - Bash(gh pr view *)
-  - Bash(jj *)
+  - Bash(jj root *)
+  - Bash(jj diff *)
+  - Bash(jj log *)
   - Read
   - Grep
   - Glob
@@ -21,10 +23,10 @@ allowed-tools:
 
 ## Repo state
 
-- VCS: !`test -d .jj && echo "jj" || echo "git"`
-- Uncommitted changes: !`test -d .jj && jj diff --stat 2>/dev/null || git diff --stat HEAD 2>/dev/null`
-- Current branch: !`test -d .jj && jj log -r @ --no-graph -T 'bookmarks' 2>/dev/null || git branch --show-current 2>/dev/null`
-- Recent commits: !`test -d .jj && jj log --no-graph -r 'ancestors(@, 5)' -T 'change_id.shortest() ++ " " ++ description.first_line() ++ "\n"' 2>/dev/null || git log --oneline -5 2>/dev/null`
+- VCS: !`jj root >/dev/null 2>&1 && echo "jj" || echo "git"`
+- Uncommitted changes: !`jj root >/dev/null 2>&1 && jj diff --stat 2>/dev/null || git diff --stat HEAD 2>/dev/null`
+- Current branch: !`jj root >/dev/null 2>&1 && jj log -r @ --no-graph -T 'bookmarks' 2>/dev/null || git branch --show-current 2>/dev/null`
+- Recent commits: !`jj root >/dev/null 2>&1 && jj log --no-graph -r 'ancestors(@, 5)' -T 'change_id.shortest() ++ " " ++ description.first_line() ++ "\n"' 2>/dev/null || git log --oneline -5 2>/dev/null`
 
 ## Step 1: Determine scope
 
@@ -53,7 +55,7 @@ Use jj commands if VCS is "jj", git commands otherwise.
 | uncommitted | `git diff HEAD` | `jj diff --git` |
 | commit | `git show <hash>` | `jj diff --git -r <change-id>` |
 | pr | `gh pr diff <n>` + `gh pr view <n>` + `gh pr view <n> --comments` | same |
-| branch | `git diff $(git merge-base HEAD <branch>)` | `jj diff --git -r 'latest(trunk())..@'` |
+| branch | `git diff $(git merge-base HEAD <branch>)` | `jj diff --git -r '<branch>..@'` |
 | file / paths | `git diff HEAD -- <path>...` | `jj diff --git <path>...` |
 
 For PR tours, also fetch the PR title/description and reviewer comments for context.

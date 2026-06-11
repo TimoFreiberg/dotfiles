@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Prometheus query helper for the pi prometheus skill.
+"""Prometheus query helper for the prometheus skill.
 
 Queries Prometheus/Thanos HTTP API with optional mTLS support.
 Configuration is read from ~/.config/prometheus/sources.json.
 mTLS certificates go in ~/.config/prometheus/certs/ and are referenced by path
 in ~/.config/prometheus/sources.json (see SKILL.md for format).
 """
+
+from __future__ import annotations
 
 import argparse
 import json
@@ -119,7 +121,9 @@ def prometheus_request(
         req = urllib.request.Request(url, data=encoded.encode(), method="POST")
 
     try:
-        with urllib.request.urlopen(req, context=ssl_context) as resp:
+        # Client-side socket timeout so a hung server can't hang us;
+        # --timeout only bounds query evaluation server-side.
+        with urllib.request.urlopen(req, context=ssl_context, timeout=120) as resp:
             body = json.loads(resp.read())
     except urllib.error.HTTPError as e:
         try:
@@ -200,7 +204,9 @@ def main():
 
     # --- Label values ---
     if args.label_values:
-        url = f"{base_url}/label/{urllib.parse.quote(args.label_values, safe='')}/values"
+        url = (
+            f"{base_url}/label/{urllib.parse.quote(args.label_values, safe='')}/values"
+        )
         params = {}
         if args.match:
             params["match[]"] = args.match

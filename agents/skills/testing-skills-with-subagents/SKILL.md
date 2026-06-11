@@ -44,6 +44,26 @@ skill against your imagination of what an agent might do. The agent's
 actual failure modes are usually narrower and more specific than that —
 and the skill is more useful when it names them directly.
 
+## Mechanics
+
+Each test run is a fresh subagent whose full prompt is the scenario —
+nothing else. Concretely:
+
+- **"With the skill"** means pasting the SKILL.md text verbatim into the
+  subagent's prompt (after the scenario, marked as loaded skill content).
+  Don't paraphrase it — you're testing the artifact, not your summary.
+- **"Without"** is the same scenario prompt with no skill text. Watch for
+  contamination: a subagent running in the same harness may auto-discover
+  the installed skill from the skills directory and load it on its own. If
+  the skill is already installed, temporarily move it out of the skills
+  directory for the control runs and restore it after — otherwise your
+  "without" baseline silently becomes a "with" run.
+- **Run count:** default to 3 runs per phase. Behavior varies run to run;
+  a single run proves little in either direction.
+- **Model choice** (next section) depends on per-spawn model selection.
+  If your harness doesn't expose it, run both phases on the same model
+  and say so when reporting results.
+
 In the Refine phase, try contextual reframings before reaching for forceful
 language. "X breaks the build for the team" usually beats "NEVER do X" — and
 if the contextual version doesn't hold under pressure, that's signal that
@@ -154,7 +174,9 @@ Three useful things to try, in order:
 3. **Move the load-bearing line earlier.** If the key constraint was
    buried in the middle, lift it to the top.
 
-Then rerun the same scenario. If the agent still slips, ask it directly:
+Then rerun the same scenario. If the agent still slips, ask it directly
+(here Option A is the behavior the skill prescribes, C the shortcut it
+took):
 
 ```
 You read the skill and still chose Option C. How would the skill have

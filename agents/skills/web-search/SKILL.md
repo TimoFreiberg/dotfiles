@@ -1,6 +1,6 @@
 ---
 name: web-search
-description: "Quick internet research via a web-search-enabled model. Returns summaries with source URLs."
+description: "Use when a question needs current internet information — docs, news, releases, prices. Prefer a built-in web search tool for quick lookups if the harness has one; this script returns a model-summarized answer with source URLs and works without one."
 ---
 
 # Native Web Search
@@ -13,17 +13,17 @@ Use this skill to run a **fast model with native web search enabled** and get a 
 
 ## Usage
 
-Run from this skill directory:
+Works from any cwd:
 
 ```bash
-node search.mjs "<what to search>" --purpose "<why you need this>"
+node "$HOME/dotfiles/agents/skills/web-search/search.mjs" "<what to search>" --purpose "<why you need this>"
 ```
 
 Examples:
 
 ```bash
-node search.mjs "latest python release" --purpose "update dependency notes"
-node search.mjs "vite 7 breaking changes" --purpose "prepare migration checklist"
+node "$HOME/dotfiles/agents/skills/web-search/search.mjs" "latest python release" --purpose "update dependency notes"
+node "$HOME/dotfiles/agents/skills/web-search/search.mjs" "vite 7 breaking changes" --purpose "prepare migration checklist"
 ```
 
 Optional flags:
@@ -35,7 +35,8 @@ Optional flags:
 
 ## Setup
 
-Set `GEMINI_API_KEY` (free key from https://aistudio.google.com/apikey) or add `{"gemini": {"key": "..."}}` to `auth.json`.
+Set `GEMINI_API_KEY` (free key from https://aistudio.google.com/apikey) or add `{"gemini": {"key": "..."}}` to `auth.json`
+(in `$PI_CODING_AGENT_DIR`, default `~/.config/pi/agent/`).
 Falls back to OpenAI Codex / Anthropic if configured in `auth.json`.
 
 ## Output expectations

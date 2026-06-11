@@ -1,6 +1,6 @@
 ---
 name: prometheus
-description: "Query Prometheus/Thanos metrics via the HTTP API. Supports mTLS and PromQL."
+description: "Use when querying Prometheus or Thanos metrics, writing PromQL, or investigating alerts and metrics — stdlib Python helper with mTLS support."
 ---
 
 # Prometheus
@@ -9,28 +9,30 @@ Query Prometheus and Thanos endpoints using Python (stdlib only). Supports mTLS 
 
 ## Quick Reference
 
-All commands use the helper script in this skill directory.
+All commands use the helper script in this skill directory (works from any
+cwd). Run `--help` for the full flag list (`--time`, `--timeout`,
+`--sources-file`; `PROMETHEUS_SOURCES_FILE` env var).
 
 ```bash
 # Instant query (most common)
-python3 query.py -s <source> '<promql>'
+python3 "$HOME/dotfiles/agents/skills/prometheus/query.py" -s <source> '<promql>'
 
 # Instant query, flatten labels into columns
-python3 query.py -s <source> -f '<promql>'
+python3 "$HOME/dotfiles/agents/skills/prometheus/query.py" -s <source> -f '<promql>'
 
 # Range query (returns time series)
-python3 query.py -s <source> -r --start '30m ago' --end 'now' --step 60s '<promql>'
+python3 "$HOME/dotfiles/agents/skills/prometheus/query.py" -s <source> -r --start '30m ago' --end 'now' --step 60s '<promql>'
 
 # Label values
-python3 query.py -s <source> --label-values <label_name>
+python3 "$HOME/dotfiles/agents/skills/prometheus/query.py" -s <source> --label-values <label_name>
 
 # Label values filtered by selector
-python3 query.py -s <source> --label-values <label_name> --match '<selector>'
+python3 "$HOME/dotfiles/agents/skills/prometheus/query.py" -s <source> --label-values <label_name> --match '<selector>'
 ```
 
 ### Source names
 
-Sources are configured in `~/.config/prometheus/sources.json`. List your configured sources there.
+Sources are configured in `~/.config/prometheus/sources.json` — read that file to see the available source names.
 
 ### Tips
 
@@ -83,7 +85,7 @@ Sources without an `mtls` block are queried without client certificate auth.
 ### 4. Verify
 
 ```bash
-python3 query.py -s prod 'count(up) by (job)' | head -20
+python3 "$HOME/dotfiles/agents/skills/prometheus/query.py" -s prod 'count(up) by (job)' | head -20
 ```
 
 ## Interpreting Output

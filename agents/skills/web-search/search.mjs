@@ -45,19 +45,20 @@ function parseArgs(argv) {
 			continue;
 		}
 		if (arg === "--purpose") {
-			out.purpose = argv[++i] || out.purpose;
+			const v = argv[++i];
+			if (!v || v.startsWith("--")) throw new Error("--purpose expects a value");
+			out.purpose = v;
 			continue;
 		}
 		if (arg.startsWith("--purpose=")) {
 			out.purpose = arg.slice("--purpose=".length) || out.purpose;
 			continue;
 		}
-		if (arg === "--timeout") {
-			out.timeoutMs = Math.max(1000, Number(argv[++i] || out.timeoutMs));
-			continue;
-		}
-		if (arg.startsWith("--timeout=")) {
-			out.timeoutMs = Math.max(1000, Number(arg.slice("--timeout=".length) || out.timeoutMs));
+		if (arg === "--timeout" || arg.startsWith("--timeout=")) {
+			const raw = arg === "--timeout" ? argv[++i] : arg.slice("--timeout=".length);
+			const t = Number(raw);
+			if (!Number.isFinite(t)) throw new Error(`--timeout expects milliseconds, got: ${raw}`);
+			out.timeoutMs = Math.max(1000, t);
 			continue;
 		}
 		positional.push(arg);

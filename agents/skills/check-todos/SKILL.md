@@ -14,8 +14,8 @@ allowed-tools:
 
 ## Repo state
 
-- VCS: !`test -d .jj && echo "jj" || echo "git"`
-- Bookmarks on or near @: !`test -d .jj && jj log -r 'heads(ancestors(@) & bookmarks())' --no-graph -T 'bookmarks.join(", ") ++ "\n"' 2>/dev/null || git branch --show-current 2>/dev/null`
+- VCS: !`jj root >/dev/null 2>&1 && echo "jj" || echo "git"`
+- Bookmarks on or near @: !`jj root >/dev/null 2>&1 && jj log -r 'heads(ancestors(@) & bookmarks())' --no-graph -T 'bookmarks.join(", ") ++ "\n"' 2>/dev/null || git branch --show-current 2>/dev/null`
 - GitHub user: !`gh api user --jq '.login' 2>/dev/null || echo "unknown"`
 
 ## Step 1: Identify the PR
@@ -88,7 +88,9 @@ Filter to comments authored by the current GitHub user. Look for commitment lang
 Get the diff of the current PR branch to see what's already been addressed:
 
 - **jj**: `jj diff --git -r 'latest(trunk())..@'`
-- **git**: `git diff $(git merge-base HEAD main)..HEAD`
+- **git**: `git diff $(git merge-base HEAD "$DEFAULT")..HEAD` where
+  `DEFAULT=$(gh repo view --json defaultBranchRef -q .defaultBranchRef.name 2>/dev/null || echo main)`
+  — don't hardcode `main`; the repo may use master/trunk.
 
 ### 2d. Jira issue (if available)
 

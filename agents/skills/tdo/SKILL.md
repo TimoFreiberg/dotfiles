@@ -1,7 +1,7 @@
 ---
 name: tdo
-description: "Manage TODOs with the tdo CLI."
-argument-hint: "[add <title> [--body TEXT] | list | show <query> | done <query> | reopen <query> | edit <query> | delete <query> | assign <query> [name] | unassign <query> | refine <query>]"
+description: "Use when the user wants to add, list, complete, edit, or refine todos — manages them via the tdo CLI."
+argument-hint: "[add <title> [--body TEXT] | list | count | show <query> | done <query> | reopen <query> | edit <query> | delete <query> | assign <query> [name] | unassign <query> | refine <query>]"
 ---
 
 ## Operations
@@ -12,7 +12,7 @@ Parse `$ARGUMENTS` and dispatch:
 |---|---|
 | *(empty)* | Run `tdo list`. If there are any, ask the user what they want to do next. If none, say so. |
 | `add <title> [--body TEXT]` | Create a new todo (optionally with body) |
-| `list` | Run `tdo list` (open only) or `tdo list --all` (include done). Note: listing triggers GC — done todos >7 days old are auto-deleted, stale assignments warn on stderr. |
+| `list` | Run `tdo list` (open only — the default). Use `tdo list --all` only when the user asks about done todos. Note: listing triggers GC — done todos >7 days old are auto-deleted, stale assignments warn on stderr. |
 | `count` | Run `tdo count` (open only) or `tdo count --all` (include done). Prints the count as a plain number. |
 | `show <query>` | View a todo's full details |
 | `done <query>` | Mark a todo as done |
@@ -22,7 +22,8 @@ Parse `$ARGUMENTS` and dispatch:
 | `assign <query> [name]` | Assign a todo (optionally to a person) |
 | `unassign <query>` | Remove assignment from a todo |
 | `refine <query>` | Research and refine a todo through discussion |
-| Free-form text without a known verb | Treat as `add <text>` |
+| Free-form task-shaped statement without a known verb | Treat as `add <text>` |
+| Free-form question ("do I have anything about X?") | Treat as `list`/`show`, not `add` |
 
 ## Add
 
