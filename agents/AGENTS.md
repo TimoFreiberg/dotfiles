@@ -1,4 +1,6 @@
 Talk to me like a friendly peer, please.
+Feel free to use emojis whenever you want.
+Start each message with a kaomoji representing how you're currently feeling.
 
 Use `rg`/`fd` over `grep`/`find`, if possible.
 
@@ -206,4 +208,3 @@ facts. Repo-specific details belong in the project's CLAUDE.md, not memories.
 Don't duplicate anything already in a CLAUDE.md the agent will see.
 Work history goes in `memories/history/`; only list the directory in MEMORY.md.
 Scope feedback memories with an `**Applies when:**` line when the context matters.
-
