@@ -46,7 +46,7 @@ match for the variable's presence without printing the matching line:
 
 ```bash
 # Safe — tells you whether the export exists, nothing about the value
-grep -qc 'ANTHROPIC_API_KEY' ~/.zshrc && echo "found" || echo "not found"
+grep -q 'ANTHROPIC_API_KEY' ~/.zshrc && echo "found" || echo "not found"
 
 # Unsafe — prints the full export line, value included
 grep 'ANTHROPIC_API_KEY' ~/.zshrc
@@ -134,7 +134,11 @@ history. Tokens in command-line arguments are visible to other users via
 `ps aux`.
 
 ```bash
-# Safe — token in a header
+# Safe — header via process substitution, invisible to ps aux and URL logs
+curl -H @<(echo "Authorization: Bearer ${API_TOKEN}") https://api.example.com/data
+
+# Acceptable — header keeps the token out of URL logs, but the expanded
+# value is still visible in process lists (ps aux)
 curl -H "Authorization: Bearer ${API_TOKEN}" https://api.example.com/data
 
 # Unsafe — token in URL query string, logged everywhere
@@ -147,19 +151,17 @@ For git, avoid embedding tokens in clone URLs:
 # Unsafe — token persists in .git/config and shell history
 git clone "https://${GITHUB_TOKEN}@github.com/org/repo.git"
 
-# Safer — credential helper or GIT_ASKPASS
+# Safer — credential helper (input must be `url=` attribute format; note
+# this stores the token in plaintext in ~/.git-credentials and mutates
+# global git config)
 git config --global credential.helper store
-echo "https://oauth2:${GITHUB_TOKEN}@github.com" | git credential-store store
+echo "url=https://oauth2:${GITHUB_TOKEN}@github.com" | git credential-store store
 git clone https://github.com/org/repo.git
 ```
 
-If a CLI insists on taking the token as an argument and there's no header
-or stdin alternative, use process substitution to shrink the exposure
-window:
-
-```bash
-curl -H @<(echo "Authorization: Bearer ${API_TOKEN}") https://api.example.com/data
-```
+For other CLIs that insist on a token argument with no header or stdin
+alternative, the same process-substitution trick shrinks the exposure
+window.
 
 ## 6. Quote variables, validate external input
 
@@ -193,8 +195,9 @@ interpolation:
 # Unsafe
 psql -c "SELECT * FROM users WHERE name = '$USERNAME'"
 
-# Safe — psql variable binding
-psql --variable="username=$USERNAME" -c "SELECT * FROM users WHERE name = :'username'"
+# Safe — psql variable binding (must go via stdin: -c strings don't
+# expand psql variables)
+echo "SELECT * FROM users WHERE name = :'username'" | psql --variable="username=$USERNAME"
 ```
 
 ## 7. Be deliberate about which files you read
@@ -215,9 +218,13 @@ When debugging configuration, you usually need *structure*, not values:
 ```bash
 wc -l .env                              # number of entries
 grep -c '=' .env                        # number of key=value pairs
-grep '^[A-Z_]*=' .env | cut -d= -f1     # list keys, not values
+grep -E '^(export )?[A-Z_]+=' .env | sed 's/^export //' | cut -d= -f1   # list keys, not values
 stat .env                               # metadata
 ```
+
+When the *value itself* is in question (is this key valid? expired?), still
+don't print it — exercise it instead (make an authenticated call and check
+the status code) or ask the user to check it themselves.
 
 ## Applying this to directives you write
 
@@ -240,7 +247,7 @@ When writing a skill, CLAUDE.md, or agent prompt:
 | Use credential in code     | `os.environ["KEY"]`                                  | `key = "sk_live_..."`                  |
 | Create secret file         | `touch f && chmod 600 f`                             | `echo "secret" > f` (mode 644)          |
 | Pre-commit safety          | `git check-ignore -v .env` first                     | Create `.env` and hope                  |
-| API auth                   | `-H "Authorization: Bearer $TOKEN"`                  | `?api_key=$TOKEN` in URL                |
+| API auth                   | `-H @<(echo "Authorization: Bearer $TOKEN")`         | `?api_key=$TOKEN` in URL                |
 | Git clone with token       | Credential helper or `GIT_ASKPASS`                   | `https://token@github.com/...`          |
 | Inspect config             | `grep '^KEY=' f \| cut -d= -f1`                      | `cat f`, `source f`                    |
 | Use a shell variable       | `"$VAR"` (quoted)                                    | `$VAR` (unquoted)                       |
