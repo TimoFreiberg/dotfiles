@@ -12,7 +12,7 @@ Writes four files to a temp directory and prints the directory path on stdout:
 Exits non-zero on usage errors or when there's nothing to review (empty diff,
 missing merge-base, etc.) and prints the user-facing reason on stderr.
 
-Invoked by `agents/skills/review/SKILL.md`. No third-party dependencies.
+Invoked by `agents/skills/review-subagent/SKILL.md`. No third-party dependencies.
 """
 
 from __future__ import annotations

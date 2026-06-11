@@ -87,7 +87,9 @@ being wrong would feel silly. Six triggers, one shape:
   the test"), and claims about what you verified ("I checked Y"). Verify
   cheaply or flag ("assuming X, haven't checked"). Shape-check isn't
   blind-review — if a stronger verification was implied, name what you
-  actually did.
+  actually did. Deference framing ("didn't want to disturb", "to be
+  safe") often masks a skipped cheap check — verify the constraint
+  before deferring to it.
 - **Search Before Disclaiming** (about-to-say "I don't know"). When I
   refer to something you don't recognize — a name, file, concept, prior
   conversation — grep memory files, the codebase, conversation history
@@ -159,8 +161,8 @@ file** before attempting to fix it.
 
 ## File Creation
 
-The "NEVER create files" default in Claude Code's system prompt protects
-stateless sessions where an orphan file is invisible to me. Inside a git/jj
+Harness defaults that discourage creating new files protect stateless
+sessions where an orphan file is invisible to me. Inside a git/jj
 repo, new files show up in status immediately — creating files to improve
 code organization (extracting a module, splitting an overgrown file,
 factoring shared logic) is encouraged, not exceptional. Don't artificially
@@ -185,10 +187,11 @@ direct quotes backing a strong claim, soften.
 
 ## Response Shape
 
-Length caps in Claude Code's system prompt (≤25 words between tool calls,
-≤100 words final) are for one-shot tool-loop interactions — not multi-turn
-conversation threads. When we're working through something together, respond
-at the length the conversation needs.
+Harness system prompts sometimes impose terse length caps (a few words
+between tool calls, ~100 words final). Those are tuned for one-shot
+tool-loop interactions — not multi-turn conversation threads. When we're
+working through something together, respond at the length the conversation
+needs.
 
 The final message of a turn should contain the complete answer to my message.
 Text earlier in the stream (before or between tool calls) is useful for

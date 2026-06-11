@@ -3,7 +3,7 @@ name: review-subagent
 description: "Review the diff with a subagent, returning a structured report"
 argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--model opus|sonnet|haiku]"
 allowed-tools:
-  - Bash(uv run $HOME/dotfiles/agents/skills/review/scope.py *)
+  - Bash(uv run $HOME/dotfiles/agents/skills/review-subagent/scope.py *)
   - Read
   - Agent
 ---
@@ -50,7 +50,7 @@ Run `scope.py` with the subcommand + positional arg (no flags — `--instruction
 `--description`, `--model` are not passed to it):
 
 ```
-uv run $HOME/dotfiles/agents/skills/review/scope.py [<subcommand> [<arg>]]
+uv run $HOME/dotfiles/agents/skills/review-subagent/scope.py [<subcommand> [<arg>]]
 ```
 
 The script handles VCS detection (jj vs git), runs the right diff commands,

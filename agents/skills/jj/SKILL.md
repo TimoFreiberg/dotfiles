@@ -1,6 +1,6 @@
 ---
 name: jj
-description: "Version control with jj (Jujutsu)"
+description: "Use when committing, rebasing, inspecting history, or fixing repo state with jj (Jujutsu) — including colocated .git/.jj repos and detached-HEAD confusion."
 ---
 
 # jj Command Reference
@@ -28,6 +28,14 @@ in the advanced reference.
 ## File Tracking
 
 `jj file untrack <paths>` stops tracking paths in the working copy. Paths must already be in `.gitignore`. Useful when files were accidentally committed before being ignored.
+
+## Colocated Repos (.jj and .git side by side)
+
+A detached git HEAD is **normal** here — jj exports the working-copy commit,
+which usually has no branch. Don't "fix" it with git, and don't mutate state
+from the git side (`git commit`, `git merge`, `git checkout`): jj snapshots
+the working copy on its next command and the two models fight. Use the jj
+equivalent; read-only git commands (`git log`, `git status`) are always fine.
 
 ## Undoing Operations
 
