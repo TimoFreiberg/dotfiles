@@ -1,6 +1,6 @@
 ---
 name: review-subagent
-description: "Review the diff with a subagent, returning a structured report"
+description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with a fresh subagent that returns a structured findings report."
 argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--model opus|sonnet|haiku]"
 allowed-tools:
   - Bash(uv run $HOME/dotfiles/agents/skills/review-subagent/scope.py *)
@@ -28,7 +28,7 @@ section scoring each requirement against the diff before the findings list.
 
 **Subcommands** (mutually exclusive, optional — default scope is `trunk()..@` for jj or `<merge-base>..HEAD` for git):
 
-- `uncommitted` — uncommitted working-copy changes
+- `uncommitted` — uncommitted working-copy changes (git mode misses untracked files; jj snapshots them)
 - `commit <revset>` — jj revset, or git ref/range
 - `branch <name>` — diff from `<name>` to current
 - `file <path>` — uncommitted changes to one file

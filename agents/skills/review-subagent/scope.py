@@ -28,7 +28,10 @@ import tempfile
 
 
 def run(cmd: list[str], check: bool = True) -> str:
-    r = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True)
+    except FileNotFoundError:
+        die(f"command not found: {cmd[0]}")
     if check and r.returncode != 0:
         die(f"command failed: {' '.join(cmd)}\n{r.stderr.strip()}")
     return r.stdout
@@ -40,7 +43,11 @@ def die(msg: str) -> "NoReturn":  # type: ignore[name-defined]
 
 
 def have_jj() -> bool:
-    return os.path.isdir(".jj")
+    # `jj root` works from any subdirectory, unlike checking for ./.jj in cwd.
+    try:
+        return subprocess.run(["jj", "root"], capture_output=True).returncode == 0
+    except FileNotFoundError:
+        return False
 
 
 # ---------- formatting ----------------------------------------------------
@@ -161,6 +168,7 @@ def gather_uncommitted() -> tuple[str, list[str], str, str]:
         diff = run(["jj", "diff", "--git"])
         stat = run(["jj", "diff", "--stat"])
     else:
+        # git mode misses untracked files (jj auto-snapshots them).
         diff = run(["git", "diff", "HEAD"])
         stat = run(["git", "diff", "--stat", "HEAD"])
     return "uncommitted changes", [], diff, stat
