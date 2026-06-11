@@ -39,10 +39,14 @@ propagate — downstream agents cite them without re-verifying. See
 doc-level treatment.
 
 **Placement matters.** First and last lines of a prompt get the most
-attention. Put critical constraints at the boundaries.
+attention (a primacy/recency heuristic). Put critical constraints at the
+boundaries. For skills there's also a hard mechanism: on compaction Claude
+Code keeps roughly the first 5,000 tokens of an invoked skill — content
+past that can vanish mid-session, so front-load anything load-bearing.
 
-**~150 instructions is a soft ceiling.** Past that, all rules get fuzzier —
-not just the new ones. If you're adding rule 151, prune one first.
+**~150 instructions is a soft ceiling.** (Community-measured heuristic,
+not an official limit.) Past that, all rules get fuzzier — not just the
+new ones. If you're adding rule 151, prune one first.
 
 **Repeat genuinely critical rules with different framings.** Once for the
 top, once where it's relevant in flow, once in a checklist if there is one.
@@ -53,7 +57,9 @@ The bar for repetition is "the cost of getting this wrong is high."
 Rough targets:
 
 - Frequently-loaded directives (always-on AGENTS.md additions): under ~200 words.
-- Skills / CLAUDE.md files: under ~500 lines total, main file under ~150.
+- Skills: official cap is a 500-line SKILL.md body; house preference is a
+  main file under ~150 with the rest in on-demand reference files.
+- CLAUDE.md files: official guidance targets under ~200 lines per file.
 - Reference `--help` instead of documenting every flag.
 - Cross-link sibling skills instead of inlining their content.
 

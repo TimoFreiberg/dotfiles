@@ -20,15 +20,21 @@ directives specifically: when to make one, how to structure it, how to test it.
 A skill earns its place when:
 
 - The technique isn't obvious from the codebase or the task description.
-- You'd want to apply it across projects, not just this one.
-- The pattern is general enough that someone hitting the same situation later
-  would benefit from the same playbook.
+- It's a *procedure* — steps, decision points, recipes — rather than a fact.
+- Someone hitting the same situation later would benefit from the same
+  playbook.
 
 Don't write a skill for:
 
 - One-off solutions to a specific bug.
 - Standard practices already documented in the language/framework docs.
-- Project-specific conventions — those go in `CLAUDE.md` / `AGENTS.md`.
+- Facts and conventions ("we use bun", "domains don't import each other") —
+  those go in `CLAUDE.md` / `AGENTS.md`.
+
+The carve is facts vs. procedures, not global vs. project: a project-specific
+procedure still wants to be a skill, just in the project's `.claude/skills/`
+rather than the shared collection. When a section of CLAUDE.md has grown into
+a procedure, move it into a skill.
 
 If you're unsure, the question to ask is "would I link a colleague to this six
 months from now?"
@@ -39,8 +45,8 @@ Most skills land in one of three shapes:
 
 | Type      | What it is                                | Examples                              |
 |-----------|-------------------------------------------|---------------------------------------|
-| Technique | Concrete method with steps                | `dev-review-loop`, `condition-based-waiting` |
-| Pattern   | Mental model for a class of problem       | `flatten-with-flags`, `test-invariants` |
+| Technique | Concrete method with steps                | `dev-review-loop`, `debug`            |
+| Pattern   | Mental model for a class of problem       | `prompt-security-hardening` (safe/unsafe pairs) |
 | Reference | API / syntax / tool docs in skill form    | `jj`, `prometheus`                    |
 
 The shape changes how you write it (technique skills have steps; reference
@@ -56,9 +62,10 @@ skills/
     helper.sh             # optional: scripts the skill calls
 ```
 
-Default to a single `SKILL.md`. Split out reference files when the main file
-crosses ~150 lines and the extra content is genuinely "load on demand" (rare
-flags, advanced syntax, edge-case recipes). Don't preemptively split.
+Default to a single `SKILL.md`. The official cap is a 500-line SKILL.md
+body; house preference is tighter — split out reference files when the main
+file crosses ~150 lines and the extra content is genuinely "load on demand"
+(rare flags, advanced syntax, edge-case recipes). Don't preemptively split.
 
 ## When to add a script
 
@@ -74,6 +81,11 @@ and improve reliability (deterministic output, no per-invocation drift).
 Trade-off: a script is another thing to maintain — if the logic might change
 with the language version, the harness, or the surrounding context, an inline
 pattern is cheaper to update.
+
+Document script invocations by absolute path
+(`"$HOME/dotfiles/agents/skills/<name>/helper.sh"`): the agent's cwd is the
+project, not the skill directory. (Claude Code also exposes
+`${CLAUDE_SKILL_DIR}`, but the `$HOME` form works in every harness.)
 
 ## SKILL.md template
 
@@ -114,13 +126,15 @@ Frontmatter notes:
   `debugging-flakes`).
 - `description`: starts with "Use when…", reads in third person. This is the
   string the agent searches against — load it with the symptoms a future
-  agent would actually type. The "what it does" half is optional: include it
-  when the high-level framing helps the agent decide this is the right tool;
-  drop it when a one-line summary would substitute for the body enough that
-  the agent might satisfice on the description and skip loading. Pure-trigger
-  descriptions force the load.
+  agent would actually type. Include both halves: the triggers and a short
+  "what it does" (official guidance wants both, and capability words double
+  as search keys). What to avoid is a description so complete it substitutes
+  for the body — summarize the *purpose*, never the protocol.
 - `user-invocable: false` for skills that the model loads on its own, not via
-  `/skill-name`. Omit (or set true) for slash-command skills.
+  `/skill-name`. Omit (or set true) for slash-command skills. The inverse
+  control also exists: `disable-model-invocation: true` makes a skill
+  slash-only (the model can't auto-load it) — right for heavyweight commands
+  like `polish` or `tour`.
 
 ## Verifying a skill before relying on it
 

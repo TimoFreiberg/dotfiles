@@ -13,8 +13,10 @@ what the conventions are, why a domain is shaped the way it is.
 For directive-writing fundamentals (token economy, motivation framing,
 discovery), see [writing-claude-directives](../writing-claude-directives/SKILL.md).
 
-`CLAUDE.md` and `AGENTS.md` are interchangeable for most tooling. Pick one
-per repo and stick with it; many projects symlink them so both work.
+Tools differ in which file they read — Claude Code reads `CLAUDE.md` (not
+`AGENTS.md`); most other agents read `AGENTS.md`. Keep one real file per
+repo and bridge with a symlink or an `@AGENTS.md` import line so every
+tool finds it.
 
 ## Top-level vs. subdirectory
 
@@ -27,20 +29,28 @@ The two flavors do different jobs:
   it promises.* Purpose, contracts, invariants, gotchas. The "you're
   about to touch this — read this first" content.
 
-Hierarchy: agents read CLAUDE.md from the file's directory up to the repo
-root. So a file in `src/domains/auth/` gets `src/domains/auth/CLAUDE.md`
-plus the root one — no need to repeat root content in domain files.
+Hierarchy: the root CLAUDE.md loads at session start; subdirectory files
+load lazily when the agent reads files in that directory (and aren't
+re-injected after compaction). So a file in `src/domains/auth/` gets
+`src/domains/auth/CLAUDE.md` plus the root one — no need to repeat root
+content in domain files, but don't put session-critical rules only in a
+subdirectory file.
 
 Depth heuristic: typically zero or one level of subdirectory CLAUDE.md
 files. Two levels (e.g. `auth/oauth2/CLAUDE.md`) is rare and only when the
 subdomain has its own non-obvious contracts.
+
+Claude Code alternative: path-scoped rule files in `.claude/rules/` with
+`paths:` frontmatter do the same job as subdirectory CLAUDE.md files and
+keep the source tree free of doc files. Prefer them in Claude Code-only
+repos; subdirectory CLAUDE.md files are the portable form.
 
 ## Top-level template
 
 ```markdown
 # [Project Name]
 
-Last verified: 2025-12-17
+Last verified: <run `date +%Y-%m-%d`>
 
 ## Tech Stack
 - Language: TypeScript 5.x
@@ -80,7 +90,7 @@ What to leave out of the top-level file:
 ```markdown
 # [Domain Name]
 
-Last verified: 2025-12-17
+Last verified: <run `date +%Y-%m-%d`>
 
 ## Purpose
 [1-2 sentences: why this domain exists, what problem it owns.]
@@ -197,7 +207,8 @@ When you change a domain that has a CLAUDE.md:
 1. Update `Last verified` to today.
 2. Re-check the contracts — are they still accurate?
 3. Cut anything that's no longer true. Short-and-correct beats long-and-wrong.
-4. Keep it under ~100 lines for a subdirectory file, ~300 for top-level.
+4. Keep it under ~100 lines for a subdirectory file, ~200 for top-level
+   (official guidance: adherence drops past ~200).
 
 ## Referencing files
 
@@ -209,9 +220,10 @@ Plain prose is enough — name the files inline:
 - `service.ts` — main implementation
 ```
 
-Avoid `@./service.ts` syntax. That force-loads files into context whether
-or not the agent needs them; just naming the file lets the agent read it
-on demand.
+`@file` syntax force-loads the file into context at session start whether
+or not the agent needs it. Use it only when that's the point (e.g.
+`@AGENTS.md` as an interop shim); for everything else, naming the file
+lets the agent read it on demand.
 
 ## Common mistakes
 
@@ -219,7 +231,7 @@ on demand.
 |--------------------------------------------|----------------------------------------------------|
 | Describing what code does                  | Focus on why it exists and what it promises       |
 | Missing or guessed freshness date          | Use `date +%Y-%m-%d` from the shell                |
-| `@`-syntax file references                 | Just name the files; let the agent read on demand |
+| Casual `@`-file references                 | Force-load only deliberately (e.g. `@AGENTS.md` shim) |
 | Subdirectory file > 100 lines              | Push detail into code comments or split the file  |
 | Repeating top-level content in subdirs     | Subdirectories inherit; don't duplicate            |
 | Docs unchanged after the domain changed    | Update `Last verified` and check the contracts     |
