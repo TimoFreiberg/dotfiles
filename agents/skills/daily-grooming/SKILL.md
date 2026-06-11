@@ -52,6 +52,14 @@ something's slow, skip it and say so in the session):
    (default: untouched >3 days with no status change).
 4. **PRs in the user's court.** Anything aged that needs surfacing.
 
+> **PR discovery, cross-repo:** grooming often runs from a notes/tracking repo
+> that has no PRs of its own, so repo-scoped commands (`gh pr list`) default to
+> the wrong scope and return empty — which reads like "no open PRs" but isn't.
+> Use account-scoped search instead: `gh search prs --author "@me" --state open`
+> for the user's own PRs and `gh search prs --review-requested "@me" --state open`
+> for their review queue. The review-requested results carry a lot of stale
+> org-wide noise, so filter by recent `updatedAt` before surfacing.
+
 ## Session shape
 
 **Stab-first, confirm-driven.** Front-load proposals so each user turn is a
