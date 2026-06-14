@@ -62,8 +62,9 @@ the content landed and the branch is safe to drop. If you can't fetch
 trusting local refs.
 
 Recovery if wrong: deleting a bookmark is just another operation —
-`jj op undo` reverts it, or recover the change/commit id from `jj op log`. No
-reflog needed; the op log records every change.
+`jj undo` reverts it (or `jj op restore` to an earlier op; recover the
+change/commit id from `jj op log`). No reflog needed; the op log records
+every change.
 
 ## Undoing Operations
 
