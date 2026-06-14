@@ -42,23 +42,28 @@ equivalent; read-only git commands (`git log`, `git status`) are always fine.
 ## Verifying a Branch Is Safe to Delete
 
 In a clone or worktree that isn't continuously fetched, **both** local `main`
-and `origin/main` refs can be stale. Two common safety signals then lie:
+and `main@origin` can be stale. The obvious safety signals then lie:
 
-- `git branch -d <branch>` failing with "not fully merged"
-- `git diff main..<branch>` showing the branch as still *adding* content
+- `jj diff --from main --to <bookmark>` showing the branch as still *adding*
+  content
+- the bookmark not showing as an ancestor of `main`
+  (`jj log -r '<bookmark> & ::main'` empty)
 
-Both can be artifacts of stale local refs, not real unmerged work — especially
+Both can be artifacts of stale refs, not real unmerged work — especially
 under **squash-merge**, where a merged branch is never an ancestor of `main`
-even after its content fully landed.
+even after its content fully landed (so the ancestry check is unreliable; the
+diff is the signal that matters).
 
 Before deleting, refresh first: `jj git fetch` (or compare against an
 authoritative source — `gh api repos/<owner>/<repo>/commits/main`, a deployed
-tree). Then `git diff origin/main..<branch>` going empty confirms the content
-landed and the branch is safe to drop. If you can't fetch (permissions),
-triangulate against the authoritative source instead of trusting local refs.
+tree). Then `jj diff --from main@origin --to <bookmark>` going empty confirms
+the content landed and the branch is safe to drop. If you can't fetch
+(permissions), triangulate against the authoritative source instead of
+trusting local refs.
 
-Recovery if wrong: the deleted branch's commit SHA is recoverable via
-`git reflog` (or terminal scrollback).
+Recovery if wrong: deleting a bookmark is just another operation —
+`jj op undo` reverts it, or recover the change/commit id from `jj op log`. No
+reflog needed; the op log records every change.
 
 ## Undoing Operations
 
