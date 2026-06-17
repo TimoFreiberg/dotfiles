@@ -1,6 +1,7 @@
 ---
 name: general-purpose
 description: General-purpose subagent with full capabilities, isolated context
+role: high-effort-impl
 model: claude-opus-4-7
 ---
 

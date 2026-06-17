@@ -32,7 +32,7 @@ node "$HOME/dotfiles/agents/skills/summarize/to-markdown.mjs" <url-or-path> --tm
 If conversion fails (auth-walled or JS-heavy pages, unsupported formats),
 fall back to fetching/reading the source directly or ask the user.
 
-### Convert + summarize with haiku-4-5 (pass context!)
+### Convert + summarize with the text-summary model (pass context!)
 
 Summaries are only useful when you provide **what you want extracted** and the **audience/purpose**.
 
@@ -43,4 +43,4 @@ node "$HOME/dotfiles/agents/skills/summarize/to-markdown.mjs" <url-or-path> --su
 This will:
 1) convert to Markdown via `uvx --from 'markitdown[pdf]' markitdown`
 2) write the full Markdown to a temp `.md` file and print its path as a "Hint" line (always — so you can open/inspect the full content)
-3) run `pi --model claude-haiku-4-5` (no-tools, no-session) to summarize using your extra prompt (`--summary-prompt` is an alias for `--prompt`)
+3) run `pi` (no-tools, no-session) using the **text-summary** role from `roles.json` to summarize with your extra prompt (`--summary-prompt` is an alias for `--prompt`). Override the model for one run with `SUMMARIZE_MODEL=provider/model:thinking`; see `config/pi/agent/roles.json`.

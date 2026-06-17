@@ -15,6 +15,7 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import type { AgentToolResult } from "@earendil-works/pi-agent-core";
 import type { Message } from "@earendil-works/pi-ai";
 import {
@@ -30,6 +31,43 @@ import {
   formatAgentList,
 } from "./agents.js";
 import { SUBAGENT_SYSTEM_PROMPT } from "./system-prompt.js";
+
+/**
+ * Shared per-machine role -> model resolver (agents/_lib/roles.mjs).
+ *
+ * It lives OUTSIDE the extension dir, so a static relative import breaks: pi
+ * discovers this extension through the symlink ~/.pi/agent/extensions ->
+ * dotfiles/agents/extensions and resolves relative imports against that symlink
+ * path, where ../../_lib does not exist. We instead realpath import.meta.url
+ * (which crosses the symlink, verified) and dynamic-import the resolver by its
+ * absolute on-disk path. Cached so we import it once.
+ *
+ * pi-runtime-free ESM, also imported by plain-node skills, so skills and
+ * subagents agree on ONE roles.json.
+ */
+type ResolveRoleFn = (
+  role: string,
+  opts?: { override?: string; agentDir?: string; quiet?: boolean },
+) => {
+  provider?: string;
+  model: string;
+  thinking?: string;
+  spec: string;
+} | null;
+
+let resolveRolePromise: Promise<ResolveRoleFn> | null = null;
+function getResolveRole(): Promise<ResolveRoleFn> {
+  if (!resolveRolePromise) {
+    const realHere = path.dirname(
+      fs.realpathSync(fileURLToPath(import.meta.url)),
+    );
+    const rolesPath = path.resolve(realHere, "../../_lib/roles.mjs");
+    resolveRolePromise = import(pathToFileURL(rolesPath).href).then(
+      (mod) => mod.resolveRole as ResolveRoleFn,
+    );
+  }
+  return resolveRolePromise;
+}
 
 const MAX_PARALLEL_TASKS = 8;
 const MAX_CONCURRENCY = 4;
@@ -369,16 +407,64 @@ async function runSingleAgent(
 
   const args: string[] = ["--mode", "json", "-p", "--no-session"];
 
-  const provider = agent.provider ?? parentProvider;
-  if (provider) args.push("--provider", provider);
+  // Model selection precedence:
+  //   1. call-site override (t.model) — always wins, as before.
+  //   2. agent `role:` frontmatter — resolved per-machine via the shared
+  //      resolver into a "provider/model:thinking" spec that pi parses directly.
+  //   3. agent literal `model:`/`provider:` frontmatter — back-compat fallback
+  //      (resolveModelAlias's per-provider maps still apply here).
+  // The resolved spec is reported back via currentResult.model below.
+  let effectiveModel: string | undefined;
+  let thinkingFromRole: string | undefined;
 
-  const effectiveModel = modelOverride?.trim() || agent.model;
-  if (effectiveModel) {
-    const resolvedModel = resolveModelAlias(effectiveModel, provider);
-    args.push("--model", resolvedModel);
+  // Legacy literal-model path: --provider X --model <alias-resolved>. Used for
+  // the call-site override, and as the fallback when no role is set or a role
+  // does not resolve. Unchanged from the original behavior.
+  const useLiteralModel = (model: string | undefined) => {
+    const provider = agent.provider ?? parentProvider;
+    if (provider) args.push("--provider", provider);
+    if (model) {
+      effectiveModel = resolveModelAlias(model, provider);
+      args.push("--model", effectiveModel);
+    }
+  };
+
+  const override = modelOverride?.trim();
+  if (override) {
+    useLiteralModel(override);
+  } else if (agent.role) {
+    // Role -> machine-specific spec. The spec already carries the provider, so
+    // we pass it straight to --model (no separate --provider) exactly like the
+    // skills do. A null/empty resolution falls through to the literal model.
+    let resolved: ReturnType<ResolveRoleFn> = null;
+    try {
+      const resolveRoleFn = await getResolveRole();
+      resolved = resolveRoleFn(agent.role);
+    } catch (err) {
+      // Fail loud-but-recoverable: surface the resolver error on stderr, then
+      // fall back to the agent's literal model so the spawn still works.
+      process.stderr.write(
+        `subagent: role '${agent.role}' resolution failed (${
+          err instanceof Error ? err.message : String(err)
+        }); falling back to literal model.\n`,
+      );
+    }
+    if (resolved && resolved.spec) {
+      effectiveModel = resolved.spec;
+      thinkingFromRole = resolved.thinking;
+      args.push("--model", resolved.spec);
+    } else {
+      useLiteralModel(agent.model);
+    }
+  } else {
+    useLiteralModel(agent.model);
   }
 
-  const thinking = agent.thinking ?? parentThinking;
+  // Thinking precedence: explicit agent.thinking > role's :thinking suffix >
+  // inherited parent thinking. (The :thinking inside a role spec is also passed
+  // to pi via the spec, but an explicit --thinking keeps the historic override
+  // path working and is harmless/redundant when it matches the spec.)
+  const thinking = agent.thinking ?? thinkingFromRole ?? parentThinking;
   if (thinking) args.push("--thinking", thinking);
 
   if (agent.tools && agent.tools.length > 0)

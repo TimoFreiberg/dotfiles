@@ -1,0 +1,17 @@
+{
+  "$comment": "Role -> pi model spec (provider/model:thinking). No secrets here; credentials live in the gitignored auth.json / ambient AWS/gcloud env, which pi resolves on its own. WORK machine: claude via Amazon Bedrock + gemini via Google Vertex + chatgpt via GitHub Copilot. Read by agents/_lib/roles.mjs (skills + subagent extension).",
+  "$comment_unverified": "These ids are UNVERIFIED guesses — bedrock/vertex/copilot are not authed on the machine where this template was written. Confirm each against `pi --list-models` on the work machine and correct as needed. The bedrock opus id (global.anthropic.claude-opus-4-6-v1) matches the existing BEDROCK_MODEL_MAP in extensions/subagent/index.ts, so it is the most trustworthy entry; the gemini and copilot ids are least verified.",
+  "default": "straightforward-impl",
+  "roles": {
+    "straightforward-impl": "github-copilot/gpt-5.1:medium",
+    "high-effort-impl": "amazon-bedrock/global.anthropic.claude-opus-4-6-v1:high",
+    "general-review": "google-vertex/gemini-2.5-pro:high",
+    "high-effort-review": "amazon-bedrock/global.anthropic.claude-opus-4-6-v1:xhigh",
+    "web-search": "google-vertex/gemini-2.5-flash",
+    "text-summary": "github-copilot/gpt-5.1-mini:low",
+    "fast-utility": "google-vertex/gemini-2.5-flash-lite:off",
+    "vision": "google-vertex/gemini-2.5-pro",
+    "recon": "google-vertex/gemini-2.5-pro:medium",
+    "structured-extraction": "github-copilot/gpt-5.1-mini:low"
+  }
+}

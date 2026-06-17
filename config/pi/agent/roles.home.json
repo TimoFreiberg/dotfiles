@@ -1,0 +1,16 @@
+{
+  "$comment": "Role -> pi model spec (provider/model:thinking). No secrets here; API keys live in the gitignored auth.json / env, which pi resolves on its own. HOME machine: anthropic subscription (Claude Max) + deepseek. Model ids verified against `pi --list-models` on 2026-06-17. Read by agents/_lib/roles.mjs (skills + subagent extension).",
+  "default": "straightforward-impl",
+  "roles": {
+    "straightforward-impl": "deepseek/deepseek-v4-flash:medium",
+    "high-effort-impl": "anthropic/claude-opus-4-8:high",
+    "general-review": "deepseek/deepseek-v4-pro:high",
+    "high-effort-review": "anthropic/claude-opus-4-8:xhigh",
+    "web-search": "anthropic/claude-haiku-4-5",
+    "text-summary": "anthropic/claude-haiku-4-5:low",
+    "fast-utility": "deepseek/deepseek-v4-flash:off",
+    "vision": "anthropic/claude-sonnet-4-5",
+    "recon": "anthropic/claude-sonnet-4-5:medium",
+    "structured-extraction": "anthropic/claude-haiku-4-5:low"
+  }
+}

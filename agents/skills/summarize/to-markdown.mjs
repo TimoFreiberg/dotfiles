@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * Convert a URL or local file to Markdown using `uvx markitdown`.
- * Optionally summarize the produced Markdown via `pi` (claude-haiku-4-5).
+ * Optionally summarize the produced Markdown via `pi`, using the "text-summary"
+ * role from roles.json (override with the SUMMARIZE_MODEL env var).
  *
  * Note: `markitdown` can fetch URLs on its own; this script mainly adds:
  *   - optional writing to a temp file / specific output path
@@ -22,6 +23,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { basename, join } from 'path';
 import { tmpdir } from 'os';
 import { spawnSync } from 'child_process';
+import { resolveRole } from '../../_lib/roles.mjs';
 
 const argv = process.argv.slice(2);
 
@@ -182,9 +184,17 @@ ${truncNote}
 ${body}
 --- END DOCUMENT ---`;
 
+  // Resolve the "text-summary" role to a model spec. SUMMARIZE_MODEL env wins
+  // (call-site override), then PI_ROLE_TEXT_SUMMARY, then roles.json, then a
+  // built-in default. pi --model natively parses "provider/model:thinking", so
+  // we drop the separate --provider and pass the spec straight through.
+  const role = resolveRole('text-summary', { override: process.env.SUMMARIZE_MODEL });
+  if (!role || !role.spec) {
+    throw new Error("Could not resolve a model for the 'text-summary' role. Set SUMMARIZE_MODEL or add it to roles.json.");
+  }
+
   const result = spawnSync('pi', [
-    '--provider', 'anthropic',
-    '--model', 'claude-haiku-4-5',
+    '--model', role.spec,
     '--no-tools',
     '--no-session',
     '-p',

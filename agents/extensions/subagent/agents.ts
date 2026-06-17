@@ -13,6 +13,14 @@ export interface AgentConfig {
   name: string;
   description: string;
   tools?: string[];
+  /**
+   * Task-role name (e.g. "recon", "high-effort-impl"). Resolved per-machine via
+   * the shared role resolver (agents/_lib/roles.mjs) into a provider/model/thinking
+   * spec. Takes precedence over the literal `model`/`provider`/`thinking` fields
+   * below, which remain as a back-compat fallback when no role is set or the role
+   * does not resolve.
+   */
+  role?: string;
   model?: string;
   provider?: string;
   thinking?: string;
@@ -71,6 +79,7 @@ function loadAgentsFromDir(
       name: frontmatter.name,
       description: frontmatter.description,
       tools: tools && tools.length > 0 ? tools : undefined,
+      role: frontmatter.role,
       model: frontmatter.model,
       provider: frontmatter.provider,
       thinking: frontmatter.thinking,
