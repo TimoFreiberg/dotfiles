@@ -51,3 +51,4 @@ The script instructs the model to:
 
 - No extra npm install is required.
 - If module resolution fails, set `PI_AI_MODULE_PATH` to pi-ai's `dist/index.js` (try `@earendil-works/pi-ai` first; older installs may still use `@mariozechner/pi-ai`).
+- Verify auth without spending a search call: `node search.mjs --check --provider anthropic`. This resolves credentials (including refreshing an expired OAuth token) and prints `OK` or a clear failure. Use it after `/login` or when a search returns an auth error.

@@ -13,6 +13,7 @@ function parseArgs(argv) {
 		purpose: "general research support",
 		timeoutMs: 120000,
 		json: false,
+		check: false,
 		help: false,
 		query: "",
 	};
@@ -26,6 +27,10 @@ function parseArgs(argv) {
 		}
 		if (arg === "--json") {
 			out.json = true;
+			continue;
+		}
+		if (arg === "--check") {
+			out.check = true;
 			continue;
 		}
 		if (arg === "--provider") {
@@ -71,11 +76,13 @@ function parseArgs(argv) {
 function usage() {
 	return `Usage:
   node search.mjs "<query>" [--purpose "<why>"] [--provider gemini|openai-codex|anthropic] [--model <id>] [--json]
+  node search.mjs --check [--provider <p>]   # verify auth (incl. OAuth refresh) without spending a search
 
 Examples:
   node search.mjs "latest python release" --purpose "update dependency notes"
   node search.mjs "HTTP/3 browser support 2026" --provider gemini
-  node search.mjs "vite 7 breaking changes" --json`;
+  node search.mjs "vite 7 breaking changes" --json
+  node search.mjs --check --provider anthropic`;
 
 }
 
@@ -256,6 +263,39 @@ async function loadPiAi() {
 	);
 }
 
+// pi-ai moved getOAuthApiKey into its dist/utils/oauth/index.js submodule, which the
+// top-level package entry does NOT re-export. The token-refresh branch below used to
+// gate on `typeof piAi.getOAuthApiKey === "function"` against that top-level import,
+// so refresh was silently skipped and an expired OAuth token got shipped as a cryptic
+// 401. Resolve the helper from the package subpath or by deriving the submodule path
+// from the same candidates loadPiAi() already searches.
+async function loadOAuthApi(piAi) {
+	if (piAi && typeof piAi.getOAuthApiKey === "function") return piAi;
+
+	for (const pkg of PI_AI_PACKAGES) {
+		try {
+			const mod = await import(`${pkg}/dist/utils/oauth/index.js`);
+			if (typeof mod.getOAuthApiKey === "function") return mod;
+		} catch {
+			// try the next candidate
+		}
+	}
+
+	for (const candidate of collectModuleCandidates()) {
+		// candidate ends in .../dist/index.js; the oauth helper sits under utils/oauth.
+		const oauthPath = candidate.replace(/index\.js$/, join("utils", "oauth", "index.js"));
+		if (!existsSync(oauthPath)) continue;
+		try {
+			const mod = await import(pathToFileURL(oauthPath).href);
+			if (typeof mod.getOAuthApiKey === "function") return mod;
+		} catch {
+			// try the next candidate
+		}
+	}
+
+	return null;
+}
+
 function pickFastModel(provider, requestedModel, piAi) {
 	if (provider === "gemini") {
 		return { id: requestedModel || "gemini-2.5-flash" };
@@ -306,8 +346,10 @@ async function resolveApiKey(provider, auth, authPath, piAi) {
 		throw new Error(`Unsupported credential type for ${provider}: ${String(entry.type || "unknown")}`);
 	}
 
-	// If pi-ai exports getOAuthApiKey, use the full refresh flow.
-	if (typeof piAi.getOAuthApiKey === "function") {
+	// Use the full refresh-and-persist flow. getOAuthApiKey may live on the top-level
+	// pi-ai import or only in its dist/utils/oauth submodule — loadOAuthApi finds it.
+	const oauthApi = await loadOAuthApi(piAi);
+	if (oauthApi) {
 		const oauthCreds = {};
 		for (const [k, v] of Object.entries(auth || {})) {
 			if (v && (v.type === "oauth" || (v.access && v.refresh && v.expires))) {
@@ -315,7 +357,7 @@ async function resolveApiKey(provider, auth, authPath, piAi) {
 			}
 		}
 
-		const refreshed = await piAi.getOAuthApiKey(provider, oauthCreds);
+		const refreshed = await oauthApi.getOAuthApiKey(provider, oauthCreds);
 		if (!refreshed) {
 			throw new Error(`No OAuth credentials available for provider '${provider}'`);
 		}
@@ -330,9 +372,22 @@ async function resolveApiKey(provider, auth, authPath, piAi) {
 		};
 	}
 
-	// Fallback: use the OAuth access token directly if available.
+	// No refresh helper reachable. Only use a stored access token if it is still valid
+	// — never silently ship an expired credential (it surfaces as a cryptic upstream
+	// 401). Fail loud with an actionable message instead.
 	if (entry.access) {
-		return { apiKey: entry.access, accountId: entry.accountId };
+		const rawExp = Number(entry.expires);
+		// pi stores expiry in ms; tolerate a seconds-based value just in case.
+		const expiresMs = Number.isFinite(rawExp) ? (rawExp < 1e12 ? rawExp * 1000 : rawExp) : NaN;
+		const stillValid = !Number.isFinite(expiresMs) || expiresMs - Date.now() > 60_000;
+		if (stillValid) {
+			return { apiKey: entry.access, accountId: entry.accountId };
+		}
+		throw new Error(
+			`OAuth token for '${provider}' expired (${new Date(expiresMs).toISOString()}) and pi-ai's ` +
+			`refresh helper (getOAuthApiKey) could not be loaded to renew it. ` +
+			`Re-authenticate with \`pi\` then \`/login\` (${provider}), or set an API key for it.`,
+		);
 	}
 
 	throw new Error(`OAuth credentials for ${provider} require getOAuthApiKey (not found in pi-ai) and no access token is available.`);
@@ -582,7 +637,7 @@ function parseGeminiResponse(payload) {
 
 async function main() {
 	const args = parseArgs(process.argv.slice(2));
-	if (args.help || !args.query) {
+	if (args.help || (!args.query && !args.check)) {
 		console.error(usage());
 		process.exit(args.help ? 0 : 1);
 	}
@@ -594,6 +649,25 @@ async function main() {
 	const settings = readJson(settingsPath, {});
 
 	const provider = pickProvider(args.provider, settings, auth);
+
+	// --check: resolve provider + credentials (incl. OAuth refresh) and report,
+	// without spending a search call. Cheap setup/regression check for this skill.
+	if (args.check) {
+		try {
+			if (provider === "gemini") {
+				if (!resolveGeminiApiKey(auth)) throw new Error("gemini selected but no GEMINI_API_KEY / auth.json gemini key");
+			} else {
+				const piAi = await loadPiAi();
+				const { apiKey } = await resolveApiKey(provider, auth, authPath, piAi);
+				if (!apiKey) throw new Error("no API key resolved");
+			}
+			console.log(`OK: provider=${provider}, credentials resolved (OAuth refreshed if needed).`);
+			return;
+		} catch (err) {
+			console.error(`CHECK FAILED (provider=${provider}): ${err?.message || err}`);
+			process.exit(1);
+		}
+	}
 
 	let text;
 	if (provider === "gemini") {
