@@ -39,6 +39,16 @@ Set `GEMINI_API_KEY` (free key from https://aistudio.google.com/apikey) or add `
 (in `$PI_CODING_AGENT_DIR`, default `~/.config/pi/agent/`).
 Falls back to OpenAI Codex / Anthropic if configured in `auth.json`.
 
+### Provider/model selection
+
+With no `--provider`/`--model` flags, the provider and model come from the
+`web-search` role in `roles.json` (the shared per-machine role→model config; see
+`agents/_lib/roles.mjs`). The role must name a grounding-capable provider
+(`gemini`, `openai-codex`, or `anthropic`) — anything else fails loudly. Override
+per-call with `--provider`/`--model`, or per-shell with `PI_ROLE_WEB_SEARCH`. If
+`roles.json` is absent, it falls back to the legacy auth-probe (gemini → codex →
+anthropic), so nothing breaks without the config.
+
 ## Output expectations
 
 The script instructs the model to:

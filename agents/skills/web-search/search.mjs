@@ -5,6 +5,7 @@ import { spawnSync, execSync } from "child_process";
 import { homedir } from "os";
 import { dirname, isAbsolute, join, resolve } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { resolveRole } from "../../_lib/roles.mjs";
 
 function parseArgs(argv) {
 	const out = {
@@ -648,7 +649,34 @@ async function main() {
 	const auth = readJson(authPath, {});
 	const settings = readJson(settingsPath, {});
 
-	const provider = pickProvider(args.provider, settings, auth);
+	// Role-based model selection: with no explicit --provider/--model, consult the
+	// per-machine "web-search" role in roles.json (the shared role->model config).
+	// Explicit flags bypass this (call-site override wins). A null/absent role falls
+	// through to the legacy auth-probe below, so behavior is unchanged without roles.json.
+	let roleProvider;
+	let roleModelId;
+	if (!args.provider && !args.model) {
+		let resolved = null;
+		try {
+			resolved = resolveRole("web-search");
+		} catch (err) {
+			console.error(`web-search: role resolution failed (${err?.message || err}); using auth probe.`);
+		}
+		if (resolved && resolved.spec) {
+			const normalized = normalizeProvider(resolved.provider);
+			if (!normalized) {
+				throw new Error(
+					`web-search role -> '${resolved.spec}': provider '${resolved.provider}' has no web-search ` +
+					`grounding path. Set the 'web-search' role to gemini, openai-codex, or anthropic in roles.json.`,
+				);
+			}
+			roleProvider = normalized;
+			roleModelId = resolved.model;
+		}
+	}
+
+	const provider = roleProvider || pickProvider(args.provider, settings, auth);
+	const requestedModel = args.model || roleModelId;
 
 	// --check: resolve provider + credentials (incl. OAuth refresh) and report,
 	// without spending a search call. Cheap setup/regression check for this skill.
@@ -673,7 +701,7 @@ async function main() {
 	if (provider === "gemini") {
 		const apiKey = resolveGeminiApiKey(auth);
 		if (!apiKey) throw new Error("No Gemini API key. Set GEMINI_API_KEY or add gemini.key to auth.json.");
-		const model = pickFastModel(provider, args.model, null);
+		const model = pickFastModel(provider, requestedModel, null);
 		text = await runGeminiSearch({
 				model: model.id,
 				apiKey,
@@ -693,7 +721,7 @@ async function main() {
 	}
 
 	const piAi = await loadPiAi();
-	const model = pickFastModel(provider, args.model, piAi);
+	const model = pickFastModel(provider, requestedModel, piAi);
 	const { apiKey, accountId } = await resolveApiKey(provider, auth, authPath, piAi);
 
 	text =
