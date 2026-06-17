@@ -1,0 +1,22 @@
+{
+  "servers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+      "tools": ["read_text_file", "list_directory"]
+    },
+    "everything": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-everything"]
+    },
+    "example-with-env": {
+      "command": "some-mcp-server",
+      "args": ["--flag"],
+      "env": {
+        "API_TOKEN": "set-me-or-reference-an-existing-env-var"
+      },
+      "cwd": "/path/to/run/in",
+      "debug": false
+    }
+  }
+}

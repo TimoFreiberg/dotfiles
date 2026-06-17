@@ -1,0 +1,19 @@
+{
+  "name": "pi-mcp-bridge",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Bridge external stdio MCP servers into pi as native tools",
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.25.1"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "typebox": "*"
+  }
+}
