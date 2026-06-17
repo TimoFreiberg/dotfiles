@@ -11,6 +11,6 @@
     "fast-utility": "deepseek/deepseek-v4-flash:off",
     "vision": "anthropic/claude-sonnet-4-5",
     "recon": "anthropic/claude-sonnet-4-5:medium",
-    "structured-extraction": "anthropic/claude-haiku-4-5:low"
+    "structured-extraction": "deepseek/deepseek-v4-flash:low"
   }
 }

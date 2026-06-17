@@ -9,6 +9,9 @@
  * 4. Submits the compiled answers when done
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   complete,
   type Model,
@@ -81,6 +84,52 @@ Example output:
   ]
 }`;
 
+// --- Role -> model resolver (shared, per-machine) ---
+
+/**
+ * Shared per-machine role -> model resolver (agents/_lib/roles.mjs).
+ *
+ * It lives OUTSIDE the extension dir, so a static relative import breaks: pi
+ * discovers this extension through the symlink ~/.pi/agent/extensions ->
+ * dotfiles/agents/extensions and resolves relative imports against that symlink
+ * path, where ../../_lib does not exist. We instead realpath import.meta.url
+ * (which crosses the symlink, verified for the subagent extension) and
+ * dynamic-import the resolver by its absolute on-disk path. Cached so we import
+ * it once.
+ *
+ * This mirrors the pattern in extensions/subagent/index.ts. We import the
+ * extension-facing `resolveRoleModel` face, which takes the caller's
+ * modelRegistry and returns a concrete pi Model (or null when the role has no
+ * spec; THROWS when the registry can't find the configured model).
+ */
+type ResolveRoleModelFn = (
+  role: string,
+  modelRegistry: {
+    find: (provider: string, id: string) => Model<Api> | undefined;
+  },
+  opts?: { override?: string; agentDir?: string; quiet?: boolean },
+) => {
+  model: Model<Api>;
+  provider?: string;
+  id: string;
+  thinking?: string;
+  spec: string;
+} | null;
+
+let resolveRoleModelPromise: Promise<ResolveRoleModelFn> | null = null;
+function getResolveRoleModel(): Promise<ResolveRoleModelFn> {
+  if (!resolveRoleModelPromise) {
+    const realHere = path.dirname(
+      fs.realpathSync(fileURLToPath(import.meta.url)),
+    );
+    const rolesPath = path.resolve(realHere, "../_lib/roles.mjs");
+    resolveRoleModelPromise = import(pathToFileURL(rolesPath).href).then(
+      (mod) => mod.resolveRoleModel as ResolveRoleModelFn,
+    );
+  }
+  return resolveRoleModelPromise;
+}
+
 // --- Model selection ---
 
 // Model patterns for extraction, in priority order. Sonnet 4.6 first
@@ -107,13 +156,22 @@ interface ModelCandidate {
 }
 
 /**
- * Build candidate models for extraction. Strategy:
- * 1. Try cheaper models from the SAME provider (reuses session auth)
- * 2. Always fall back to the session's own model (known to work)
+ * Build candidate models for extraction. Strategy (first hit wins; all are
+ * appended as ordered fallbacks so doExtract can retry the next on failure):
+ * 1. The `structured-extraction` role from the shared per-machine resolver.
+ *    This is the new primary path — it honors roles.json across machines.
+ * 2. Cheaper models from the SAME provider as the session (reuses session auth)
+ * 3. Always fall back to the session's own model (known to work)
+ *
+ * The role path degrades gracefully: if the resolver returns null (no spec) or
+ * throws (e.g. roles.json names a model not available on this machine), we log
+ * a one-line note and fall through to the existing pattern scan + ctx.model.
+ * answer.ts must NEVER hard-fail just because a role didn't resolve.
  */
 async function getCandidateModels(
   currentModel: Model<Api>,
   modelRegistry: ModelRegistry,
+  notify: (message: string) => void,
 ): Promise<ModelCandidate[]> {
   const candidates: ModelCandidate[] = [];
   const seen = new Set<string>();
@@ -128,7 +186,20 @@ async function getCandidateModels(
     seen.add(key);
   };
 
-  // Look for preferred models from the same provider
+  // 1. Role-resolved model (shared per-machine resolver). Fail loud (a note),
+  //    degrade gracefully: any failure falls through to the legacy paths below.
+  try {
+    const resolveRoleModel = await getResolveRoleModel();
+    const resolved = resolveRoleModel("structured-extraction", modelRegistry);
+    if (resolved) {
+      await pushCandidate(resolved.model);
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    notify(`answer: role 'structured-extraction' unavailable (${message})`);
+  }
+
+  // 2. Look for preferred models from the same provider
   for (const pattern of EXTRACTION_MODEL_PATTERNS) {
     const match = available.find(
       (m) =>
@@ -142,7 +213,7 @@ async function getCandidateModels(
     }
   }
 
-  // Always include the session model as the final (most reliable) fallback
+  // 3. Always include the session model as the final (most reliable) fallback
   await pushCandidate(currentModel);
 
   return candidates;
@@ -592,8 +663,14 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
-    // Build candidate model list for extraction
-    const candidates = await getCandidateModels(ctx.model, ctx.modelRegistry);
+    // Build candidate model list for extraction. The role-resolver note goes to
+    // stderr (like the subagent extension) so it surfaces without popping a
+    // modal over the extraction spinner.
+    const candidates = await getCandidateModels(
+      ctx.model,
+      ctx.modelRegistry,
+      (message) => process.stderr.write(`${message}\n`),
+    );
 
     if (candidates.length === 0) {
       ctx.ui.notify("No models available for extraction", "error");
