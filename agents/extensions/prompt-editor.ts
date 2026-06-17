@@ -548,7 +548,20 @@ function applyEditor(ctx: ExtensionContext): void {
     // Bail if a newer session_start fired or the user started typing —
     // replacing the editor under them would be annoying.
     if (currentLoad !== loadCounter) return;
-    if (ctx.ui.getEditorText() !== initialText) return;
+    // The session can be swapped out from under us while history loads (e.g. a
+    // headless host that switches sessions programmatically). pi marks the old
+    // ctx stale on dispose, so any ctx.ui access below throws "stale after
+    // session replacement" — and the loadCounter guard misses the window
+    // between the old session's dispose and the new session_start. Probe once;
+    // bail like any other "editor moved on" case. The remaining ctx.ui calls
+    // run synchronously after the probe, so the ctx can't go stale between them.
+    let editorText: string;
+    try {
+      editorText = ctx.ui.getEditorText();
+    } catch {
+      return;
+    }
+    if (editorText !== initialText) return;
     const history = buildHistoryList(currentPrompts, previousPrompts);
     if (historiesMatch(history, immediateHistory)) return;
     setEditor(ctx, history);
