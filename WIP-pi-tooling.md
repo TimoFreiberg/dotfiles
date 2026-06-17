@@ -16,7 +16,7 @@ custom extension (model-callable tool) or skill (script/recipe).
 2. `structured-output` extension — model-callable tool returning schema-validated JSON + `terminate:true` (verified live, pi 0.79.5)
 3. role→model config layer: `agents/_lib/roles.mjs` (resolver) + `config/pi/agent/roles.{home,work}.json` + migrated `summarize` and the `subagent` extension
 4. Option B tracking: `roles.json` gitignored + symlink → `roles.home.json` (per-machine: `ln -s roles.{home,work}.json roles.json`)
-5. `mcp-bridge` extension — stdio MCP server bridge (verified live round-trip vs `@modelcontextprotocol/server-filesystem`)
+5. `mcp-bridge` extension — stdio MCP server bridge (verified live round-trip vs `@modelcontextprotocol/server-filesystem`) — **LATER REMOVED this session; superseded by pi-mcp-adapter (see remaining).**
 6. `browser-preview` extension — Playwright, 8 tools incl. `preview_screenshot`→image content (verified via direct tool execution; model-in-loop blocked only by an anthropic quota)
 7. `web-search` → `web-search` role migration (provider/model from roles.json; legacy auth-probe fallback)
 8. `session-search` extension + `/search-sessions` command (verified live vs 235 real sessions)
@@ -27,31 +27,34 @@ custom extension (model-callable tool) or skill (script/recipe).
     the transcript via a pure `formatQnA` (unit-tested 6/6). Tests live in `agents/_tests/`
     (NOT `extensions/` — pi auto-loads every `.ts` there and would run/err on a test file).
     Interactive widget owes a manual TUI check (see Manual tests owed).
+11. Backgroundable + streaming bash: new `agents/extensions/bash-jobs/` is the sole owner of
+    `bash` — `bash(command, timeout?, background?)` + `job_poll`/`job_list`/`job_abort`.
+    Foreground delegates to pi's `createBashToolDefinition` (streaming + truncation +
+    temp-file); background spawns detached, streams full output to a per-job temp file, polls
+    return capped deltas. Env spawn hook + compact bash render MOVED out of `compact-output.ts`
+    (keeps read/write/grep/find) so `bash` is single-owned (verified: no conflict with all
+    extensions enabled). Review fixes: background uses pi's `getShellConfig()` (/bin/bash,
+    matching foreground — was `$SHELL`); `job_poll` trusts actual `bytesRead` (no NUL padding /
+    lost bytes vs the async flush). Owes a manual TUI/model-in-loop check (no API key in env).
+12. Re-enabled all extensions in `settings.json` (had been globally disabled by accident via
+    pi-gui): compact-output, timestamps, prompt-timestamp are back on.
 
-## To build — new requests from this session
+## To build / remaining
 
-- [~] **Backgroundable + streaming bash — IMPLEMENTED, in review.** New `agents/extensions/
-  bash-jobs/` (sole owner of `bash`): `bash(command, timeout?, background?)`, `job_poll`,
-  `job_list`, `job_abort`. Foreground delegates to pi's `createBashToolDefinition`
-  (inherits streaming + truncation + temp-file). Background spawns detached, streams full
-  output to a per-job temp file, polls return capped deltas. Env spawn hook + (optionally)
-  the compact bash render were MOVED out of `compact-output.ts` (which keeps read/write/
-  grep/find) so `bash` is single-owned. Review fixes applied: background now uses pi's
-  exported `getShellConfig()` (/bin/bash, matching foreground — was `$SHELL`); poll reads
-  trust actual `bytesRead` (no NUL padding / lost bytes vs the async file flush).
-  OPEN: `compact-output.ts` is DISABLED in live settings — decide whether `bash` keeps the
-  compact render. Owes a manual TUI/model-in-loop check (no API key in the build env).
-- [x] **MCP lazy / on-demand discovery — DECIDED: adopt `nicobailon/pi-mcp-adapter`.**
-  Rather than grow our minimal `mcp-bridge`, install the published adapter
-  (`pi install npm:pi-mcp-adapter`, MIT, active — recent v2.10.0): one ~200-token proxy
-  tool with on-demand discovery, stdio + HTTP/SSE, OAuth/sampling/resources/prompts/
-  elicitation. `pi install npm:…` fetches only the published JS bundle (+deps) into a
-  pi-managed dir (`~/.pi/agent/npm/`) — NO repo clone. No live MCP config exists yet
-  (neither our `mcp-servers.json` nor a standard `mcp.json`), so there is NOTHING to
-  migrate. Action: `pi install npm:pi-mcp-adapter`, then delete our `mcp-bridge/` dir.
-  CAVEAT: `pi install` writes a `packages` entry to the gitignored `settings.json`, so the
-  install is NOT captured by the dotfiles repo — document the install step (or add a tracked
-  bootstrap) for cross-machine reproducibility.
+- [ ] **Install pi-mcp-adapter** (decided; `mcp-bridge/` already REMOVED from the repo). Run
+  `pi install npm:pi-mcp-adapter` (Timo, on each machine — it writes a `packages` entry to the
+  gitignored per-machine `settings.json`, so it is NOT captured by the dotfiles repo; consider
+  a tracked bootstrap note for reproducibility). The adapter (MIT, active, ~v2.10.0) gives one
+  ~200-token proxy tool with lazy on-demand discovery, stdio + HTTP/SSE, OAuth/sampling/
+  resources/prompts/elicitation. `pi install npm:…` fetches only the published JS bundle
+  (+deps) into `~/.pi/agent/npm/` — no repo clone. No live MCP config existed, nothing migrated.
+- [x] **`structured-output` → `subagent` wiring — DECIDED: skip for now (option A).**
+  Keep our custom `subagent` extension; do NOT wire schema-validated JSON in. Rationale:
+  the subagent is invoked by the main pi agent (an LLM) which reads the child's prose fine —
+  structured output only earns its keep when the *consumer is code* (chains, code-driven
+  fan-out), which we don't do today. The standalone `structured-output.ts` tool stays
+  (useful for skills/direct use); only the subagent wiring is dropped. See the
+  "reconsider pi-subagents" note under Key context for the trigger to revisit.
 - [x] **`structured-output` → `subagent` wiring — DECIDED: skip for now (option A).**
   Keep our custom `subagent` extension; do NOT wire schema-validated JSON in. Rationale:
   the subagent is invoked by the main pi agent (an LLM) which reads the child's prose fine —
