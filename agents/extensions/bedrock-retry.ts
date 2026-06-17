@@ -166,31 +166,51 @@ async function* rewriteEmptyStop(
  * Locate pi-ai's bedrock-provider.js by filesystem topology. Returns
  * null if the expected layout isn't found — caller should leave the
  * default provider in place rather than breaking pi startup.
+ *
+ * Tries two anchor sources for pi-coding-agent's dist/ directory:
+ * 1. process.argv[1] — works when pi is the process entry (CLI mode).
+ * 2. PATH scan for the `pi` binary — works when pi is embedded via the
+ *    SDK inside another process (e.g. a bun server), where process.argv[1]
+ *    is the host entry, not pi's cli.js.
  */
 function findBedrockProviderFile(): string | null {
   try {
-    const piCliPath = realpathSync(process.argv[1]);
-    // nested layout: <pi-coding-agent>/node_modules/@earendil-works/pi-ai/...
-    const nested = resolve(
-      dirname(piCliPath),
-      "..",
-      "node_modules",
-      "@earendil-works",
-      "pi-ai",
-      "dist",
-      "bedrock-provider.js",
-    );
-    if (existsSync(nested)) return nested;
-    // flattened layout: .../node_modules/@earendil-works/{pi-coding-agent,pi-ai}/...
-    const flat = resolve(
-      dirname(piCliPath),
-      "..",
-      "..",
-      "pi-ai",
-      "dist",
-      "bedrock-provider.js",
-    );
-    if (existsSync(flat)) return flat;
+    const anchors: string[] = [];
+    try {
+      anchors.push(realpathSync(process.argv[1]));
+    } catch {}
+    for (const dir of (process.env.PATH ?? "").split(":")) {
+      const candidate = resolve(dir, "pi");
+      if (existsSync(candidate)) {
+        try {
+          anchors.push(realpathSync(candidate));
+        } catch {}
+      }
+    }
+    for (const piCliPath of anchors) {
+      const distDir = dirname(piCliPath);
+      // nested layout: <pi-coding-agent>/node_modules/@earendil-works/pi-ai/...
+      const nested = resolve(
+        distDir,
+        "..",
+        "node_modules",
+        "@earendil-works",
+        "pi-ai",
+        "dist",
+        "bedrock-provider.js",
+      );
+      if (existsSync(nested)) return nested;
+      // flattened layout: .../node_modules/@earendil-works/{pi-coding-agent,pi-ai}/...
+      const flat = resolve(
+        distDir,
+        "..",
+        "..",
+        "pi-ai",
+        "dist",
+        "bedrock-provider.js",
+      );
+      if (existsSync(flat)) return flat;
+    }
     return null;
   } catch {
     return null;
