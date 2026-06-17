@@ -5,9 +5,12 @@
  * a single line showing the tool name, args, and line count.
  * Ctrl+O still shows the full expanded output.
  *
- * Renders shared via lib/compact-tool-render.ts so container/index.ts
- * can register tools with both compact rendering AND container operations
- * without tool registration conflicts.
+ * Renders are shared via lib/compact-tool-render.ts so other extensions can
+ * reuse the same compact rendering without tool-registration conflicts.
+ *
+ * Owns the compact renderers for: read, write, grep, find. The `bash` tool is
+ * owned by the bash-jobs extension (which reuses bashToolRender from the shared
+ * lib) — see the note at its registration site below.
  */
 
 import type {
@@ -15,7 +18,6 @@ import type {
   ExtensionContext,
 } from "@earendil-works/pi-coding-agent";
 import {
-  createBashToolDefinition,
   createReadToolDefinition,
   createWriteToolDefinition,
   createGrepToolDefinition,
@@ -25,7 +27,6 @@ import {
 import {
   readToolRender,
   writeToolRender,
-  bashToolRender,
   grepToolRender,
   findToolRender,
 } from "./lib/compact-tool-render.ts";
@@ -75,28 +76,12 @@ export default function (pi: ExtensionAPI) {
     writeToolRender(displayCwd),
     displayCwd,
   );
-  registerCompactTool(
-    pi,
-    (cwd) =>
-      createBashToolDefinition(cwd, {
-        spawnHook: ({ command, cwd, env }) => ({
-          command,
-          cwd,
-          env: {
-            ...env,
-            CI: "true",
-            EDITOR: "false",
-            GIT_EDITOR: "false",
-            GIT_PAGER: "cat",
-            JJ_EDITOR: "false",
-            MANPAGER: "cat",
-            PAGER: "cat",
-          },
-        }),
-      }),
-    bashToolRender(displayCwd),
-    displayCwd,
-  );
+  // NOTE: the `bash` tool is intentionally NOT registered here. It is owned by
+  // the bash-jobs extension (agents/extensions/bash-jobs/), which registers a
+  // superset bash (foreground + backgroundable) while preserving this env spawn
+  // hook and the bashToolRender compact rendering. Pi resolves duplicate tool
+  // names by first-registration-wins and logs a conflict diagnostic, so `bash`
+  // must have exactly one owner — see bash-jobs/index.ts for the rationale.
   registerCompactTool(
     pi,
     createGrepToolDefinition,
