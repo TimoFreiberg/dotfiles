@@ -155,6 +155,19 @@ file** before attempting to fix it.
 - Commit only the files you touched: `jj commit <paths...> -m "..."`
 - Do NOT push without asking.
 
+### Isolated Workspaces
+
+When a session is spawned in an isolated worktree (the `WorktreeCreate`
+system reminder names its path), do **all** edits, commits, and test runs
+there. Orient with `pwd`/`ls` first — don't reflexively `cd` to a main
+checkout path you "know". Never edit or commit in the shared main checkout
+the worktree forked from: another session may be working there, and two
+agents committing to one working copy scramble each other's commits (a
+directory-scoped `jj commit` sweeps in the other's files; your own commit
+can land empty; new files get stranded — all recoverable, but a mess). If
+the worktree lacks deps (`node_modules` missing), install them in the
+worktree rather than falling back to the main checkout.
+
 ### Commit Messages
 
 - Imperative mood, ≤72 chars, no trailing period.
