@@ -7,7 +7,7 @@
     "general-review": "deepseek/deepseek-v4-pro:high",
     "high-effort-review": "anthropic/claude-opus-4-8:xhigh",
     "web-search": "anthropic/claude-haiku-4-5",
-    "text-summary": "anthropic/claude-haiku-4-5:low",
+    "text-summary": "deepseek/deepseek-v4-flash:low",
     "fast-utility": "deepseek/deepseek-v4-flash:off",
     "vision": "anthropic/claude-sonnet-4-5",
     "recon": "anthropic/claude-sonnet-4-5:medium",
