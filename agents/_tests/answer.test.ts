@@ -38,11 +38,18 @@ import {
   type ExtractedQuestion,
   formatQnA,
   type QnAAnswer,
+  runQnAWidget,
 } from "../extensions/answer.ts";
 
 function answer(partial: Partial<QnAAnswer>): QnAAnswer {
   return { ...emptyAnswer(), ...partial };
 }
+
+// Minimal pi/ctx doubles for the non-tui routing in runQnAWidget. The TUI branch
+// (ctx.mode === "tui" → ctx.ui.custom) needs a real terminal and is checked by
+// hand; these only drive the remote-host paths.
+// biome-ignore lint/suspicious/noExplicitAny: test doubles for pi's wide types.
+const fakePi = { events: { emit() {} } } as any;
 
 test("free-text answer: records the typed text under A:", () => {
   const questions: ExtractedQuestion[] = [
@@ -148,4 +155,65 @@ test("multiple questions: each Q/A pair is present and ordered", () => {
   assert.ok(idxQ1 < idxQ2, "questions kept in order");
   assert.match(out, /A: A/);
   assert.match(out, /A: free response/);
+});
+
+test("non-tui host with a qna form: forwards questions and formats answers", async () => {
+  const questions: ExtractedQuestion[] = [
+    { question: "Pick", options: [{ label: "A" }, { label: "B" }] },
+    { question: "Free?" },
+  ];
+  let received: ExtractedQuestion[] | undefined;
+  const ctx = {
+    mode: "rpc",
+    ui: {
+      qna: async (qs: ExtractedQuestion[]): Promise<QnAAnswer[]> => {
+        received = qs;
+        return [
+          { selectedOptionIndices: [1], customText: "" },
+          { selectedOptionIndices: [], customText: "yep" },
+        ];
+      },
+      notify() {
+        throw new Error("must not notify when a qna form is available");
+      },
+    },
+    // biome-ignore lint/suspicious/noExplicitAny: ctx double for the test.
+  } as any;
+
+  const out = await runQnAWidget(fakePi, ctx, questions);
+
+  assert.deepEqual(received, questions); // forwarded as-is across the bridge
+  assert.ok(out);
+  assert.match(out, /A: B/); // picked option label
+  assert.match(out, /A: yep/); // free-text answer
+});
+
+test("non-tui host without a qna form: notifies and returns null (no throw)", async () => {
+  let notified = "";
+  const ctx = {
+    mode: "print",
+    ui: {
+      notify: (message: string) => {
+        notified = message;
+      },
+    },
+    // biome-ignore lint/suspicious/noExplicitAny: ctx double for the test.
+  } as any;
+
+  const out = await runQnAWidget(fakePi, ctx, [{ question: "Anything?" }]);
+
+  assert.equal(out, null);
+  assert.match(notified, /terminal|pilot/i);
+});
+
+test("non-tui qna form cancelled (null answers): returns null", async () => {
+  const ctx = {
+    mode: "rpc",
+    ui: { qna: async (): Promise<QnAAnswer[] | null> => null, notify() {} },
+    // biome-ignore lint/suspicious/noExplicitAny: ctx double for the test.
+  } as any;
+
+  const out = await runQnAWidget(fakePi, ctx, [{ question: "Anything?" }]);
+
+  assert.equal(out, null);
 });

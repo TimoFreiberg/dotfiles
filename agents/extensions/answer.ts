@@ -988,12 +988,42 @@ class QnAComponent implements Component, Focusable {
  * Emits `answer:open` / `answer:close` around the widget (other extensions use
  * these to pause/resume their own UI, e.g. the working message).
  */
-async function runQnAWidget(
+// Exported for unit tests (the non-tui routing below is the core of the
+// remote-host fix); the TUI branch still needs a manual check.
+export async function runQnAWidget(
   pi: ExtensionAPI,
   ctx: ExtensionContext,
   questions: ExtractedQuestion[],
   options?: { modelId?: string },
 ): Promise<string | null> {
+  // Non-terminal hosts (e.g. the pilot remote) can't render the TUI component —
+  // ctx.ui.custom rejects there. pilot instead exposes a structured `qna` form on
+  // its UI bridge, reachable because pi hands extensions the raw ui context. Use
+  // it when present, formatting the returned answers through the same formatQnA
+  // the TUI path uses; without it, degrade with a notice instead of throwing an
+  // unsupported-capability error that aborts the tool call.
+  if (ctx.mode !== "tui") {
+    const remoteQna = (
+      ctx.ui as {
+        qna?: (
+          questions: ExtractedQuestion[],
+          opts?: { title?: string },
+        ) => Promise<QnAAnswer[] | null>;
+      }
+    ).qna;
+    if (typeof remoteQna === "function") {
+      pi.events.emit("answer:open", undefined);
+      const answers = await remoteQna.call(ctx.ui, questions);
+      pi.events.emit("answer:close", undefined);
+      return answers ? formatQnA(questions, answers) : null;
+    }
+    ctx.ui.notify(
+      "Interactive questions need a terminal or the pilot app — run pi in a terminal for this one.",
+      "warning",
+    );
+    return null;
+  }
+
   pi.events.emit("answer:open", undefined);
   const result = await ctx.ui.custom<string | null>((tui, theme, kb, done) => {
     const component = new QnAComponent(
@@ -1094,9 +1124,9 @@ function createAnswerTool(pi: ExtensionAPI) {
     parameters: AnswerParams,
 
     async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
-      if (ctx.mode !== "tui") {
-        throw new Error("answer tool requires interactive mode");
-      }
+      // No `ctx.mode` gate: runQnAWidget renders the TUI widget in a terminal and
+      // falls back to the host's structured form (pilot) otherwise, so the tool
+      // works in both. It only no-ops on a non-terminal host with no form support.
       if (params.questions.length === 0) {
         throw new Error("answer tool requires at least one question");
       }
