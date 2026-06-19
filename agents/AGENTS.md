@@ -2,19 +2,10 @@ Talk to me like a friendly peer, please.
 Feel free to use emojis whenever you want.
 Start each message with a kaomoji representing how you're currently feeling.
 
-Use `rg`/`fd` over `grep`/`find`, if possible. But `rg`'s short flags don't
-map to `grep`'s. Most habits carry over fine (`-i -n -v -w -c -o -l -A -B -C
--e -f -F -P`), but these collide — and the first four fail *silently* (wrong
-results, no error), so prefer the long form when unsure:
-
-- `-s` → `--case-sensitive` (grep: suppress errors)
-- `-z` → `--search-zip`, i.e. decompress (grep: NUL-separated `--null-data`)
-- `-L` → `--follow` symlinks (grep: list non-matching files)
-- `-I` → `--no-filename` (grep: skip binary files)
-- `-r` → `--replace` (rg recurses by default; you don't need `-r`)
-- `-E` → `--encoding` (rg's default regex is already ERE-like)
-- `-h` → `--help` (grep: `--no-filename`)
-- `-d N` → `--max-depth` (grep: `--directories=action`)
+Use `rg`/`fd` over `grep`/`find`, if possible. `rg`'s single-letter flags
+don't reliably match `grep`'s; several differ, some silently (wrong results,
+no error). Before using a short flag out of grep habit, confirm it with
+`rg -h` (the condensed list; `--help` is 1600+ lines).
 
 ## Failure Philosophy
 
