@@ -37,6 +37,7 @@ import {
   emptyAnswer,
   type ExtractedQuestion,
   formatQnA,
+  pendingAnswerQuestions,
   type QnAAnswer,
   runQnAWidget,
 } from "../extensions/answer.ts";
@@ -216,4 +217,70 @@ test("non-tui qna form cancelled (null answers): returns null", async () => {
   const out = await runQnAWidget(fakePi, ctx, [{ question: "Anything?" }]);
 
   assert.equal(out, null);
+});
+
+// --- crash recovery: pendingAnswerQuestions ---
+
+const msgEntry = (message: unknown) => ({ type: "message", message });
+const answerCallMsg = (questions: unknown) =>
+  msgEntry({
+    role: "assistant",
+    content: [
+      { type: "toolCall", id: "tc1", name: "answer", arguments: { questions } },
+    ],
+  });
+
+test("recovery: recovers questions when the last action is an unfinished answer call", () => {
+  const branch = [
+    msgEntry({ role: "user", content: [{ type: "text", text: "help" }] }),
+    answerCallMsg([
+      {
+        question: "Pick",
+        options: [{ label: "A" }, { label: "B" }],
+        multiSelect: true,
+      },
+      { question: "Free?" },
+    ]),
+  ];
+
+  const out = pendingAnswerQuestions(branch);
+
+  assert.ok(out);
+  assert.equal(out.length, 2);
+  assert.equal(out[0].question, "Pick");
+  assert.equal(out[0].multiSelect, true);
+  assert.equal(out[0].options?.length, 2);
+  assert.equal(out[1].question, "Free?");
+  assert.equal(out[1].options, undefined);
+});
+
+test("recovery: null when the answer call already has a result after it", () => {
+  const branch = [
+    answerCallMsg([{ question: "Q" }]),
+    msgEntry({ role: "toolResult", toolCallId: "tc1", content: "answered" }),
+  ];
+  assert.equal(pendingAnswerQuestions(branch), null);
+});
+
+test("recovery: null when the user moved on after the call", () => {
+  const branch = [
+    answerCallMsg([{ question: "Q" }]),
+    msgEntry({ role: "user", content: [{ type: "text", text: "never mind" }] }),
+  ];
+  assert.equal(pendingAnswerQuestions(branch), null);
+});
+
+test("recovery: null when the last tool call is a different tool", () => {
+  const branch = [
+    msgEntry({
+      role: "assistant",
+      content: [{ type: "toolCall", id: "x", name: "bash", arguments: {} }],
+    }),
+  ];
+  assert.equal(pendingAnswerQuestions(branch), null);
+});
+
+test("recovery: null for an empty branch or no questions", () => {
+  assert.equal(pendingAnswerQuestions([]), null);
+  assert.equal(pendingAnswerQuestions([answerCallMsg([])]), null);
 });

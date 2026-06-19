@@ -1165,6 +1165,73 @@ function createAnswerTool(pi: ExtensionAPI) {
   });
 }
 
+// --- Crash recovery ---
+
+/** One entry from `sessionManager.getBranch()`. Typed structurally so the
+ *  detector stays pure and unit-testable without pi's session types. */
+type BranchEntry = { type: string; message?: unknown };
+
+/**
+ * Detect a Q&A that went down with the form open. If the LAST message on the
+ * branch is an assistant turn that called the `answer` tool and never received a
+ * result, the run crashed/was killed mid-prompt — pi resumes with a dangling
+ * answer tool call, doesn't re-run it, and doesn't auto-continue. Return its
+ * questions so a resume can re-open the form; null otherwise.
+ *
+ * "LAST message" is the guard for "the last action was an unfinished answer
+ * call": if the user already moved on (answered something else after), we don't
+ * re-pop. Pure + exported for unit tests.
+ */
+export function pendingAnswerQuestions(
+  branch: readonly BranchEntry[],
+): ExtractedQuestion[] | null {
+  let lastMessage: unknown;
+  for (let i = branch.length - 1; i >= 0; i--) {
+    if (branch[i]!.type === "message") {
+      lastMessage = branch[i]!.message;
+      break;
+    }
+  }
+  if (
+    !lastMessage ||
+    typeof lastMessage !== "object" ||
+    (lastMessage as { role?: unknown }).role !== "assistant"
+  ) {
+    return null;
+  }
+  const content = (lastMessage as { content?: unknown }).content;
+  if (!Array.isArray(content)) return null;
+  const call = content.find(
+    (c): c is { type: "toolCall"; name: string; arguments?: unknown } =>
+      !!c &&
+      typeof c === "object" &&
+      (c as { type?: unknown }).type === "toolCall" &&
+      (c as { name?: unknown }).name === "answer",
+  );
+  if (!call) return null;
+  const raw = (call.arguments as { questions?: unknown } | undefined)
+    ?.questions;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const questions = raw
+    .map((q): ExtractedQuestion | null => {
+      if (!q || typeof q !== "object") return null;
+      const obj = q as Record<string, unknown>;
+      const question = typeof obj.question === "string" ? obj.question : "";
+      if (!question) return null;
+      return {
+        question,
+        context: typeof obj.context === "string" ? obj.context : undefined,
+        options:
+          Array.isArray(obj.options) && obj.options.length > 0
+            ? (obj.options as ExtractedQuestion["options"])
+            : undefined,
+        multiSelect: obj.multiSelect === true,
+      };
+    })
+    .filter((q): q is ExtractedQuestion => q !== null);
+  return questions.length > 0 ? questions : null;
+}
+
 // --- Extension entry point ---
 
 export default function (pi: ExtensionAPI) {
@@ -1361,5 +1428,40 @@ export default function (pi: ExtensionAPI) {
   pi.registerShortcut("ctrl+.", {
     description: "Extract and answer questions",
     handler: answerHandler,
+  });
+
+  // Crash recovery: if a previous run went down while the `answer` tool was
+  // awaiting (the form was open), the session resumes with a dangling answer
+  // tool call and no result. pi won't re-run the tool or auto-continue (verified
+  // empirically), so we re-open the form and deliver the answers as a user
+  // message — the same path the /answer command uses; pi reconciles the dangling
+  // call on the next turn. Fired detached so it never blocks session load: the
+  // form just waits for a client to answer.
+  //
+  // Remote hosts (pilot) only. There, ctx.ui.qna emits an event the client
+  // renders whenever it connects, so session-load timing is irrelevant. In a
+  // real terminal, ctx.ui.custom can't mount this early in session_start (the
+  // TUI render loop isn't up yet) and hangs invisibly — so TUI recovery is
+  // intentionally skipped until pi grows a post-ready / "UI is interactive" hook.
+  pi.on("session_start", (event, ctx) => {
+    if (event.reason !== "resume" && event.reason !== "startup") return;
+    if (!ctx.hasUI || ctx.mode === "tui") return;
+    const questions = pendingAnswerQuestions(ctx.sessionManager.getBranch());
+    if (!questions) return;
+    void (async () => {
+      try {
+        const result = await runQnAWidget(pi, ctx, questions);
+        if (result === null) return; // user dismissed — leave the call dangling
+        const message =
+          "I answered your questions in the following way:\n\n" + result;
+        if (ctx.isIdle()) pi.sendUserMessage(message);
+        else pi.sendUserMessage(message, { deliverAs: "followUp" });
+      } catch (err) {
+        ctx.ui.notify(
+          `Could not restore the answer form: ${String(err)}`,
+          "error",
+        );
+      }
+    })();
   });
 }
