@@ -15,14 +15,12 @@ export interface AgentConfig {
   tools?: string[];
   /**
    * Task-role name (e.g. "recon", "high-effort-impl"). Resolved per-machine via
-   * the shared role resolver (agents/_lib/roles.mjs) into a provider/model/thinking
-   * spec. Takes precedence over the literal `model`/`provider`/`thinking` fields
-   * below, which remain as a back-compat fallback when no role is set or the role
-   * does not resolve.
+   * the shared role resolver (agents/_lib/roles.mjs) into a concrete pi Model.
+   * When absent (here and at the call site), the subagent inherits the parent
+   * session's model. `thinking` is an explicit override that wins over the role's
+   * own `:thinking` suffix.
    */
   role?: string;
-  model?: string;
-  provider?: string;
   thinking?: string;
   systemPrompt: string;
   source: "user" | "project";
@@ -80,8 +78,6 @@ function loadAgentsFromDir(
       description: frontmatter.description,
       tools: tools && tools.length > 0 ? tools : undefined,
       role: frontmatter.role,
-      model: frontmatter.model,
-      provider: frontmatter.provider,
       thinking: frontmatter.thinking,
       systemPrompt: body,
       source,

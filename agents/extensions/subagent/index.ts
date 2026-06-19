@@ -1,26 +1,47 @@
 /**
  * Subagent Tool - Delegate tasks to specialized agents
  *
- * Spawns a separate `pi` process for each subagent invocation,
- * giving it an isolated context window.
+ * Runs each subagent in-process via the pi SDK's `createAgentSession()` instead
+ * of spawning a `pi` child process. Each session gets its own isolated context
+ * window, the same OAuth/subscription auth as the parent (shared modelRegistry),
+ * and a lean ResourceLoader: a custom system prompt + the agent body + the
+ * AGENTS.md context chain, but NO extensions and NO skills. Dropping extensions
+ * also means subagents can't recursively get a `subagent` tool.
  *
- * Single task: { tasks: [{ agent: "name", task: "..." }] }
- * Parallel:    { tasks: [{ agent: "a", task: "..." }, { agent: "b", task: "..." }] }
+ * One-shot / parallel:
+ *   subagent { tasks: [{ agent, task }, ...] }       // create -> 1 turn -> dispose
+ *
+ * Durable (multi-turn) sessions:
+ *   subagent { tasks: [{ agent, task, keepAlive: true }] }  // returns a handle
+ *   subagent_followup { handle, task }                      // another turn
+ *   subagent_list {}                                        // live handles
+ *   subagent_close { handle }                               // dispose ("all" ok)
+ *
+ * Model selection leans entirely on the shared roles infra (roles.json +
+ * agents/_lib/roles.mjs): an agent's `role:` frontmatter, or a per-task `role`
+ * override, resolves to a concrete model. With no role anywhere, the subagent
+ * inherits the parent session's model.
  *
  * Config env vars:
  *   PI_SUBAGENT_SCOPE   - "user" (default), "project", or "both"
  */
 
-import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import type { AgentToolResult } from "@earendil-works/pi-agent-core";
-import type { Message } from "@earendil-works/pi-ai";
+import type {
+  AgentToolResult,
+  ThinkingLevel,
+} from "@earendil-works/pi-agent-core";
+import type { Message, Model } from "@earendil-works/pi-ai";
 import {
+  createAgentSession,
+  DefaultResourceLoader,
   type ExtensionAPI,
+  getAgentDir,
   getMarkdownTheme,
+  SessionManager,
 } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, Spacer, Text } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
@@ -31,6 +52,8 @@ import {
   formatAgentList,
 } from "./agents.js";
 import { SUBAGENT_SYSTEM_PROMPT } from "./system-prompt.js";
+
+type SubSession = Awaited<ReturnType<typeof createAgentSession>>["session"];
 
 /**
  * Shared per-machine role -> model resolver (agents/_lib/roles.mjs).
@@ -45,28 +68,47 @@ import { SUBAGENT_SYSTEM_PROMPT } from "./system-prompt.js";
  * pi-runtime-free ESM, also imported by plain-node skills, so skills and
  * subagents agree on ONE roles.json.
  */
-type ResolveRoleFn = (
-  role: string,
-  opts?: { override?: string; agentDir?: string; quiet?: boolean },
-) => {
-  provider?: string;
-  model: string;
-  thinking?: string;
-  spec: string;
-} | null;
+interface RolesModule {
+  resolveRoleModel: (
+    role: string,
+    modelRegistry: { find: (provider: string, id: string) => unknown },
+    opts?: { override?: string; agentDir?: string; quiet?: boolean },
+  ) => {
+    model: unknown;
+    provider?: string;
+    id: string;
+    thinking?: string;
+    spec: string;
+  } | null;
+  getAgentDir: () => string;
+  readJson: (p: string, fallback?: unknown) => any;
+}
 
-let resolveRolePromise: Promise<ResolveRoleFn> | null = null;
-function getResolveRole(): Promise<ResolveRoleFn> {
-  if (!resolveRolePromise) {
+let rolesPromise: Promise<RolesModule> | null = null;
+function getRoles(): Promise<RolesModule> {
+  if (!rolesPromise) {
     const realHere = path.dirname(
       fs.realpathSync(fileURLToPath(import.meta.url)),
     );
     const rolesPath = path.resolve(realHere, "../../_lib/roles.mjs");
-    resolveRolePromise = import(pathToFileURL(rolesPath).href).then(
-      (mod) => mod.resolveRole as ResolveRoleFn,
-    );
+    rolesPromise = import(
+      pathToFileURL(rolesPath).href
+    ) as Promise<RolesModule>;
   }
-  return resolveRolePromise;
+  return rolesPromise;
+}
+
+/** List the role names defined in the active roles.json, for the tool description. */
+async function listRoles(): Promise<{ names: string[]; rolesPath: string }> {
+  try {
+    const roles = await getRoles();
+    const rolesPath = path.join(roles.getAgentDir(), "roles.json");
+    const cfg = roles.readJson(rolesPath, null);
+    const names = cfg?.roles ? Object.keys(cfg.roles) : [];
+    return { names, rolesPath };
+  } catch {
+    return { names: [], rolesPath: "(roles.json not found)" };
+  }
 }
 
 const MAX_PARALLEL_TASKS = 8;
@@ -74,46 +116,11 @@ const MAX_CONCURRENCY = 4;
 const COLLAPSED_ITEM_COUNT = 10;
 
 /**
- * Map generic model names to Amazon Bedrock model IDs.
- *
- * Short aliases (`opus`, `sonnet`, `haiku`) resolve to the latest version of
- * that family. Bump them when a newer version lands.
+ * Tools enabled for an agent that does not pin a `tools:` list. Mirrors the full
+ * read/write built-in set the old spawned `pi` exposed by default (the SDK's
+ * own default is just read/bash/edit/write).
  */
-const BEDROCK_MODEL_MAP: Record<string, string> = {
-  opus: "global.anthropic.claude-opus-4-7",
-  sonnet: "global.anthropic.claude-sonnet-4-6",
-  haiku: "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-  "claude-opus-4-7": "global.anthropic.claude-opus-4-7",
-  "claude-opus-4-6": "global.anthropic.claude-opus-4-6-v1",
-  "claude-opus-4-5": "global.anthropic.claude-opus-4-5-20251101-v1:0",
-  "claude-sonnet-4-6": "global.anthropic.claude-sonnet-4-6",
-  "claude-sonnet-4-5": "global.anthropic.claude-sonnet-4-5-20250929-v1:0",
-  "claude-sonnet-4": "global.anthropic.claude-sonnet-4-20250514-v1:0",
-  "claude-haiku-4-5": "global.anthropic.claude-haiku-4-5-20251001-v1:0",
-};
-
-const DEEPSEEK_MODEL_MAP: Record<string, string> = {
-  sonnet: "deepseek-v4-flash",
-  haiku: "deepseek-v4-flash",
-  opus: "deepseek-v4-flash",
-};
-
-/**
- * Resolve a model alias to a provider-specific model ID.
- *
- * Short aliases (`opus`, `sonnet`, `haiku`) map to the latest version of
- * that family per provider. Known Claude model IDs are also mapped where
- * the provider has a reasonable equivalent. Unknown aliases pass through.
- */
-function resolveModelAlias(model: string, provider?: string): string {
-  if (!provider) return model;
-  const maps: Record<string, Record<string, string> | undefined> = {
-    "amazon-bedrock": BEDROCK_MODEL_MAP,
-    deepseek: DEEPSEEK_MODEL_MAP,
-  };
-  const map = maps[provider];
-  return map ? (map[model] ?? model) : model;
-}
+const DEFAULT_TOOLS = ["read", "bash", "edit", "write", "grep", "find", "ls"];
 
 function formatTokens(count: number): string {
   if (count < 1000) return count.toString();
@@ -242,6 +249,7 @@ interface SingleResult {
   agent: string;
   agentSource: "user" | "project" | "unknown";
   task: string;
+  /** 0 = ran, 1 = error, -1 = still running (parallel placeholder). */
   exitCode: number;
   messages: Message[];
   stderr: string;
@@ -250,10 +258,40 @@ interface SingleResult {
   stopReason?: string;
   errorMessage?: string;
   outputFile?: string;
+  /** Set when the session is kept alive after this turn. */
+  handle?: string;
 }
 
 interface SubagentDetails {
   results: SingleResult[];
+}
+
+function emptyUsage(): UsageStats {
+  return {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    cost: 0,
+    contextTokens: 0,
+    turns: 0,
+  };
+}
+
+function blankResult(
+  agent: string,
+  task: string,
+  agentSource: SingleResult["agentSource"] = "unknown",
+): SingleResult {
+  return {
+    agent,
+    agentSource,
+    task,
+    exitCode: -1,
+    messages: [],
+    stderr: "",
+    usage: emptyUsage(),
+  };
 }
 
 function getFinalOutput(messages: Message[]): string {
@@ -310,20 +348,6 @@ async function mapWithConcurrencyLimit<TIn, TOut>(
   return results;
 }
 
-function writePromptFile(
-  dir: string,
-  filename: string,
-  contents: string,
-): string {
-  const filePath = path.join(dir, filename);
-  fs.writeFileSync(filePath, contents, { encoding: "utf-8", mode: 0o600 });
-  return filePath;
-}
-
-function createPromptTempDir(): string {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "pi-subagent-"));
-}
-
 const SUBAGENT_OUTPUT_DIR = path.join(os.tmpdir(), "pi-subagent-output");
 
 function outputFileHint(results: SingleResult[]): string {
@@ -348,6 +372,7 @@ function saveOutputFile(agentName: string, result: SingleResult): string {
     `- **Task:** ${result.task}`,
     `- **Exit code:** ${result.exitCode}`,
     `- **Model:** ${result.model || "unknown"}`,
+    result.handle ? `- **Handle:** ${result.handle}` : null,
     result.stopReason ? `- **Stop reason:** ${result.stopReason}` : null,
     result.errorMessage ? `- **Error:** ${result.errorMessage}` : null,
     ``,
@@ -363,288 +388,505 @@ function saveOutputFile(agentName: string, result: SingleResult): string {
   return filePath;
 }
 
-type OnUpdateCallback = (partial: AgentToolResult<SubagentDetails>) => void;
-
 function getAgentScope(): AgentScope {
   const env = process.env.PI_SUBAGENT_SCOPE;
   if (env === "project" || env === "both") return env;
   return "user";
 }
 
-async function runSingleAgent(
-  cwd: string,
-  agents: AgentConfig[],
-  agentName: string,
+function isErrorResult(r: SingleResult): boolean {
+  return (
+    r.exitCode > 0 ||
+    r.stopReason === "error" ||
+    r.stopReason === "aborted" ||
+    !!r.errorMessage
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Durable session registry — survives across tool calls for the pi process
+// lifetime. Disposed wholesale on session_shutdown.
+// ---------------------------------------------------------------------------
+
+interface DurableEntry {
+  handle: string;
+  agent: string;
+  agentSource: SingleResult["agentSource"];
+  model?: string;
+  session: SubSession;
+  cwd: string;
+  turns: number;
+  createdAt: number;
+}
+
+const durable = new Map<string, DurableEntry>();
+let handleCounter = 0;
+
+function newHandle(agent: string): string {
+  const safe = agent.replace(/[^\w.-]+/g, "_");
+  return `${safe}-${++handleCounter}`;
+}
+
+function disposeAllDurable(): void {
+  for (const entry of durable.values()) {
+    try {
+      entry.session.dispose();
+    } catch {
+      /* ignore */
+    }
+  }
+  durable.clear();
+}
+
+// ---------------------------------------------------------------------------
+// Model resolution (roles) + session construction
+// ---------------------------------------------------------------------------
+
+async function resolveModelForRole(
+  agent: AgentConfig,
+  roleOverride: string | undefined,
+  modelRegistry: { find: (provider: string, id: string) => unknown },
+  parentModel: Model<any> | undefined,
+  parentThinking: ThinkingLevel | undefined,
+): Promise<{
+  model: Model<any> | undefined;
+  thinkingLevel: ThinkingLevel | undefined;
+  modelLabel: string | undefined;
+}> {
+  const role = roleOverride ?? agent.role;
+  const inheritParent = () => ({
+    model: parentModel,
+    thinkingLevel:
+      (agent.thinking as ThinkingLevel | undefined) ?? parentThinking,
+    modelLabel: parentModel
+      ? `${parentModel.provider}/${parentModel.id}`
+      : undefined,
+  });
+
+  if (!role) return inheritParent();
+
+  const roles = await getRoles();
+  // resolveRoleModel fails loud if the provider/model isn't in the registry —
+  // we let that throw and surface it as the task's error.
+  const resolved = roles.resolveRoleModel(role, modelRegistry);
+  if (!resolved) return inheritParent(); // role mapped to null (caller-fallback)
+
+  return {
+    model: resolved.model as Model<any>,
+    thinkingLevel:
+      (agent.thinking as ThinkingLevel | undefined) ??
+      (resolved.thinking as ThinkingLevel | undefined) ??
+      parentThinking,
+    modelLabel: resolved.spec,
+  };
+}
+
+interface BuildSessionDeps {
+  cwd: string;
+  modelRegistry: any;
+  authStorage: any;
+  parentModel: Model<any> | undefined;
+  parentThinking: ThinkingLevel | undefined;
+}
+
+async function buildSession(
+  agent: AgentConfig,
+  roleOverride: string | undefined,
+  deps: BuildSessionDeps,
+): Promise<{ session: SubSession; modelLabel: string | undefined }> {
+  const { model, thinkingLevel, modelLabel } = await resolveModelForRole(
+    agent,
+    roleOverride,
+    deps.modelRegistry,
+    deps.parentModel,
+    deps.parentThinking,
+  );
+
+  const agentDir = getAgentDir();
+
+  // Lean loader: replace pi's default system prompt (which mentions pi and would
+  // trip Claude-subscription third-party-harness detection), append the agent
+  // body, keep the AGENTS.md context chain, but load NO extensions and NO skills.
+  const resourceLoader = new DefaultResourceLoader({
+    cwd: deps.cwd,
+    agentDir,
+    noExtensions: true,
+    noSkills: true,
+    noPromptTemplates: true,
+    noThemes: true,
+    systemPromptOverride: () => SUBAGENT_SYSTEM_PROMPT,
+    appendSystemPromptOverride: () =>
+      agent.systemPrompt.trim() ? [agent.systemPrompt] : [],
+  });
+  await resourceLoader.reload();
+
+  const { session } = await createAgentSession({
+    cwd: deps.cwd,
+    agentDir,
+    model,
+    thinkingLevel,
+    tools: agent.tools && agent.tools.length > 0 ? agent.tools : DEFAULT_TOOLS,
+    resourceLoader,
+    modelRegistry: deps.modelRegistry,
+    authStorage: deps.authStorage,
+    sessionManager: SessionManager.inMemory(deps.cwd),
+  });
+
+  return { session, modelLabel };
+}
+
+/** Recompute messages + usage on a result from the session's current state. */
+function syncResult(session: SubSession, result: SingleResult): void {
+  const messages = session.messages as unknown as Message[];
+  result.messages = messages;
+  const usage = emptyUsage();
+  for (const msg of messages) {
+    if (msg.role !== "assistant") continue;
+    usage.turns++;
+    const u = (msg as any).usage;
+    if (u) {
+      usage.input += u.input || 0;
+      usage.output += u.output || 0;
+      usage.cacheRead += u.cacheRead || 0;
+      usage.cacheWrite += u.cacheWrite || 0;
+      usage.cost += u.cost?.total || 0;
+      usage.contextTokens = u.totalTokens || 0;
+    }
+    if ((msg as any).stopReason) result.stopReason = (msg as any).stopReason;
+    if ((msg as any).errorMessage)
+      result.errorMessage = (msg as any).errorMessage;
+  }
+  result.usage = usage;
+}
+
+/** Run a single prompt turn on a session, streaming updates into `result`. */
+async function runTurn(
+  session: SubSession,
+  result: SingleResult,
   task: string,
   signal: AbortSignal | undefined,
-  onUpdate: OnUpdateCallback | undefined,
-  parentProvider?: string,
-  parentThinking?: string,
-  modelOverride?: string,
-): Promise<SingleResult> {
-  const agent = agents.find((a) => a.name === agentName);
+  emit: () => void,
+): Promise<void> {
+  const RESYNC_EVENTS = new Set([
+    "message_end",
+    "turn_end",
+    "tool_execution_start",
+    "tool_execution_end",
+    "agent_end",
+  ]);
+  const unsubscribe = session.subscribe((event: { type: string }) => {
+    if (RESYNC_EVENTS.has(event.type)) {
+      syncResult(session, result);
+      emit();
+    }
+  });
 
-  if (!agent) {
-    const available = agents.map((a) => `"${a.name}"`).join(", ") || "none";
-    return {
-      agent: agentName,
-      agentSource: "unknown",
-      task,
-      exitCode: 1,
-      messages: [],
-      stderr: `Unknown agent: "${agentName}". Available agents: ${available}.`,
-      usage: {
-        input: 0,
-        output: 0,
-        cacheRead: 0,
-        cacheWrite: 0,
-        cost: 0,
-        contextTokens: 0,
-        turns: 0,
-      },
+  let onAbort: (() => void) | undefined;
+  if (signal) {
+    onAbort = () => {
+      void session.abort();
     };
+    if (signal.aborted) onAbort();
+    else signal.addEventListener("abort", onAbort, { once: true });
   }
-
-  const args: string[] = ["--mode", "json", "-p", "--no-session"];
-
-  // Model selection precedence:
-  //   1. call-site override (t.model) — always wins, as before.
-  //   2. agent `role:` frontmatter — resolved per-machine via the shared
-  //      resolver into a "provider/model:thinking" spec that pi parses directly.
-  //   3. agent literal `model:`/`provider:` frontmatter — back-compat fallback
-  //      (resolveModelAlias's per-provider maps still apply here).
-  // The resolved spec is reported back via currentResult.model below.
-  let effectiveModel: string | undefined;
-  let thinkingFromRole: string | undefined;
-
-  // Legacy literal-model path: --provider X --model <alias-resolved>. Used for
-  // the call-site override, and as the fallback when no role is set or a role
-  // does not resolve. Unchanged from the original behavior.
-  const useLiteralModel = (model: string | undefined) => {
-    const provider = agent.provider ?? parentProvider;
-    if (provider) args.push("--provider", provider);
-    if (model) {
-      effectiveModel = resolveModelAlias(model, provider);
-      args.push("--model", effectiveModel);
-    }
-  };
-
-  const override = modelOverride?.trim();
-  if (override) {
-    useLiteralModel(override);
-  } else if (agent.role) {
-    // Role -> machine-specific spec. The spec already carries the provider, so
-    // we pass it straight to --model (no separate --provider) exactly like the
-    // skills do. A null/empty resolution falls through to the literal model.
-    let resolved: ReturnType<ResolveRoleFn> = null;
-    try {
-      const resolveRoleFn = await getResolveRole();
-      resolved = resolveRoleFn(agent.role);
-    } catch (err) {
-      // Fail loud-but-recoverable: surface the resolver error on stderr, then
-      // fall back to the agent's literal model so the spawn still works.
-      process.stderr.write(
-        `subagent: role '${agent.role}' resolution failed (${
-          err instanceof Error ? err.message : String(err)
-        }); falling back to literal model.\n`,
-      );
-    }
-    if (resolved && resolved.spec) {
-      effectiveModel = resolved.spec;
-      thinkingFromRole = resolved.thinking;
-      args.push("--model", resolved.spec);
-    } else {
-      useLiteralModel(agent.model);
-    }
-  } else {
-    useLiteralModel(agent.model);
-  }
-
-  // Thinking precedence: explicit agent.thinking > role's :thinking suffix >
-  // inherited parent thinking. (The :thinking inside a role spec is also passed
-  // to pi via the spec, but an explicit --thinking keeps the historic override
-  // path working and is harmless/redundant when it matches the spec.)
-  const thinking = agent.thinking ?? thinkingFromRole ?? parentThinking;
-  if (thinking) args.push("--thinking", thinking);
-
-  if (agent.tools && agent.tools.length > 0)
-    args.push("--tools", agent.tools.join(","));
-
-  let tmpPromptDir: string | null = null;
-  const tmpPromptPaths: string[] = [];
-
-  const currentResult: SingleResult = {
-    agent: agentName,
-    agentSource: agent.source,
-    task,
-    exitCode: 0,
-    messages: [],
-    stderr: "",
-    usage: {
-      input: 0,
-      output: 0,
-      cacheRead: 0,
-      cacheWrite: 0,
-      cost: 0,
-      contextTokens: 0,
-      turns: 0,
-    },
-    model: effectiveModel,
-  };
-
-  const emitUpdate = () => {
-    if (onUpdate) {
-      onUpdate({
-        content: [
-          {
-            type: "text",
-            text: getFinalOutput(currentResult.messages) || "(running...)",
-          },
-        ],
-        details: { results: [currentResult] },
-      });
-    }
-  };
 
   try {
-    tmpPromptDir = createPromptTempDir();
-    const safeName = agent.name.replace(/[^\w.-]+/g, "_");
-
-    // Replace pi's default system prompt (which mentions pi and includes pi
-    // documentation links — both flag third-party-harness detection on
-    // Claude Code subscription auth). See ./system-prompt.ts.
-    const systemPromptPath = writePromptFile(
-      tmpPromptDir,
-      `system-${safeName}.md`,
-      SUBAGENT_SYSTEM_PROMPT,
-    );
-    tmpPromptPaths.push(systemPromptPath);
-    args.push("--system-prompt", systemPromptPath);
-
-    if (agent.systemPrompt.trim()) {
-      const agentBodyPath = writePromptFile(
-        tmpPromptDir,
-        `body-${safeName}.md`,
-        agent.systemPrompt,
-      );
-      tmpPromptPaths.push(agentBodyPath);
-      args.push("--append-system-prompt", agentBodyPath);
-    }
-
-    args.push(`Task: ${task}`);
-    let wasAborted = false;
-
-    const exitCode = await new Promise<number>((resolve) => {
-      const proc = spawn("pi", args, {
-        cwd,
-        shell: false,
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      let buffer = "";
-
-      const processLine = (line: string) => {
-        if (!line.trim()) return;
-        let event: any;
-        try {
-          event = JSON.parse(line);
-        } catch {
-          return;
-        }
-
-        if (event.type === "message_end" && event.message) {
-          const msg = event.message as Message;
-          currentResult.messages.push(msg);
-
-          if (msg.role === "assistant") {
-            currentResult.usage.turns++;
-            const usage = msg.usage;
-            if (usage) {
-              currentResult.usage.input += usage.input || 0;
-              currentResult.usage.output += usage.output || 0;
-              currentResult.usage.cacheRead += usage.cacheRead || 0;
-              currentResult.usage.cacheWrite += usage.cacheWrite || 0;
-              currentResult.usage.cost += usage.cost?.total || 0;
-              currentResult.usage.contextTokens = usage.totalTokens || 0;
-            }
-            if (!currentResult.model && msg.model)
-              currentResult.model = msg.model;
-            if (msg.stopReason) currentResult.stopReason = msg.stopReason;
-            if (msg.errorMessage) currentResult.errorMessage = msg.errorMessage;
-          }
-          emitUpdate();
-        }
-
-        if (event.type === "tool_result_end" && event.message) {
-          currentResult.messages.push(event.message as Message);
-          emitUpdate();
-        }
-      };
-
-      proc.stdout.on("data", (data) => {
-        buffer += data.toString();
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-        for (const line of lines) processLine(line);
-      });
-
-      proc.stderr.on("data", (data) => {
-        currentResult.stderr += data.toString();
-      });
-
-      proc.on("close", (code) => {
-        if (buffer.trim()) processLine(buffer);
-        resolve(code ?? 0);
-      });
-
-      proc.on("error", () => {
-        resolve(1);
-      });
-
-      if (signal) {
-        const killProc = () => {
-          wasAborted = true;
-          proc.kill("SIGTERM");
-          setTimeout(() => {
-            if (!proc.killed) proc.kill("SIGKILL");
-          }, 5000);
-        };
-        if (signal.aborted) killProc();
-        else signal.addEventListener("abort", killProc, { once: true });
-      }
-    });
-
-    currentResult.exitCode = exitCode;
-    if (wasAborted) throw new Error("Subagent was aborted");
-    return currentResult;
+    await session.prompt(task);
+    syncResult(session, result);
   } finally {
-    for (const p of tmpPromptPaths) {
-      try {
-        fs.unlinkSync(p);
-      } catch {
-        /* ignore */
-      }
-    }
-    if (tmpPromptDir)
-      try {
-        fs.rmdirSync(tmpPromptDir);
-      } catch {
-        /* ignore */
-      }
+    if (signal && onAbort) signal.removeEventListener("abort", onAbort);
+    unsubscribe();
   }
 }
 
-export default function (pi: ExtensionAPI) {
+// ---------------------------------------------------------------------------
+// Rendering (shared between subagent and subagent_followup)
+// ---------------------------------------------------------------------------
+
+function renderResults(
+  result: AgentToolResult<any>,
+  expanded: boolean,
+  theme: any,
+): any {
+  const details = result.details as SubagentDetails | undefined;
+  if (!details || details.results.length === 0) {
+    const text = result.content[0];
+    return new Text(text?.type === "text" ? text.text : "(no output)", 0, 0);
+  }
+
+  const mdTheme = getMarkdownTheme();
+
+  const renderDisplayItems = (items: DisplayItem[], limit?: number) => {
+    const toShow = limit ? items.slice(-limit) : items;
+    const skipped = limit && items.length > limit ? items.length - limit : 0;
+    let text = "";
+    if (skipped > 0)
+      text += theme.fg("muted", `... ${skipped} earlier items\n`);
+    for (const item of toShow) {
+      if (item.type === "text") {
+        const preview = expanded
+          ? item.text
+          : item.text.split("\n").slice(0, 3).join("\n");
+        text += `${theme.fg("toolOutput", preview)}\n`;
+      } else {
+        text += `${theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme.fg.bind(theme))}\n`;
+      }
+    }
+    return text.trimEnd();
+  };
+
+  // Single result
+  if (details.results.length === 1) {
+    const r = details.results[0];
+    const isError = isErrorResult(r);
+    const icon = isError
+      ? theme.fg("error", "✗")
+      : r.exitCode === -1
+        ? theme.fg("warning", "⏳")
+        : theme.fg("success", "✓");
+    const displayItems = getDisplayItems(r.messages);
+    const finalOutput = getFinalOutput(r.messages);
+
+    if (expanded) {
+      const container = new Container();
+      let header = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
+      if (r.handle) header += ` ${theme.fg("accent", `[${r.handle}]`)}`;
+      if (isError && r.stopReason)
+        header += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
+      container.addChild(new Text(header, 0, 0));
+      if (isError && r.errorMessage)
+        container.addChild(
+          new Text(theme.fg("error", `Error: ${r.errorMessage}`), 0, 0),
+        );
+      container.addChild(new Spacer(1));
+      container.addChild(new Text(theme.fg("muted", "─── Task ───"), 0, 0));
+      container.addChild(new Text(theme.fg("dim", r.task), 0, 0));
+      container.addChild(new Spacer(1));
+      container.addChild(new Text(theme.fg("muted", "─── Output ───"), 0, 0));
+      if (displayItems.length === 0 && !finalOutput) {
+        container.addChild(new Text(theme.fg("muted", "(no output)"), 0, 0));
+      } else {
+        for (const item of displayItems) {
+          if (item.type === "toolCall")
+            container.addChild(
+              new Text(
+                theme.fg("muted", "→ ") +
+                  formatToolCall(item.name, item.args, theme.fg.bind(theme)),
+                0,
+                0,
+              ),
+            );
+        }
+        if (finalOutput) {
+          container.addChild(new Spacer(1));
+          container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
+        }
+      }
+      const usageStr = formatUsageStats(r.usage, r.model);
+      if (usageStr) {
+        container.addChild(new Spacer(1));
+        container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
+      }
+      return container;
+    }
+
+    let text = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
+    if (r.handle) text += ` ${theme.fg("accent", `[${r.handle}]`)}`;
+    if (isError && r.stopReason)
+      text += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
+    if (isError && r.errorMessage)
+      text += `\n${theme.fg("error", `Error: ${r.errorMessage}`)}`;
+    else if (displayItems.length === 0)
+      text += `\n${theme.fg("muted", "(no output)")}`;
+    else {
+      text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
+      if (displayItems.length > COLLAPSED_ITEM_COUNT)
+        text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
+    }
+    const usageStr = formatUsageStats(r.usage, r.model);
+    if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
+    return new Text(text, 0, 0);
+  }
+
+  // Multiple results (parallel)
+  const running = details.results.filter((r) => r.exitCode === -1).length;
+  const successCount = details.results.filter(
+    (r) => r.exitCode === 0 && !isErrorResult(r),
+  ).length;
+  const failCount = details.results.filter(
+    (r) => r.exitCode !== -1 && isErrorResult(r),
+  ).length;
+  const isRunning = running > 0;
+  const icon = isRunning
+    ? theme.fg("warning", "⏳")
+    : failCount > 0
+      ? theme.fg("warning", "◐")
+      : theme.fg("success", "✓");
+  const status = isRunning
+    ? `${successCount + failCount}/${details.results.length} done, ${running} running`
+    : `${successCount}/${details.results.length} tasks`;
+
+  const aggregateUsage = () => {
+    const total = emptyUsage();
+    for (const r of details.results) {
+      total.input += r.usage.input;
+      total.output += r.usage.output;
+      total.cacheRead += r.usage.cacheRead;
+      total.cacheWrite += r.usage.cacheWrite;
+      total.cost += r.usage.cost;
+      total.turns += r.usage.turns;
+    }
+    return total;
+  };
+
+  if (expanded && !isRunning) {
+    const container = new Container();
+    container.addChild(
+      new Text(
+        `${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`,
+        0,
+        0,
+      ),
+    );
+
+    for (const r of details.results) {
+      const rIcon = isErrorResult(r)
+        ? theme.fg("error", "✗")
+        : theme.fg("success", "✓");
+      const displayItems = getDisplayItems(r.messages);
+      const finalOutput = getFinalOutput(r.messages);
+
+      container.addChild(new Spacer(1));
+      let head = `${theme.fg("muted", "─── ") + theme.fg("accent", r.agent)} ${rIcon}`;
+      if (r.handle) head += ` ${theme.fg("accent", `[${r.handle}]`)}`;
+      container.addChild(new Text(head, 0, 0));
+      container.addChild(
+        new Text(theme.fg("muted", "Task: ") + theme.fg("dim", r.task), 0, 0),
+      );
+
+      for (const item of displayItems) {
+        if (item.type === "toolCall") {
+          container.addChild(
+            new Text(
+              theme.fg("muted", "→ ") +
+                formatToolCall(item.name, item.args, theme.fg.bind(theme)),
+              0,
+              0,
+            ),
+          );
+        }
+      }
+
+      if (finalOutput) {
+        container.addChild(new Spacer(1));
+        container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
+      }
+
+      const taskUsage = formatUsageStats(r.usage, r.model);
+      if (taskUsage)
+        container.addChild(new Text(theme.fg("dim", taskUsage), 0, 0));
+    }
+
+    const usageStr = formatUsageStats(aggregateUsage());
+    if (usageStr) {
+      container.addChild(new Spacer(1));
+      container.addChild(new Text(theme.fg("dim", `Total: ${usageStr}`), 0, 0));
+    }
+    return container;
+  }
+
+  // Collapsed view (or still running)
+  let text = `${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`;
+  for (const r of details.results) {
+    const rIcon =
+      r.exitCode === -1
+        ? theme.fg("warning", "⏳")
+        : isErrorResult(r)
+          ? theme.fg("error", "✗")
+          : theme.fg("success", "✓");
+    const displayItems = getDisplayItems(r.messages);
+    text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", r.agent)} ${rIcon}`;
+    if (displayItems.length === 0)
+      text += `\n${theme.fg("muted", r.exitCode === -1 ? "(running...)" : "(no output)")}`;
+    else text += `\n${renderDisplayItems(displayItems, 5)}`;
+  }
+  if (!isRunning) {
+    const usageStr = formatUsageStats(aggregateUsage());
+    if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
+  }
+  if (!expanded) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
+  return new Text(text, 0, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Result -> tool output text
+// ---------------------------------------------------------------------------
+
+function handleHint(r: SingleResult): string {
+  if (!r.handle) return "";
+  return `\n\nSession kept alive as handle "${r.handle}". Continue it with subagent_followup({ handle: "${r.handle}", task: "..." }) or release it with subagent_close({ handle: "${r.handle}" }).`;
+}
+
+/**
+ * Build an error tool result. pi's runtime honors `result.isError`
+ * (agent-loop.js: `let isError = executed.isError`) even though the published
+ * `AgentToolResult` type omits the field, so we set it through one cast here.
+ */
+function errorOutput<T>(text: string, details: T): AgentToolResult<T> {
+  return {
+    content: [{ type: "text", text }],
+    details,
+    isError: true,
+  } as AgentToolResult<T>;
+}
+
+function singleResultOutput(r: SingleResult): AgentToolResult<SubagentDetails> {
+  const results = [r];
+  if (isErrorResult(r)) {
+    const errorMsg =
+      r.errorMessage || r.stderr || getFinalOutput(r.messages) || "(no output)";
+    return errorOutput(
+      `Agent ${r.stopReason || "failed"}: ${errorMsg}${handleHint(r)}${outputFileHint(results)}`,
+      { results },
+    );
+  }
+  return {
+    content: [
+      {
+        type: "text",
+        text:
+          (getFinalOutput(r.messages) || "(no output)") +
+          handleHint(r) +
+          outputFileHint(results),
+      },
+    ],
+    details: { results },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Extension entry point
+// ---------------------------------------------------------------------------
+
+export default async function (pi: ExtensionAPI) {
   const agentScope = getAgentScope();
 
-  // Discover agents at registration time so we can list them in the tool description
+  // Discover agents + roles at registration time for the tool descriptions.
   const cwd = process.cwd();
   const knownAgents = discoverAgents(cwd, agentScope).agents;
+  const { names: roleNames, rolesPath } = await listRoles();
 
   const agentNames = knownAgents.map((a) => a.name);
   const agentListShort = agentNames.length > 0 ? agentNames.join(", ") : "none";
   const agentListDetailed = knownAgents
     .map((a) => `  - "${a.name}": ${a.description}`)
     .join("\n");
+  const roleListShort = roleNames.length > 0 ? roleNames.join(", ") : "none";
+
+  const roleDescription =
+    roleNames.length > 0
+      ? `Optional role override (model selection). Available roles, defined in ${rolesPath}: ${roleListShort}. Omit to use the agent's own role, or to inherit this session's model when the agent has none.`
+      : `Optional role override (model selection). Roles are defined in ${rolesPath}. Omit to use the agent's own role.`;
 
   const TaskItem = Type.Object({
     agent: Type.String({
@@ -653,10 +895,11 @@ export default function (pi: ExtensionAPI) {
     task: Type.String({
       description: "The task description to send to the agent",
     }),
-    model: Type.Optional(
-      Type.String({
+    role: Type.Optional(Type.String({ description: roleDescription })),
+    keepAlive: Type.Optional(
+      Type.Boolean({
         description:
-          "Optional model override. Accepts short aliases like 'sonnet', 'haiku', 'opus' (resolves to the latest model of that family for the active provider), full canonical IDs like 'claude-sonnet-4-5', or any pattern pi's fuzzy matcher accepts. If omitted, uses the agent's configured model.",
+          "Keep the session alive after this turn and return a handle, so you can send more turns with subagent_followup. Default false (one-shot: the session is disposed after the turn).",
       }),
     ),
   });
@@ -669,7 +912,8 @@ export default function (pi: ExtensionAPI) {
     name: "subagent",
     label: "Subagent",
     description: [
-      "Delegate tasks to subagents with isolated context. Each task {agent, task} runs as a separate pi process. Multiple tasks run in parallel.",
+      "Delegate tasks to subagents with isolated context. Each task {agent, task} runs in its own in-process session. Multiple tasks run in parallel.",
+      "Set keepAlive:true on a task to keep its session for multi-turn use (returns a handle for subagent_followup); otherwise the session is one-shot.",
       "",
       "Available agents:",
       agentListDetailed || "  (none discovered)",
@@ -733,126 +977,112 @@ export default function (pi: ExtensionAPI) {
         }
       }
 
-      const parentProvider = ctx.model?.provider;
-      const parentThinking = pi.getThinkingLevel();
+      const deps: BuildSessionDeps = {
+        cwd: ctx.cwd,
+        modelRegistry: ctx.modelRegistry,
+        authStorage: (ctx.modelRegistry as any).authStorage,
+        parentModel: ctx.model,
+        parentThinking:
+          pi.getThinkingLevel() !== "off" ? pi.getThinkingLevel() : undefined,
+      };
 
-      // Track all results for streaming updates
-      const allResults: SingleResult[] = new Array(params.tasks.length);
-
-      for (let i = 0; i < params.tasks.length; i++) {
-        allResults[i] = {
-          agent: params.tasks[i].agent,
-          agentSource: "unknown",
-          task: params.tasks[i].task,
-          exitCode: -1,
-          messages: [],
-          stderr: "",
-          usage: {
-            input: 0,
-            output: 0,
-            cacheRead: 0,
-            cacheWrite: 0,
-            cost: 0,
-            contextTokens: 0,
-            turns: 0,
-          },
-        };
-      }
+      const allResults: SingleResult[] = params.tasks.map((t) =>
+        blankResult(t.agent, t.task),
+      );
 
       const emitParallelUpdate = () => {
-        if (onUpdate) {
-          const running = allResults.filter((r) => r.exitCode === -1).length;
-          const done = allResults.filter((r) => r.exitCode !== -1).length;
-          onUpdate({
-            content: [
-              {
-                type: "text",
-                text: `${done}/${allResults.length} done, ${running} running...`,
-              },
-            ],
-            details: { results: [...allResults] },
-          });
-        }
+        if (!onUpdate) return;
+        const running = allResults.filter((r) => r.exitCode === -1).length;
+        const done = allResults.filter((r) => r.exitCode !== -1).length;
+        onUpdate({
+          content: [
+            {
+              type: "text",
+              text: `${done}/${allResults.length} done, ${running} running...`,
+            },
+          ],
+          details: { results: [...allResults] },
+        });
       };
 
       const results = await mapWithConcurrencyLimit(
         params.tasks,
         MAX_CONCURRENCY,
         async (t, index) => {
-          const result = await runSingleAgent(
-            ctx.cwd,
-            agents,
-            t.agent,
-            t.task,
-            signal,
-            (partial) => {
-              if (partial.details?.results[0]) {
-                allResults[index] = partial.details.results[0];
-                emitParallelUpdate();
+          const result = allResults[index];
+          const agent = agents.find((a) => a.name === t.agent);
+          if (!agent) {
+            const available =
+              agents.map((a) => `"${a.name}"`).join(", ") || "none";
+            result.exitCode = 1;
+            result.stopReason = "error";
+            result.errorMessage = `Unknown agent: "${t.agent}". Available agents: ${available}.`;
+            emitParallelUpdate();
+            return result;
+          }
+          result.agentSource = agent.source;
+
+          let session: SubSession | undefined;
+          try {
+            const built = await buildSession(agent, t.role, deps);
+            session = built.session;
+            result.model = built.modelLabel;
+            if (t.keepAlive) {
+              const handle = newHandle(agent.name);
+              result.handle = handle;
+              durable.set(handle, {
+                handle,
+                agent: agent.name,
+                agentSource: agent.source,
+                model: built.modelLabel,
+                session,
+                cwd: ctx.cwd,
+                turns: 0,
+                createdAt: Date.now(),
+              });
+            }
+            await runTurn(session, result, t.task, signal, emitParallelUpdate);
+            result.exitCode = 0;
+            if (t.keepAlive) {
+              const entry = durable.get(result.handle!);
+              if (entry) entry.turns = 1;
+            } else {
+              session.dispose();
+            }
+          } catch (err) {
+            result.exitCode = 1;
+            result.stopReason = result.stopReason || "error";
+            result.errorMessage =
+              result.errorMessage ||
+              (err instanceof Error ? err.message : String(err));
+            // One-shot sessions are disposed on failure; a keepAlive session
+            // that built but errored mid-turn stays registered for retry.
+            if (session && !t.keepAlive) {
+              try {
+                session.dispose();
+              } catch {
+                /* ignore */
               }
-            },
-            parentProvider,
-            parentThinking !== "off" ? parentThinking : undefined,
-            t.model,
-          );
-          allResults[index] = result;
-          emitParallelUpdate();
+            }
+          }
           result.outputFile = saveOutputFile(t.agent, result);
+          emitParallelUpdate();
           return result;
         },
       );
 
-      const successCount = results.filter((r) => r.exitCode === 0).length;
-      const failures = results.filter(
-        (r) =>
-          r.exitCode !== 0 ||
-          r.stopReason === "error" ||
-          r.stopReason === "aborted",
-      );
-
       // Single task: return output directly
-      if (results.length === 1) {
-        const r = results[0];
-        const isError =
-          r.exitCode !== 0 ||
-          r.stopReason === "error" ||
-          r.stopReason === "aborted";
-        if (isError) {
-          const errorMsg =
-            r.errorMessage ||
-            r.stderr ||
-            getFinalOutput(r.messages) ||
-            "(no output)";
-          return {
-            content: [
-              {
-                type: "text",
-                text: `Agent ${r.stopReason || "failed"}: ${errorMsg}${outputFileHint(results)}`,
-              },
-            ],
-            details: { results },
-            isError: true,
-          };
-        }
-        return {
-          content: [
-            {
-              type: "text",
-              text:
-                (getFinalOutput(r.messages) || "(no output)") +
-                outputFileHint(results),
-            },
-          ],
-          details: { results },
-        };
-      }
+      if (results.length === 1) return singleResultOutput(results[0]);
 
       // Multiple tasks: summarize
+      const successCount = results.filter((r) => !isErrorResult(r)).length;
+      const failures = results.filter((r) => isErrorResult(r));
       const summaries = results.map((r) => {
         const output = getFinalOutput(r.messages);
         const preview =
           output.slice(0, 100) + (output.length > 100 ? "..." : "");
-        return `[${r.agent}] ${r.exitCode === 0 ? "completed" : "failed"}: ${preview || "(no output)"}`;
+        const tag = r.handle ? ` (${r.handle})` : "";
+        return `[${r.agent}${tag}] ${isErrorResult(r) ? "failed" : "completed"}: ${preview || "(no output)"}`;
       });
 
       if (failures.length > 0) {
@@ -864,16 +1094,10 @@ export default function (pi: ExtensionAPI) {
             "(no output)";
           return `[${r.agent}] ${errorMsg}`;
         });
-        return {
-          content: [
-            {
-              type: "text",
-              text: `${successCount}/${results.length} succeeded, ${failures.length} failed\n\nErrors:\n${errorDetails.join("\n")}\n\n${summaries.join("\n\n")}${outputFileHint(results)}`,
-            },
-          ],
-          details: { results },
-          isError: true,
-        };
+        return errorOutput(
+          `${successCount}/${results.length} succeeded, ${failures.length} failed\n\nErrors:\n${errorDetails.join("\n")}\n\n${summaries.join("\n\n")}${outputFileHint(results)}`,
+          { results },
+        );
       }
 
       return {
@@ -907,6 +1131,7 @@ export default function (pi: ExtensionAPI) {
         let text =
           theme.fg("toolTitle", theme.bold("subagent ")) +
           theme.fg("accent", t.agent || "...");
+        if (t.keepAlive) text += theme.fg("muted", " (keep-alive)");
         text += `\n  ${theme.fg("dim", preview)}`;
         return new Text(text, 0, 0);
       }
@@ -924,246 +1149,189 @@ export default function (pi: ExtensionAPI) {
     },
 
     renderResult(result, { expanded }, theme) {
-      const details = result.details as SubagentDetails | undefined;
-      if (!details || details.results.length === 0) {
-        const text = result.content[0];
-        return new Text(
-          text?.type === "text" ? text.text : "(no output)",
-          0,
-          0,
-        );
-      }
-
-      const mdTheme = getMarkdownTheme();
-
-      const renderDisplayItems = (items: DisplayItem[], limit?: number) => {
-        const toShow = limit ? items.slice(-limit) : items;
-        const skipped =
-          limit && items.length > limit ? items.length - limit : 0;
-        let text = "";
-        if (skipped > 0)
-          text += theme.fg("muted", `... ${skipped} earlier items\n`);
-        for (const item of toShow) {
-          if (item.type === "text") {
-            const preview = expanded
-              ? item.text
-              : item.text.split("\n").slice(0, 3).join("\n");
-            text += `${theme.fg("toolOutput", preview)}\n`;
-          } else {
-            text += `${theme.fg("muted", "→ ") + formatToolCall(item.name, item.args, theme.fg.bind(theme))}\n`;
-          }
-        }
-        return text.trimEnd();
-      };
-
-      // Single result
-      if (details.results.length === 1) {
-        const r = details.results[0];
-        const isError =
-          r.exitCode !== 0 ||
-          r.stopReason === "error" ||
-          r.stopReason === "aborted";
-        const icon = isError
-          ? theme.fg("error", "✗")
-          : r.exitCode === -1
-            ? theme.fg("warning", "⏳")
-            : theme.fg("success", "✓");
-        const displayItems = getDisplayItems(r.messages);
-        const finalOutput = getFinalOutput(r.messages);
-
-        if (expanded) {
-          const container = new Container();
-          let header = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
-          if (isError && r.stopReason)
-            header += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
-          container.addChild(new Text(header, 0, 0));
-          if (isError && r.errorMessage)
-            container.addChild(
-              new Text(theme.fg("error", `Error: ${r.errorMessage}`), 0, 0),
-            );
-          container.addChild(new Spacer(1));
-          container.addChild(new Text(theme.fg("muted", "─── Task ───"), 0, 0));
-          container.addChild(new Text(theme.fg("dim", r.task), 0, 0));
-          container.addChild(new Spacer(1));
-          container.addChild(
-            new Text(theme.fg("muted", "─── Output ───"), 0, 0),
-          );
-          if (displayItems.length === 0 && !finalOutput) {
-            container.addChild(
-              new Text(theme.fg("muted", "(no output)"), 0, 0),
-            );
-          } else {
-            for (const item of displayItems) {
-              if (item.type === "toolCall")
-                container.addChild(
-                  new Text(
-                    theme.fg("muted", "→ ") +
-                      formatToolCall(
-                        item.name,
-                        item.args,
-                        theme.fg.bind(theme),
-                      ),
-                    0,
-                    0,
-                  ),
-                );
-            }
-            if (finalOutput) {
-              container.addChild(new Spacer(1));
-              container.addChild(
-                new Markdown(finalOutput.trim(), 0, 0, mdTheme),
-              );
-            }
-          }
-          const usageStr = formatUsageStats(r.usage, r.model);
-          if (usageStr) {
-            container.addChild(new Spacer(1));
-            container.addChild(new Text(theme.fg("dim", usageStr), 0, 0));
-          }
-          return container;
-        }
-
-        let text = `${icon} ${theme.fg("toolTitle", theme.bold(r.agent))}${theme.fg("muted", ` (${r.agentSource})`)}`;
-        if (isError && r.stopReason)
-          text += ` ${theme.fg("error", `[${r.stopReason}]`)}`;
-        if (isError && r.errorMessage)
-          text += `\n${theme.fg("error", `Error: ${r.errorMessage}`)}`;
-        else if (displayItems.length === 0)
-          text += `\n${theme.fg("muted", "(no output)")}`;
-        else {
-          text += `\n${renderDisplayItems(displayItems, COLLAPSED_ITEM_COUNT)}`;
-          if (displayItems.length > COLLAPSED_ITEM_COUNT)
-            text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
-        }
-        const usageStr = formatUsageStats(r.usage, r.model);
-        if (usageStr) text += `\n${theme.fg("dim", usageStr)}`;
-        return new Text(text, 0, 0);
-      }
-
-      // Multiple results (parallel)
-      const running = details.results.filter((r) => r.exitCode === -1).length;
-      const successCount = details.results.filter(
-        (r) => r.exitCode === 0,
-      ).length;
-      const failCount = details.results.filter((r) => r.exitCode > 0).length;
-      const isRunning = running > 0;
-      const icon = isRunning
-        ? theme.fg("warning", "⏳")
-        : failCount > 0
-          ? theme.fg("warning", "◐")
-          : theme.fg("success", "✓");
-      const status = isRunning
-        ? `${successCount + failCount}/${details.results.length} done, ${running} running`
-        : `${successCount}/${details.results.length} tasks`;
-
-      const aggregateUsage = () => {
-        const total = {
-          input: 0,
-          output: 0,
-          cacheRead: 0,
-          cacheWrite: 0,
-          cost: 0,
-          turns: 0,
-        };
-        for (const r of details.results) {
-          total.input += r.usage.input;
-          total.output += r.usage.output;
-          total.cacheRead += r.usage.cacheRead;
-          total.cacheWrite += r.usage.cacheWrite;
-          total.cost += r.usage.cost;
-          total.turns += r.usage.turns;
-        }
-        return total;
-      };
-
-      if (expanded && !isRunning) {
-        const container = new Container();
-        container.addChild(
-          new Text(
-            `${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`,
-            0,
-            0,
-          ),
-        );
-
-        for (const r of details.results) {
-          const rIcon =
-            r.exitCode === 0
-              ? theme.fg("success", "✓")
-              : theme.fg("error", "✗");
-          const displayItems = getDisplayItems(r.messages);
-          const finalOutput = getFinalOutput(r.messages);
-
-          container.addChild(new Spacer(1));
-          container.addChild(
-            new Text(
-              `${theme.fg("muted", "─── ") + theme.fg("accent", r.agent)} ${rIcon}`,
-              0,
-              0,
-            ),
-          );
-          container.addChild(
-            new Text(
-              theme.fg("muted", "Task: ") + theme.fg("dim", r.task),
-              0,
-              0,
-            ),
-          );
-
-          for (const item of displayItems) {
-            if (item.type === "toolCall") {
-              container.addChild(
-                new Text(
-                  theme.fg("muted", "→ ") +
-                    formatToolCall(item.name, item.args, theme.fg.bind(theme)),
-                  0,
-                  0,
-                ),
-              );
-            }
-          }
-
-          if (finalOutput) {
-            container.addChild(new Spacer(1));
-            container.addChild(new Markdown(finalOutput.trim(), 0, 0, mdTheme));
-          }
-
-          const taskUsage = formatUsageStats(r.usage, r.model);
-          if (taskUsage)
-            container.addChild(new Text(theme.fg("dim", taskUsage), 0, 0));
-        }
-
-        const usageStr = formatUsageStats(aggregateUsage());
-        if (usageStr) {
-          container.addChild(new Spacer(1));
-          container.addChild(
-            new Text(theme.fg("dim", `Total: ${usageStr}`), 0, 0),
-          );
-        }
-        return container;
-      }
-
-      // Collapsed view (or still running)
-      let text = `${icon} ${theme.fg("toolTitle", theme.bold("parallel "))}${theme.fg("accent", status)}`;
-      for (const r of details.results) {
-        const rIcon =
-          r.exitCode === -1
-            ? theme.fg("warning", "⏳")
-            : r.exitCode === 0
-              ? theme.fg("success", "✓")
-              : theme.fg("error", "✗");
-        const displayItems = getDisplayItems(r.messages);
-        text += `\n\n${theme.fg("muted", "─── ")}${theme.fg("accent", r.agent)} ${rIcon}`;
-        if (displayItems.length === 0)
-          text += `\n${theme.fg("muted", r.exitCode === -1 ? "(running...)" : "(no output)")}`;
-        else text += `\n${renderDisplayItems(displayItems, 5)}`;
-      }
-      if (!isRunning) {
-        const usageStr = formatUsageStats(aggregateUsage());
-        if (usageStr) text += `\n\n${theme.fg("dim", `Total: ${usageStr}`)}`;
-      }
-      if (!expanded) text += `\n${theme.fg("muted", "(Ctrl+O to expand)")}`;
-      return new Text(text, 0, 0);
+      return renderResults(result, expanded, theme);
     },
+  });
+
+  // -------------------------------------------------------------------------
+  // subagent_followup — send another turn to a durable session
+  // -------------------------------------------------------------------------
+
+  pi.registerTool({
+    name: "subagent_followup",
+    label: "Subagent Follow-up",
+    description:
+      "Send another turn to a durable subagent session (one created with keepAlive:true). The session keeps its full prior context. Use subagent_list to see live handles.",
+    parameters: Type.Object({
+      handle: Type.String({
+        description: "Handle of a live subagent session (from subagent_list).",
+      }),
+      task: Type.String({ description: "The next task for that session." }),
+    }),
+
+    async execute(_toolCallId, params, signal, onUpdate, _ctx) {
+      const entry = durable.get(params.handle);
+      if (!entry) {
+        const live = [...durable.keys()].join(", ") || "none";
+        return errorOutput(
+          `Unknown handle "${params.handle}". Live handles: ${live}.`,
+          { results: [] },
+        );
+      }
+      if (entry.session.isStreaming) {
+        return errorOutput(
+          `Handle "${params.handle}" is busy (still streaming a previous turn).`,
+          { results: [] },
+        );
+      }
+
+      const result = blankResult(entry.agent, params.task, entry.agentSource);
+      result.handle = entry.handle;
+      result.model = entry.model;
+
+      const emit = () => {
+        if (onUpdate)
+          onUpdate({
+            content: [
+              {
+                type: "text",
+                text: getFinalOutput(result.messages) || "(running...)",
+              },
+            ],
+            details: { results: [result] },
+          });
+      };
+
+      try {
+        await runTurn(entry.session, result, params.task, signal, emit);
+        result.exitCode = 0;
+        entry.turns++;
+      } catch (err) {
+        result.exitCode = 1;
+        result.stopReason = result.stopReason || "error";
+        result.errorMessage =
+          result.errorMessage ||
+          (err instanceof Error ? err.message : String(err));
+      }
+      result.outputFile = saveOutputFile(entry.agent, result);
+      return singleResultOutput(result);
+    },
+
+    renderCall(args, theme) {
+      const preview = args.task
+        ? args.task.length > 60
+          ? `${args.task.slice(0, 60)}...`
+          : args.task
+        : "...";
+      return new Text(
+        `${theme.fg("toolTitle", theme.bold("subagent_followup "))}${theme.fg("accent", args.handle || "...")}\n  ${theme.fg("dim", preview)}`,
+        0,
+        0,
+      );
+    },
+
+    renderResult(result, { expanded }, theme) {
+      return renderResults(result, expanded, theme);
+    },
+  });
+
+  // -------------------------------------------------------------------------
+  // subagent_list — show live durable sessions
+  // -------------------------------------------------------------------------
+
+  pi.registerTool({
+    name: "subagent_list",
+    label: "Subagent List",
+    description: "List live durable subagent sessions and their handles.",
+    parameters: Type.Object({}),
+
+    async execute() {
+      if (durable.size === 0) {
+        return {
+          content: [
+            { type: "text", text: "No live durable subagent sessions." },
+          ],
+          details: {},
+        };
+      }
+      const now = Date.now();
+      const lines = [...durable.values()].map((e) => {
+        const age = Math.round((now - e.createdAt) / 1000);
+        const busy = e.session.isStreaming ? " [streaming]" : "";
+        return `- ${e.handle}: agent=${e.agent} turns=${e.turns} age=${age}s${e.model ? ` model=${e.model}` : ""}${busy}`;
+      });
+      return {
+        content: [
+          {
+            type: "text",
+            text: `${durable.size} live session(s):\n${lines.join("\n")}`,
+          },
+        ],
+        details: {},
+      };
+    },
+
+    renderCall(_args, theme) {
+      return new Text(theme.fg("toolTitle", theme.bold("subagent_list")), 0, 0);
+    },
+  });
+
+  // -------------------------------------------------------------------------
+  // subagent_close — dispose durable sessions
+  // -------------------------------------------------------------------------
+
+  pi.registerTool({
+    name: "subagent_close",
+    label: "Subagent Close",
+    description:
+      'Dispose a durable subagent session and free its context. Pass a handle, or "all" to close every live session.',
+    parameters: Type.Object({
+      handle: Type.String({
+        description: 'Handle to close, or "all" for every live session.',
+      }),
+    }),
+
+    async execute(_toolCallId, params) {
+      if (params.handle === "all") {
+        const n = durable.size;
+        disposeAllDurable();
+        return {
+          content: [{ type: "text", text: `Closed ${n} durable session(s).` }],
+          details: {},
+        };
+      }
+      const entry = durable.get(params.handle);
+      if (!entry) {
+        const live = [...durable.keys()].join(", ") || "none";
+        return errorOutput(
+          `Unknown handle "${params.handle}". Live handles: ${live}.`,
+          {},
+        );
+      }
+      try {
+        entry.session.dispose();
+      } catch {
+        /* ignore */
+      }
+      durable.delete(params.handle);
+      return {
+        content: [{ type: "text", text: `Closed session "${params.handle}".` }],
+        details: {},
+      };
+    },
+
+    renderCall(args, theme) {
+      return new Text(
+        `${theme.fg("toolTitle", theme.bold("subagent_close "))}${theme.fg("accent", args.handle || "...")}`,
+        0,
+        0,
+      );
+    },
+  });
+
+  // Dispose every durable session when this session's runtime is torn down
+  // (quit, reload, /new, /resume, /fork).
+  pi.on("session_shutdown", async () => {
+    disposeAllDurable();
   });
 }
