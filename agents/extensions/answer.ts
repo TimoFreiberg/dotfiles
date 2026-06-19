@@ -1084,7 +1084,7 @@ const AnswerQuestionSchema = Type.Object({
   options: Type.Optional(
     Type.Array(AnswerOptionSchema, {
       description:
-        "Optional selectable choices. When present, the question is shown as a choice list instead of a free-text field. Omit for an open-ended question.",
+        "Selectable choices for this question. Strongly preferred: supply these whenever you can name plausible answers (put your recommended choice first; the form always adds a free-text escape for anything you didn't anticipate). Omit ONLY for a question you genuinely cannot enumerate — a bare free-text question is rarely worth a form, since the user can just type in the prompt editor.",
     }),
   ),
   multiSelect: Type.Optional(
@@ -1111,15 +1111,17 @@ function createAnswerTool(pi: ExtensionAPI) {
     name: "answer",
     label: "Answer",
     description:
-      "Ask the user one or more questions interactively in a single Q&A form. " +
-      "Each question is free-text by default; supply `options` to offer selectable " +
-      "choices (set `multiSelect: true` for checkboxes). Use this instead of asking " +
-      "inline when you have one or more questions whose answers you need to proceed.",
+      "Ask the user one or more multiple-choice questions interactively in a single Q&A form. " +
+      "Give each question `options` (selectable choices; set `multiSelect: true` for checkboxes) — " +
+      "the form always adds a free-text escape, so options plus that escape covers almost everything. " +
+      "A question with no `options` (bare free-text) is a rare fallback for when you genuinely cannot " +
+      "name any choice, not a default: the user can already type free text in the prompt editor. " +
+      "Use this instead of asking inline when you have one or more questions whose answers you need to proceed.",
     promptSnippet:
-      "Ask the user one or more questions (free-text or multiple-choice) in one form",
+      "Ask the user one or more multiple-choice questions in one form",
     promptGuidelines: [
       "Use the answer tool when you need the user to answer one or more questions before continuing; prefer it over inline questions when you have a batch or want multiple-choice answers.",
-      "For the answer tool, supply `options` only when you can enumerate the meaningful choices; otherwise leave it free-text. Set `multiSelect: true` only when more than one option can legitimately be picked.",
+      "Give every question `options` whenever you can name plausible choices (recommended one first); rely on the form's built-in free-text escape for the unanticipated. Reserve a bare free-text question (no `options`) for the rare case where you truly cannot enumerate any choice — it is not a co-equal default, since the user can already type free text in the prompt editor. Set `multiSelect: true` only when more than one option can legitimately be picked.",
     ],
     parameters: AnswerParams,
 
