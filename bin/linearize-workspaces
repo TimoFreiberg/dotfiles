@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-# linearize-workspaces — rebase all mutable jj branches onto trunk as a
-# single linear chain, resolve conflicts via pi, and verify tests pass.
+# linearize-workspaces — stack all mutable jj heads onto trunk as a single
+# linear chain, then drop empty & undescribed commits.
+#
+# Scope is deliberately narrow: it only stacks branches and cleans up empties.
+# It does NOT resolve conflicts (jj records them in the rebased commits — run
+# `pi-resolve-conflicts`, or resolve by hand, afterwards), does NOT run tests,
+# and does NOT auto `update-stale` workspaces (it only reports stale ones).
 set -euo pipefail
-
-########################################################################
-# Configuration (overridable via env)
-########################################################################
-PI_MODEL="${LINEARIZE_PI_MODEL:-deepseek/deepseek-v4-pro}"
-# Commands to run as the test gate. Set LINEARIZE_TEST_CMD to override,
-# or pass --test-cmd. Empty string = skip tests.
-TEST_CMD="${LINEARIZE_TEST_CMD:-bun test}"
 
 ########################################################################
 # Arg parsing
@@ -18,30 +15,26 @@ REPO_ROOT=""
 BASE_REV="trunk()"
 TARGET_WS=""
 DRY_RUN=false
-NO_PI=false
-VERBOSE=false
-OVERRIDE_TEST_CMD=""
+KEEP_EMPTY=false
 
 usage() {
   cat <<'EOF'
 Usage: linearize-workspaces [OPTIONS]
 
-Linearize all mutable jj branches onto trunk as a single linear chain.
-Finds all heads of mutable commits off trunk(), sorts them by commit
-timestamp (oldest first), then chain-rebases each branch onto the
-growing tip. Resolves rebase conflicts via pi (deepseek-v4-pro),
-then runs the test gate.
+Stack all mutable jj heads onto trunk as a single linear chain. Finds all
+heads of mutable commits off trunk(), sorts them by author timestamp (oldest
+first), then chain-rebases each onto the growing tip. Afterwards, drops
+commits that are both empty AND undescribed (never a workspace working copy).
+
+Conflicts are NOT resolved — jj records them in the rebased commits. Resolve
+them yourself afterwards, e.g.:  jj edit <id> && pi-resolve-conflicts
 
 Options:
   -R, --repo PATH       Repo root (default: auto-detect via jj root)
-  -b, --base REV        Base revision to rebase onto (default: trunk())
-  -w, --workspace NAME  Only process the branch containing this workspace
+  -b, --base REV        Base revision to stack onto (default: trunk())
+  -w, --workspace NAME  Only rebase the branch containing this workspace
+  --keep-empty          Don't drop empty & undescribed commits
   --dry-run             Show what would be done, don't do it
-  --no-pi               Skip pi conflict resolution (report conflicts for
-                        manual fix)
-  --pi-model MODEL      Override pi model (default: deepseek/deepseek-v4-pro)
-  --test-cmd CMD        Override test command (default: bun test; empty = skip)
-  -v, --verbose         Verbose output
   -h, --help            Show this help
 EOF
   exit 0
@@ -52,19 +45,12 @@ while [[ $# -gt 0 ]]; do
     -R|--repo)       REPO_ROOT="$2"; shift 2 ;;
     -b|--base)       BASE_REV="$2"; shift 2 ;;
     -w|--workspace)  TARGET_WS="$2"; shift 2 ;;
+    --keep-empty)    KEEP_EMPTY=true; shift ;;
     --dry-run)       DRY_RUN=true; shift ;;
-    --no-pi)         NO_PI=true; shift ;;
-    --pi-model)      PI_MODEL="$2"; shift 2 ;;
-    --test-cmd)      OVERRIDE_TEST_CMD="$2"; shift 2 ;;
-    -v|--verbose)    VERBOSE=true; shift ;;
     -h|--help)       usage ;;
     *)               echo "Unknown flag: $1"; usage ;;
   esac
 done
-
-if [[ -n "$OVERRIDE_TEST_CMD" ]]; then
-  TEST_CMD="$OVERRIDE_TEST_CMD"
-fi
 
 ########################################################################
 # Resolve repo root
@@ -88,101 +74,9 @@ if [[ "$BASE_REV" == "trunk()" ]]; then
   BASE_DISPLAY="$resolved"
 fi
 
-echo "→ repo:      $REPO_ROOT"
-echo "→ base:      $BASE_DISPLAY"
-echo "→ pi model:  $PI_MODEL"
-echo "→ test cmd:  ${TEST_CMD:-<skip>}"
+echo "→ repo:  $REPO_ROOT"
+echo "→ base:  $BASE_DISPLAY"
 echo ""
-
-########################################################################
-# Helper: resolve conflicts via pi
-########################################################################
-resolve_with_pi() {
-  local work_dir="$1"
-  local label="$2"
-  local conflict_files
-  conflict_files=$(jj -R "$REPO_ROOT" resolve --list 2>/dev/null || echo "")
-
-  if [[ -z "$conflict_files" ]]; then
-    return 0
-  fi
-
-  echo "  ⚠ conflicted files:"
-  echo "$conflict_files" | while read -r f; do
-    [[ -n "$f" ]] && echo "    $f"
-  done
-
-  if [[ "$NO_PI" == true ]]; then
-    echo "  ⓘ pi disabled (--no-pi), resolve manually"
-    return 1
-  fi
-
-  if ! command -v pi &>/dev/null; then
-    echo "  ⓘ pi not found on PATH, resolve manually"
-    return 1
-  fi
-
-  echo "  → delegating conflict resolution to pi ($PI_MODEL)..."
-
-  local prompt_file
-  prompt_file=$(mktemp /tmp/linearize-prompt.XXXXXX)
-
-  cat > "$prompt_file" << ENDPROMPT
-You are resolving jj (Jujutsu) rebase conflicts in the repository at \`$REPO_ROOT\`.
-Working directory: \`$work_dir\`
-
-The following files have conflict markers from a rebase ($label):
-
-$conflict_files
-
-## What to do
-
-1. Read each conflicted file to understand the conflicts.
-2. Research context until you are certain of the right resolution:
-   - Read surrounding code in the conflicted files and related files.
-   - Use \`jj log\` and \`jj show <rev>\` to understand the intent behind
-     each side of the conflict (what commit introduced it, what problem it
-     solved).
-   - Do not guess. If a conflict is genuinely ambiguous after research,
-     stop and report which file and why it cannot be resolved.
-3. Resolve each conflict by editing the file — remove \`<<<<<<<\`, \`=======\`,
-   \`>>>>>>>\` markers and produce the correct merged content.
-4. After editing all files, run: \`jj -R $REPO_ROOT resolve\`
-5. Verify no conflicts remain: \`jj -R $REPO_ROOT resolve --list\` should exit
-   non-zero (no conflicts found).
-
-## How to respond
-
-- If all conflicts were resolved: describe each conflict, what the two sides
-  were, and why your resolution is correct. End with the line "done".
-- If a conflict cannot be resolved: describe the file, the conflicting
-  changes, what you researched, and why no clear resolution emerged. End with
-  the line "unresolved".
-
-## Important
-
-- Do NOT ask questions. Resolve everything autonomously.
-- Work in the workspace directory: \`$work_dir\`.
-ENDPROMPT
-
-  local pi_output
-  pi_output=$(cat "$prompt_file" | pi -p --model "$PI_MODEL" --no-session 2>&1) || true
-  rm -f "$prompt_file"
-
-  if [[ "$VERBOSE" == true ]]; then
-    echo "  ── pi output ──"
-    echo "$pi_output" | tail -20
-    echo "  ───────────────"
-  fi
-
-  if jj -R "$REPO_ROOT" resolve --list &>/dev/null; then
-    echo "  ✗ conflicts remain after pi resolution"
-    return 1
-  fi
-
-  echo "  ✓ conflicts resolved by pi"
-  return 0
-}
 
 ########################################################################
 # Discover mutable heads off trunk, sorted oldest-first by timestamp
@@ -208,15 +102,12 @@ if [[ -n "$TARGET_WS" ]]; then
   fi
   echo "── workspace: $TARGET_WS ($ws_dir) ──"
 
-  # Check / fix stale
   if ! jj -R "$ws_dir" st &>/dev/null; then
-    echo "  ⚠ workspace is stale, running update-stale..."
-    if [[ "$DRY_RUN" != true ]]; then
-      jj -R "$ws_dir" workspace update-stale || {
-        echo "  ✗ update-stale failed"
-        exit 1
-      }
-    fi
+    echo "  ✗ workspace is stale. Run this first:"
+    echo "      jj -R $ws_dir workspace update-stale"
+    echo "    (update-stale can discard uncommitted changes — see the jj"
+    echo "     skill's Stale Workspaces section.)"
+    exit 1
   fi
 
   branch_revs=$(jj -R "$ws_dir" log -r "$BASE_REV..@" --no-graph \
@@ -237,11 +128,6 @@ if [[ -n "$TARGET_WS" ]]; then
       echo "  rebasing..."
       if jj -R "$ws_dir" rebase -b @ -d "$BASE_REV" 2>&1; then
         echo "  ✓ rebase ok"
-        if jj -R "$ws_dir" resolve --list &>/dev/null; then
-          resolve_with_pi "$ws_dir" "$TARGET_WS" || FAILURES+=("$TARGET_WS: conflict resolution failed")
-        else
-          echo "  ✓ no conflicts"
-        fi
       else
         echo "  ✗ rebase failed"
         FAILURES+=("$TARGET_WS: rebase command failed")
@@ -275,8 +161,6 @@ else
       # Show commits in this branch (ancestors of head not in current base)
       branch_revs=$(jj -R "$REPO_ROOT" log -r "$CURRENT..$head_id" --no-graph \
         -T 'commit_id.short() ++ " " ++ description.first_line() ++ "\n"' 2>/dev/null || echo "")
-
-      # Trim for emptiness check
       branch_trimmed=$(echo "$branch_revs" | tr -d '[:space:]')
 
       if [[ -z "$branch_trimmed" ]]; then
@@ -297,6 +181,9 @@ else
       fi
 
       # ── Rebase this head's branch onto the growing tip ──
+      # jj records conflicts in the rebased commits rather than failing, so a
+      # zero exit here does not imply a clean rebase — conflicts are reported
+      # together at the end.
       echo "  rebasing..."
       if ! jj -R "$REPO_ROOT" rebase -b "$head_id" -d "$CURRENT" 2>&1; then
         echo "  ✗ rebase command failed"
@@ -305,16 +192,6 @@ else
       fi
       echo "  ✓ rebase ok"
 
-      # ── Conflict resolution ──
-      if jj -R "$REPO_ROOT" resolve --list &>/dev/null; then
-        if ! resolve_with_pi "$REPO_ROOT" "head $head_id → $CURRENT"; then
-          FAILURES+=("head $head_id: conflict resolution failed")
-          continue
-        fi
-      else
-        echo "  ✓ no conflicts"
-      fi
-
       # Advance the tip for the next head
       CURRENT="$head_id"
     done <<< "$HEADS"
@@ -322,60 +199,69 @@ else
 fi
 
 ########################################################################
-# Post-rebase: fix any stale workspaces
+# Drop empty & undescribed commits
+########################################################################
+# Intersection on purpose: an empty-but-described commit is an intentional
+# marker, and a described-but-nonempty commit is real work — only commits that
+# are both empty and undescribed are pure noise. working_copies() is excluded
+# so we never abandon a workspace's working-copy commit.
+DROP_REVSET='mutable() & empty() & description(exact:"") & ~working_copies()'
+if [[ "$KEEP_EMPTY" != true ]]; then
+  echo ""
+  echo "── dropping empty & undescribed commits ──"
+  drop_list=$(jj -R "$REPO_ROOT" log -r "$DROP_REVSET" --no-graph \
+    -T 'change_id.shortest(8) ++ " " ++ commit_id.short() ++ "\n"' 2>/dev/null || echo "")
+  drop_trimmed=$(echo "$drop_list" | tr -d '[:space:]')
+  if [[ -z "$drop_trimmed" ]]; then
+    echo "  ✓ none to drop"
+  else
+    echo "$drop_list" | while read -r c; do [[ -n "$c" ]] && echo "    $c"; done
+    if [[ "$DRY_RUN" == true ]]; then
+      echo "  [dry-run] would: jj abandon -r '$DROP_REVSET'"
+    elif jj -R "$REPO_ROOT" abandon -r "$DROP_REVSET" 2>&1; then
+      echo "  ✓ dropped"
+    else
+      echo "  ✗ abandon failed"
+      FAILURES+=("drop empties: jj abandon failed")
+    fi
+  fi
+fi
+
+########################################################################
+# Report conflicts (left for pi-resolve-conflicts / manual fix)
 ########################################################################
 echo ""
-echo "── workspace staleness check ──"
+echo "── conflicts ──"
+conflicted=$(jj -R "$REPO_ROOT" log -r 'mutable() & conflicts()' --no-graph \
+  -T 'change_id.shortest(8) ++ " " ++ description.first_line() ++ "\n"' 2>/dev/null || echo "")
+conflicted_trimmed=$(echo "$conflicted" | tr -d '[:space:]')
+if [[ -z "$conflicted_trimmed" ]]; then
+  echo "  ✓ no conflicts"
+else
+  echo "  ⚠ conflicted commits — resolve each with:"
+  echo "      jj edit <id> && pi-resolve-conflicts"
+  echo "$conflicted" | while read -r c; do [[ -n "$c" ]] && echo "    $c"; done
+fi
+
+########################################################################
+# Report stale workspaces (read-only — does NOT auto update-stale)
+########################################################################
+echo ""
+echo "── workspace staleness ──"
 STALE_ANY=false
 workspaces=$(jj -R "$REPO_ROOT" workspace list --no-pager 2>/dev/null | awk -F': ' '{print $1}')
 for ws_name in $workspaces; do
   ws_dir=$(jj -R "$REPO_ROOT" workspace root --name "$ws_name" 2>/dev/null || echo "")
-  if [[ -z "$ws_dir" ]]; then
-    continue
-  fi
+  [[ -z "$ws_dir" ]] && continue
   if ! jj -R "$ws_dir" st &>/dev/null; then
-    echo "  ⚠ $ws_name is stale"
+    echo "  ⚠ $ws_name is stale — run: jj -R $ws_dir workspace update-stale"
     STALE_ANY=true
-    if [[ "$DRY_RUN" != true ]]; then
-      if jj -R "$ws_dir" workspace update-stale 2>&1; then
-        echo "    ✓ updated"
-      else
-        echo "    ✗ update-stale failed"
-        FAILURES+=("$ws_name: update-stale failed after rebase")
-      fi
-    else
-      echo "    [dry-run] would update-stale"
-    fi
   fi
 done
 if [[ "$STALE_ANY" != true ]]; then
   echo "  ✓ all workspaces fresh"
-fi
-
-########################################################################
-# Test gate
-########################################################################
-echo ""
-echo "═══════════════════════════════════════"
-if [[ -n "$TEST_CMD" ]]; then
-  echo ""
-  echo "── tests ──"
-  if [[ "$DRY_RUN" == true ]]; then
-    echo "  [dry-run] would run: cd $REPO_ROOT && $TEST_CMD"
-  elif [[ ${#FAILURES[@]} -gt 0 ]]; then
-    echo "  ⏭ skipping tests (earlier failures)"
-  else
-    echo "  running: $TEST_CMD"
-    if ( cd "$REPO_ROOT" && eval "$TEST_CMD" ); then
-      echo "  ✓ tests pass"
-    else
-      echo "  ✗ tests failed"
-      FAILURES+=("tests: $TEST_CMD failed")
-    fi
-  fi
 else
-  echo ""
-  echo "── tests: skipped (no test command configured) ──"
+  echo "  (update-stale can discard uncommitted changes — see the jj skill.)"
 fi
 
 ########################################################################
@@ -384,7 +270,7 @@ fi
 echo ""
 echo "═══════════════════════════════════════"
 if [[ ${#FAILURES[@]} -eq 0 ]]; then
-  echo "✓ done — all branches linearized, tests pass"
+  echo "✓ done — heads linearized onto $BASE_DISPLAY"
   exit 0
 else
   echo "✗ problems encountered:"
