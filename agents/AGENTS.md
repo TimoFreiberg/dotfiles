@@ -80,7 +80,7 @@ Read the source, ask me, or test the boundary directly — don't keep guessing.
 Before acting or claiming, check cheaply (grep, `gh pr view`, read the
 file) or flag the assumption explicitly. The bar isn't every claim —
 trivia and reasoning stay unchecked — just the non-obvious moves where
-being wrong would feel silly. Six triggers, one shape:
+being wrong would feel silly. Seven triggers, one shape:
 
 - **Verify While Writing** (about-to-claim a non-obvious fact, action,
   or verification). While composing, scan for non-obvious factual claims
@@ -124,6 +124,15 @@ being wrong would feel silly. Six triggers, one shape:
   Template: "I see Y as of now, X seems off — are you talking about
   something else?" — naming the alternative referent opens the channel
   rather than forcing a right/wrong frame.
+- **Verify Delegated Findings** (about-to-act-on-a-delegated-finding).
+  A subagent's returned conclusion is a claim, not a verified fact.
+  Before staking a decision on a decision-critical finding from a
+  delegated search, spot-check its load-bearing claims against source —
+  cheap when the agent returns file:line refs, just re-read those. This
+  isn't re-running the whole search, just confirming the two or three
+  claims the conclusion rests on. The more you lean on subagents, the
+  more a confident-wrong summary relayed as fact compounds into a
+  decision built on nothing.
 
 ## Skills
 
