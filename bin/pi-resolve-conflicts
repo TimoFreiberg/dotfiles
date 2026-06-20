@@ -1,0 +1,149 @@
+#!/usr/bin/env bash
+# pi-resolve-conflicts — resolve the jj (Jujutsu) conflicts at the current
+# revision by delegating to the pi coding agent. That's all it does: no rebase,
+# no tests. Lists the conflicted files, asks pi to research and resolve them,
+# then verifies none remain.
+#
+# Conflicts are read from the working-copy revision (@). If the conflict lives
+# in another commit, check it out first:  jj edit <id> && pi-resolve-conflicts
+set -euo pipefail
+
+PI_MODEL="${PI_RESOLVE_MODEL:-deepseek/deepseek-v4-pro}"
+REPO_ROOT=""
+WORK_DIR=""
+LABEL=""
+VERBOSE=false
+
+usage() {
+  cat <<'EOF'
+Usage: pi-resolve-conflicts [OPTIONS]
+
+Resolve the jj conflicts at the current revision (@) by delegating to pi.
+Exits 0 if all conflicts were resolved (or there were none), non-zero if any
+remain or pi is unavailable.
+
+Options:
+  -R, --repo PATH    Repo root (default: auto-detect via jj root)
+  -w, --workdir DIR  Directory pi should work in (default: repo root)
+  -m, --model MODEL  pi model (default: $PI_RESOLVE_MODEL or
+                     deepseek/deepseek-v4-pro)
+  -l, --label TEXT   Context label woven into the prompt (e.g. what produced
+                     the conflicts)
+  -v, --verbose      Print the tail of pi's output
+  -h, --help         Show this help
+EOF
+  exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -R|--repo)     REPO_ROOT="$2"; shift 2 ;;
+    -w|--workdir)  WORK_DIR="$2"; shift 2 ;;
+    -m|--model)    PI_MODEL="$2"; shift 2 ;;
+    -l|--label)    LABEL="$2"; shift 2 ;;
+    -v|--verbose)  VERBOSE=true; shift ;;
+    -h|--help)     usage ;;
+    *)             echo "Unknown flag: $1"; usage ;;
+  esac
+done
+
+########################################################################
+# Resolve repo root / work dir
+########################################################################
+if [[ -z "$REPO_ROOT" ]]; then
+  REPO_ROOT="$(jj root 2>/dev/null || echo "")"
+  if [[ -z "$REPO_ROOT" ]]; then
+    echo "error: not in a jj repo and no --repo given" >&2
+    exit 1
+  fi
+fi
+REPO_ROOT="$(cd "$REPO_ROOT" && pwd)"
+WORK_DIR="${WORK_DIR:-$REPO_ROOT}"
+
+########################################################################
+# List conflicts (resolve --list exits 0 when conflicts exist, non-zero when
+# there are none — so empty output means nothing to do).
+########################################################################
+conflict_files=$(jj -R "$REPO_ROOT" resolve --list 2>/dev/null || true)
+if [[ -z "$conflict_files" ]]; then
+  echo "✓ no conflicts to resolve"
+  exit 0
+fi
+
+echo "⚠ conflicted files:"
+echo "$conflict_files" | while read -r f; do
+  [[ -n "$f" ]] && echo "    $f"
+done
+
+if ! command -v pi &>/dev/null; then
+  echo "✗ pi not found on PATH — resolve manually" >&2
+  exit 1
+fi
+
+echo "→ delegating conflict resolution to pi ($PI_MODEL)..."
+
+label_suffix=""
+[[ -n "$LABEL" ]] && label_suffix=" ($LABEL)"
+
+########################################################################
+# Build prompt and hand off to pi
+########################################################################
+prompt_file=$(mktemp "${TMPDIR:-/tmp}/pi-resolve-conflicts.XXXXXX")
+trap 'rm -f "$prompt_file"' EXIT
+
+cat > "$prompt_file" << ENDPROMPT
+You are resolving jj (Jujutsu) conflicts in the repository at \`$REPO_ROOT\`.
+Working directory: \`$WORK_DIR\`
+
+The following files have conflicts${label_suffix}:
+
+$conflict_files
+
+## What to do
+
+1. Read each conflicted file to understand the conflicts.
+2. Research context until you are certain of the right resolution:
+   - Read surrounding code in the conflicted files and related files.
+   - Use \`jj log\` and \`jj show <rev>\` to understand the intent behind
+     each side of the conflict (what commit introduced it, what problem it
+     solved).
+   - Do not guess. If a conflict is genuinely ambiguous after research,
+     stop and report which file and why it cannot be resolved.
+3. Resolve each conflict by editing the file — remove \`<<<<<<<\`, \`=======\`,
+   \`>>>>>>>\` markers and produce the correct merged content.
+4. After editing all files, run: \`jj -R $REPO_ROOT resolve\`
+5. Verify no conflicts remain: \`jj -R $REPO_ROOT resolve --list\` should exit
+   non-zero (no conflicts found).
+
+## How to respond
+
+- If all conflicts were resolved: describe each conflict, what the two sides
+  were, and why your resolution is correct. End with the line "done".
+- If a conflict cannot be resolved: describe the file, the conflicting
+  changes, what you researched, and why no clear resolution emerged. End with
+  the line "unresolved".
+
+## Important
+
+- Do NOT ask questions. Resolve everything autonomously.
+- Work in the directory: \`$WORK_DIR\`.
+ENDPROMPT
+
+pi_output=$(pi -p --model "$PI_MODEL" --no-session < "$prompt_file" 2>&1) || true
+
+if [[ "$VERBOSE" == true ]]; then
+  echo "── pi output ──"
+  echo "$pi_output" | tail -20
+  echo "───────────────"
+fi
+
+########################################################################
+# Verify
+########################################################################
+if jj -R "$REPO_ROOT" resolve --list &>/dev/null; then
+  echo "✗ conflicts remain after pi resolution"
+  exit 1
+fi
+
+echo "✓ conflicts resolved by pi"
+exit 0
