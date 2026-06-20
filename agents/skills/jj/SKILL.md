@@ -75,3 +75,19 @@ If a command puts the wrong changes into the wrong commit (e.g. squash into the 
 3. Revert the bad operation: `jj op revert <op_id>` (the op ID is shown in `jj op log`)
 
 `jj op revert` undoes one operation; `jj op restore <op_id>` resets the whole repo to the state as of that operation (undoing everything after it).
+
+## Stale Workspaces
+
+When jj reports a workspace is stale (e.g. the working-copy parent was rewritten
+in another workspace), `jj workspace update-stale` can **overwrite the workspace
+contents** — any uncommitted changes in the working copy are silently lost.
+
+Before running `jj workspace update-stale`:
+
+1. Back up workspace contents: `cp -r <workspace-dir> <workspace-dir>.backup`
+2. Run `jj workspace update-stale` in the workspace
+3. Merge the backup into the updated workspace and commit:
+   `rsync -a --ignore-existing <workspace-dir>.backup/ <workspace-dir>/` then
+   `jj commit -m "msg"` (use `jj new` first if you need the changes on a fresh
+   change)
+4. Clean up: `rm -rf <workspace-dir>.backup`
