@@ -6,11 +6,12 @@
     "high-effort-impl": "anthropic/claude-opus-4-8:high",
     "general-review": "deepseek/deepseek-v4-pro:high",
     "high-effort-review": "anthropic/claude-opus-4-8:xhigh",
-    "web-search": "anthropic/claude-haiku-4-5",
+    "web-search": "google/gemini-3.5-flash",
     "text-summary": "deepseek/deepseek-v4-flash:low",
     "fast-utility": "deepseek/deepseek-v4-flash:off",
-    "vision": "anthropic/claude-sonnet-4-5",
-    "recon": "anthropic/claude-sonnet-4-5:medium",
+    "vision": "anthropic/claude-sonnet-4-6",
+    "high-effort-vision": "anthropic/claude-opus-4-8",
+    "recon": "deepseek/deepseek-v4-flash:high",
     "structured-extraction": "deepseek/deepseek-v4-flash:low"
   }
 }
