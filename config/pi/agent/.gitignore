@@ -10,3 +10,4 @@ trust.json
 # Live role->model map is per-machine: symlink to a tracked template,
 # e.g. `ln -s roles.home.json roles.json` (templates roles.*.json are tracked).
 roles.json
+turn-incidents.jsonl
