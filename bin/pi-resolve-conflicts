@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
-# pi-resolve-conflicts — resolve the jj (Jujutsu) conflicts at the current
-# revision by delegating to the pi coding agent. That's all it does: no rebase,
-# no tests. Lists the conflicted files, asks pi to research and resolve them,
-# then verifies none remain.
+# pi-resolve-conflicts — resolve every local, mutable jj (Jujutsu) conflicted
+# commit by delegating to the pi coding agent. That's all it does: no rebase,
+# no tests.
 #
-# Conflicts are read from the working-copy revision (@). If the conflict lives
-# in another commit, check it out first:  jj edit <id> && pi-resolve-conflicts
+# jj stores conflicts in commits, but pi can only edit files materialized in a
+# working copy — so this checks out each conflicted commit in turn (jj edit),
+# lets pi resolve the markers, then moves on. It resolves ancestors before
+# descendants (fixing a propagated conflict upstream often clears the ones
+# below it) and restores your original working-copy commit when done.
 set -euo pipefail
 
 PI_MODEL="${PI_RESOLVE_MODEL:-deepseek/deepseek-v4-pro}"
 REPO_ROOT=""
-WORK_DIR=""
+REVSET="mutable()"
 LABEL=""
 VERBOSE=false
 
@@ -18,18 +20,24 @@ usage() {
   cat <<'EOF'
 Usage: pi-resolve-conflicts [OPTIONS]
 
-Resolve the jj conflicts at the current revision (@) by delegating to pi.
+Resolve every conflicted commit in the target set by delegating to pi. The
+default set is all local, mutable commits — i.e. your unpushed work. Each
+conflicted commit is checked out (jj edit), resolved by pi, then the next is
+processed (ancestors first). Your original working-copy commit is restored at
+the end.
+
 Exits 0 if all conflicts were resolved (or there were none), non-zero if any
 remain or pi is unavailable.
 
 Options:
-  -R, --repo PATH    Repo root (default: auto-detect via jj root)
-  -w, --workdir DIR  Directory pi should work in (default: repo root)
+  -R, --repo PATH    Repo root / workspace (default: auto-detect via jj root)
+  -r, --revset REV   Limit the set to resolve (default: mutable()); it is
+                     always intersected with conflicts()
   -m, --model MODEL  pi model (default: $PI_RESOLVE_MODEL or
                      deepseek/deepseek-v4-pro)
-  -l, --label TEXT   Context label woven into the prompt (e.g. what produced
+  -l, --label TEXT   Extra context woven into pi's prompt (e.g. what produced
                      the conflicts)
-  -v, --verbose      Print the tail of pi's output
+  -v, --verbose      Print the tail of pi's output for each commit
   -h, --help         Show this help
 EOF
   exit 0
@@ -38,7 +46,7 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -R|--repo)     REPO_ROOT="$2"; shift 2 ;;
-    -w|--workdir)  WORK_DIR="$2"; shift 2 ;;
+    -r|--revset)   REVSET="$2"; shift 2 ;;
     -m|--model)    PI_MODEL="$2"; shift 2 ;;
     -l|--label)    LABEL="$2"; shift 2 ;;
     -v|--verbose)  VERBOSE=true; shift ;;
@@ -48,7 +56,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 ########################################################################
-# Resolve repo root / work dir
+# Resolve repo root
 ########################################################################
 if [[ -z "$REPO_ROOT" ]]; then
   REPO_ROOT="$(jj root 2>/dev/null || echo "")"
@@ -58,44 +66,44 @@ if [[ -z "$REPO_ROOT" ]]; then
   fi
 fi
 REPO_ROOT="$(cd "$REPO_ROOT" && pwd)"
-WORK_DIR="${WORK_DIR:-$REPO_ROOT}"
+
+# The conflicted set we operate on, and its current roots (no conflicted
+# ancestor — safe to resolve first).
+CONFLICT_SET="($REVSET) & conflicts()"
+
+count_conflicted() {
+  jj -R "$REPO_ROOT" log -r "$CONFLICT_SET" --no-graph \
+    -T 'change_id.short() ++ "\n"' 2>/dev/null | sed '/^$/d' | wc -l | tr -d ' '
+}
 
 ########################################################################
-# List conflicts (resolve --list exits 0 when conflicts exist, non-zero when
-# there are none — so empty output means nothing to do).
+# Resolve the conflicts at the current working-copy commit (@) via pi.
+# Returns 0 if @ is conflict-free afterwards, 1 otherwise.
 ########################################################################
-conflict_files=$(jj -R "$REPO_ROOT" resolve --list 2>/dev/null || true)
-if [[ -z "$conflict_files" ]]; then
-  echo "✓ no conflicts to resolve"
-  exit 0
-fi
+resolve_current() {
+  local label="$1"
+  local conflict_files
+  conflict_files=$(jj -R "$REPO_ROOT" resolve --list 2>/dev/null || true)
+  if [[ -z "$conflict_files" ]]; then
+    return 0
+  fi
 
-echo "⚠ conflicted files:"
-echo "$conflict_files" | while read -r f; do
-  [[ -n "$f" ]] && echo "    $f"
-done
+  echo "  conflicted files:"
+  echo "$conflict_files" | while read -r f; do
+    [[ -n "$f" ]] && echo "    $f"
+  done
 
-if ! command -v pi &>/dev/null; then
-  echo "✗ pi not found on PATH — resolve manually" >&2
-  exit 1
-fi
+  echo "  → delegating to pi ($PI_MODEL)..."
 
-echo "→ delegating conflict resolution to pi ($PI_MODEL)..."
+  local prompt_file
+  prompt_file=$(mktemp "${TMPDIR:-/tmp}/pi-resolve-conflicts.XXXXXX")
 
-label_suffix=""
-[[ -n "$LABEL" ]] && label_suffix=" ($LABEL)"
-
-########################################################################
-# Build prompt and hand off to pi
-########################################################################
-prompt_file=$(mktemp "${TMPDIR:-/tmp}/pi-resolve-conflicts.XXXXXX")
-trap 'rm -f "$prompt_file"' EXIT
-
-cat > "$prompt_file" << ENDPROMPT
+  cat > "$prompt_file" << ENDPROMPT
 You are resolving jj (Jujutsu) conflicts in the repository at \`$REPO_ROOT\`.
-Working directory: \`$WORK_DIR\`
+Working directory: \`$REPO_ROOT\`
 
-The following files have conflicts${label_suffix}:
+The conflicted commit is currently checked out as the working copy ($label).
+The following files have conflicts:
 
 $conflict_files
 
@@ -111,9 +119,8 @@ $conflict_files
      stop and report which file and why it cannot be resolved.
 3. Resolve each conflict by editing the file — remove \`<<<<<<<\`, \`=======\`,
    \`>>>>>>>\` markers and produce the correct merged content.
-4. After editing all files, run: \`jj -R $REPO_ROOT resolve\`
-5. Verify no conflicts remain: \`jj -R $REPO_ROOT resolve --list\` should exit
-   non-zero (no conflicts found).
+4. Verify no conflicts remain: \`jj -R $REPO_ROOT resolve --list\` should exit
+   non-zero (no conflicts found at this revision).
 
 ## How to respond
 
@@ -126,24 +133,110 @@ $conflict_files
 ## Important
 
 - Do NOT ask questions. Resolve everything autonomously.
-- Work in the directory: \`$WORK_DIR\`.
+- Only edit files; do not run \`jj rebase\`, \`jj squash\`, or other
+  history-rewriting commands — just resolve the markers in place.
 ENDPROMPT
 
-pi_output=$(pi -p --model "$PI_MODEL" --no-session < "$prompt_file" 2>&1) || true
+  local pi_output
+  pi_output=$(pi -p --model "$PI_MODEL" --no-session < "$prompt_file" 2>&1) || true
+  rm -f "$prompt_file"
 
-if [[ "$VERBOSE" == true ]]; then
-  echo "── pi output ──"
-  echo "$pi_output" | tail -20
-  echo "───────────────"
+  if [[ "$VERBOSE" == true ]]; then
+    echo "  ── pi output ──"
+    echo "$pi_output" | tail -20
+    echo "  ───────────────"
+  fi
+
+  # resolve --list exits 0 while conflicts remain at @, non-zero when clean.
+  if jj -R "$REPO_ROOT" resolve --list &>/dev/null; then
+    return 1
+  fi
+  return 0
+}
+
+########################################################################
+# Main
+########################################################################
+total=$(count_conflicted)
+if [[ "$total" -eq 0 ]]; then
+  echo "✓ no conflicts to resolve in: $CONFLICT_SET"
+  exit 0
 fi
 
-########################################################################
-# Verify
-########################################################################
-if jj -R "$REPO_ROOT" resolve --list &>/dev/null; then
-  echo "✗ conflicts remain after pi resolution"
+if ! command -v pi &>/dev/null; then
+  echo "✗ pi not found on PATH — resolve manually" >&2
   exit 1
 fi
 
-echo "✓ conflicts resolved by pi"
-exit 0
+echo "→ repo:          $REPO_ROOT"
+echo "→ conflict set:  $CONFLICT_SET"
+echo "→ conflicted commits: $total"
+echo "→ pi model:      $PI_MODEL"
+
+# Remember where we started so we can return here afterwards (change_id is
+# stable across the rebases that resolving ancestors triggers).
+ORIG=$(jj -R "$REPO_ROOT" log -r @ --no-graph -T 'change_id.short()' 2>/dev/null || echo "")
+
+FAILED=()
+ATTEMPTED=" "   # space-padded change_ids we've already handled
+
+while :; do
+  # Pick a current root of the conflicted set that we haven't attempted yet.
+  roots=$(jj -R "$REPO_ROOT" log -r "roots($CONFLICT_SET)" --no-graph \
+    -T 'change_id.short() ++ "\n"' 2>/dev/null || echo "")
+  next=""
+  while read -r c; do
+    [[ -z "$c" ]] && continue
+    if [[ "$ATTEMPTED" != *" $c "* ]]; then next="$c"; break; fi
+  done <<< "$roots"
+  [[ -z "$next" ]] && break
+
+  desc=$(jj -R "$REPO_ROOT" log -r "$next" --no-graph \
+    -T 'description.first_line()' 2>/dev/null || echo "")
+  [[ -z "$desc" ]] && desc="(no description)"
+
+  echo ""
+  echo "── $next  $desc ──"
+
+  if ! jj -R "$REPO_ROOT" edit "$next" 2>&1; then
+    echo "  ✗ jj edit failed (skipping)"
+    FAILED+=("$next: jj edit failed")
+    ATTEMPTED+="$next "
+    continue
+  fi
+
+  label="commit $next"
+  [[ -n "$LABEL" ]] && label="$label — $LABEL"
+
+  if resolve_current "$label"; then
+    echo "  ✓ resolved"
+  else
+    echo "  ✗ pi could not resolve $next"
+    FAILED+=("$next")
+  fi
+  ATTEMPTED+="$next "
+done
+
+########################################################################
+# Restore original working-copy commit
+########################################################################
+if [[ -n "$ORIG" ]] && jj -R "$REPO_ROOT" log -r "$ORIG" --no-graph -T '""' &>/dev/null; then
+  jj -R "$REPO_ROOT" edit "$ORIG" &>/dev/null || true
+fi
+
+########################################################################
+# Report
+########################################################################
+echo ""
+echo "═══════════════════════════════════════"
+remaining=$(jj -R "$REPO_ROOT" log -r "$CONFLICT_SET" --no-graph \
+  -T 'change_id.short() ++ " " ++ description.first_line() ++ "\n"' 2>/dev/null || echo "")
+remaining_trimmed=$(echo "$remaining" | tr -d '[:space:]')
+if [[ -z "$remaining_trimmed" ]]; then
+  echo "✓ all conflicts resolved"
+  exit 0
+else
+  echo "✗ conflicts remain in:"
+  echo "$remaining" | while read -r c; do [[ -n "$c" ]] && echo "    $c"; done
+  exit 1
+fi

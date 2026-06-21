@@ -27,7 +27,7 @@ first), then chain-rebases each onto the growing tip. Afterwards, drops
 commits that are both empty AND undescribed (never a workspace working copy).
 
 Conflicts are NOT resolved — jj records them in the rebased commits. Resolve
-them yourself afterwards, e.g.:  jj edit <id> && pi-resolve-conflicts
+them yourself afterwards with: pi-resolve-conflicts
 
 Options:
   -R, --repo PATH       Repo root (default: auto-detect via jj root)
@@ -238,8 +238,7 @@ conflicted_trimmed=$(echo "$conflicted" | tr -d '[:space:]')
 if [[ -z "$conflicted_trimmed" ]]; then
   echo "  ✓ no conflicts"
 else
-  echo "  ⚠ conflicted commits — resolve each with:"
-  echo "      jj edit <id> && pi-resolve-conflicts"
+  echo "  ⚠ conflicted commits — resolve them all with: pi-resolve-conflicts"
   echo "$conflicted" | while read -r c; do [[ -n "$c" ]] && echo "    $c"; done
 fi
 
