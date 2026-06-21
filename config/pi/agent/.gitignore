@@ -7,6 +7,8 @@ aws-sso.json
 prompt-history.jsonl
 discipline-checker.json
 trust.json
+# pi-mcp-adapter's per-machine cache of discovered MCP tool schemas (derived from mcp.json).
+mcp-cache.json
 # Live role->model map is per-machine: symlink to a tracked template,
 # e.g. `ln -s roles.home.json roles.json` (templates roles.*.json are tracked).
 roles.json

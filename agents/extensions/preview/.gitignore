@@ -1,8 +1,0 @@
-# Never commit dependencies or browser binaries — this repo is public.
-node_modules/
-package-lock.json
-
-# Playwright may drop a local browser cache if PLAYWRIGHT_BROWSERS_PATH=0; keep it out.
-.cache/
-ms-playwright/
-*.png
