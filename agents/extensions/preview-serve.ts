@@ -350,11 +350,53 @@ const stopTool = defineTool({
   },
 });
 
+// ── Missing-adapter guard ─────────────────────────────────────────────────────
+//
+// The browser half of previewing comes from playwright-mcp, reached via the
+// pi-mcp-adapter package. That package is installed per-machine (`pi install
+// npm:pi-mcp-adapter`) and is NOT carried by the dotfiles repo, so on a fresh
+// machine it can simply be absent — and its absence is otherwise SILENT (no
+// browser_* tools register, but nothing errors). This guard turns that silent
+// gap into a loud-ish one-time warning at session start.
+
+let warnedMissingAdapter = false;
+
+/**
+ * True if the MCP adapter looks loaded — i.e. its `mcp` proxy tool, or any
+ * `browser_*` tool (when directTools is on), is registered.
+ *
+ * Fails OPEN: if the registry is empty (queried before extensions finished
+ * loading) or getAllTools throws (API drift), we assume present rather than
+ * cry wolf with a misleading "go install it" message.
+ */
+function browserToolsPresent(pi: ExtensionAPI): boolean {
+  try {
+    const tools = pi.getAllTools();
+    if (tools.length === 0) return true;
+    return tools.some((t) => t.name === "mcp" || t.name.startsWith("browser_"));
+  } catch {
+    return true;
+  }
+}
+
 // ── Registration + lifecycle ──────────────────────────────────────────────────
 
 export default function (pi: ExtensionAPI) {
   pi.registerTool(serveTool);
   pi.registerTool(stopTool);
+
+  // Warn once per process if the MCP adapter / browser tools aren't available.
+  pi.on("session_start", (_event, ctx) => {
+    if (warnedMissingAdapter || !ctx.hasUI) return;
+    if (browserToolsPresent(pi)) return;
+    warnedMissingAdapter = true;
+    ctx.ui.notify(
+      "pi-mcp-adapter not loaded — browser preview tools are unavailable. " +
+        "Install it with `pi install npm:pi-mcp-adapter`, then restart pi. " +
+        "(preview_serve still starts dev servers; you just can't screenshot or inspect them.)",
+      "warning",
+    );
+  });
 
   // Kill only a server WE spawned on session end / reload / switch / fork and on
   // Ctrl+C/SIGTERM (which routes through session_shutdown). Adopted servers are
