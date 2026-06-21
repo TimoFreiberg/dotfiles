@@ -107,20 +107,66 @@ The following files have conflicts:
 
 $conflict_files
 
+## Conflict marker format
+
+jj materializes each conflict between an opening \`<<<<<<<\` line and a
+closing \`>>>>>>>\` line. You may see EITHER style — read the actual file and
+handle whichever appears:
+
+Diff style (jj's default — you will usually see this):
+
+    <<<<<<< conflict 1 of N
+    %%%%%%% diff from base to side #1
+    -<line as it was in the common ancestor>
+    +<line as side #1 changed it>
+    +++++++ side #2
+    <side #2 content, shown literally>
+    >>>>>>> conflict 1 of N ends
+
+  Side #1 is expressed as a DIFF against the common ancestor: apply the -/+
+  hunk to reconstruct it (a '-' line was removed, a '+' line was added, an
+  unprefixed line is unchanged). Side #2 is shown literally. A block may also
+  contain a header continuation line starting with a run of backslashes —
+  that is a marker, not content.
+
+Git/diff3 style:
+
+    <<<<<<< side #1
+    <side #1 content>
+    ||||||| common ancestor
+    <ancestor content>
+    =======
+    <side #2 content>
+    >>>>>>> side #2
+
+Replace the ENTIRE region — from the \`<<<<<<<\` line through the \`>>>>>>>\`
+line, inclusive — with the single correct merged result. None of these marker
+tokens may survive anywhere in the file: \`<<<<<<<\`, \`>>>>>>>\`, \`=======\`,
+\`|||||||\`, \`%%%%%%%\`, \`+++++++\`, or a run of backslashes.
+
 ## What to do
 
-1. Read each conflicted file to understand the conflicts.
-2. Research context until you are certain of the right resolution:
-   - Read surrounding code in the conflicted files and related files.
-   - Use \`jj log\` and \`jj show <rev>\` to understand the intent behind
-     each side of the conflict (what commit introduced it, what problem it
-     solved).
-   - Do not guess. If a conflict is genuinely ambiguous after research,
-     stop and report which file and why it cannot be resolved.
-3. Resolve each conflict by editing the file — remove \`<<<<<<<\`, \`=======\`,
-   \`>>>>>>>\` markers and produce the correct merged content.
-4. Verify no conflicts remain: \`jj -R $REPO_ROOT resolve --list\` should exit
-   non-zero (no conflicts found at this revision).
+1. For each conflicted file, read it and locate every conflict region.
+2. Research until you are confident of the intended result — do NOT guess:
+   - Read the surrounding code and any related files.
+   - Use \`jj log\` and \`jj show <rev>\` to understand WHY each side changed
+     what it did (what commit introduced it, what problem it solved).
+   - A conflict almost always means BOTH sides changed something. Your merge
+     must preserve the intent of BOTH sides unless one genuinely supersedes
+     the other. Never drop a side's change just to silence the conflict.
+   - If a region is genuinely ambiguous after research, leave it and report
+     it as unresolved rather than guessing.
+3. Replace each conflict region with the correct merged content, making the
+   MINIMAL change needed:
+   - Edit only within the conflict regions. Do NOT reformat, refactor,
+     rename, restyle, or otherwise change code outside the markers.
+   - Edit ONLY the conflicted files listed above. Do not create, delete, or
+     modify any other file.
+4. Re-read each file you changed and confirm: it is syntactically coherent,
+   both sides' intent is represented, and none of the marker tokens listed
+   above remain anywhere.
+5. Check your work: \`jj -R $REPO_ROOT resolve --list\` should report no
+   conflicts (exit non-zero) at this revision.
 
 ## How to respond
 
@@ -132,9 +178,12 @@ $conflict_files
 
 ## Important
 
-- Do NOT ask questions. Resolve everything autonomously.
-- Only edit files; do not run \`jj rebase\`, \`jj squash\`, or other
-  history-rewriting commands — just resolve the markers in place.
+- Do NOT ask questions — resolve everything autonomously, or report a region
+  as unresolved if you genuinely cannot.
+- Edit files ONLY. jj records your resolution automatically once the markers
+  are gone. Do NOT run \`jj rebase\`, \`jj squash\`, \`jj abandon\`, or bare
+  \`jj resolve\` (it opens an interactive merge tool and will hang). Read-only
+  commands like \`jj log\`, \`jj show\`, and \`jj resolve --list\` are fine.
 ENDPROMPT
 
   local pi_output
