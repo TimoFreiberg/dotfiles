@@ -1,6 +1,6 @@
 ---
 name: jj
-description: "Use when committing, rebasing, inspecting history, or fixing repo state with jj (Jujutsu) — including colocated .git/.jj repos and detached-HEAD confusion. Flags interactive commands that hang agents."
+description: "Use when committing, rebasing, inspecting history, or fixing repo state with jj (Jujutsu) — including colocated .git/.jj repos, detached-HEAD confusion, and stale-workspace errors (read this before running `jj workspace update-stale`; it can silently discard uncommitted changes). Flags interactive commands that hang agents."
 ---
 
 # jj Command Reference
@@ -79,15 +79,22 @@ If a command puts the wrong changes into the wrong commit (e.g. squash into the 
 ## Stale Workspaces
 
 When jj reports a workspace is stale (e.g. the working-copy parent was rewritten
-in another workspace), `jj workspace update-stale` can **overwrite the workspace
-contents** — any uncommitted changes in the working copy are silently lost.
+in another workspace — often a concurrent session), it helpfully suggests
+`jj workspace update-stale`. **Don't run it reflexively.** A tool error that
+hands you its own recovery command reads as routine, but this one is destructive:
+`update-stale` can **overwrite the workspace contents**, and any uncommitted
+changes in the working copy are silently lost. Committed changes survive — they
+get rebased onto the rewritten parent — so the fix is to commit *before*
+recovering, not after losing work.
 
 Before running `jj workspace update-stale`:
 
-1. Back up workspace contents: `cp -r <workspace-dir> <workspace-dir>.backup`
-2. Run `jj workspace update-stale` in the workspace
-3. Merge the backup into the updated workspace and commit:
+1. **Commit any uncommitted changes first** — `jj commit <paths> -m "msg"`. A
+   committed change is rebased by `update-stale`, not discarded. This is the
+   reliable protection. (`jj new` to park them on a fresh change works too.)
+2. If you genuinely can't commit, back up the workspace contents instead:
+   `cp -r <workspace-dir> <workspace-dir>.backup`
+3. Run `jj workspace update-stale` in the workspace.
+4. If you used a backup, merge it back and commit:
    `rsync -a --ignore-existing <workspace-dir>.backup/ <workspace-dir>/` then
-   `jj commit -m "msg"` (use `jj new` first if you need the changes on a fresh
-   change)
-4. Clean up: `rm -rf <workspace-dir>.backup`
+   `jj commit -m "msg"`, then clean up: `rm -rf <workspace-dir>.backup`.
