@@ -22,9 +22,10 @@ usage() {
 Usage: linearize-workspaces [OPTIONS]
 
 Stack all mutable jj heads onto trunk as a single linear chain. Finds all
-heads of mutable commits off trunk(), sorts them by author timestamp (oldest
-first), then chain-rebases each onto the growing tip. Afterwards, drops
-commits that are both empty AND undescribed (never a workspace working copy).
+heads of mutable commits off the base rev, sorts them by author timestamp
+(oldest first), then chain-rebases each onto the growing tip. Afterwards,
+drops commits that are both empty AND undescribed — including workspace
+working-copy commits (jj recreates a fresh empty leaf for each one).
 
 Conflicts are NOT resolved — jj records them in the rebased commits. Resolve
 them yourself afterwards with: pi-resolve-conflicts
@@ -83,7 +84,8 @@ echo ""
 ########################################################################
 discover_heads() {
   # Output: timestamp|change_id|description  (pipe-delimited, sorted oldest-first)
-  jj -R "$REPO_ROOT" log -r 'heads(trunk():: & ~trunk())' --no-graph \
+  # Uses $BASE_REV so --base works correctly in full mode too.
+  jj -R "$REPO_ROOT" log -r "heads(($BASE_REV):: & ~($BASE_REV))" --no-graph \
     -T 'author.timestamp() ++ "|" ++ change_id.short() ++ "|" ++ description.first_line() ++ "\n"' 2>/dev/null \
     | sort
 }
@@ -203,9 +205,9 @@ fi
 ########################################################################
 # Intersection on purpose: an empty-but-described commit is an intentional
 # marker, and a described-but-nonempty commit is real work — only commits that
-# are both empty and undescribed are pure noise. working_copies() is excluded
-# so we never abandon a workspace's working-copy commit.
-DROP_REVSET='mutable() & empty() & description(exact:"") & ~working_copies()'
+# are both empty and undescribed are pure noise. Workspace working-copy commits
+# are intentionally included: jj auto-recreates a fresh empty leaf for each.
+DROP_REVSET='mutable() & empty() & description(exact:"")'
 if [[ "$KEEP_EMPTY" != true ]]; then
   echo ""
   echo "── dropping empty & undescribed commits ──"
