@@ -10,7 +10,7 @@
 # below it) and restores your original working-copy commit when done.
 set -euo pipefail
 
-PI_MODEL="${PI_RESOLVE_MODEL:-deepseek/deepseek-v4-pro}"
+PI_MODEL=""
 REPO_ROOT=""
 REVSET="mutable()"
 LABEL=""
@@ -33,8 +33,8 @@ Options:
   -R, --repo PATH    Repo root / workspace (default: auto-detect via jj root)
   -r, --revset REV   Limit the set to resolve (default: mutable()); it is
                      always intersected with conflicts()
-  -m, --model MODEL  pi model (default: $PI_RESOLVE_MODEL or
-                     deepseek/deepseek-v4-pro)
+  -m, --model MODEL  pi model (default: $PI_RESOLVE_MODEL, or roles.json
+                     "conflict-resolution", or deepseek/deepseek-v4-pro)
   -l, --label TEXT   Extra context woven into pi's prompt (e.g. what produced
                      the conflicts)
   -v, --verbose      Print the tail of pi's output for each commit
@@ -54,6 +54,21 @@ while [[ $# -gt 0 ]]; do
     *)             echo "Unknown flag: $1"; usage ;;
   esac
 done
+
+########################################################################
+# Resolve model: flag > PI_RESOLVE_MODEL > role picker > hardcoded fallback
+########################################################################
+_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_ROLES_CLI="$_SCRIPT_DIR/../agents/_lib/resolve-role"
+
+if [[ -z "$PI_MODEL" ]] && [[ -n "${PI_RESOLVE_MODEL:-}" ]]; then
+  PI_MODEL="$PI_RESOLVE_MODEL"
+fi
+if [[ -z "$PI_MODEL" ]] && command -v node &>/dev/null && [[ -f "$_ROLES_CLI" ]]; then
+  _resolved=$(node "$_ROLES_CLI" conflict-resolution 2>/dev/null || true)
+  [[ -n "$_resolved" ]] && PI_MODEL="$_resolved"
+fi
+: "${PI_MODEL:=deepseek/deepseek-v4-pro}"
 
 ########################################################################
 # Resolve repo root

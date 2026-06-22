@@ -1,0 +1,16 @@
+#!/usr/bin/env node
+/**
+ * CLI shim: resolve a pi role to a model spec string.
+ *
+ * Usage:
+ *   resolve-role <role> [override]
+ *
+ * Prints "provider/model[:thinking]" to stdout (empty line if nothing
+ * resolves). Exits 0 always — callers treat empty output as "use your own
+ * fallback", non-empty as the resolved spec.
+ */
+import { resolveRole } from "./roles.mjs";
+
+const [, , role = "high-effort-impl", override] = process.argv;
+const resolved = resolveRole(role, { override: override || undefined, quiet: true });
+if (resolved) process.stdout.write(resolved.spec + "\n");
