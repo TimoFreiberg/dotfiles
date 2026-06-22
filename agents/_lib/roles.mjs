@@ -44,7 +44,6 @@ const DEFAULTS = {
   vision: "anthropic/claude-sonnet-4-5",
   recon: "anthropic/claude-sonnet-4-5:medium",
   "structured-extraction": "anthropic/claude-haiku-4-5:low",
-  "conflict-resolution": "anthropic/claude-sonnet-4-5:high",
   default: "anthropic/claude-haiku-4-5:medium",
 };
 

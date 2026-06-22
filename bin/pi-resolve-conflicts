@@ -65,7 +65,7 @@ if [[ -z "$PI_MODEL" ]] && [[ -n "${PI_RESOLVE_MODEL:-}" ]]; then
   PI_MODEL="$PI_RESOLVE_MODEL"
 fi
 if [[ -z "$PI_MODEL" ]] && command -v node &>/dev/null && [[ -f "$_ROLES_CLI" ]]; then
-  _resolved=$(node "$_ROLES_CLI" conflict-resolution 2>/dev/null || true)
+  _resolved=$(node "$_ROLES_CLI" general-review 2>/dev/null || true)
   [[ -n "$_resolved" ]] && PI_MODEL="$_resolved"
 fi
 : "${PI_MODEL:=deepseek/deepseek-v4-pro}"
