@@ -189,6 +189,7 @@ ENDPROMPT
   local pi_output
   pi_output=$(pi -p --model "$PI_MODEL" --no-session < "$prompt_file" 2>&1) || true
   rm -f "$prompt_file"
+  LAST_PI_OUTPUT="$pi_output"
 
   if [[ "$VERBOSE" == true ]]; then
     echo "  ── pi output ──"
@@ -227,6 +228,7 @@ echo "→ pi model:      $PI_MODEL"
 ORIG=$(jj -R "$REPO_ROOT" log -r @ --no-graph -T 'change_id.short()' 2>/dev/null || echo "")
 
 FAILED=()
+LAST_PI_OUTPUT=""  # set by resolve_current, read after failures
 ATTEMPTED=" "   # space-padded change_ids we've already handled
 
 while :; do
@@ -261,6 +263,12 @@ while :; do
     echo "  ✓ resolved"
   else
     echo "  ✗ pi could not resolve $next"
+    if [[ -n "$LAST_PI_OUTPUT" ]]; then
+      pi_tail=$(echo "$LAST_PI_OUTPUT" | grep -v '^[[:space:]]*$' | tail -5)
+      while IFS= read -r line; do
+        echo "    │ $line"
+      done <<< "$pi_tail"
+    fi
     FAILED+=("$next")
   fi
   ATTEMPTED+="$next "
