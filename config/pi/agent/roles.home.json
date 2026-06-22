@@ -1,15 +1,15 @@
 {
-  "$comment": "Role -> pi model spec (provider/model:thinking). No secrets here; API keys live in the gitignored auth.json / env, which pi resolves on its own. HOME machine: anthropic subscription (Claude Max) + deepseek. Model ids verified against `pi --list-models` on 2026-06-17. Read by agents/_lib/roles.mjs (skills + subagent extension).",
+  "$comment": "Role -> pi model spec (provider/model:thinking). No secrets here; API keys live in the gitignored auth.json / env, which pi resolves on its own. HOME machine: anthropic (Claude Max) + deepseek + google/gemini (AI Studio key in $GEMINI_API_KEY, used for web-search + vision). Model ids verified against `pi --list-models` on 2026-06-22. Read by agents/_lib/roles.mjs (skills + subagent extension). NOTE: deepseek-v4 (flash AND pro) is TEXT-ONLY (images:no) — vision roles must stay on gemini/anthropic. Tiers: opus-4-8=top judgment; deepseek-v4-pro=cheap real-code; deepseek-v4-flash=fast mechanical (text only); gemini-3.5-flash=cheap vision + grounded search.",
   "default": "straightforward-impl",
   "roles": {
-    "straightforward-impl": "deepseek/deepseek-v4-flash:medium",
+    "straightforward-impl": "deepseek/deepseek-v4-pro:medium",
     "high-effort-impl": "anthropic/claude-opus-4-8:high",
     "general-review": "deepseek/deepseek-v4-pro:high",
     "high-effort-review": "anthropic/claude-opus-4-8:xhigh",
     "web-search": "google/gemini-3.5-flash",
     "text-summary": "deepseek/deepseek-v4-flash:low",
     "fast-utility": "deepseek/deepseek-v4-flash:off",
-    "vision": "anthropic/claude-sonnet-4-6",
+    "vision": "google/gemini-3.5-flash",
     "high-effort-vision": "anthropic/claude-opus-4-8",
     "recon": "deepseek/deepseek-v4-flash:high",
     "structured-extraction": "deepseek/deepseek-v4-flash:low"
