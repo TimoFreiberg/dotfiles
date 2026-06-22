@@ -1,7 +1,7 @@
 ---
 name: dev-review-loop
 description: "Use when implementing a change that should be reviewed before it ships — runs an implement → review → fix loop with a fresh review each round, 3-round cap."
-argument-hint: "[<task description> | file <path>]"
+argument-hint: "[<task description> | file <path>] [--reviewers <role|alias>[,<role|alias>]]"
 ---
 
 # Dev Review Loop
@@ -72,10 +72,18 @@ section ("did the dev do what was asked?") ahead of findings. Invoke the
 - jj: `--description "<task spec>" commit <base>..@-`
 - git: `--description "<task spec>" commit <base>..HEAD`
 
-**Review passes** (verdict `correct` — P2-only findings still count as a
-pass) → apply trivial P2 fixes, carry the rest into the completion summary,
-then loop done. Skip to completion.
-**Needs attention** → all findings (not just P0/P1) go to fix.
+One reviewer runs by default (`high-effort-review`). To cross-check with a
+second, independent reviewer — e.g. an adversarial Gemini `general-review`
+alongside the opus `high-effort-review` — forward the user's `--reviewers` value
+(or, if they asked for dual review, `--reviewers high-effort-review,general-review`).
+You get one report per reviewer; read all of them.
+
+**Review passes** — *every* reviewer's overall verdict is `correct` (P2-only
+findings still count as a pass) → apply trivial P2 fixes, carry the rest into
+the completion summary, then loop done. Skip to completion.
+**Needs attention** — *any* reviewer says so (strict gate) → all findings (not
+just P0/P1), unioned across reviewers with identical findings de-duplicated,
+go to fix.
 
 ## Round N: fix
 

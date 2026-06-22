@@ -1,18 +1,19 @@
 ---
 name: review-subagent
 description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with a fresh subagent that returns a structured findings report."
-argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--model opus|sonnet|haiku]"
+argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--reviewers <role|alias>[,<role|alias>]]"
 allowed-tools:
   - Bash(uv run $HOME/dotfiles/agents/skills/review-subagent/scope.py *)
   - Read
   - Agent
+  - subagent
 ---
 
 # Review
 
 You orchestrate: parse arguments, run `scope.py` to gather the diff, spawn
-one reviewer subagent, and surface its report verbatim. You do not review
-code yourself.
+one or more reviewer subagents, and surface their report(s) verbatim. You do
+not review code yourself.
 
 ## Core idea
 
@@ -23,6 +24,12 @@ evidences every finding with a `file:line` and a quoted snippet.
 
 When `--description` is provided, the reviewer also produces a `## Plan alignment`
 section scoring each requirement against the diff before the findings list.
+
+You can run **more than one** reviewer over the same diff in parallel — e.g. a
+Claude `high-effort-review` plus an adversarial `general-review` on Gemini. Each
+produces its own independent report; nothing is merged or de-duplicated. This is
+a pi capability (the `subagent` tool selects models by role); under Claude Code
+the reviewer is limited to the `opus`/`sonnet`/`haiku` aliases.
 
 ## Step 1: Parse `$ARGUMENTS`
 
@@ -38,16 +45,19 @@ section scoring each requirement against the diff before the findings list.
 
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
 - `--description "..."` — task spec; enables the Plan-alignment section (see Core idea)
-- `--model opus|sonnet|haiku` — reviewer model alias, default `opus`. The
-  `Agent` tool only accepts these three aliases.
+- `--reviewers <spec>[,<spec>…]` — one or more reviewers, comma-separated,
+  default the single role `high-effort-review`. Each `<spec>` is either a
+  **role** from roles.json (`high-effort-review`, `general-review`, or any) or a
+  Claude **alias** (`opus`, `sonnet`, `haiku`). Two specs → two reviewers in
+  parallel. (`--model <spec>` is still accepted as a one-value synonym.)
 
-If parsing fails (unknown subcommand, missing required arg, unsupported
-`--model` value), report the usage and stop.
+If parsing fails (unknown subcommand, missing required arg, an empty
+`--reviewers` list), report the usage and stop.
 
 ## Step 2: Gather scope
 
 Run `scope.py` with the subcommand + positional arg (no flags — `--instructions`,
-`--description`, `--model` are not passed to it):
+`--description`, `--reviewers` are not passed to it):
 
 ```
 uv run $HOME/dotfiles/agents/skills/review-subagent/scope.py [<subcommand> [<arg>]]
@@ -75,34 +85,55 @@ prompt or report):
 
 - `Reviewing: <scope_summary>`
 - `<header>` indented as-is (the script already formats commit list + diffstat)
-- `Model: <alias>` (the value `--model` had — `opus` by default; print the
-  alias, not a resolved id)
+- `Reviewers: <spec>[, <spec>…]` (the `--reviewers` list — `high-effort-review`
+  by default; print the role/alias names as given, not resolved ids)
 
-## Step 4: Spawn the reviewer subagent
+## Step 4: Spawn the reviewer subagent(s)
 
-One `Agent` call. `subagent_type: "general-purpose"`, `model:` from `--model`
-(default `"opus"`), `description:` like `"Code review: <scope_summary>"`.
-
-Build `prompt:` from the **Reviewer prompt** template below. Substitutions:
+Resolve `--reviewers` into an ordered list of specs (default: the single role
+`high-effort-review`). Build the reviewer `prompt:` ONCE from the **Reviewer
+prompt** template below — the same prompt goes to every reviewer. Substitutions:
 `$SCOPE_SUMMARY` (scope_summary), `$INSTRUCTIONS` / `$DESCRIPTION` (flag values
 or empty), `$DIFF_PATH` (absolute path to the `diff` file in the scope temp
 dir), `$PR_CONTEXT_PATH` (absolute path to `pr_context` if the subcommand was
-`pr`, otherwise empty). Pass the whole template as one string; the subagent's
-final message is the report.
+`pr`, otherwise empty).
 
-## Step 5: Surface the report verbatim
+Spawn one reviewer per spec, **all in parallel**:
 
-Print the subagent's last message as-is. Do not add commentary, summaries,
-section headers, or wrap it in quotes. Do not editorialize.
+- **pi** (`subagent` tool): a SINGLE call whose `tasks` array has one entry per
+  reviewer — `{agent: "general-purpose", role: "<role>", task: "<prompt>"}`.
+  Tasks in one call run concurrently. pi selects the model by role, so map any
+  alias spec to a role first: `opus → high-effort-review`,
+  `sonnet`/`haiku → general-review`.
+- **Claude Code** (`Agent` tool): one `Agent` call per reviewer —
+  `subagent_type: "general-purpose"`, `description: "Code review: <scope_summary>"`,
+  `model:` = the alias (map a role spec to an alias:
+  `high-effort-review → opus`, `general-review → sonnet`, anything else
+  → `opus`). Issue the calls together so they run concurrently.
 
-Treat the subagent as failed if any of:
+Each reviewer's final message is its report.
 
-- the `Agent` tool returned an error;
+## Step 5: Surface the report(s) verbatim
+
+**Single reviewer** — print the subagent's last message as-is. Do not add
+commentary, summaries, section headers, or wrap it in quotes. Do not editorialize.
+
+**Multiple reviewers** — print each report verbatim, in the order requested,
+under a label header naming its spec, and nothing else between or around them:
+
+    ## Reviewer: <spec>
+
+    <that reviewer's report, verbatim>
+
+Per reviewer, treat it as failed if any of:
+
+- the subagent / `Agent` tool returned an error;
 - the final message is empty or whitespace-only;
 - the final message does not start with `# Code Review`.
 
-On failure, surface the message (or the tool error) verbatim under a
-`# Review failed` heading and stop.
+On failure, surface that reviewer's message (or the tool error) verbatim under a
+`# Review failed (<spec>)` heading. A failure in one reviewer does NOT suppress
+the others — always surface every reviewer's result.
 
 ---
 
@@ -253,7 +284,9 @@ add commentary before or after the report.
 
 ## Examples
 
-- `/review` → default scope, opus reviewer.
+- `/review` → default scope, single `high-effort-review` reviewer.
 - `/review pr 50` → PR diff + metadata.
+- `/review --reviewers high-effort-review,general-review` → two reviewers in
+  parallel (e.g. opus + gemini), two labeled reports.
 - `/review --description "Add a --verbose flag" branch foo` → scope the branch
   against a task spec, enabling Plan-alignment.
