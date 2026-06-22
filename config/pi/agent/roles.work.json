@@ -1,18 +1,18 @@
 {
-  "$comment": "Role -> pi model spec (provider/model:thinking). No secrets here; credentials live in the gitignored auth.json / ambient AWS/gcloud env, which pi resolves on its own. WORK machine: claude via Amazon Bedrock + gemini via Google Vertex + chatgpt via GitHub Copilot. No deepseek. Read by agents/_lib/roles.mjs (skills + subagent extension). Strengths used: opus=judgment/planning (impl + deep review), gpt-5.5=thorough implementer, gemini-3.5-pro=adversarial reviewer + recon + vision, gemini-3.5-flash=cheap text + grounded search.",
+  "$comment": "Role -> pi model spec (provider/model:thinking). No secrets here; credentials live in the gitignored auth.json / ambient AWS/gcloud env, which pi resolves on its own. WORK machine: claude via Amazon Bedrock + gemini via Google Vertex + chatgpt via GitHub Copilot. No deepseek. Read by agents/_lib/roles.mjs (skills + subagent extension). No gemini-3.5-pro available (gemini-3.1-pro likely worse than 3.5-flash), so gemini-3.5-flash carries every gemini role. Strengths used: opus=judgment/planning (impl + deep review), gpt-5.5=thorough implementer, gemini-3.5-flash=adversarial reviewer (general-review:high) + recon + vision + cheap text + grounded search.",
   "$comment_unverified": "bedrock/vertex/copilot ids are UNVERIFIED from the home machine — confirm each against `pi --list-models` on the work machine and correct. Bump the bedrock opus id to the latest opus available on Bedrock (4-8 may not be there yet). The gemini-3.5 and gpt-5.5 ids are best-guesses.",
   "default": "straightforward-impl",
   "roles": {
     "straightforward-impl": "github-copilot/gpt-5.5:medium",
     "high-effort-impl": "amazon-bedrock/global.anthropic.claude-opus-4-8-v1:high",
-    "general-review": "google-vertex/gemini-3.5-pro:high",
+    "general-review": "google-vertex/gemini-3.5-flash:high",
     "high-effort-review": "amazon-bedrock/global.anthropic.claude-opus-4-8-v1:xhigh",
     "web-search": "google-vertex/gemini-3.5-flash",
     "text-summary": "google-vertex/gemini-3.5-flash:low",
     "fast-utility": "google-vertex/gemini-3.5-flash:off",
-    "vision": "google-vertex/gemini-3.5-pro",
+    "vision": "google-vertex/gemini-3.5-flash",
     "high-effort-vision": "amazon-bedrock/global.anthropic.claude-opus-4-8-v1",
-    "recon": "google-vertex/gemini-3.5-pro:medium",
+    "recon": "google-vertex/gemini-3.5-flash:medium",
     "structured-extraction": "google-vertex/gemini-3.5-flash:low"
   }
 }
