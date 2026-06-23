@@ -1,7 +1,7 @@
 ---
 name: dev-review-loop
 description: "Use when implementing a change that should be reviewed before it ships — runs an implement → review → fix loop with a fresh review each round, 3-round cap."
-argument-hint: "[<task description> | file <path>] [--reviewers <role|alias>[,<role|alias>]]"
+argument-hint: "[<task description> | file <path>] [--reviewers <role|alias|provider/model[:thinking]>[,<...>]]"
 ---
 
 # Dev Review Loop
@@ -74,9 +74,10 @@ section ("did the dev do what was asked?") ahead of findings. Invoke the
 
 One reviewer runs by default (`high-effort-review`). To cross-check with a
 second, independent reviewer — e.g. an adversarial Gemini `general-review`
-alongside the opus `high-effort-review` — forward the user's `--reviewers` value
-(or, if they asked for dual review, `--reviewers high-effort-review,general-review`).
-You get one report per reviewer; read all of them.
+alongside the opus `high-effort-review` — forward the user's `--reviewers` value,
+including concrete `provider/model[:thinking]` overrides if present (or, if they
+asked for dual review, `--reviewers high-effort-review,general-review`). You get
+one report per reviewer; read all of them.
 
 **Review passes** — *every* reviewer's overall verdict is `correct` (P2-only
 findings still count as a pass) → apply trivial P2 fixes, carry the rest into

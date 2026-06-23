@@ -1,7 +1,7 @@
 ---
 name: review-subagent
 description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with a fresh subagent that returns a structured findings report."
-argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--reviewers <role|alias>[,<role|alias>]]"
+argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--reviewers <role|alias|provider/model[:thinking]>[,<...>]]"
 allowed-tools:
   - Bash(uv run $HOME/dotfiles/agents/skills/review-subagent/scope.py *)
   - Read
@@ -27,9 +27,10 @@ section scoring each requirement against the diff before the findings list.
 
 You can run **more than one** reviewer over the same diff in parallel — e.g. a
 Claude `high-effort-review` plus an adversarial `general-review` on Gemini. Each
-produces its own independent report; nothing is merged or de-duplicated. This is
-a pi capability (the `subagent` tool selects models by role); under Claude Code
-the reviewer is limited to the `opus`/`sonnet`/`haiku` aliases.
+produces its own independent report; nothing is merged or de-duplicated. In pi,
+the normal reviewer spec is a role string, but a concrete
+`provider/model[:thinking]` spec is accepted as an explicit model override. Under
+Claude Code the reviewer is limited to the `opus`/`sonnet`/`haiku` aliases.
 
 ## Step 1: Parse `$ARGUMENTS`
 
@@ -47,9 +48,10 @@ the reviewer is limited to the `opus`/`sonnet`/`haiku` aliases.
 - `--description "..."` — task spec; enables the Plan-alignment section (see Core idea)
 - `--reviewers <spec>[,<spec>…]` — one or more reviewers, comma-separated,
   default the single role `high-effort-review`. Each `<spec>` is either a
-  **role** from roles.json (`high-effort-review`, `general-review`, or any) or a
-  Claude **alias** (`opus`, `sonnet`, `haiku`). Two specs → two reviewers in
-  parallel. (`--model <spec>` is still accepted as a one-value synonym.)
+  **role** from roles.json (`high-effort-review`, `general-review`, or any), a
+  concrete pi **model override** (`provider/model[:thinking]`), or a Claude
+  **alias** (`opus`, `sonnet`, `haiku`). Two specs → two reviewers in parallel.
+  (`--model <spec>` is still accepted as a one-value synonym.)
 
 If parsing fails (unknown subcommand, missing required arg, an empty
 `--reviewers` list), report the usage and stop.
@@ -101,15 +103,18 @@ dir), `$PR_CONTEXT_PATH` (absolute path to `pr_context` if the subcommand was
 Spawn one reviewer per spec, **all in parallel**:
 
 - **pi** (`subagent` tool): a SINGLE call whose `tasks` array has one entry per
-  reviewer — `{agent: "general-purpose", role: "<role>", task: "<prompt>"}`.
-  Tasks in one call run concurrently. pi selects the model by role, so map any
-  alias spec to a role first: `opus → high-effort-review`,
-  `sonnet`/`haiku → general-review`.
+  reviewer. Role specs use `{agent: "general-purpose", role: "<role>", task:
+  "<prompt>"}`. Concrete model specs (anything containing `/`) use `{agent:
+  "general-purpose", model: "<provider/model[:thinking]>", task: "<prompt>"}`.
+  Tasks in one call run concurrently. Map Claude alias specs to roles first:
+  `opus → high-effort-review`, `sonnet`/`haiku → general-review`.
 - **Claude Code** (`Agent` tool): one `Agent` call per reviewer —
   `subagent_type: "general-purpose"`, `description: "Code review: <scope_summary>"`,
   `model:` = the alias (map a role spec to an alias:
   `high-effort-review → opus`, `general-review → sonnet`, anything else
-  → `opus`). Issue the calls together so they run concurrently.
+  → `opus`). Concrete pi `provider/model` specs are unsupported in Claude Code;
+  report that and ask for an `opus`/`sonnet`/`haiku` alias instead. Issue the
+  calls together so they run concurrently.
 
 Each reviewer's final message is its report.
 
@@ -288,5 +293,7 @@ add commentary before or after the report.
 - `/review pr 50` → PR diff + metadata.
 - `/review --reviewers high-effort-review,general-review` → two reviewers in
   parallel (e.g. opus + gemini), two labeled reports.
+- `/review --reviewers anthropic/claude-sonnet-4-5:high` → one reviewer with a
+  concrete pi model override instead of a role-resolved model.
 - `/review --description "Add a --verbose flag" branch foo` → scope the branch
   against a task spec, enabling Plan-alignment.

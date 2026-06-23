@@ -17,10 +17,12 @@
  *   subagent_list {}                                        // live handles
  *   subagent_close { handle }                               // dispose ("all" ok)
  *
- * Model selection leans entirely on the shared roles infra (roles.json +
+ * Model selection normally uses the shared roles infra (roles.json +
  * agents/_lib/roles.mjs): an agent's `role:` frontmatter, or a per-task `role`
- * override, resolves to a concrete model. With no role anywhere, the subagent
- * inherits the parent session's model.
+ * override, resolves to a concrete model. A per-task `model` override accepts a
+ * concrete `provider/model[:thinking]` spec and wins over any role; its thinking
+ * suffix wins too. With no role or model anywhere, the subagent inherits the
+ * parent session's model.
  *
  * Config env vars:
  *   PI_SUBAGENT_SCOPE   - "user" (default), "project", or "both"
@@ -442,9 +444,10 @@ function disposeAllDurable(): void {
 // Model resolution (roles) + session construction
 // ---------------------------------------------------------------------------
 
-async function resolveModelForRole(
+async function resolveModelSelection(
   agent: AgentConfig,
   roleOverride: string | undefined,
+  modelOverride: string | undefined,
   modelRegistry: { find: (provider: string, id: string) => unknown },
   parentModel: Model<any> | undefined,
   parentThinking: ThinkingLevel | undefined,
@@ -463,19 +466,25 @@ async function resolveModelForRole(
       : undefined,
   });
 
-  if (!role) return inheritParent();
+  if (!role && !modelOverride) return inheritParent();
 
   const roles = await getRoles();
   // resolveRoleModel fails loud if the provider/model isn't in the registry —
-  // we let that throw and surface it as the task's error.
-  const resolved = roles.resolveRoleModel(role, modelRegistry);
+  // we let that throw and surface it as the task's error. When modelOverride is
+  // supplied, the role name is only a validation/default anchor for the shared
+  // resolver; the concrete provider/model spec wins.
+  const resolved = roles.resolveRoleModel(role ?? "default", modelRegistry, {
+    override: modelOverride,
+  });
   if (!resolved) return inheritParent(); // role mapped to null (caller-fallback)
 
+  const resolvedThinking = resolved.thinking as ThinkingLevel | undefined;
   return {
     model: resolved.model as Model<any>,
     thinkingLevel:
+      (modelOverride ? resolvedThinking : undefined) ??
       (agent.thinking as ThinkingLevel | undefined) ??
-      (resolved.thinking as ThinkingLevel | undefined) ??
+      resolvedThinking ??
       parentThinking,
     modelLabel: resolved.spec,
   };
@@ -492,11 +501,13 @@ interface BuildSessionDeps {
 async function buildSession(
   agent: AgentConfig,
   roleOverride: string | undefined,
+  modelOverride: string | undefined,
   deps: BuildSessionDeps,
 ): Promise<{ session: SubSession; modelLabel: string | undefined }> {
-  const { model, thinkingLevel, modelLabel } = await resolveModelForRole(
+  const { model, thinkingLevel, modelLabel } = await resolveModelSelection(
     agent,
     roleOverride,
+    modelOverride,
     deps.modelRegistry,
     deps.parentModel,
     deps.parentThinking,
@@ -885,8 +896,11 @@ export default async function (pi: ExtensionAPI) {
 
   const roleDescription =
     roleNames.length > 0
-      ? `Optional role override (model selection). Available roles, defined in ${rolesPath}: ${roleListShort}. Omit to use the agent's own role, or to inherit this session's model when the agent has none.`
-      : `Optional role override (model selection). Roles are defined in ${rolesPath}. Omit to use the agent's own role.`;
+      ? `Optional role override (default model selection path). Available roles, defined in ${rolesPath}: ${roleListShort}. Omit to use the agent's own role, or to inherit this session's model when the agent has none.`
+      : `Optional role override (default model selection path). Roles are defined in ${rolesPath}. Omit to use the agent's own role.`;
+
+  const modelDescription =
+    "Optional concrete model override as provider/model[:thinking] (for example anthropic/claude-sonnet-4-5:high). Wins over role and agent frontmatter.";
 
   const TaskItem = Type.Object({
     agent: Type.String({
@@ -896,6 +910,7 @@ export default async function (pi: ExtensionAPI) {
       description: "The task description to send to the agent",
     }),
     role: Type.Optional(Type.String({ description: roleDescription })),
+    model: Type.Optional(Type.String({ description: modelDescription })),
     keepAlive: Type.Optional(
       Type.Boolean({
         description:
@@ -1024,7 +1039,7 @@ export default async function (pi: ExtensionAPI) {
 
           let session: SubSession | undefined;
           try {
-            const built = await buildSession(agent, t.role, deps);
+            const built = await buildSession(agent, t.role, t.model, deps);
             session = built.session;
             result.model = built.modelLabel;
             if (t.keepAlive) {
