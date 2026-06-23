@@ -56,6 +56,7 @@ import { pathToFileURL } from "node:url";
 import {
   type AssistantMessage,
   type AssistantMessageEvent,
+  createAssistantMessageEventStream,
   setBedrockProviderModule,
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
@@ -63,17 +64,22 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const EMPTY_STOP_ERROR_MESSAGE =
   "provider returned error: empty response (no content, 0 tokens)";
 
+interface AssistantMessageEventStreamLike
+  extends AsyncIterable<AssistantMessageEvent> {
+  result(): Promise<AssistantMessage>;
+}
+
 interface BedrockProviderModule {
   streamBedrock: (
     model: unknown,
     context: unknown,
     options?: unknown,
-  ) => AsyncIterable<AssistantMessageEvent>;
+  ) => AssistantMessageEventStreamLike;
   streamSimpleBedrock: (
     model: unknown,
     context: unknown,
     options?: unknown,
-  ) => AsyncIterable<AssistantMessageEvent>;
+  ) => AssistantMessageEventStreamLike;
 }
 
 function isEmptyStop(message: AssistantMessage): boolean {
@@ -142,24 +148,29 @@ function injectMaxTokensIfNeeded(model: unknown, options: unknown): unknown {
   return { ...((options ?? {}) as object), maxTokens: modelMax };
 }
 
-async function* rewriteEmptyStop(
-  source: AsyncIterable<AssistantMessageEvent>,
-): AsyncIterable<AssistantMessageEvent> {
-  for await (const event of source) {
-    if (event.type === "done" && isEmptyStop(event.message)) {
-      const rewritten: AssistantMessage = {
-        ...event.message,
-        stopReason: "error",
-        errorMessage: EMPTY_STOP_ERROR_MESSAGE,
-      };
-      console.error(
-        `[bedrock-retry] empty stop from ${rewritten.model} — rewriting to retryable error`,
-      );
-      yield { type: "error", reason: "error", error: rewritten };
-      continue;
+function rewriteEmptyStop(
+  source: AssistantMessageEventStreamLike,
+): AssistantMessageEventStreamLike {
+  const stream = createAssistantMessageEventStream();
+  void (async () => {
+    for await (const event of source) {
+      if (event.type === "done" && isEmptyStop(event.message)) {
+        const rewritten: AssistantMessage = {
+          ...event.message,
+          stopReason: "error",
+          errorMessage: EMPTY_STOP_ERROR_MESSAGE,
+        };
+        console.error(
+          `[bedrock-retry] empty stop from ${rewritten.model} — rewriting to retryable error`,
+        );
+        stream.push({ type: "error", reason: "error", error: rewritten });
+        continue;
+      }
+      stream.push(event);
     }
-    yield event;
-  }
+    stream.end();
+  })();
+  return stream;
 }
 
 /**
