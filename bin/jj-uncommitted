@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# jj-uncommitted — show your UNCOMMITTED working-copy changes, even when the workspace
+# is STALE, WITHOUT snapshotting. Run it before `jj workspace update-stale` to learn
+# whether that recovery would silently discard any of your work.
+#
+# Why a plain `jj diff` won't do: a stale workspace refuses to snapshot, so jj status/
+# jj diff error out. And a naive on-disk-vs-@ comparison MISLEADS — a concurrent session
+# may have rebased your parent, so @ now holds THEIR committed work that your on-disk
+# files lack; update-stale just ADDS that (no loss), yet it shows as fake "changes".
+#
+# So the baseline is the tree your working copy was LAST SYNCED to: @ as of the operation
+# jj reports you're stale since. on-disk-vs-that = exactly YOUR uncommitted edits — the
+# only thing update-stale can discard. (Verified: update-stale overwrites modified files,
+# restores deleted ones, and DELETES new non-ignored files; gitignored files are left.)
+#
+# Usage: jj-uncommitted [-d|--diff]    (-d prints the content diff of each modified file)
+set -uo pipefail
+
+show_diff=0
+[[ "${1:-}" == "-d" || "${1:-}" == "--diff" ]] && show_diff=1
+
+status_out="$(jj status 2>&1)"; status_rc=$?
+if [[ $status_rc -eq 0 ]] && ! grep -qi 'working copy is stale' <<<"$status_out"; then
+  echo "Workspace is not stale — normal tools are authoritative:"
+  jj status
+  exit 0
+fi
+
+op="$(grep -oiE 'operation [0-9a-f]+' <<<"$status_out" | head -1 | awk '{print $2}')"
+if [[ -z "$op" ]]; then
+  echo "Stale, but couldn't parse the operation id from jj status:" >&2
+  printf '%s\n' "$status_out" >&2
+  exit 2
+fi
+
+# Work from the repo root so paths line up with `jj file list` (repo-relative).
+root="$(jj workspace root --ignore-working-copy 2>/dev/null || jj root --ignore-working-copy 2>/dev/null)"
+[[ -n "$root" ]] && cd "$root"
+
+echo "Workspace is STALE (last synced at operation $op)."
+echo "Showing on-disk changes vs that synced tree — these are YOUR at-risk uncommitted edits:"
+echo
+
+base()   { jj file show --at-op "$op" --ignore-working-copy -r @ "$1" 2>/dev/null; }
+synced="$(jj file list --at-op "$op" --ignore-working-copy -r @ 2>/dev/null)"
+
+risk=0
+# Modified / deleted: walk the synced file set, compare to disk.
+while IFS= read -r f; do
+  [[ -z "$f" ]] && continue
+  if [[ ! -e "$f" ]]; then
+    echo "  deleted:   $f"; risk=1; continue
+  fi
+  if ! base "$f" | diff -q - "$f" >/dev/null 2>&1; then
+    echo "  modified:  $f"; risk=1
+    [[ $show_diff -eq 1 ]] && base "$f" | diff -u --label "synced/$f" --label "on-disk/$f" - "$f" | sed 's/^/      /'
+  fi
+done <<<"$synced"
+
+# New files: on-disk (ignore-honoring via fd) minus the synced set. fd respects .gitignore
+# even in a pure-jj repo, so this skips node_modules etc. and matches what update-stale
+# would actually delete. Without fd, this section is skipped (with a note).
+if command -v fd >/dev/null 2>&1; then
+  while IFS= read -r f; do
+    f="${f#./}"; [[ -z "$f" ]] && continue
+    grep -qxF "$f" <<<"$synced" || { echo "  new:       $f"; risk=1; }
+  done < <(fd -t f -H -E .jj -E .git . 2>/dev/null)
+else
+  echo "  (fd not found — new/untracked files NOT checked; eyeball them manually)"
+fi
+
+echo
+if [[ $risk -eq 1 ]]; then
+  echo "⚠ Uncommitted work above. \`jj workspace update-stale\` WILL discard it. Before recovering:"
+  echo "    commit it (jj commit <paths> -m …) if jj will let you, else back it up (cp …),"
+  echo "    run update-stale, then restore. New non-ignored files are deleted too."
+  [[ $show_diff -eq 0 ]] && echo "    Re-run with -d to see the content."
+else
+  echo "✓ No uncommitted changes — \`jj workspace update-stale\` is safe (nothing to lose)."
+fi
