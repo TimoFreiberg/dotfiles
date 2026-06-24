@@ -1,8 +1,8 @@
 /**
  * Bedrock workarounds extension
  *
- * Wraps `streamBedrock` / `streamSimpleBedrock` via
- * `setBedrockProviderModule` to patch two upstream pi-ai bugs that
+ * Wraps Bedrock's provider streams via `setBedrockProviderModule`
+ * to patch two upstream pi-ai bugs that
  * both cause turns to end with the agent obviously unfinished:
  *
  * 1. earendil-works/pi#4210 — Bedrock's Converse stream occasionally
@@ -16,9 +16,9 @@
  *    backoff instead of ended.
  *
  * 2. earendil-works/pi#4848 — for Claude models with adaptive thinking
- *    (Opus 4.6+, Sonnet 4.6+) running with reasoning enabled,
- *    `streamSimpleBedrock` takes a branch that does not set
- *    `options.maxTokens`. `streamBedrock` only puts `maxTokens` in
+ *    (Opus 4.6+, Sonnet 4.6+, Fable 5) running with reasoning enabled,
+ *    `streamSimple` takes a branch that does not set
+ *    `options.maxTokens`. `stream` only puts `maxTokens` in
  *    the Converse `inferenceConfig` when defined, so Bedrock falls
  *    back to its per-model default of 4096. Result: the model spends
  *    its whole output budget inside one thinking block and emits no
@@ -35,19 +35,19 @@
  * The empty-stop wrap is adapted from the sketch in
  * https://github.com/earendil-works/pi/issues/4210 (OP's extension).
  *
- * ## Resolving @earendil-works/pi-ai/bedrock-provider
+ * ## Resolving @earendil-works/pi-ai files
  *
  * pi's extension loader aliases `@earendil-works/pi-ai` to pi-ai's
- * `dist/index.js` as a literal path replacement, so subpath imports
- * like `@earendil-works/pi-ai/bedrock-provider` come out as
- * `dist/index.js/bedrock-provider` — bogus. pi-ai's package.json also
+ * bundled entrypoint as a literal path replacement, so unsupported subpath
+ * imports like `@earendil-works/pi-ai/bedrock-provider` come out as
+ * `<entrypoint>.js/bedrock-provider` — bogus. pi-ai's package.json also
  * only declares `import` conditional exports, so `require.resolve`
  * can't reach either the submodule or the package.json itself.
  *
- * We resolve it by filesystem topology: find pi's installed cli.js
- * via realpath(process.argv[1]), then look for a sibling
- * `node_modules/@earendil-works/pi-ai/dist/bedrock-provider.js`. Works
- * for npm/homebrew-style installs, which is how pi ships.
+ * We resolve pi-ai files by filesystem topology: find pi's installed cli.js
+ * via realpath(process.argv[1]), then look for sibling files under
+ * `node_modules/@earendil-works/pi-ai/dist/`. Works for
+ * npm/homebrew-style installs, which is how pi ships.
  */
 
 import { existsSync, realpathSync } from "node:fs";
@@ -57,30 +57,30 @@ import {
   type AssistantMessage,
   type AssistantMessageEvent,
   createAssistantMessageEventStream,
-  setBedrockProviderModule,
 } from "@earendil-works/pi-ai";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const EMPTY_STOP_ERROR_MESSAGE =
   "provider returned error: empty response (no content, 0 tokens)";
 
-interface AssistantMessageEventStreamLike
-  extends AsyncIterable<AssistantMessageEvent> {
+interface AssistantMessageEventStreamLike extends AsyncIterable<AssistantMessageEvent> {
   result(): Promise<AssistantMessage>;
 }
 
+type ProviderStreamFunction = (
+  model: unknown,
+  context: unknown,
+  options?: unknown,
+) => AssistantMessageEventStreamLike;
+
 interface BedrockProviderModule {
-  streamBedrock: (
-    model: unknown,
-    context: unknown,
-    options?: unknown,
-  ) => AssistantMessageEventStreamLike;
-  streamSimpleBedrock: (
-    model: unknown,
-    context: unknown,
-    options?: unknown,
-  ) => AssistantMessageEventStreamLike;
+  stream?: ProviderStreamFunction;
+  streamSimple?: ProviderStreamFunction;
+  streamBedrock?: ProviderStreamFunction;
+  streamSimpleBedrock?: ProviderStreamFunction;
 }
+
+type SetBedrockProviderModule = (module: BedrockProviderModule) => void;
 
 function isEmptyStop(message: AssistantMessage): boolean {
   if (message.stopReason !== "stop") return false;
@@ -105,7 +105,7 @@ function isEmptyStop(message: AssistantMessage): boolean {
 /**
  * Mirror pi-ai's own conditions for the broken adaptive-thinking branch:
  * `isAnthropicClaudeModel(model) && supportsAdaptiveThinking(model.id, model.name)
- * && options.reasoning` (see providers/amazon-bedrock.js streamSimpleBedrock).
+ * && options.reasoning` (see api/bedrock-converse-stream.js streamSimple).
  * When all three are true and the caller has not set `options.maxTokens`,
  * pi sends no `maxTokens` to Bedrock, so Bedrock applies its 4096 default.
  * We inject `model.maxTokens` precisely on that path; everywhere else this
@@ -135,7 +135,9 @@ function shouldInjectMaxTokens(model: unknown, options: unknown): boolean {
     (s) =>
       s.includes("opus-4-6") ||
       s.includes("opus-4-7") ||
-      s.includes("sonnet-4-6"),
+      s.includes("opus-4-8") ||
+      s.includes("sonnet-4-6") ||
+      s.includes("fable-5"),
   );
   if (!isAdaptive) return false;
   if (o.reasoning === undefined || o.reasoning === null) return false;
@@ -174,9 +176,9 @@ function rewriteEmptyStop(
 }
 
 /**
- * Locate pi-ai's bedrock-provider.js by filesystem topology. Returns
- * null if the expected layout isn't found — caller should leave the
- * default provider in place rather than breaking pi startup.
+ * Locate a pi-ai dist file by filesystem topology. Returns null if the
+ * expected layout isn't found — caller should leave the default provider
+ * in place rather than breaking pi startup.
  *
  * Tries two anchor sources for pi-coding-agent's dist/ directory:
  * 1. process.argv[1] — works when pi is the process entry (CLI mode).
@@ -184,7 +186,7 @@ function rewriteEmptyStop(
  *    SDK inside another process (e.g. a bun server), where process.argv[1]
  *    is the host entry, not pi's cli.js.
  */
-function findBedrockProviderFile(): string | null {
+function findPiAiDistFile(...pathSegments: string[]): string | null {
   try {
     const anchors: string[] = [];
     try {
@@ -208,7 +210,7 @@ function findBedrockProviderFile(): string | null {
         "@earendil-works",
         "pi-ai",
         "dist",
-        "bedrock-provider.js",
+        ...pathSegments,
       );
       if (existsSync(nested)) return nested;
       // flattened layout: .../node_modules/@earendil-works/{pi-coding-agent,pi-ai}/...
@@ -218,7 +220,7 @@ function findBedrockProviderFile(): string | null {
         "..",
         "pi-ai",
         "dist",
-        "bedrock-provider.js",
+        ...pathSegments,
       );
       if (existsSync(flat)) return flat;
     }
@@ -228,34 +230,71 @@ function findBedrockProviderFile(): string | null {
   }
 }
 
+function getProviderStream(
+  module: BedrockProviderModule,
+  preferredName: "stream" | "streamSimple",
+  legacyName: "streamBedrock" | "streamSimpleBedrock",
+): ProviderStreamFunction {
+  const stream = module[preferredName] ?? module[legacyName];
+  if (typeof stream !== "function") {
+    throw new Error(
+      `[bedrock-retry] bedrock provider module missing ${preferredName}/${legacyName}; found keys: ${Object.keys(
+        module,
+      ).join(", ")}`,
+    );
+  }
+  return stream;
+}
+
 export default async function (_pi: ExtensionAPI): Promise<void> {
-  const providerFile = findBedrockProviderFile();
+  const providerFile = findPiAiDistFile("bedrock-provider.js");
   if (!providerFile) {
     console.error(
-      "[bedrock-retry] could not locate @earendil-works/pi-ai/bedrock-provider.js — default provider left in place",
+      "[bedrock-retry] could not locate @earendil-works/pi-ai/dist/bedrock-provider.js — default provider left in place",
+    );
+    return;
+  }
+  const setterFile = findPiAiDistFile("api", "bedrock-converse-stream.lazy.js");
+  if (!setterFile) {
+    console.error(
+      "[bedrock-retry] could not locate @earendil-works/pi-ai/dist/api/bedrock-converse-stream.lazy.js — default provider left in place",
     );
     return;
   }
   const mod = (await import(pathToFileURL(providerFile).href)) as {
     bedrockProviderModule: BedrockProviderModule;
   };
+  const { setBedrockProviderModule } = (await import(
+    pathToFileURL(setterFile).href
+  )) as { setBedrockProviderModule: SetBedrockProviderModule };
   const inner = mod.bedrockProviderModule;
+  const streamBedrock = getProviderStream(inner, "stream", "streamBedrock");
+  const streamSimpleBedrock = getProviderStream(
+    inner,
+    "streamSimple",
+    "streamSimpleBedrock",
+  );
+  const wrappedStream: ProviderStreamFunction = (model, context, options) =>
+    rewriteEmptyStop(
+      streamBedrock(model, context, injectMaxTokensIfNeeded(model, options)),
+    );
+  const wrappedStreamSimple: ProviderStreamFunction = (
+    model,
+    context,
+    options,
+  ) =>
+    rewriteEmptyStop(
+      streamSimpleBedrock(
+        model,
+        context,
+        injectMaxTokensIfNeeded(model, options),
+      ),
+    );
+
   setBedrockProviderModule({
-    streamBedrock: ((model, context, options) =>
-      rewriteEmptyStop(
-        inner.streamBedrock(
-          model,
-          context,
-          injectMaxTokensIfNeeded(model, options),
-        ),
-      )) as typeof inner.streamBedrock,
-    streamSimpleBedrock: ((model, context, options) =>
-      rewriteEmptyStop(
-        inner.streamSimpleBedrock(
-          model,
-          context,
-          injectMaxTokensIfNeeded(model, options),
-        ),
-      )) as typeof inner.streamSimpleBedrock,
+    stream: wrappedStream,
+    streamSimple: wrappedStreamSimple,
+    streamBedrock: wrappedStream,
+    streamSimpleBedrock: wrappedStreamSimple,
   });
 }
