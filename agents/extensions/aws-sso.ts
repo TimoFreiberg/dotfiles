@@ -49,6 +49,9 @@ import { join } from "node:path";
 
 const BEDROCK_PROVIDER = "amazon-bedrock";
 const STATUS_KEY = "aws-sso";
+const WIDGET_KEY = "aws-sso-login";
+const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+const LOGIN_INDICATOR_TICK_MS = 1_000;
 const DEFAULT_MIN_CHECK_INTERVAL_MS = 60_000;
 const DEFAULT_FAILURE_BACKOFF_MS = 60_000;
 const DEFAULT_COMMAND_TIMEOUT_MS = 300_000;
@@ -249,15 +252,20 @@ export default function awsSsoExtension(pi: ExtensionAPI) {
             "[aws-sso] AWS SSO expired; launching login",
             "warning",
           );
-        ctx.ui.setStatus(STATUS_KEY, "running aws sso login…");
 
-        const login = await runAws(
-          cfg.awsExecutable,
-          loginArgs(target),
-          target.env,
-          cfg.commandTimeoutMs,
-          ctx.signal,
-        );
+        const stopLoginIndicator = startLoginIndicator(ctx, target.profile);
+        let login: CommandResult;
+        try {
+          login = await runAws(
+            cfg.awsExecutable,
+            loginArgs(target),
+            target.env,
+            cfg.commandTimeoutMs,
+            ctx.signal,
+          );
+        } finally {
+          stopLoginIndicator();
+        }
         if (!login.ok) {
           lastFailureAt.set(stateKey, Date.now());
           ctx.ui.notify(
@@ -289,6 +297,7 @@ export default function awsSsoExtension(pi: ExtensionAPI) {
           ctx.ui.notify("[aws-sso] AWS SSO ready for Bedrock", "info");
       } finally {
         ctx.ui.setStatus(STATUS_KEY, undefined);
+        ctx.ui.setWidget(WIDGET_KEY, undefined);
         inFlight.delete(stateKey);
       }
     })();
@@ -373,6 +382,36 @@ export default function awsSsoExtension(pi: ExtensionAPI) {
 
     return targets;
   }
+}
+
+function startLoginIndicator(
+  ctx: ExtensionContext,
+  profile: string,
+): () => void {
+  const startedAt = Date.now();
+  let frame = 0;
+
+  const render = () => {
+    const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
+    const spinner = SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
+    frame += 1;
+    const line = `${spinner} aws sso login (${profile}) — finish the browser sign-in… ${elapsedSec}s`;
+    // setStatus drives the interactive footer; setWidget gives a persistent
+    // visible row that also survives RPC hosts (e.g. Pilot), where the
+    // streaming working-indicator APIs are no-ops.
+    ctx.ui.setStatus(STATUS_KEY, line);
+    ctx.ui.setWidget(WIDGET_KEY, [line]);
+  };
+
+  render();
+  const handle = setInterval(render, LOGIN_INDICATOR_TICK_MS);
+  // Don't let the ticking indicator keep the process alive on its own.
+  handle.unref?.();
+
+  return () => {
+    clearInterval(handle);
+    ctx.ui.setWidget(WIDGET_KEY, undefined);
+  };
 }
 
 function loadConfig(): LoadedConfig {
