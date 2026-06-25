@@ -253,7 +253,9 @@ export default function awsSsoExtension(pi: ExtensionAPI) {
             "warning",
           );
 
-        const stopLoginIndicator = startLoginIndicator(ctx, target.profile);
+        const loginIndicator = startLoginIndicator(ctx, target.profile);
+        let urlBuffer = "";
+        let urlFound = false;
         let login: CommandResult;
         try {
           login = await runAws(
@@ -262,9 +264,24 @@ export default function awsSsoExtension(pi: ExtensionAPI) {
             target.env,
             cfg.commandTimeoutMs,
             ctx.signal,
+            (chunk) => {
+              // Scan the login output stream for the authorization URL so the
+              // user can open it in the right browser profile. We drop the
+              // buffer once found and cap it otherwise; output is not retained.
+              if (urlFound) return;
+              urlBuffer += chunk;
+              const url = extractAuthUrl(urlBuffer);
+              if (url) {
+                urlFound = true;
+                urlBuffer = "";
+                loginIndicator.setUrl(url);
+              } else if (urlBuffer.length > 8_192) {
+                urlBuffer = urlBuffer.slice(-4_096);
+              }
+            },
           );
         } finally {
-          stopLoginIndicator();
+          loginIndicator.stop();
         }
         if (!login.ok) {
           lastFailureAt.set(stateKey, Date.now());
@@ -387,20 +404,25 @@ export default function awsSsoExtension(pi: ExtensionAPI) {
 function startLoginIndicator(
   ctx: ExtensionContext,
   profile: string,
-): () => void {
+): { stop: () => void; setUrl: (url: string) => void } {
   const startedAt = Date.now();
   let frame = 0;
+  let url: string | undefined;
 
   const render = () => {
     const elapsedSec = Math.floor((Date.now() - startedAt) / 1000);
     const spinner = SPINNER_FRAMES[frame % SPINNER_FRAMES.length];
     frame += 1;
-    const line = `${spinner} aws sso login (${profile}) — finish the browser sign-in… ${elapsedSec}s`;
-    // setStatus drives the interactive footer; setWidget gives a persistent
-    // visible row that also survives RPC hosts (e.g. Pilot), where the
-    // streaming working-indicator APIs are no-ops.
-    ctx.ui.setStatus(STATUS_KEY, line);
-    ctx.ui.setWidget(WIDGET_KEY, [line]);
+    const status = `${spinner} aws sso login (${profile}) — finish the browser sign-in… ${elapsedSec}s`;
+    // setStatus drives the interactive footer (single line, no room for a URL);
+    // setWidget gives a persistent block that also survives RPC hosts (e.g.
+    // Pilot), where the streaming working-indicator APIs are no-ops.
+    ctx.ui.setStatus(STATUS_KEY, status);
+    const lines = [status];
+    if (url) {
+      lines.push(url);
+    }
+    ctx.ui.setWidget(WIDGET_KEY, lines);
   };
 
   render();
@@ -408,10 +430,24 @@ function startLoginIndicator(
   // Don't let the ticking indicator keep the process alive on its own.
   handle.unref?.();
 
-  return () => {
-    clearInterval(handle);
-    ctx.ui.setWidget(WIDGET_KEY, undefined);
+  return {
+    setUrl(next: string) {
+      if (url === next) return;
+      url = next;
+      render(); // Surface the URL immediately instead of waiting for the tick.
+    },
+    stop() {
+      clearInterval(handle);
+      ctx.ui.setWidget(WIDGET_KEY, undefined);
+    },
   };
+}
+
+// Matches the first complete http(s) URL token in `text`. The trailing-
+// whitespace lookahead ensures we don't surface a URL that was split across
+// stream chunks (we only fire once its terminator has arrived).
+function extractAuthUrl(text: string): string | undefined {
+  return text.match(/https?:\/\/\S+(?=\s)/)?.[0];
 }
 
 function loadConfig(): LoadedConfig {
@@ -568,6 +604,7 @@ function runAws(
   env: NodeJS.ProcessEnv,
   timeoutMs: number,
   signal: AbortSignal | undefined,
+  onData?: (chunk: string) => void,
 ): Promise<CommandResult> {
   return new Promise((resolve) => {
     const child = spawn(executable, args, {
@@ -613,10 +650,20 @@ function runAws(
       scheduleKill();
     }, timeoutMs);
 
-    // Drain output without retaining it. AWS SSO output can include device-code
-    // material; statuses above report only exit shape, never stdout/stderr.
-    child.stdout?.resume();
-    child.stderr?.resume();
+    // Output is never retained here, nor surfaced in failure messages, because
+    // AWS SSO output can include device-code material. When a caller passes
+    // `onData` (the login phase, to surface the authorization URL) we forward
+    // chunks to it live; the caller is responsible for extracting only what it
+    // needs and dropping the rest. Otherwise we just drain to avoid backpressure.
+    if (onData) {
+      child.stdout?.setEncoding("utf8");
+      child.stderr?.setEncoding("utf8");
+      child.stdout?.on("data", (chunk: string) => onData(chunk));
+      child.stderr?.on("data", (chunk: string) => onData(chunk));
+    } else {
+      child.stdout?.resume();
+      child.stderr?.resume();
+    }
 
     signal?.addEventListener("abort", abort, { once: true });
 
