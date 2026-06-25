@@ -9,6 +9,10 @@ discipline-checker.json
 trust.json
 # pi-mcp-adapter's per-machine cache of discovered MCP tool schemas (derived from mcp.json).
 mcp-cache.json
+# Per-machine cache of resolved npx MCP binaries (derived; paths are machine-local).
+mcp-npx-cache.json
+# pi runtime scratch (extension unpacking etc.) — machine-local, never tracked.
+tmp/
 # Live role->model map is per-machine: symlink to a tracked template,
 # e.g. `ln -s roles.home.json roles.json` (templates roles.*.json are tracked).
 roles.json
