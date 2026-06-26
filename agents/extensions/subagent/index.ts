@@ -570,6 +570,40 @@ function syncResult(session: SubSession, result: SingleResult): void {
   result.usage = usage;
 }
 
+/**
+ * How long the subagent stream may go idle (no model tokens arriving) before
+ * we declare the underlying SSE stream wedged and abort.
+ *
+ * Why this exists: pi's anthropic-style stream iterator blocks on
+ * `reader.read()` and only re-checks the abort signal *between* reads. A
+ * socket that stays open but sends zero bytes wedges `reader.read()` forever,
+ * so `session.abort()` — which just flips the AbortController — cannot
+ * interrupt it. Only the codex provider has an idle timeout of its own. A
+ * wedged stream means `session.prompt()` never settles, so the tool's
+ * `execute` promise is orphaned: the parent run gets force-ended above us,
+ * no tool_result is recorded, and the next turn sees a synthetic "No result
+ * provided". The watchdog converts that silent infinite hang into a loud
+ * error the parent can react to.
+ *
+ * Only armed during the streaming phase (waiting for model tokens). A quiet
+ * tool execution is legitimately silent — the bash tool's onUpdate fires
+ * only on NEW output — so the timer is disarmed for the whole
+ * tool-execution phase and this value never competes with a slow command.
+ * Chosen long enough to not trip on a real model thinking pause, short
+ * enough to recover inside the parent's own stall window. Tunable via
+ * $PI_SUBAGENT_IDLE_TIMEOUT_MS.
+ */
+const IDLE_TIMEOUT_MS =
+  Number.parseInt(process.env.PI_SUBAGENT_IDLE_TIMEOUT_MS || "", 10) || 120_000;
+
+/**
+ * Grace period after we abort before we assume `session.abort()` could not
+ * unblock the stream (it can't, for a truly wedged `reader.read()`) and
+ * force-dispose the session so `execute` always settles.
+ */
+const ABORT_GRACE_MS =
+  Number.parseInt(process.env.PI_SUBAGENT_ABORT_GRACE_MS || "", 10) || 5_000;
+
 /** Run a single prompt turn on a session, streaming updates into `result`. */
 async function runTurn(
   session: SubSession,
@@ -579,13 +613,111 @@ async function runTurn(
   emit: () => void,
 ): Promise<void> {
   const RESYNC_EVENTS = new Set([
+    "message_update",
     "message_end",
     "turn_end",
     "tool_execution_start",
+    "tool_execution_update",
     "tool_execution_end",
     "agent_end",
   ]);
+
+  // --- Phase-aware idle watchdog + settlement guarantee ---
+  //
+  // `session.prompt()` is awaited with no native timeout, and pi's
+  // anthropic-style stream iterator blocks on `reader.read()` checking the
+  // abort signal only *between* reads. A socket that stays open but sends
+  // zero bytes wedges `reader.read()` forever, so `session.abort()` (which
+  // just flips the AbortController) cannot interrupt it. The prompt promise
+  // never settles, the tool's `execute` promise is orphaned, the parent run
+  // is force-ended above us, no tool_result is recorded, and the next turn
+  // sees a synthetic "No result provided".
+  //
+  // The watchdog converts that silent infinite hang into a loud error — but
+  // ONLY during the streaming phase (waiting for model tokens). A quiet tool
+  // execution (e.g. a multi-minute `npm install` or test run that emits no
+  // stdout) is legitimately silent between tool_execution_start and
+  // tool_execution_end: the bash tool's onUpdate fires only on NEW output,
+  // and its setInterval is a UI invalidate, not a tool event. Timing out
+  // there would abort healthy work, so the timer is disarmed for the whole
+  // tool-execution phase and re-armed when the next assistant turn streams.
+  let idleTimer: ReturnType<typeof setTimeout> | undefined;
+  let graceTimer: ReturnType<typeof setTimeout> | undefined;
+  let armed = false; // armed only during the streaming phase
+  let idleReason: string | undefined;
+  let disposedForcibly = false;
+  let resolveOnForce: (() => void) | undefined;
+  const forceSettle = new Promise<void>((resolve) => {
+    resolveOnForce = resolve;
+  });
+
+  const clearIdle = () => {
+    if (idleTimer) {
+      clearTimeout(idleTimer);
+      idleTimer = undefined;
+    }
+  };
+  const armIdle = () => {
+    if (!armed) return;
+    clearIdle();
+    idleTimer = setTimeout(() => {
+      // Only a wedged stream looks like this: we're still streaming but no
+      // token has arrived for IDLE_TIMEOUT_MS. Tools are allowed to be quiet
+      // (the timer is disarmed during their execution), so a fire here is a
+      // confident wedge signal, not a slow command.
+      if (!session.isStreaming) return;
+      idleReason = `subagent stream went idle (no model tokens for ${IDLE_TIMEOUT_MS}ms); underlying SSE stream likely wedged`;
+      void session.abort();
+      // `session.abort()` just flips the AbortController; for a wedged
+      // `reader.read()` it cannot unblock the stream. Give it a grace window
+      // to settle normally, then force-dispose so `execute` always settles.
+      if (graceTimer) clearTimeout(graceTimer);
+      graceTimer = setTimeout(() => {
+        disposedForcibly = true;
+        try {
+          session.dispose();
+        } catch {
+          /* disposal must not block settlement */
+        }
+        resolveOnForce?.();
+      }, ABORT_GRACE_MS);
+    }, IDLE_TIMEOUT_MS);
+  };
+
   const unsubscribe = session.subscribe((event: { type: string }) => {
+    switch (event.type) {
+      case "turn_start":
+      case "message_start":
+        // Entering the streaming phase: arm the watchdog for the model's
+        // response (time-to-first-token + inter-token gaps).
+        armed = true;
+        armIdle();
+        break;
+      case "message_update":
+        // Tokens are flowing — reset the idle window.
+        armIdle();
+        break;
+      case "tool_execution_start":
+        // Leaving the streaming phase for tool execution: a quiet tool is
+        // healthy, so disarm for the duration of the tool call.
+        armed = false;
+        clearIdle();
+        break;
+      case "tool_execution_end":
+        // Tool finished; the next assistant turn will stream, so re-arm.
+        armed = true;
+        armIdle();
+        break;
+      case "message_end":
+      case "turn_end":
+      case "agent_end":
+        // Streaming phase over. If tools follow, tool_execution_start will
+        // disarm; otherwise the turn is ending and `finally` tears down. Drop
+        // the timer so we don't carry it across a non-streaming gap.
+        armed = false;
+        clearIdle();
+        break;
+    }
     if (RESYNC_EVENTS.has(event.type)) {
       syncResult(session, result);
       emit();
@@ -595,6 +727,8 @@ async function runTurn(
   let onAbort: (() => void) | undefined;
   if (signal) {
     onAbort = () => {
+      armed = false;
+      clearIdle();
       void session.abort();
     };
     if (signal.aborted) onAbort();
@@ -602,9 +736,20 @@ async function runTurn(
   }
 
   try {
-    await session.prompt(task);
+    armed = true;
+    armIdle();
+    await Promise.race([session.prompt(task), forceSettle]);
+    if (disposedForcibly) {
+      // Surface a loud, specific error so the parent gets a real tool_result
+      // and can react (retry / switch model) instead of seeing "No result
+      // provided" with no cause.
+      throw new Error(idleReason as string);
+    }
     syncResult(session, result);
   } finally {
+    armed = false;
+    clearIdle();
+    if (graceTimer) clearTimeout(graceTimer);
     if (signal && onAbort) signal.removeEventListener("abort", onAbort);
     unsubscribe();
   }
