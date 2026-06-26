@@ -71,6 +71,17 @@ that reads that state. The change only applies where it's wired; independent
 readers silently defeat it. On finding one incomplete site, check for siblings —
 the same shape usually appears more than once.
 
+## Check Whether a Constraint Is Load-Bearing Before Working Around It
+
+When a config flag, setting, or constraint causes a failure, check whether it's
+load-bearing before designing a fix that preserves it. Don't reflexively work
+around an unexplained constraint — consider removing it, and surface both
+options (work-around vs. remove). A cheap blame/grep for the constraint's
+rationale (a comment, a test, the introducing commit) tells you whether
+preserving it is even worth the effort. A constraint with no rationale is often
+just a default nobody revisited, and a surgical workaround that preserves it is
+wasted effort compared to deleting it.
+
 ## When Stuck
 
 After 2 same-class failures — same tool failing, same correction, same
