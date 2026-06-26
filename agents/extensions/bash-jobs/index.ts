@@ -14,6 +14,13 @@
  *       notice -> consider -> poll/abort like a human watching a terminal.
  *
  *   job_poll(jobId)   -> new output since last poll + status (+ exit code)
+ *   poll_join(jobId, timeoutSeconds?=60)
+ *                     -> block up to the timeout for the job to finish, then
+ *                        return final status + output delta (same shape as
+ *                        job_poll). If the timeout elapses first, returns the
+ *                        current status + output instead — a slow job degrades
+ *                        to a poll, never a hang. Streams periodic status via
+ *                        onUpdate so the UI doesn't look frozen while waiting.
  *   job_list()        -> all jobs in this session with status
  *   job_abort(jobId)  -> SIGTERM, then SIGKILL after a grace window
  *
@@ -147,6 +154,7 @@ export default function (pi: ExtensionAPI) {
     promptGuidelines: [
       "Use bash with background:true for commands that run a long time or never exit on their own (dev servers, watchers, long builds/tests) so you are not blocked; then job_poll to read progress and job_abort to stop.",
       "Use job_poll to read new output from a backgrounded bash job and check whether it is still running or has exited.",
+      "Use poll_join(jobId, timeoutSeconds?) to block up to a timeout (default 60s) for a background job to finish and read its result — prefer it over looping job_poll when you need the result before continuing. It returns current status + output if the job is slow, so follow up with another poll_join or job_poll.",
       "Use job_abort to terminate a backgrounded bash job you no longer need.",
     ],
     parameters: bashSchema,
@@ -225,6 +233,142 @@ export default function (pi: ExtensionAPI) {
       return {
         content: [{ type: "text", text: parts.join("\n") }],
         details: { job, newBytes, truncated },
+      };
+    },
+
+    renderResult(toolResult, _options, theme) {
+      const text = toolResult.content[0];
+      return new Text(
+        theme.fg("toolOutput", text?.type === "text" ? text.text : ""),
+        0,
+        0,
+      );
+    },
+  });
+
+  // ── poll_join ────────────────────────────────────────────────────────────
+  // Block up to `timeoutSeconds` (default 60s) for a background job to finish,
+  // streaming periodic status so the UI doesn't look frozen. Returns the final
+  // status + output delta since the last poll (same shape as job_poll). If the
+  // timeout elapses first, returns the current status + whatever output is
+  // available — so a slow job degrades to a poll, not a hang. Never blocks
+  // longer than the timeout. The poll cursor is advanced, so a follow-up
+  // job_poll won't re-dump the same output.
+  pi.registerTool({
+    name: "poll_join",
+    label: "poll join",
+    description:
+      "Block up to `timeoutSeconds` (default 60s) for a background bash job to finish, " +
+      "then return its final status and any output produced since the last poll (same shape " +
+      "as job_poll). If the timeout elapses before the job finishes, returns the current " +
+      "status and output instead — so a slow job degrades to a poll, never a hang. Use this " +
+      "when you need the result before continuing, instead of looping job_poll.",
+    promptSnippet:
+      "Wait for a background bash job to finish (bounded), then read its result",
+    promptGuidelines: [
+      "Use poll_join(jobId, timeoutSeconds?) to block up to the timeout (default 60s) for a " +
+        "background job to finish, then read its result. Prefer it over looping job_poll when " +
+        "you need the result before continuing. It returns current status if the job is slow — " +
+        "follow up with another poll_join or job_poll.",
+    ],
+    parameters: Type.Object({
+      jobId: Type.String({
+        description: "The job id returned by a background bash call.",
+      }),
+      timeoutSeconds: Type.Optional(
+        Type.Number({
+          description:
+            "Maximum seconds to wait for the job to finish (default 60). If the job is still " +
+            "running when this elapses, the current status and output are returned instead of " +
+            "blocking longer.",
+        }),
+      ),
+    }),
+
+    async execute(_toolCallId, params, signal, onUpdate) {
+      const timeoutMs = (params.timeoutSeconds ?? 60) * 1000;
+      const deadline = Date.now() + timeoutMs;
+      // 500ms status granularity: cheap, and well below the timeout the agent
+      // would care about. Prompt wakeup isn't worth racing the job's `done`
+      // promise for — half a second of latency on a join is fine.
+      const POLL_INTERVAL_MS = 500;
+      const UPDATE_INTERVAL_MS = 2000;
+
+      let view = registry.get(params.jobId);
+      if (!view) {
+        throw new Error(
+          `No such job: ${params.jobId}. Use job_list to see known jobs.`,
+        );
+      }
+
+      // Wait loop: poll status until terminal, the deadline, or an abort.
+      let lastUpdate = 0;
+      while (view.status === "running" && Date.now() < deadline) {
+        if (signal?.aborted) {
+          throw new Error(`Aborted while waiting for job ${params.jobId}.`);
+        }
+        await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
+        view = registry.get(params.jobId);
+        if (!view) break; // job evicted mid-wait (shouldn't happen in-session)
+        if (
+          onUpdate &&
+          view.status === "running" &&
+          Date.now() - lastUpdate >= UPDATE_INTERVAL_MS
+        ) {
+          lastUpdate = Date.now();
+          onUpdate({
+            content: [
+              { type: "text", text: `[${view.id}] ${statusLine(view)}` },
+            ],
+            details: {},
+          });
+        }
+      }
+
+      // `view` can only be undefined here if the job was evicted mid-wait
+      // (can't happen with an in-memory per-session registry, but don't rely
+      // on that silently — readSincePoll below will also catch a missing job).
+      if (!view) {
+        throw new Error(
+          `No such job: ${params.jobId}. Use job_list to see known jobs.`,
+        );
+      }
+
+      const timedOut = view.status === "running";
+
+      // Same delta-and-cursor-advance path as job_poll, so the two compose:
+      // after poll_join, a follow-up job_poll won't re-dump the same output.
+      const result = await registry.readSincePoll(params.jobId);
+      if (!result) {
+        throw new Error(
+          `No such job: ${params.jobId}. Use job_list to see known jobs.`,
+        );
+      }
+      const { job, newOutput, newBytes, truncated, skippedBytes } = result;
+
+      const parts: string[] = [`[${job.id}] ${statusLine(job)}`];
+      if (timedOut) {
+        parts.push(
+          `(still running after ${params.timeoutSeconds ?? 60}s; read more with job_poll or call poll_join again)`,
+        );
+      }
+      if (newBytes === 0) {
+        parts.push("(no new output since last poll)");
+      } else {
+        if (truncated) {
+          parts.push(
+            `[showing last ${formatSize(
+              newBytes - skippedBytes,
+            )} of ${formatSize(
+              newBytes,
+            )} new output; full output: ${job.fullOutputPath}]`,
+          );
+        }
+        parts.push(newOutput);
+      }
+      return {
+        content: [{ type: "text", text: parts.join("\n") }],
+        details: { job, newBytes, truncated, timedOut },
       };
     },
 
