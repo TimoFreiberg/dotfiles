@@ -4,14 +4,14 @@
   "default": "straightforward-impl",
   "roles": {
     "straightforward-impl": "github-copilot/gpt-5.5:medium",
-    "high-effort-impl": "amazon-bedrock/global.anthropic.claude-opus-4-8-v1:high",
+    "high-effort-impl": "amazon-bedrock/global.anthropic.claude-opus-4-8:high",
     "general-review": "google-vertex/gemini-3.5-flash:high",
-    "high-effort-review": "amazon-bedrock/global.anthropic.claude-opus-4-8-v1:xhigh",
+    "high-effort-review": "amazon-bedrock/global.anthropic.claude-opus-4-8:xhigh",
     "web-search": "google-vertex/gemini-3.5-flash",
     "text-summary": "google-vertex/gemini-3.5-flash:low",
     "fast-utility": "google-vertex/gemini-3.5-flash:off",
     "vision": "google-vertex/gemini-3.5-flash",
-    "high-effort-vision": "amazon-bedrock/global.anthropic.claude-opus-4-8-v1",
+    "high-effort-vision": "amazon-bedrock/global.anthropic.claude-opus-4-8",
     "recon": "google-vertex/gemini-3.5-flash:medium",
     "structured-extraction": "google-vertex/gemini-3.5-flash:low"
   }
