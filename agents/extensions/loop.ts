@@ -1,267 +1,85 @@
 /**
- * Loop Extension
+ * Goal Extension
  *
- * Provides a /loop command that starts a follow-up loop with a breakout condition.
- * The loop keeps sending a prompt on turn end until the agent calls the
- * signal_loop_success tool.
+ * Provides a /goal command that starts a follow-up loop driving toward a goal.
+ * The loop keeps re-sending the goal prompt on turn end until the agent calls
+ * the signal_goal_success tool (which it does when the goal is achieved).
+ *
+ * The prompt is the only parameter — there are no presets or breakout
+ * "conditions". The agent is told the goal verbatim and decides when it's done
+ * by calling signal_goal_success. The agent context grows across iterations
+ * (compaction handles overflow; the goal prompt is preserved through it),
+ * which is the right trade for tight fix-retry-fix cycles and watchful-waiting.
+ * For long multistep plan work where fresh context per step matters, compose
+ * implementer + reviewer subagents from the goal prompt instead.
  */
 
-import * as fs from "node:fs";
-import * as path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
 import { Type } from "typebox";
-import {
-  complete,
-  type Api,
-  type Model,
-  type UserMessage,
-} from "@earendil-works/pi-ai";
 import type {
   ExtensionAPI,
   ExtensionContext,
   SessionSwitchEvent,
 } from "@earendil-works/pi-coding-agent";
 import { compact } from "@earendil-works/pi-coding-agent";
-import {
-  Container,
-  type SelectItem,
-  SelectList,
-  Text,
-} from "@earendil-works/pi-tui";
-import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 
-type LoopMode = "tests" | "custom" | "self";
-
-type LoopStateData = {
+type GoalStateData = {
   active: boolean;
-  mode?: LoopMode;
-  condition?: string;
   prompt?: string;
-  summary?: string;
   loopCount?: number;
 };
 
-const LOOP_PRESETS = [
-  { value: "tests", label: "Until tests pass", description: "" },
-  { value: "custom", label: "Until custom condition", description: "" },
-  { value: "self", label: "Self driven (agent decides)", description: "" },
-] as const;
+const GOAL_STATE_ENTRY = "goal-state";
 
-const LOOP_STATE_ENTRY = "loop-state";
+// Status widget label ceiling. The prompt is shown verbatim (truncated on a
+// word boundary) — no model call to shorten it, since it's already a
+// user-authored string and summarizing it would only add latency + a failure
+// surface for a status label.
+const MAX_LABEL_LEN = 48;
 
-/**
- * The role tuned for this task in roles.json (text-summary). Keeping it a role
- * (not a hardcoded model id) is the point: the summary model changes per machine
- * / over time while this extension stays constant. Mirrors session-namer.ts, which
- * does the same short-label summary against the same role.
- */
-const SUMMARY_ROLE = "text-summary";
-
-const SUMMARY_SYSTEM_PROMPT = `You summarize loop breakout conditions for a status widget.
-Return a concise phrase (max 6 words) that says when the loop should stop.
-Use plain text only, no quotes, no punctuation, no prefix.
-
-Form should be "breaks when ...", "loops until ...", "stops on ...", "runs until ...", or similar.
-Use the best form that makes sense for the loop condition.
-`;
-
-/**
- * Shared per-machine role -> model resolver (agents/_lib/roles.mjs).
- *
- * It lives OUTSIDE the extension dir, so a static relative import breaks: pi
- * discovers this extension through the symlink ~/.pi/agent/extensions ->
- * dotfiles/agents/extensions and resolves relative imports against that symlink
- * path, where ../_lib does not exist. We realpath import.meta.url (which crosses
- * the symlink) and dynamic-import the resolver by its absolute on-disk path.
- * Cached so we import it once. Mirrors extensions/session-namer.ts and
- * extensions/answer.ts.
- */
-type ResolveRoleModelFn = (
-  role: string,
-  modelRegistry: {
-    find: (provider: string, id: string) => Model<Api> | undefined;
-  },
-  opts?: { override?: string; agentDir?: string; quiet?: boolean },
-) => {
-  model: Model<Api>;
-  provider?: string;
-  id: string;
-  thinking?: string;
-  spec: string;
-} | null;
-
-let resolveRoleModelPromise: Promise<ResolveRoleModelFn> | null = null;
-function getResolveRoleModel(): Promise<ResolveRoleModelFn> {
-  if (!resolveRoleModelPromise) {
-    const realHere = path.dirname(
-      fs.realpathSync(fileURLToPath(import.meta.url)),
-    );
-    const rolesPath = path.resolve(realHere, "../_lib/roles.mjs");
-    resolveRoleModelPromise = import(pathToFileURL(rolesPath).href).then(
-      (mod) => mod.resolveRoleModel as ResolveRoleModelFn,
-    );
-  }
-  return resolveRoleModelPromise;
+/** Truncate the goal prompt to a widget-friendly length on a word boundary. */
+function truncateLabel(prompt: string): string {
+  const trimmed = prompt.replace(/\s+/g, " ").trim();
+  if (trimmed.length <= MAX_LABEL_LEN) return trimmed;
+  const slice = trimmed.slice(0, MAX_LABEL_LEN);
+  const lastSpace = slice.lastIndexOf(" ");
+  const cut = lastSpace > MAX_LABEL_LEN - 15 ? lastSpace : MAX_LABEL_LEN;
+  return `${slice
+    .slice(0, cut)
+    .replace(/[\s\-–—:;,.]+$/, "")
+    .trim()}…`;
 }
 
-function buildPrompt(mode: LoopMode, condition?: string): string {
-  switch (mode) {
-    case "tests":
-      return (
-        "Run all tests. If they are passing, call the signal_loop_success tool. " +
-        "Otherwise continue until the tests pass."
-      );
-    case "custom": {
-      const customCondition =
-        condition?.trim() || "the custom condition is satisfied";
-      return (
-        `Continue until the following condition is satisfied: ${customCondition}. ` +
-        "When it is satisfied, call the signal_loop_success tool."
-      );
-    }
-    case "self":
-      return "Continue until you are done. When finished, call the signal_loop_success tool.";
-  }
+function getCompactionInstructions(prompt: string): string {
+  return `Goal loop active. Goal: ${prompt}. Preserve this goal-loop state and the goal prompt in the summary.`;
 }
 
-function summarizeCondition(mode: LoopMode, condition?: string): string {
-  switch (mode) {
-    case "tests":
-      return "tests pass";
-    case "custom": {
-      const summary = condition?.trim() || "custom condition";
-      return summary.length > 48 ? `${summary.slice(0, 45)}...` : summary;
-    }
-    case "self":
-      return "done";
-  }
-}
-
-function getConditionText(mode: LoopMode, condition?: string): string {
-  switch (mode) {
-    case "tests":
-      return "tests pass";
-    case "custom":
-      return condition?.trim() || "custom condition";
-    case "self":
-      return "you are done";
-  }
-}
-
-async function summarizeBreakoutCondition(
-  ctx: ExtensionContext,
-  mode: LoopMode,
-  condition?: string,
-): Promise<string> {
-  const fallback = summarizeCondition(mode, condition);
-
-  // Resolve the summary model per-machine via the shared role map. Fail loud
-  // (a one-line note) and degrade to the static fallback: the status widget is
-  // a convenience, so an unresolved role or a failed model call must never
-  // block or crash the loop. Mirrors session-namer.ts's graceful degradation.
-  let resolved: ReturnType<ResolveRoleModelFn>;
-  try {
-    const resolveRoleModel = await getResolveRoleModel();
-    resolved = resolveRoleModel(SUMMARY_ROLE, ctx.modelRegistry);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (ctx.hasUI)
-      ctx.ui.notify(
-        `loop: role '${SUMMARY_ROLE}' unavailable (${message})`,
-        "warning",
-      );
-    return fallback;
-  }
-  if (!resolved) {
-    if (ctx.hasUI)
-      ctx.ui.notify(
-        `loop: role '${SUMMARY_ROLE}' resolved to no model`,
-        "warning",
-      );
-    return fallback;
-  }
-
-  const auth = await ctx.modelRegistry.getApiKeyAndHeaders(resolved.model);
-  if (!auth.ok) {
-    if (ctx.hasUI)
-      ctx.ui.notify(
-        `loop: no auth for ${resolved.spec} (${auth.error})`,
-        "warning",
-      );
-    return fallback;
-  }
-
-  const conditionText = getConditionText(mode, condition);
-  const userMessage: UserMessage = {
-    role: "user",
-    content: [{ type: "text", text: conditionText }],
-    timestamp: Date.now(),
-  };
-
-  let response: Awaited<ReturnType<typeof complete>>;
-  try {
-    response = await complete(
-      resolved.model,
-      { systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: [userMessage] },
-      { apiKey: auth.apiKey, headers: auth.headers },
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (ctx.hasUI)
-      ctx.ui.notify(`loop: summary call failed (${message})`, "warning");
-    return fallback;
-  }
-
-  if (response.stopReason === "aborted" || response.stopReason === "error") {
-    return fallback;
-  }
-
-  const summary = response.content
-    .filter((c): c is { type: "text"; text: string } => c.type === "text")
-    .map((c) => c.text)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  if (!summary) return fallback;
-  return summary.length > 60 ? `${summary.slice(0, 57)}...` : summary;
-}
-
-function getCompactionInstructions(mode: LoopMode, condition?: string): string {
-  const conditionText = getConditionText(mode, condition);
-  return `Loop active. Breakout condition: ${conditionText}. Preserve this loop state and breakout condition in the summary.`;
-}
-
-function updateStatus(ctx: ExtensionContext, state: LoopStateData): void {
+function updateStatus(ctx: ExtensionContext, state: GoalStateData): void {
   if (!ctx.hasUI) return;
-  if (!state.active || !state.mode) {
-    ctx.ui.setWidget("loop", undefined);
+  if (!state.active || !state.prompt) {
+    ctx.ui.setWidget("goal", undefined);
     return;
   }
   const loopCount = state.loopCount ?? 0;
-  const turnText = `(turn ${loopCount})`;
-  const summary = state.summary?.trim();
-  const text = summary
-    ? `Loop active: ${summary} ${turnText}`
-    : `Loop active ${turnText}`;
+  const label = truncateLabel(state.prompt);
+  const text = `Goal: ${label} (turn ${loopCount})`;
   // Plain string, no theme.fg coloring: pilot (rpc mode) renders widget lines as
   // raw text with no ANSI stripping, so theme.fg's escape bytes would show as
   // literal garbage there. The TUI reads fine uncolored too. Matches the
   // tasklist widget's plain-text convention.
-  ctx.ui.setWidget("loop", [text]);
+  ctx.ui.setWidget("goal", [text]);
 }
 
-async function loadState(ctx: ExtensionContext): Promise<LoopStateData> {
+async function loadState(ctx: ExtensionContext): Promise<GoalStateData> {
   const entries = ctx.sessionManager.getEntries();
   for (let i = entries.length - 1; i >= 0; i--) {
     const entry = entries[i] as {
       type: string;
       customType?: string;
-      data?: LoopStateData;
+      data?: GoalStateData;
     };
     if (
       entry.type === "custom" &&
-      entry.customType === LOOP_STATE_ENTRY &&
+      entry.customType === GOAL_STATE_ENTRY &&
       entry.data
     ) {
       return entry.data;
@@ -270,29 +88,29 @@ async function loadState(ctx: ExtensionContext): Promise<LoopStateData> {
   return { active: false };
 }
 
-export default function loopExtension(pi: ExtensionAPI): void {
-  let loopState: LoopStateData = { active: false };
+export default function goalExtension(pi: ExtensionAPI): void {
+  let goalState: GoalStateData = { active: false };
 
-  function persistState(state: LoopStateData): void {
-    pi.appendEntry(LOOP_STATE_ENTRY, state);
+  function persistState(state: GoalStateData): void {
+    pi.appendEntry(GOAL_STATE_ENTRY, state);
   }
 
-  function setLoopState(state: LoopStateData, ctx: ExtensionContext): void {
-    loopState = state;
+  function setGoalState(state: GoalStateData, ctx: ExtensionContext): void {
+    goalState = state;
     persistState(state);
     updateStatus(ctx, state);
   }
 
-  function clearLoopState(ctx: ExtensionContext): void {
-    const cleared: LoopStateData = { active: false };
-    loopState = cleared;
+  function clearGoalState(ctx: ExtensionContext): void {
+    const cleared: GoalStateData = { active: false };
+    goalState = cleared;
     persistState(cleared);
     updateStatus(ctx, cleared);
   }
 
-  function breakLoop(ctx: ExtensionContext): void {
-    clearLoopState(ctx);
-    ctx.ui.notify("Loop ended", "info");
+  function breakGoal(ctx: ExtensionContext): void {
+    clearGoalState(ctx);
+    ctx.ui.notify("Goal ended", "info");
   }
 
   function wasLastAssistantAborted(
@@ -307,19 +125,19 @@ export default function loopExtension(pi: ExtensionAPI): void {
     return false;
   }
 
-  function triggerLoopPrompt(ctx: ExtensionContext): void {
-    if (!loopState.active || !loopState.mode || !loopState.prompt) return;
+  function triggerGoalPrompt(ctx: ExtensionContext): void {
+    if (!goalState.active || !goalState.prompt) return;
     if (ctx.hasPendingMessages()) return;
 
-    const loopCount = (loopState.loopCount ?? 0) + 1;
-    loopState = { ...loopState, loopCount };
-    persistState(loopState);
-    updateStatus(ctx, loopState);
+    const loopCount = (goalState.loopCount ?? 0) + 1;
+    goalState = { ...goalState, loopCount };
+    persistState(goalState);
+    updateStatus(ctx, goalState);
 
     pi.sendMessage(
       {
-        customType: "loop",
-        content: loopState.prompt,
+        customType: "goal",
+        content: goalState.prompt,
         display: true,
       },
       {
@@ -329,251 +147,104 @@ export default function loopExtension(pi: ExtensionAPI): void {
     );
   }
 
-  /** Build loop state from a chosen preset value, prompting for the custom condition when needed. */
-  async function buildStateFromPreset(
-    ctx: ExtensionContext,
-    selection: string,
-  ): Promise<LoopStateData | null> {
-    switch (selection) {
-      case "tests":
-        return { active: true, mode: "tests", prompt: buildPrompt("tests") };
-      case "self":
-        return { active: true, mode: "self", prompt: buildPrompt("self") };
-      case "custom": {
-        const condition = await ctx.ui.editor(
-          "Enter loop breakout condition:",
-          "",
-        );
-        if (!condition?.trim()) return null;
-        return {
-          active: true,
-          mode: "custom",
-          condition: condition.trim(),
-          prompt: buildPrompt("custom", condition.trim()),
-        };
-      }
-      default:
-        return null;
-    }
-  }
-
   /**
-   * Rich TUI selector (SelectList inside a custom widget). Only works in a real
-   * terminal: ctx.ui.custom() renders a component factory, which non-tui hosts
-   * (pilot rpc mode) can't honor — it rejects with an unsupported-host error.
-   * See the `answer` extension's qna/custom handling for the same pattern.
+   * Resolve the goal prompt from command args. With args, use them verbatim;
+   * without, open an editor (works in both TUI and pilot rpc mode, which
+   * renders it as an approval card). Returns null on cancel / empty input.
    */
-  async function showTuiLoopSelector(
+  async function resolveGoalPrompt(
+    args: string | undefined,
     ctx: ExtensionContext,
   ): Promise<string | null> {
-    const items: SelectItem[] = LOOP_PRESETS.map((preset) => ({
-      value: preset.value,
-      label: preset.label,
-      description: preset.description,
-    }));
+    const fromArgs = args?.trim();
+    if (fromArgs) return fromArgs;
 
-    return ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
-      const container = new Container();
-      container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
-      container.addChild(
-        new Text(theme.fg("accent", theme.bold("Select a loop preset"))),
-      );
-
-      const selectList = new SelectList(items, Math.min(items.length, 10), {
-        selectedPrefix: (text) => theme.fg("accent", text),
-        selectedText: (text) => theme.fg("accent", text),
-        description: (text) => theme.fg("muted", text),
-        scrollInfo: (text) => theme.fg("dim", text),
-        noMatch: (text) => theme.fg("warning", text),
-      });
-
-      selectList.onSelect = (item) => done(item.value);
-      selectList.onCancel = () => done(null);
-
-      container.addChild(selectList);
-      container.addChild(
-        new Text(theme.fg("dim", "Press enter to confirm or esc to cancel")),
-      );
-      container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
-
-      return {
-        render(width: number) {
-          return container.render(width);
-        },
-        invalidate() {
-          container.invalidate();
-        },
-        handleInput(data: string) {
-          selectList.handleInput(data);
-          tui.requestRender();
-        },
-      };
-    });
-  }
-
-  /**
-   * Remote fallback for non-tui hosts (pilot rpc mode): use the typed
-   * select/input dialogs, which pilot renders as approval cards. Returns the
-   * chosen preset value, or null on cancel.
-   */
-  async function showRemoteLoopSelector(
-    ctx: ExtensionContext,
-  ): Promise<string | null> {
-    const options = LOOP_PRESETS.map((preset) => preset.label);
-    const label = await ctx.ui.select("Select a loop preset", options);
-    if (label === undefined) return null;
-    const index = LOOP_PRESETS.findIndex((preset) => preset.label === label);
-    if (index === -1) return null;
-    return LOOP_PRESETS[index].value;
-  }
-
-  async function showLoopSelector(
-    ctx: ExtensionContext,
-  ): Promise<LoopStateData | null> {
-    // ctx.ui.custom renders a TUI component factory and only works in a real
-    // terminal. Non-tui hosts (pilot rpc mode) can't honor it; use the typed
-    // select dialog there instead. ctx.hasUI gates both paths (json/print have
-    // no UI to show either).
-    const selection =
-      ctx.mode === "tui"
-        ? await showTuiLoopSelector(ctx)
-        : await showRemoteLoopSelector(ctx);
-    if (!selection) return null;
-    return buildStateFromPreset(ctx, selection);
-  }
-
-  function parseArgs(args: string | undefined): LoopStateData | null {
-    if (!args?.trim()) return null;
-    const parts = args.trim().split(/\s+/);
-    const mode = parts[0]?.toLowerCase();
-
-    switch (mode) {
-      case "tests":
-        return { active: true, mode: "tests", prompt: buildPrompt("tests") };
-      case "self":
-        return { active: true, mode: "self", prompt: buildPrompt("self") };
-      case "custom": {
-        const condition = parts.slice(1).join(" ").trim();
-        if (!condition) return null;
-        return {
-          active: true,
-          mode: "custom",
-          condition,
-          prompt: buildPrompt("custom", condition),
-        };
-      }
-      default:
-        return null;
+    if (!ctx.hasUI) {
+      ctx.ui.notify("Usage: /goal <prompt>", "warning");
+      return null;
     }
+
+    const prompt = await ctx.ui.editor("Enter the goal prompt:", "");
+    return prompt?.trim() || null;
   }
 
   pi.registerTool({
-    name: "signal_loop_success",
-    label: "Signal Loop Success",
+    name: "signal_goal_success",
+    label: "Signal Goal Success",
     description:
-      "Stop the active loop when the breakout condition is satisfied. Only call this tool when explicitly instructed to do so by the user, tool or system prompt.",
+      "Stop the active goal loop when the goal is achieved. Only call this tool when explicitly instructed to do so by the user, tool or system prompt.",
     parameters: Type.Object({}),
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
-      if (!loopState.active) {
+      if (!goalState.active) {
         return {
-          content: [{ type: "text", text: "No active loop is running." }],
+          content: [{ type: "text", text: "No active goal is running." }],
           details: { active: false },
         };
       }
 
-      clearLoopState(ctx);
+      clearGoalState(ctx);
 
       return {
-        content: [{ type: "text", text: "Loop ended." }],
+        content: [{ type: "text", text: "Goal ended." }],
         details: { active: false },
       };
     },
   });
 
-  pi.registerCommand("loop", {
-    description: "Start a follow-up loop until a breakout condition is met",
+  pi.registerCommand("goal", {
+    description:
+      "Start a goal loop: keep re-driving the prompt until the agent signals success. Usage: /goal <prompt>",
     handler: async (args, ctx) => {
-      let nextState = parseArgs(args);
-      if (!nextState) {
-        if (!ctx.hasUI) {
-          ctx.ui.notify(
-            "Usage: /loop tests | /loop custom <condition> | /loop self",
-            "warning",
-          );
-          return;
-        }
-        nextState = await showLoopSelector(ctx);
-      }
-
-      if (!nextState) {
-        ctx.ui.notify("Loop cancelled", "info");
+      const prompt = await resolveGoalPrompt(args, ctx);
+      if (!prompt) {
+        ctx.ui.notify("Goal cancelled", "info");
         return;
       }
 
-      if (loopState.active) {
+      if (goalState.active) {
         const confirm = ctx.hasUI
           ? await ctx.ui.confirm(
-              "Replace active loop?",
-              "A loop is already active. Replace it?",
+              "Replace active goal?",
+              "A goal is already active. Replace it?",
             )
           : true;
         if (!confirm) {
-          ctx.ui.notify("Loop unchanged", "info");
+          ctx.ui.notify("Goal unchanged", "info");
           return;
         }
       }
 
-      const summarizedState: LoopStateData = {
-        ...nextState,
-        summary: undefined,
-        loopCount: 0,
-      };
-      setLoopState(summarizedState, ctx);
-      ctx.ui.notify("Loop active", "info");
-      triggerLoopPrompt(ctx);
-
-      const mode = nextState.mode!;
-      const condition = nextState.condition;
-      void (async () => {
-        const summary = await summarizeBreakoutCondition(ctx, mode, condition);
-        if (
-          !loopState.active ||
-          loopState.mode !== mode ||
-          loopState.condition !== condition
-        )
-          return;
-        loopState = { ...loopState, summary };
-        persistState(loopState);
-        updateStatus(ctx, loopState);
-      })();
+      setGoalState({ active: true, prompt, loopCount: 0 }, ctx);
+      ctx.ui.notify("Goal active", "info");
+      triggerGoalPrompt(ctx);
     },
   });
 
   pi.on("agent_end", async (event, ctx) => {
-    if (!loopState.active) return;
+    if (!goalState.active) return;
 
     if (ctx.hasUI && wasLastAssistantAborted(event.messages)) {
       const confirm = await ctx.ui.confirm(
-        "Break active loop?",
-        "Operation aborted. Break out of the loop?",
+        "Break active goal?",
+        "Operation aborted. Break out of the goal loop?",
       );
       if (confirm) {
-        breakLoop(ctx);
+        breakGoal(ctx);
         return;
       }
     }
 
-    triggerLoopPrompt(ctx);
+    triggerGoalPrompt(ctx);
   });
 
   pi.on("session_before_compact", async (event, ctx) => {
-    if (!loopState.active || !loopState.mode || !ctx.model) return;
+    if (!goalState.active || !goalState.prompt || !ctx.model) return;
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
     if (!auth.ok) return;
 
     const instructionParts = [
       event.customInstructions,
-      getCompactionInstructions(loopState.mode, loopState.condition),
+      getCompactionInstructions(goalState.prompt),
     ]
       .filter(Boolean)
       .join("\n\n");
@@ -591,39 +262,22 @@ export default function loopExtension(pi: ExtensionAPI): void {
     } catch (error) {
       if (ctx.hasUI) {
         const message = error instanceof Error ? error.message : String(error);
-        ctx.ui.notify(`Loop compaction failed: ${message}`, "warning");
+        ctx.ui.notify(`Goal compaction failed: ${message}`, "warning");
       }
       return;
     }
   });
 
-  async function restoreLoopState(ctx: ExtensionContext): Promise<void> {
-    loopState = await loadState(ctx);
-    updateStatus(ctx, loopState);
-
-    if (loopState.active && loopState.mode && !loopState.summary) {
-      const mode = loopState.mode;
-      const condition = loopState.condition;
-      void (async () => {
-        const summary = await summarizeBreakoutCondition(ctx, mode, condition);
-        if (
-          !loopState.active ||
-          loopState.mode !== mode ||
-          loopState.condition !== condition
-        )
-          return;
-        loopState = { ...loopState, summary };
-        persistState(loopState);
-        updateStatus(ctx, loopState);
-      })();
-    }
+  async function restoreGoalState(ctx: ExtensionContext): Promise<void> {
+    goalState = await loadState(ctx);
+    updateStatus(ctx, goalState);
   }
 
   pi.on("session_start", async (_event, ctx) => {
-    await restoreLoopState(ctx);
+    await restoreGoalState(ctx);
   });
 
   pi.on("session_switch", async (_event: SessionSwitchEvent, ctx) => {
-    await restoreLoopState(ctx);
+    await restoreGoalState(ctx);
   });
 }
