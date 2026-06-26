@@ -153,6 +153,7 @@ export default function (pi: ExtensionAPI) {
       "Execute bash commands; set background:true for long-running ones, then job_poll/job_abort",
     promptGuidelines: [
       "Use bash with background:true for commands that run a long time or never exit on their own (dev servers, watchers, long builds/tests) so you are not blocked; then job_poll to read progress and job_abort to stop.",
+      "Never pipe a long-running command through `tail -n N` (e.g. `npm test | tail -n 5`): the pipe buffers ALL output until the command exits, so you get zero progress and can't tell slow from stuck. Instead run `background: true` and use job_poll / poll_join to read incremental output — the full output streams to a temp file you can `read` anytime via the returned fullOutputPath.",
       "Use job_poll to read new output from a backgrounded bash job and check whether it is still running or has exited.",
       "Use poll_join(jobId, timeoutSeconds?) to block up to a timeout (default 60s) for a background job to finish and read its result — prefer it over looping job_poll when you need the result before continuing. It returns current status + output if the job is slow, so follow up with another poll_join or job_poll.",
       "Use job_abort to terminate a backgrounded bash job you no longer need.",
