@@ -6,6 +6,9 @@
  * signal_loop_success tool.
  */
 
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { Type } from "typebox";
 import {
   complete,
@@ -46,7 +49,13 @@ const LOOP_PRESETS = [
 
 const LOOP_STATE_ENTRY = "loop-state";
 
-const HAIKU_MODEL_ID = "claude-haiku-4-5";
+/**
+ * The role tuned for this task in roles.json (text-summary). Keeping it a role
+ * (not a hardcoded model id) is the point: the summary model changes per machine
+ * / over time while this extension stays constant. Mirrors session-namer.ts, which
+ * does the same short-label summary against the same role.
+ */
+const SUMMARY_ROLE = "text-summary";
 
 const SUMMARY_SYSTEM_PROMPT = `You summarize loop breakout conditions for a status widget.
 Return a concise phrase (max 6 words) that says when the loop should stop.
@@ -55,6 +64,45 @@ Use plain text only, no quotes, no punctuation, no prefix.
 Form should be "breaks when ...", "loops until ...", "stops on ...", "runs until ...", or similar.
 Use the best form that makes sense for the loop condition.
 `;
+
+/**
+ * Shared per-machine role -> model resolver (agents/_lib/roles.mjs).
+ *
+ * It lives OUTSIDE the extension dir, so a static relative import breaks: pi
+ * discovers this extension through the symlink ~/.pi/agent/extensions ->
+ * dotfiles/agents/extensions and resolves relative imports against that symlink
+ * path, where ../_lib does not exist. We realpath import.meta.url (which crosses
+ * the symlink) and dynamic-import the resolver by its absolute on-disk path.
+ * Cached so we import it once. Mirrors extensions/session-namer.ts and
+ * extensions/answer.ts.
+ */
+type ResolveRoleModelFn = (
+  role: string,
+  modelRegistry: {
+    find: (provider: string, id: string) => Model<Api> | undefined;
+  },
+  opts?: { override?: string; agentDir?: string; quiet?: boolean },
+) => {
+  model: Model<Api>;
+  provider?: string;
+  id: string;
+  thinking?: string;
+  spec: string;
+} | null;
+
+let resolveRoleModelPromise: Promise<ResolveRoleModelFn> | null = null;
+function getResolveRoleModel(): Promise<ResolveRoleModelFn> {
+  if (!resolveRoleModelPromise) {
+    const realHere = path.dirname(
+      fs.realpathSync(fileURLToPath(import.meta.url)),
+    );
+    const rolesPath = path.resolve(realHere, "../_lib/roles.mjs");
+    resolveRoleModelPromise = import(pathToFileURL(rolesPath).href).then(
+      (mod) => mod.resolveRoleModel as ResolveRoleModelFn,
+    );
+  }
+  return resolveRoleModelPromise;
+}
 
 function buildPrompt(mode: LoopMode, condition?: string): string {
   switch (mode) {
@@ -100,42 +148,48 @@ function getConditionText(mode: LoopMode, condition?: string): string {
   }
 }
 
-async function selectSummaryModel(
-  ctx: ExtensionContext,
-): Promise<{
-  model: Model<Api>;
-  apiKey?: string;
-  headers?: Record<string, string>;
-} | null> {
-  if (!ctx.model) return null;
-
-  if (ctx.model.provider === "anthropic") {
-    const haikuModel = ctx.modelRegistry.find("anthropic", HAIKU_MODEL_ID);
-    if (haikuModel) {
-      const auth = await ctx.modelRegistry.getApiKeyAndHeaders(haikuModel);
-      if (auth.ok) {
-        return {
-          model: haikuModel,
-          apiKey: auth.apiKey,
-          headers: auth.headers,
-        };
-      }
-    }
-  }
-
-  const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
-  if (!auth.ok) return null;
-  return { model: ctx.model, apiKey: auth.apiKey, headers: auth.headers };
-}
-
 async function summarizeBreakoutCondition(
   ctx: ExtensionContext,
   mode: LoopMode,
   condition?: string,
 ): Promise<string> {
   const fallback = summarizeCondition(mode, condition);
-  const selection = await selectSummaryModel(ctx);
-  if (!selection) return fallback;
+
+  // Resolve the summary model per-machine via the shared role map. Fail loud
+  // (a one-line note) and degrade to the static fallback: the status widget is
+  // a convenience, so an unresolved role or a failed model call must never
+  // block or crash the loop. Mirrors session-namer.ts's graceful degradation.
+  let resolved: ReturnType<ResolveRoleModelFn>;
+  try {
+    const resolveRoleModel = await getResolveRoleModel();
+    resolved = resolveRoleModel(SUMMARY_ROLE, ctx.modelRegistry);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (ctx.hasUI)
+      ctx.ui.notify(
+        `loop: role '${SUMMARY_ROLE}' unavailable (${message})`,
+        "warning",
+      );
+    return fallback;
+  }
+  if (!resolved) {
+    if (ctx.hasUI)
+      ctx.ui.notify(
+        `loop: role '${SUMMARY_ROLE}' resolved to no model`,
+        "warning",
+      );
+    return fallback;
+  }
+
+  const auth = await ctx.modelRegistry.getApiKeyAndHeaders(resolved.model);
+  if (!auth.ok) {
+    if (ctx.hasUI)
+      ctx.ui.notify(
+        `loop: no auth for ${resolved.spec} (${auth.error})`,
+        "warning",
+      );
+    return fallback;
+  }
 
   const conditionText = getConditionText(mode, condition);
   const userMessage: UserMessage = {
@@ -144,11 +198,19 @@ async function summarizeBreakoutCondition(
     timestamp: Date.now(),
   };
 
-  const response = await complete(
-    selection.model,
-    { systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: [userMessage] },
-    { apiKey: selection.apiKey, headers: selection.headers },
-  );
+  let response: Awaited<ReturnType<typeof complete>>;
+  try {
+    response = await complete(
+      resolved.model,
+      { systemPrompt: SUMMARY_SYSTEM_PROMPT, messages: [userMessage] },
+      { apiKey: auth.apiKey, headers: auth.headers },
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (ctx.hasUI)
+      ctx.ui.notify(`loop: summary call failed (${message})`, "warning");
+    return fallback;
+  }
 
   if (response.stopReason === "aborted" || response.stopReason === "error") {
     return fallback;
@@ -182,7 +244,11 @@ function updateStatus(ctx: ExtensionContext, state: LoopStateData): void {
   const text = summary
     ? `Loop active: ${summary} ${turnText}`
     : `Loop active ${turnText}`;
-  ctx.ui.setWidget("loop", [ctx.ui.theme.fg("accent", text)]);
+  // Plain string, no theme.fg coloring: pilot (rpc mode) renders widget lines as
+  // raw text with no ANSI stripping, so theme.fg's escape bytes would show as
+  // literal garbage there. The TUI reads fine uncolored too. Matches the
+  // tasklist widget's plain-text convention.
+  ctx.ui.setWidget("loop", [text]);
 }
 
 async function loadState(ctx: ExtensionContext): Promise<LoopStateData> {
@@ -263,57 +329,11 @@ export default function loopExtension(pi: ExtensionAPI): void {
     );
   }
 
-  async function showLoopSelector(
+  /** Build loop state from a chosen preset value, prompting for the custom condition when needed. */
+  async function buildStateFromPreset(
     ctx: ExtensionContext,
+    selection: string,
   ): Promise<LoopStateData | null> {
-    const items: SelectItem[] = LOOP_PRESETS.map((preset) => ({
-      value: preset.value,
-      label: preset.label,
-      description: preset.description,
-    }));
-
-    const selection = await ctx.ui.custom<string | null>(
-      (tui, theme, _kb, done) => {
-        const container = new Container();
-        container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
-        container.addChild(
-          new Text(theme.fg("accent", theme.bold("Select a loop preset"))),
-        );
-
-        const selectList = new SelectList(items, Math.min(items.length, 10), {
-          selectedPrefix: (text) => theme.fg("accent", text),
-          selectedText: (text) => theme.fg("accent", text),
-          description: (text) => theme.fg("muted", text),
-          scrollInfo: (text) => theme.fg("dim", text),
-          noMatch: (text) => theme.fg("warning", text),
-        });
-
-        selectList.onSelect = (item) => done(item.value);
-        selectList.onCancel = () => done(null);
-
-        container.addChild(selectList);
-        container.addChild(
-          new Text(theme.fg("dim", "Press enter to confirm or esc to cancel")),
-        );
-        container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
-
-        return {
-          render(width: number) {
-            return container.render(width);
-          },
-          invalidate() {
-            container.invalidate();
-          },
-          handleInput(data: string) {
-            selectList.handleInput(data);
-            tui.requestRender();
-          },
-        };
-      },
-    );
-
-    if (!selection) return null;
-
     switch (selection) {
       case "tests":
         return { active: true, mode: "tests", prompt: buildPrompt("tests") };
@@ -335,6 +355,91 @@ export default function loopExtension(pi: ExtensionAPI): void {
       default:
         return null;
     }
+  }
+
+  /**
+   * Rich TUI selector (SelectList inside a custom widget). Only works in a real
+   * terminal: ctx.ui.custom() renders a component factory, which non-tui hosts
+   * (pilot rpc mode) can't honor — it rejects with an unsupported-host error.
+   * See the `answer` extension's qna/custom handling for the same pattern.
+   */
+  async function showTuiLoopSelector(
+    ctx: ExtensionContext,
+  ): Promise<string | null> {
+    const items: SelectItem[] = LOOP_PRESETS.map((preset) => ({
+      value: preset.value,
+      label: preset.label,
+      description: preset.description,
+    }));
+
+    return ctx.ui.custom<string | null>((tui, theme, _kb, done) => {
+      const container = new Container();
+      container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
+      container.addChild(
+        new Text(theme.fg("accent", theme.bold("Select a loop preset"))),
+      );
+
+      const selectList = new SelectList(items, Math.min(items.length, 10), {
+        selectedPrefix: (text) => theme.fg("accent", text),
+        selectedText: (text) => theme.fg("accent", text),
+        description: (text) => theme.fg("muted", text),
+        scrollInfo: (text) => theme.fg("dim", text),
+        noMatch: (text) => theme.fg("warning", text),
+      });
+
+      selectList.onSelect = (item) => done(item.value);
+      selectList.onCancel = () => done(null);
+
+      container.addChild(selectList);
+      container.addChild(
+        new Text(theme.fg("dim", "Press enter to confirm or esc to cancel")),
+      );
+      container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
+
+      return {
+        render(width: number) {
+          return container.render(width);
+        },
+        invalidate() {
+          container.invalidate();
+        },
+        handleInput(data: string) {
+          selectList.handleInput(data);
+          tui.requestRender();
+        },
+      };
+    });
+  }
+
+  /**
+   * Remote fallback for non-tui hosts (pilot rpc mode): use the typed
+   * select/input dialogs, which pilot renders as approval cards. Returns the
+   * chosen preset value, or null on cancel.
+   */
+  async function showRemoteLoopSelector(
+    ctx: ExtensionContext,
+  ): Promise<string | null> {
+    const options = LOOP_PRESETS.map((preset) => preset.label);
+    const label = await ctx.ui.select("Select a loop preset", options);
+    if (label === undefined) return null;
+    const index = LOOP_PRESETS.findIndex((preset) => preset.label === label);
+    if (index === -1) return null;
+    return LOOP_PRESETS[index].value;
+  }
+
+  async function showLoopSelector(
+    ctx: ExtensionContext,
+  ): Promise<LoopStateData | null> {
+    // ctx.ui.custom renders a TUI component factory and only works in a real
+    // terminal. Non-tui hosts (pilot rpc mode) can't honor it; use the typed
+    // select dialog there instead. ctx.hasUI gates both paths (json/print have
+    // no UI to show either).
+    const selection =
+      ctx.mode === "tui"
+        ? await showTuiLoopSelector(ctx)
+        : await showRemoteLoopSelector(ctx);
+    if (!selection) return null;
+    return buildStateFromPreset(ctx, selection);
   }
 
   function parseArgs(args: string | undefined): LoopStateData | null {
