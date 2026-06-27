@@ -6,8 +6,11 @@
  * the signal_goal_success tool (which it does when the goal is achieved).
  *
  * The prompt is the only parameter — there are no presets or breakout
- * "conditions". The agent is told the goal verbatim and decides when it's done
- * by calling signal_goal_success. The agent context grows across iterations
+ * "conditions". The agent is told the goal verbatim (as the re-driven user
+ * message each turn) AND via a standing system-prompt block injected while
+ * the loop is active, which is what actually authorizes and instructs the
+ * agent to call signal_goal_success when the goal is met. The agent context
+ * grows across iterations
  * (compaction handles overflow; the goal prompt is preserved through it),
  * which is the right trade for tight fix-retry-fix cycles and watchful-waiting.
  * For long multistep plan work where fresh context per step matters, compose
@@ -18,7 +21,6 @@ import { Type } from "typebox";
 import type {
   ExtensionAPI,
   ExtensionContext,
-  SessionSwitchEvent,
 } from "@earendil-works/pi-coding-agent";
 import { compact } from "@earendil-works/pi-coding-agent";
 
@@ -51,6 +53,19 @@ function truncateLabel(prompt: string): string {
 
 function getCompactionInstructions(prompt: string): string {
   return `Goal loop active. Goal: ${prompt}. Preserve this goal-loop state and the goal prompt in the summary.`;
+}
+
+function getGoalLoopInstructions(prompt: string): string {
+  return `
+
+## Goal loop
+
+You are in a goal loop driving toward this goal:
+
+${prompt}
+
+Keep working toward it across turns. When the goal is fully achieved, call the \`signal_goal_success\` tool to end the loop. This system-prompt block is the explicit instruction that authorizes calling that tool — call it the moment the goal is met, not before, and not to signal partial progress.
+`;
 }
 
 function updateStatus(ctx: ExtensionContext, state: GoalStateData): void {
@@ -128,7 +143,10 @@ export default function goalExtension(pi: ExtensionAPI): void {
   function triggerGoalPrompt(ctx: ExtensionContext): void {
     if (!goalState.active || !goalState.prompt) return;
     if (ctx.hasPendingMessages()) return;
-
+    // Capture the narrowed prompt before reassigning goalState — the spread
+    // below widens goalState.prompt back to `string | undefined` per the
+    // GoalStateData type, which sendMessage's content field rejects.
+    const prompt = goalState.prompt;
     const loopCount = (goalState.loopCount ?? 0) + 1;
     goalState = { ...goalState, loopCount };
     persistState(goalState);
@@ -137,7 +155,7 @@ export default function goalExtension(pi: ExtensionAPI): void {
     pi.sendMessage(
       {
         customType: "goal",
-        content: goalState.prompt,
+        content: prompt,
         display: true,
       },
       {
@@ -220,6 +238,20 @@ export default function goalExtension(pi: ExtensionAPI): void {
     },
   });
 
+  // Surface the loop to the agent each turn via the system prompt. This is
+  // the explicit instruction the signal_goal_success tool description gates on
+  // ("Only call this tool when explicitly instructed ... by ... system prompt").
+  // Dynamic: re-evaluated every turn, so clearing the goal stops the injection
+  // automatically — no cleanup needed. Session-scoped goalState means subagent
+  // sessions (active=false) never get this framing.
+  pi.on("before_agent_start", async (event) => {
+    if (!goalState.active || !goalState.prompt) return undefined;
+    return {
+      systemPrompt:
+        event.systemPrompt + getGoalLoopInstructions(goalState.prompt),
+    };
+  });
+
   pi.on("agent_end", async (event, ctx) => {
     if (!goalState.active) return;
 
@@ -273,11 +305,13 @@ export default function goalExtension(pi: ExtensionAPI): void {
     updateStatus(ctx, goalState);
   }
 
+  // session_start fires for every session activation (reason: startup, reload,
+  // new, resume, fork) AFTER the new session manager is installed, so
+  // loadState reads the now-active session's entries. The old session_switch
+  // handler was removed: pi renamed it to session_before_switch, which fires
+  // BEFORE the swap while ctx.sessionManager still points at the old session,
+  // so restoring there would load the stale (pre-switch) goal state.
   pi.on("session_start", async (_event, ctx) => {
-    await restoreGoalState(ctx);
-  });
-
-  pi.on("session_switch", async (_event: SessionSwitchEvent, ctx) => {
     await restoreGoalState(ctx);
   });
 }
