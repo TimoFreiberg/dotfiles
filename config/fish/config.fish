@@ -33,6 +33,7 @@ if status is-interactive
     abbr --add --global tn tmux-new
     abbr --add --global zi 'z -i'
     abbr --add --global cl 'claude --dangerously-skip-permissions'
+    abbr --add --global po 'polytoken'
 
     # git aliases
     abbr --add --global gl 'git log'
