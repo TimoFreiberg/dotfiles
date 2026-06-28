@@ -63,6 +63,18 @@ larger work should show direction briefly before diving in.
 When a task has multiple plausible implementation paths, do a quick sanity check before diving in: grep for existing patterns, verify APIs exist, and if there are 2+ reasonable approaches, state which one you're taking and why in one sentence.
 Don't ask for permission or write a plan — just show your work briefly so course-correction is cheap.
 
+## Unfamiliar Tools and Docs
+
+When picking up an unfamiliar CLI or API, treat its self-describing contracts as
+a first-class source — `--help`, plus any machine-readable dumps it offers
+(`openapi`, `schemas`, `print-tools`, event schemas). These are authoritative,
+complete, and survive a docs-site outage. Reach for them alongside the docs
+website, not only after it.
+
+If WebFetch returns 403 on a docs page, retry with `curl -A "<browser UA>"`
+before concluding the docs are inaccessible. WebFetch's default user-agent is
+bot-detectable; the block is usually UA-based, not auth.
+
 ## Audit All Readers When Changing State Interpretation
 
 When you change how state is interpreted in one place — a flag overriding
