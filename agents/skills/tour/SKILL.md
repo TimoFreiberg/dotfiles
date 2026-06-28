@@ -3,22 +3,6 @@ name: tour
 description: "Build a mental model of code changes — guided reading order, conceptual grouping, and context."
 argument-hint: "[uncommitted | commit <hash> | pr <number> | branch <name> | file <path> | <path>...]"
 disable-model-invocation: true
-allowed-tools:
-  - Bash(git diff *)
-  - Bash(git log *)
-  - Bash(git show *)
-  - Bash(git merge-base *)
-  - Bash(git status *)
-  - Bash(git branch *)
-  - Bash(git rev-parse *)
-  - Bash(gh pr diff *)
-  - Bash(gh pr view *)
-  - Bash(jj root *)
-  - Bash(jj diff *)
-  - Bash(jj log *)
-  - Read
-  - Grep
-  - Glob
 ---
 
 ## Repo state

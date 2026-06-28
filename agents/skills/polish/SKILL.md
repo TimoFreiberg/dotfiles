@@ -3,11 +3,6 @@ name: polish
 description: Analyze a codebase for improvements across multiple dimensions — test coverage gaps, documentation quality, performance, API ergonomics, correctness. Use when the user wants to find what's missing or could be better in their project.
 argument-hint: "[dimension ...] (e.g. tests, docs, perf, api, correctness — or empty for all)"
 disable-model-invocation: true
-allowed-tools:
-  - Agent
-  - Read
-  - Glob
-  - Grep
 ---
 
 ## Step 1: Determine scope

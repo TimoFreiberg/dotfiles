@@ -2,14 +2,6 @@
 name: check-todos
 description: "Check for open obligations on a PR: unresolved comments, self-announced follow-ups, Jira status."
 argument-hint: "[pr <number>]"
-allowed-tools:
-  - Bash(gh *)
-  - Bash(curl *)
-  - Bash(jj *)
-  - Bash(git *)
-  - Read
-  - Grep
-  - Glob
 ---
 
 ## Repo state

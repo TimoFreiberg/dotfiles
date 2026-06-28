@@ -2,11 +2,6 @@
 name: review-subagent
 description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with a fresh subagent that returns a structured findings report."
 argument-hint: "[uncommitted | commit <revset> | pr <number> | branch <name> | file <path>] [--instructions \"...\"] [--description \"...\"] [--reviewers <role|alias|provider/model[:thinking]>[,<...>]]"
-allowed-tools:
-  - Bash(uv run $HOME/dotfiles/agents/skills/review-subagent/scope.py *)
-  - Read
-  - Agent
-  - subagent
 ---
 
 # Review
