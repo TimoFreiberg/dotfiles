@@ -1,6 +1,6 @@
 ---
 name: persuasive-writing
-description: "Use when reviewing or drafting prose that must persuade — design docs, RFDs, proposals, job applications."
+description: "Adversarial review/drafting of persuasive technical prose."
 ---
 
 # Technical Persuasive Writing

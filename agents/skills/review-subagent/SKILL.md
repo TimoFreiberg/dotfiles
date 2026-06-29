@@ -135,6 +135,15 @@ On failure, surface that reviewer's message (or the tool error) verbatim under a
 `# Review failed (<spec>)` heading. A failure in one reviewer does NOT suppress
 the others — always surface every reviewer's result.
 
+## Looping
+
+When you use this skill as an adversarial reviewer gate during implementation,
+run it in a loop: implement → commit → review → fix → repeat. Commit between
+rounds so each reviewer sees the cumulative diff at a definite state. There is
+no fixed round cap — keep going until the review passes. If you keep looping on
+the same issue without converging, stop and escalate to the operator with the
+outstanding findings.
+
 ---
 
 ## Reviewer prompt
