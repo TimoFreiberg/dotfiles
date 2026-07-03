@@ -1,5 +1,4 @@
 {
-  "awsAuthRefresh": "aws sso login --sso-session \"$SSO_SESSION\" 2>/dev/null || aws sso login --profile \"$AWS_PROFILE\"",
   "env": {
     "CI": "true",
     "EDITOR": "false",
@@ -108,17 +107,6 @@
         ]
       }
     ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 ~/.claude/hooks/journal-nudge.py",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
@@ -154,17 +142,6 @@
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
-  },
-  "enabledPlugins": {
-    "learning-opportunities@learning-opportunities": true
-  },
-  "extraKnownMarketplaces": {
-    "learning-opportunities": {
-      "source": {
-        "source": "git",
-        "url": "https://github.com/DrCatHicks/learning-opportunities.git"
-      }
-    }
   },
   "effortLevel": "xhigh",
   "autoMemoryEnabled": false,
