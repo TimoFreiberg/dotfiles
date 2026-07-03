@@ -1,4 +1,5 @@
 {
+  "cleanupPeriodDays": 730,
   "env": {
     "CI": "true",
     "EDITOR": "false",
@@ -139,6 +140,7 @@
       }
     ]
   },
+  "enableWorkflows": true,
   "statusLine": {
     "type": "command",
     "command": "bash ~/.claude/statusline.sh"
@@ -148,7 +150,6 @@
   "autoMemoryDirectory": "~/dotfiles/claude/memories",
   "autoDreamEnabled": false,
   "skipDangerousModePermissionPrompt": true,
-  "enableWorkflows": true,
-  "cleanupPeriodDays": 730,
-  "skipWorkflowUsageWarning": true
+  "skipWorkflowUsageWarning": true,
+  "tui": "fullscreen"
 }
