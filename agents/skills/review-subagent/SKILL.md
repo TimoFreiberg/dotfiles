@@ -214,19 +214,6 @@ Don't stop at the first finding — list every qualifying issue.
 
 ## Per-axis guidance
 
-### C — Correctness & Security
-- Logic bugs, off-by-one, incorrect control flow, boundary/edge cases (nil,
-  empty collections, integer limits, Unicode edges).
-- Memory safety (use-after-free, double-free, uninitialized reads, unsound
-  `unsafe`, lifetime issues); integer issues (overflow/truncation on cast,
-  unchecked arithmetic); untrusted input → shell/path/format/serialization
-  (prefer escaping over sanitization); concurrency (data races, missing
-  synchronization, lock ordering, TOCTOU); resource leaks.
-- Error handling: unchecked errors, wrong error codes, log-and-continue,
-  fail-fast violations, silent degradation.
-- Behavioral regressions: changed return values, dropped side effects,
-  altered invariants.
-
 ### D — Documentation & Comments
 - Comments that restate what the code visibly does.
 - Comments inaccurate, outdated, or misleading relative to the code.
