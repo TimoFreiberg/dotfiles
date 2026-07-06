@@ -16,9 +16,12 @@ Review is split across **two axis groups**, each dimension covered exactly once:
 - **Group 1 — C+S:** Correctness & Security, Design & Structure.
 - **Group 2 — D+T:** Documentation & Comments, Test Correctness.
 
-Each group runs as one subagent. Every reviewer prompt is assembled from
-`CONTRACT.md` (the shared output spec) plus the axis brief file(s) for that
-group. Findings carry axis prefixes (C1, S2, D1, T3) and are evidenced with a
+Each group runs as one subagent. The reviewer reads its own guidance from disk:
+the prompt hands it absolute paths to `CONTRACT.md` (the shared output spec) plus
+the axis brief file(s) for that group, and the subagent Reads them itself. This
+keeps the ~14 KB of contract + briefs out of the orchestrator's context — it
+never loads them, so a long review/fix loop does not accumulate their cost.
+Findings carry axis prefixes (C1, S2, D1, T3) and are evidenced with a
 `file:line` and a quoted snippet. In the common case that is **2 subagents**.
 
 `--reviewers` supplies a **model list to round-robin across the groups** — it is
@@ -100,13 +103,18 @@ Resolve `--reviewers` into an ordered model list (default: the single role
 `high-effort-review`). Assign models by round-robin: Group 1 (C+S) →
 `models[0]`, Group 2 (D+T) → `models[1 % len(models)]`.
 
-Build each group's `prompt:` by concatenating, in order:
+Do NOT read `CONTRACT.md` or the axis briefs yourself — that would pull ~14 KB
+into your context every loop. Instead, hand each subagent the absolute paths and
+have it Read them. Build each group's `prompt:` from the **Reviewer prompt**
+template below, filling in `$GUIDANCE_FILES` with that group's ordered path list
+(one per line) and the `## Task context` substitutions.
 
-1. The full text of `CONTRACT.md` (Read it from this skill's directory).
-2. The axis brief file(s) for that group, Read from this skill's directory:
-   - Group 1: `CORRECTNESS.md` then `DESIGN.md`.
-   - Group 2: `DOCUMENTATION.md` then `TESTS.md`.
-3. The `## Task context` block below, with substitutions filled in.
+Guidance file lists (all under `$HOME/dotfiles/agents/skills/review-subagent/` —
+substitute the concrete absolute path; the subagent gets a plain string, so do
+not rely on `$HOME` expansion in its prompt):
+
+- **Group 1 (C+S):** `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`
+- **Group 2 (D+T):** `CONTRACT.md`, `DOCUMENTATION.md`, `TESTS.md`
 
 Substitutions in the task-context block: `$SCOPE_SUMMARY` (scope_summary),
 `$INSTRUCTIONS` / `$DESCRIPTION` (flag values or empty), `$DIFF_PATH` (absolute
@@ -170,12 +178,20 @@ outstanding findings.
 
 ---
 
-## Task context block
+## Reviewer prompt
 
-Append this to each group's prompt (after CONTRACT + axis briefs), with the
-marked `$SUBSTITUTIONS` filled in:
+Use this exact text for each group's `prompt:`, with the marked
+`$SUBSTITUTIONS` filled in. `$GUIDANCE_FILES` is that group's ordered list of
+absolute paths (see Step 4), one per line.
 
 ```
+You are an adversarial code reviewer. Before doing anything else, Read the
+following files in order with the `Read` tool and follow them exactly. They are
+your authoritative instructions: the first is the shared output contract, the
+rest are the axis briefs defining what to look for and the calibration for each.
+
+$GUIDANCE_FILES
+
 ## Task context
 
 <scope_summary>$SCOPE_SUMMARY</scope_summary>
