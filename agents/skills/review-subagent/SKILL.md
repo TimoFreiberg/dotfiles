@@ -3,37 +3,30 @@ name: review-subagent
 description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with a fresh subagent that returns a structured findings report."
 ---
 
-# Review
-
 You orchestrate: parse arguments, run `scope.py` to gather the diff, spawn the
 reviewer subagents, and surface their reports verbatim. You do not review code
 yourself.
 
-## Core idea
+Review is split across two axis groups, each dimension covered exactly once:
 
-Review is split across **two axis groups**, each dimension covered exactly once:
-
-- **Group 1 — C+S:** Correctness & Security, Design & Structure.
-- **Group 2 — D+T:** Documentation & Comments, Test Correctness.
+- Group 1 — C+S: Correctness & Security, Design & Structure.
+- Group 2 — D+T: Documentation & Comments, Test Correctness.
 
 Each group runs as one subagent. The reviewer reads its own guidance from disk:
 the prompt hands it absolute paths to `CONTRACT.md` (the shared output spec) plus
-the axis brief file(s) for that group, and the subagent Reads them itself. This
-keeps the ~14 KB of contract + briefs out of the orchestrator's context — it
-never loads them, so a long review/fix loop does not accumulate their cost.
+the axis brief file(s) for that group, and the subagent reads them itself.
+This avoids cluttering the main session's context.
 Findings carry axis prefixes (C1, S2, D1, T3) and are evidenced with a
-`file:line` and a quoted snippet. In the common case that is **2 subagents**.
+`file:line` and a quoted snippet. In the common case that is 2 subagents.
 
 `--reviewers` supplies a **model list to round-robin across the groups** — it is
 NOT a multiplier and never makes a dimension get reviewed twice. Group *i* runs
 on `models[i % len(models)]`. With no flag, both groups run on the default
 model. With `--reviewers A,B`, Group 1 → A and Group 2 → B — purely to add model
-variety across dimensions. (Trade-off: no dimension gets two independent model
-looks; that mode is gone by design.)
+variety across dimensions.
 
-Reports are surfaced **verbatim and unmerged** — no dedup or verification stage.
-The consumer (a human, or a fix agent in a loop) dedups and prioritizes across
-the two reports itself.
+Reports are surfaced verbatim and unmerged, no dedup or verification stage.
+That's the consumer's job.
 
 When `--description` is provided, Group 1 additionally produces a
 `## Plan alignment` section (the CONTRACT handles the format).
@@ -103,15 +96,15 @@ Resolve `--reviewers` into an ordered model list (default: the single role
 `high-effort-review`). Assign models by round-robin: Group 1 (C+S) →
 `models[0]`, Group 2 (D+T) → `models[1 % len(models)]`.
 
-Do NOT read `CONTRACT.md` or the axis briefs yourself — that would pull ~14 KB
-into your context every loop. Instead, hand each subagent the absolute paths and
-have it Read them. Build each group's `prompt:` from the **Reviewer prompt**
-template below, filling in `$GUIDANCE_FILES` with that group's ordered path list
-(one per line) and the `## Task context` substitutions.
+Do NOT read `CONTRACT.md` or the axis briefs yourself — hand each subagent the
+absolute paths and have it Read them. Build each group's `prompt:` from the
+**Reviewer prompt** template below, filling in `$GUIDANCE_FILES` with that
+group's ordered path list (one per line) and the `## Task context`
+substitutions.
 
 Guidance file lists (all under `$HOME/dotfiles/agents/skills/review-subagent/` —
-substitute the concrete absolute path; the subagent gets a plain string, so do
-not rely on `$HOME` expansion in its prompt):
+substitute the concrete absolute path, no `$HOME`; the subagent gets a plain
+string):
 
 - **Group 1 (C+S):** `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`
 - **Group 2 (D+T):** `CONTRACT.md`, `DOCUMENTATION.md`, `TESTS.md`
@@ -119,11 +112,10 @@ not rely on `$HOME` expansion in its prompt):
 Substitutions in the task-context block: `$SCOPE_SUMMARY` (scope_summary),
 `$INSTRUCTIONS` / `$DESCRIPTION` (flag values or empty), `$DIFF_PATH` (absolute
 path to the `diff` file), `$PR_CONTEXT_PATH` (absolute path to `pr_context` if
-the subcommand was `pr`, otherwise empty). Leave `$DESCRIPTION` non-empty only
-for Group 1 — Group 2 always gets empty `<description>` so it never emits a
-Plan-alignment section.
+the subcommand was `pr`, otherwise empty). Fill `$DESCRIPTION` only for Group 1;
+Group 2 gets empty `<description>`.
 
-Spawn both groups **in parallel**:
+Spawn both groups in parallel:
 
 - **pi** (`subagent` tool): a SINGLE call whose `tasks` array has one entry per
   group. Role specs use `{agent: "general-purpose", role: "<role>", task:
@@ -154,8 +146,7 @@ label header naming the group, and nothing else between or around them:
 
     <that reviewer's report, verbatim>
 
-Do not add commentary, summaries, merged findings, or re-sorting. The consumer
-dedups and prioritizes across the two reports.
+Do not add commentary, summaries, merged findings, or re-sorting.
 
 Per group, treat it as failed if any of:
 
