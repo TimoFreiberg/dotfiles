@@ -13,6 +13,12 @@ abstraction" or "extract this helper" churns code that was fine. So:
 - Quote the specific construct and say what the better shape is, so the fixer
   changes it surgically.
 
+**The complexity-relocation test.** Before flagging something as "cleaner if
+restructured," count the concepts a reader must hold to follow the change. If a
+"cleaner" version leaves that count unchanged, it is not cleaner — it just moves
+the complexity around. Only propose a restructuring that genuinely *reduces* the
+concept count; otherwise stay silent.
+
 > Escalation note (not yet built): when high-priority design violations keep
 > recurring across fix-loop rounds without a good resolution, that is a signal
 > to escalate to the human operator rather than churning. No mechanism exists
@@ -62,6 +68,14 @@ Good to catch, but seen less often — hold the same conservative bar:
   returns a plausible value* — often with a comment explaining it is a stub —
   instead of a loud `todo!()`/`panic!`/assert that fails immediately if reached.
   Deferred work should be loud, not silent.
+- **Drive-by edits.** Reformatting, renames, refactors, or comment rewrites in
+  the diff that do not trace back to the change's stated purpose. They inflate
+  the diff and obscure the real change. Flag the unrelated churn, not the
+  intended edit.
+- **Incomplete propagation.** A rename, signature, or schema change applied only
+  to the sites in the diff, leaving other call sites on the old shape. (When it
+  breaks the build or behavior it is a correctness bug too; the design framing is
+  "update the remaining callers rather than shim around them.")
 
 #### Other structure checks (from the base axis)
 

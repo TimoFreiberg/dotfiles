@@ -18,6 +18,16 @@ bug look fixed. So:
 - If you cannot tell which side is right, say so and flag it for human
   attention rather than implying the test should change.
 
+A specific masking tell: an expected value **captured from the code's actual
+output** rather than derived from the requirement. Such a test asserts "the code
+does what it does" and cannot catch a bug. When you suspect this, say the
+expected value should be derived from intended behavior, not copied from output.
+
+**The revert experiment.** For each meaningfully changed line of production
+code, mentally revert it and ask: which test goes red? If the answer is "none,"
+that is a finding — name the line and the missing coverage. This is the sharpest
+check for "tests with no failing case" and for change that ships untested.
+
 #### Primary smell — over-mocking
 
 The test smell most worth catching. Flag when a test asserts that a **mock was

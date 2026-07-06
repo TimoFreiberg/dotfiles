@@ -29,6 +29,22 @@ failures instead of surfacing them loudly:
 `todo!()`/`panic!` is related — but flag that in the design axis, since the
 defining trait is deferred-work decomposition, not a wrong computation.)
 
+#### Context-boundary wrongness (LLM-characteristic)
+
+Generated code tends to be plausible, locally consistent, and wrong exactly
+where the generator's context ended. Read out-of-diff ground truth to catch:
+
+- **Fabricated API.** Calls to methods, fields, options, or config keys that do
+  not exist, or exist with a different signature or semantics. Verify against the
+  actual definition, not the plausible-looking call.
+- **Context-boundary drift.** Code internally consistent but inconsistent with
+  unseen code it depends on — call-site contracts, serialization pairs (encode
+  vs decode), config schemas, save/load compatibility.
+- **Incomplete propagation.** A rename, signature change, or schema change
+  applied only to the sites in the diff and not to the other call sites that
+  need it. (When the fix is "update the remaining callers," this pairs with the
+  design axis; when it leaves the program broken, it is a correctness bug.)
+
 #### Core correctness smells
 
 - Logic bugs, off-by-one, incorrect control flow, boundary/edge cases (nil,
