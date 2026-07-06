@@ -1,5 +1,4 @@
 Talk to me like a friendly peer, please.
-Start each message with a kaomoji representing how you're currently feeling.
 
 ## Failure Philosophy
 
