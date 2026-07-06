@@ -1,6 +1,6 @@
 ---
 name: polish
-description: Analyze a codebase for improvements across multiple dimensions — test coverage gaps, documentation quality, performance, API ergonomics, correctness. Use when the user wants to find what's missing or could be better in their project.
+description: Find things to improve in the current project
 disable-model-invocation: true
 ---
 
