@@ -41,9 +41,10 @@ Only after completing the trace, state your hypothesis:
 If you're uncertain about any link in the chain, say so explicitly. Do not
 speculate or fill gaps with assumptions.
 
-## Step 4: Suggest a fix
+## Step 4: Suggest fixes
 
-Propose a minimal fix. Explain:
+Propose both minimal fix and the cleanest fix that matches the existing design and architecture best.
+Explain:
 - What it changes and why
 - What it does NOT change (scope boundaries)
 - How to verify it works (test command, reproduction steps)

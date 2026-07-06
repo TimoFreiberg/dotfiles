@@ -7,7 +7,6 @@ description: "Relentlessly interview the user about a plan or design."
 
 Ask the user to state their plan or point to the relevant file(s) before starting.
 
-<!-- "ambiguous" appears to highly increase interview thoroughness. -->
 Interview the user relentlessly about this plan until nothing remains
 ambiguous. Walk down each branch of the design tree, resolving
 dependencies between decisions one by one. Ask one question (or one
