@@ -21,6 +21,29 @@ is expensive and easy to miss. So:
   to be, what it used to do, or the journey to the current form. Allowed ONLY
   when the code would look wrong or surprising without it AND the comment makes
   clear that the surprising-looking code is actually correct. Otherwise flag it.
+- **PR-episode narration.** A comment that narrates the *development episode
+  that produced this diff*: the bug it fixes and the mechanism of that bug, what
+  the old code did before this change, why the author took this approach, what
+  the previous test failed to cover. This is distinct from the history bullet
+  above and does NOT get its exception — flag it even when it accurately explains
+  surprising code, because this backstory belongs in the commit message / PR
+  description, not the source. The test: would this sentence read as stale to a
+  future engineer who never saw the change land? If it only makes sense as "here
+  is what I just did and why," it is PR-episode narration. Flag the narrating
+  clauses; leave any terse operational note (e.g. "requires the integration
+  fixture"). Example to flag:
+
+  ```
+  # Regression test for the ticket: enqueueing a zero-priority job used to crash
+  # the worker -- next_ready() returned a null handle and the dispatch loop
+  # dereferenced it unconditionally -> segfault. The earlier queue test only
+  # survived because every case pushed a high-priority job, so the null path was
+  # never hit.
+  ```
+
+  The bug mechanism, the "used to crash", and the "earlier test only survived
+  because" are all PR-episode narration. What the test asserts *now* is fine to
+  keep (compressed if long); the story of the bug and the prior test is not.
 - **Internal-API caller coupling.** A comment on an internal function that
   explains how a *specific caller* handles its return value or arguments (e.g.
   "returns -1 on failure, which `open_socket` checks explicitly"). The function's
