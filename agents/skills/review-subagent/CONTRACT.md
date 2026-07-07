@@ -53,6 +53,18 @@ under 30 seconds. If you cannot, DROP the finding — absent beats
 visible-but-flagged. Never emit `Evidence: (none)` or use a diff hunk header as
 evidence.
 
+**Reading line numbers.** The diff is annotated: each body line has a left
+gutter holding its real line number in the *current* (new) file, e.g.
+`   143  +	MT_free(...)` means that line is line 143 of the file. Cite that
+gutter number. Two rules that catch the common mistakes:
+
+- The number to cite is the **gutter** number, NOT the line's position in the
+  diff file you were handed. A finding at `foo.c:2905` when `foo.c` is 300 lines
+  long is the classic error — you counted lines in the diff blob, not the source.
+- **Removed lines have a blank gutter** — they do not exist in the current file,
+  so they are not citable as `file:line`. Anchor the finding to a nearby
+  surviving line (context or added) instead.
+
 ## Priority tags
 
 - `[P0]` blocking — must fix before this lands.

@@ -6,7 +6,8 @@ Writes four files to a temp directory and prints the directory path on stdout:
 
     scope_summary  one-line description (e.g. "default (trunk()..@, 3 changes)")
     header         commit list + diffstat (for the orchestrator to print)
-    diff           unified diff (for the reviewer prompt)
+    diff           unified diff, gutter-annotated with new-file line numbers
+                   (for the reviewer prompt)
     pr_context     PR metadata + comments (only for `pr <number>`; else empty)
 
 Exits non-zero on usage errors or when there's nothing to review (empty diff,
@@ -22,6 +23,87 @@ import os
 import subprocess
 import sys
 import tempfile
+
+
+# ---------- diff annotation -----------------------------------------------
+
+
+def annotate_diff(diff: str) -> str:
+    """Prefix each diff body line with its real new-file source line number.
+
+    Reviewers must cite `file:line` against the *current* source, but a unified
+    diff carries only per-hunk `@@ -a,b +c,d @@` headers, forcing the reader to
+    count forward by hand. Models get this wrong constantly -- often citing the
+    line's position within the diff blob instead of a source line. We do the
+    counting here (Python counts perfectly) and put the number in a left gutter:
+
+        @@ -31,16 +15,13 @@ server s1 -start
+            15  server s1 -start
+             -  # removed line has no new-file line, so a blank gutter
+            16  if -macro-defined use_rust_smiss {
+
+    Context and added lines carry their new-file number; removed lines get a
+    blank gutter (they do not exist in the current file, so they are not
+    citable). Structural lines (`diff --git`, `@@`, `---`, etc.) pass through
+    unchanged. The original `+`/`-`/space marker is preserved after the gutter.
+    """
+    # Structural prefixes that start a new file's metadata: they end any hunk
+    # and must never get a gutter. `diff --git`/`index` are unambiguous. The
+    # `---`/`+++` file headers also start with -/+ and would otherwise be
+    # mistaken for body lines, so they are handled specially below: they only
+    # count as headers when NOT inside a hunk (a real body line can begin with
+    # "-- " or "++ " content, which must keep its gutter).
+    file_start = ("diff --git ", "index ", "old mode ", "new mode ",
+                  "similarity ", "dissimilarity ", "rename ", "copy ",
+                  "new file mode ", "deleted file mode ", "Binary files ",
+                  "GIT binary patch")
+    out: list[str] = []
+    new_lineno = 0
+    in_hunk = False
+    for line in diff.split("\n"):
+        if line.startswith(file_start):
+            # New-file metadata (or binary marker): leave hunk mode, pass through.
+            in_hunk = False
+            out.append(line)
+            continue
+        if not in_hunk and (line.startswith("--- ") or line.startswith("+++ ")):
+            # File header line (only appears outside a hunk), pass through.
+            out.append(line)
+            continue
+        if line.startswith("@@"):
+            # @@ -a,b +c,d @@ optional-section-heading
+            # The new-file start line is c in the "+c,d" token.
+            try:
+                plus = line.split("+", 1)[1]
+                new_lineno = int(plus.split(",", 1)[0].split(" ", 1)[0])
+                in_hunk = True
+            except (IndexError, ValueError):
+                in_hunk = False
+            out.append(line)
+            continue
+        if not in_hunk:
+            # File headers, index lines, mode/rename lines, etc.
+            out.append(line)
+            continue
+        if line.startswith("+"):
+            out.append(f"{new_lineno:6d}  {line}")
+            new_lineno += 1
+        elif line.startswith("-"):
+            out.append(f"{'':6}  {line}")
+        elif line.startswith("\\"):
+            # "\ No newline at end of file" -- not a real line.
+            out.append(f"{'':6}  {line}")
+        elif line == "":
+            # Trailing empty element from a final newline, or a stray blank
+            # between the diff and later structural content: emit as-is, no
+            # gutter and no counter bump. (Real context blank lines in a
+            # unified diff carry a leading space, so they hit the else branch.)
+            out.append(line)
+        else:
+            # Context line (leading space).
+            out.append(f"{new_lineno:6d}  {line}")
+            new_lineno += 1
+    return "\n".join(out)
 
 
 # ---------- shell ---------------------------------------------------------
@@ -246,7 +328,7 @@ def main() -> int:
         if header and not header.endswith("\n"):
             f.write("\n")
     with open(os.path.join(out, "diff"), "w") as f:
-        f.write(diff)
+        f.write(annotate_diff(diff))
     with open(os.path.join(out, "pr_context"), "w") as f:
         f.write(pr_context)
     print(out)
