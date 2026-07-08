@@ -193,7 +193,6 @@ echo " 6/6  repos (jj git fetch + fast-forward)"
 echo "──────────────────────────────────────────"
 
 update_jj_repo dotfiles "$HOME/dotfiles" main; or set had_errors 1
-update_jj_repo skepsis "$HOME/src/skepsis" main; or set had_errors 1
 echo ""
 
 # ──────────────────────────────────────────────
