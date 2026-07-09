@@ -1,3 +1,4 @@
 config.yaml*
 prompt_history
 permissions.local.yaml
+subagents/reviewer-[0-9]*.md
