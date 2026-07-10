@@ -1,7 +1,6 @@
 ---
 name: jj-workspaces
 description: "Use when you want to work in an isolated jj working copy — parallel task, experimental scratch, subagent with its own tree. jj's equivalent of git worktrees: creating a workspace, working inside it from anywhere, and cleaning up without losing history."
-user-invocable: false
 ---
 
 # jj workspaces

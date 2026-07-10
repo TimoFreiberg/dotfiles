@@ -1,7 +1,6 @@
 ---
 name: working-exhaustively
 description: "Use when the user asks to be exhaustive, thorough, comprehensive, or rigorous, wants a finding drilled into or adversarially verified, or when missing something would be costly — a deliberate deep-work mode that trades speed for rigor."
-user-invocable: true
 ---
 
 # Working Exhaustively

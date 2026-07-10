@@ -1,7 +1,6 @@
 ---
 name: polish
 description: Find things to improve in the current project
-disable-model-invocation: true
 ---
 
 ## Step 1: Determine scope

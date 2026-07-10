@@ -1,7 +1,6 @@
 ---
 name: tour
 description: "Build a mental model of code changes — guided reading order, conceptual grouping, and context."
-disable-model-invocation: true
 ---
 
 ## Repo state
