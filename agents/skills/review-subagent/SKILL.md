@@ -62,16 +62,18 @@ and writes four files to a fresh temp dir whose path it prints on stdout:
 If the script exits non-zero, surface its stderr and stop. It already handles
 the empty-diff and missing-merge-base cases.
 
-Read `scope_summary` and `header` with the `Read` tool for Step 3. Leave `diff`
-on disk — the reviewers Read it directly, keeping the diff out of your context.
-Read `pr_context` only if the subcommand was `pr`.
+Do **not** read any generated scope files. Keep `scope_summary`, `header`, `diff`,
+and `pr_context` on disk and pass their absolute paths to the reviewer
+subagents. In particular, never load the diff or scope header into your own
+context merely to summarize it in the chat transcript. The reviewers read the
+artifacts directly.
 
-## Step 3: Print a brief scope header
+## Step 3: Record the scope artifact paths
 
-Two lines in your normal response stream (NOT in the subagent's prompt or report):
-
-- `Reviewing: <scope_summary>`
-- `<header>` indented as-is (the script already formats commit list + diffstat)
+Keep the paths printed or returned by `scope.py` available for the reviewer
+prompts. Do not print the contents of `scope_summary` or `header`; the review
+reports are the useful output, and loading those files would defeat the
+context-isolation purpose of the scope script.
 
 ## Step 4: Spawn the reviewer subagents
 

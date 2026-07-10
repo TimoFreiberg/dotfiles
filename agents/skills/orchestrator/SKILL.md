@@ -5,9 +5,10 @@ description: "Use when executing a multi-step plan and each implementation step 
 
 # Orchestrator
 
-Coordinate implementation of a plan one open task at a time. Delegate the actual
-implementation, obtain independent reviews, require the implementer to address
-the findings, and continue until the task is approved before moving on.
+Coordinate implementation of a plan one open task at a time. Use the
+`review-subagent` skill as the review engine: delegate implementation, run a
+focused review, require the implementer to address the findings, and continue
+until the task is approved before moving on.
 
 ## When to use
 
@@ -27,12 +28,11 @@ For each open task or plan step, in order:
    prompt containing the task, relevant acceptance criteria, repository context,
    and the expected verification. The implementer owns the code change and
    should report what it changed and what it tested.
-3. **Review independently.** When the implementer finishes, send independent
-   reviewer subagents to evaluate the resulting change. Run the reviewers in
-   parallel when possible. Use the configured reviewer subagents and models;
-   do not force a model override unless the operator explicitly requests one.
-   Ask every reviewer to classify findings as **critical**, **high**, **medium**,
-   or **low**, and to support findings with concrete file and line references.
+3. **Run a task-scoped review.** Invoke the `review-subagent` procedure against
+   the resulting task change, not its default cumulative scope. Pass the task’s
+   acceptance criteria as `--description`. Let that skill own scope gathering,
+   reviewer selection, prompts, report format, and report validation; run its
+   independent reviewers in parallel as specified there.
 4. **Resolve findings through the implementer.** Give the complete reviewer
    reports to the same implementer subagent. It must fix every finding or
    explicitly rebut it with evidence and explain why no change is warranted.
@@ -48,29 +48,24 @@ For each open task or plan step, in order:
    that reference the plan.
 8. **Continue.** Start the next open task with a fresh implementer subagent.
 
-## Review report contract
+## Orchestrator-specific review gate
 
-Each reviewer should return the review-subagent report shape: one `## Findings`
-section with findings sorted by `[critical]`, `[high]`, `[medium]`, then `[low]`.
-Each finding should include:
-
-- the axis prefix, severity tag, and concise title;
-- the relevant `file:line` and a short quoted excerpt;
-- why it matters;
-- a concrete fix or verification request.
-
-The report must also include the required `# Code Review`, `## Coverage`, and
-`## Verdict` sections. A reviewer error, empty report, or report that does not
-follow this contract is a failed review. Treat it as a reason to rerun or
-replace that reviewer, not as approval.
+Treat the `review-subagent` reports as the authoritative review output; do not
+rewrite, merge, or silently discard their findings. A review round passes only
+when both reviewer reports are valid according to that skill and every finding
+is either fixed or explicitly rebutted with evidence. The task passes only
+when no non-rebutted critical or high finding remains and all medium or low
+findings have been fixed or explicitly rebutted.
 
 ## Common mistakes
 
 - Implementing several tasks before reviewing any of them. Keep the loop scoped
   to one task.
-- Treating a reviewer’s silence as approval. Require the report contract and
-  either prompt the reviewer subagent again (or, if it's a oneshot, run another
-  subagent).
+- Reviewing the cumulative default scope instead of the current task change.
+  Always pass an explicit task-scoped revision or range to `review-subagent`.
+- Treating a reviewer’s silence or malformed report as approval. Follow
+  `review-subagent`’s report-validation rules and rerun or replace failed
+  reviewers.
 - Letting the implementer dismiss findings without evidence. Require a fix or
   a specific rebuttal for every finding.
 - Stopping after one review round when a critical or high finding remains.
