@@ -33,9 +33,9 @@ Produce exactly this structure, in order:
    `done` / `partial` / `missing` / `scope-deviated`; and an `Evidence:` line
    with `file:line` + a quoted snippet (or, for `missing`, a one-line note on
    what you searched and didn't find).
-5. `## Findings` — surviving findings, sorted by priority (P0 → P1 → P2),
-   keeping axis prefixes. One level-3 heading per finding:
-   `### C1 [P0] src/foo.rs:42 — buffer overflow on resize`. Then:
+5. `## Findings` — surviving findings, sorted by severity (critical → high →
+   medium → low), keeping axis prefixes. One level-3 heading per finding:
+   `### C1 [critical] src/foo.rs:42 — buffer overflow on resize`. Then:
    - One paragraph explaining the issue and its impact.
    - A code snippet under 3 lines if it sharpens the point.
    - An `Evidence:` line with `file:line` and a quoted snippet from the source
@@ -43,8 +43,9 @@ Produce exactly this structure, in order:
    Note whether each finding is in newly added or pre-existing code; treat
    non-critical findings in pre-existing code as informational.
 6. `## Verdict` — one short line per axis you covered: `correct` if no surviving
-   P0/P1 in that axis, else `needs attention`. Then one overall line:
-   `needs attention` if any axis is, else `correct`.
+   critical or high finding exists in that axis, else `needs attention`. Then one
+   overall line: `needs attention` if any critical or high finding exists, else
+   `correct`.
 
 ## The evidence bar
 
@@ -65,11 +66,14 @@ gutter number. Two rules that catch the common mistakes:
   so they are not citable as `file:line`. Anchor the finding to a nearby
   surviving line (context or added) instead.
 
-## Priority tags
+## Severity tags
 
-- `[P0]` blocking — must fix before this lands.
-- `[P1]` normal — real concern, fix in this PR or follow-up.
-- `[P2]` nit — style or minor polish; skip unless it obscures meaning.
+- `[critical]` blocking — must fix before this lands.
+- `[high]` serious correctness, security, design, documentation, or test concern
+  — fix before this lands or explicitly escalate it.
+- `[medium]` valid non-blocking concern — fix if practical or record a follow-up.
+- `[low]` minor polish or informational issue — fix when useful; do not let it
+  obscure more important findings.
 
 Don't stop at the first finding — list every qualifying issue. Don't demand
 rigor inconsistent with the rest of the codebase.

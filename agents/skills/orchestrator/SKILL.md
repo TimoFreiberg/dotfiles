@@ -50,23 +50,19 @@ For each open task or plan step, in order:
 
 ## Review report contract
 
-Each reviewer should return four clearly labeled sections, in this order:
+Each reviewer should return the review-subagent report shape: one `## Findings`
+section with findings sorted by `[critical]`, `[high]`, `[medium]`, then `[low]`.
+Each finding should include:
 
-- `## Critical`
-- `## High`
-- `## Medium`
-- `## Low`
-
-An empty section is valid and should say `None`. Each finding should include:
-
-- severity and a concise title;
+- the axis prefix, severity tag, and concise title;
 - the relevant `file:line` and a short quoted excerpt;
 - why it matters;
 - a concrete fix or verification request.
 
-A reviewer error, empty report, or report that does not follow this contract is a
-failed review. Treat it as a reason to rerun or replace that reviewer, not as
-approval.
+The report must also include the required `# Code Review`, `## Coverage`, and
+`## Verdict` sections. A reviewer error, empty report, or report that does not
+follow this contract is a failed review. Treat it as a reason to rerun or
+replace that reviewer, not as approval.
 
 ## Common mistakes
 

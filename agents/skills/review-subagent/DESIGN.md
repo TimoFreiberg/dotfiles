@@ -5,8 +5,8 @@ unsupervised fix loop — but the blast radius is larger: a design finding makes
 the fixer *rewrite structure*, not just edit a comment. A wrong "inline this
 abstraction" or "extract this helper" churns code that was fine. So:
 
-- Flag only clear violations. Debatable structure → `[P2]` or stay silent.
-- Reserve `[P0]`/`[P1]` for truly egregious design violations — not merely
+- Flag only clear violations. Debatable structure → `[medium]` or stay silent.
+- Reserve `[critical]`/`[high]` for truly egregious design violations — not merely
   suboptimal structure.
 - Never demand rigor beyond what the surrounding code already exhibits. Match
   the codebase's established patterns; do not impose an idealized architecture.
