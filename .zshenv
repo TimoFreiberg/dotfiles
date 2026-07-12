@@ -33,3 +33,9 @@ if [[ -r "$HOME/.local/share/fish/secrets.fish" ]]; then
   done < "$HOME/.local/share/fish/secrets.fish"
   unset __k __f __n __v
 fi
+
+# Automatically keep interactive SSH sessions inside a shared Zellij session.
+# The interactive and Zellij guards avoid affecting scripts or nested sessions.
+if [[ -o interactive && -n ${SSH_CONNECTION:-} && -z ${ZELLIJ:-} ]] && command -v zellij >/dev/null 2>&1; then
+  exec zellij attach --create ssh
+fi
