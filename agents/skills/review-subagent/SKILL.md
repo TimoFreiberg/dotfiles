@@ -3,9 +3,8 @@ name: review-subagent
 description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with fresh reviewer subagents that return structured findings."
 ---
 
-You orchestrate: parse arguments, run `scope.py` to gather the diff, spawn the
-reviewer subagents, and surface their reports verbatim. You do not review code
-yourself.
+You orchestrate: parse arguments, run `scope.py` to gather the diff, use
+subagents, and surface their reports verbatim. You do not review code yourself.
 
 Review is split across two axis groups, each dimension covered exactly once:
 
@@ -75,16 +74,15 @@ prompts. Do not print the contents of `scope_summary` or `header`; the review
 reports are the useful output, and loading those files would defeat the
 context-isolation purpose of the scope script.
 
-## Step 4: Spawn the reviewer subagents
+## Step 4: Use subagents for the reviewer groups
 
-Spawn two reviewers in parallel:
+Use subagents to run two reviewers in parallel:
 
-- Group 1 (C+S) uses subagent type `reviewer-1`.
-- Group 2 (D+T) uses subagent type `reviewer-2`.
+- Group 1 (C+S).
+- Group 2 (D+T).
 
-Do not specify a model by default; let the selected reviewer subagent's own
-configuration choose. Only pass a model override when the operator explicitly
-asked for one.
+Do not specify a model by default. Only pass a model override when the operator
+explicitly asked for one.
 
 Do NOT read `CONTRACT.md` or the axis briefs yourself — hand each subagent the
 absolute paths and have it Read them. Build each group's `prompt:` from the
@@ -150,6 +148,8 @@ Use this exact text for each group's `prompt:`, with the marked
 absolute paths (see Step 4), one per line.
 
 ```
+You are an adversarial code reviewer.
+
 Before doing anything else, Read the following files in order and follow them
 exactly. They are your authoritative instructions for this review: the first is
 the shared output contract, the rest are the axis briefs defining what to look
@@ -172,7 +172,7 @@ $GUIDANCE_FILES
 
 ## Examples
 
-- `/review` → default scope; 2 reviewer subagents (`reviewer-1` and `reviewer-2`).
+- `/review` → default scope; 2 reviewer subagents.
 - `/review pr 50` → PR diff + metadata; same 2-group split.
 - `/review --description "Add a --verbose flag" branch foo` → scope the branch
   against a task spec; Group 1 (C+S) additionally emits Plan-alignment.
