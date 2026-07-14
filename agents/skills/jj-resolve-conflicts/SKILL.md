@@ -25,6 +25,29 @@ with one. The agent-friendly path is editing the markers in the file
 directly; jj's snapshotting picks the resolution up. `jj resolve --list` is
 fine (read-only, lists conflicted files).
 
+### Editing-tool hazard: escaped marker labels
+
+jj's materialized conflict format contains metadata lines such as `%%%%%%%`,
+`+++++++`, and a `to:` line whose leading backslashes vary with the conflict
+and may be displayed with another layer of escaping by the tool. **Never
+retype or guess those backslashes in `file_edit_search_replace` input.** A
+failed match is safer than an edit that leaves literal `\\`, `+`, or `-`
+characters in source code.
+
+Use this recovery ladder when an edit does not match:
+
+1. Re-read the complete file, then a small range around the conflict. Treat the
+   file contents—not a copied tool diagnostic—as authoritative.
+2. Resolve the whole region semantically. Keep the desired source lines, but
+   remove jj metadata, diff prefixes (`+`/`-`), and marker tails. Do not copy a
+   displayed diff into the file as if it were source.
+3. Prefer short, unambiguous edits using stable source anchors before and after
+   the conflict. Remove marker lines separately when necessary; avoid putting
+   an escaped `to:` label in `old_string`.
+4. If two edits fail or incremental edits introduce artifacts, stop guessing
+   and rewrite the complete resolved file from a fresh full-file read using the
+   file-writing tool.
+
 ## Step 1: Find the conflicted revisions
 
 If `$ARGUMENTS` contains a change ID, use that. Otherwise:
@@ -88,16 +111,42 @@ jj diff --no-pager --git -r <change-id>
 ## Step 4: Write the resolution
 
 Read the **full** conflicted file first — markers are inline and you need the
-surrounding context. Then write the complete resolved file with every marker
-line removed. Leftover markers mean the conflict is still recorded.
+surrounding context. Decide the final source block before editing it. For a
+3-sided conflict, compare all sides and write one merged block; never
+concatenate alternatives.
+
+The final file must contain ordinary source only. Remove every jj marker,
+marker label, diff prefix, and marker tail. A line copied from a jj diff is not
+source until its `+` or `-` prefix has been removed.
+
+After each edit, reread the affected range. If incremental editing has made the
+file less trustworthy, rewrite the complete resolved file from a fresh read
+rather than continuing to guess at escapes.
 
 ## Step 5: Verify
 
+First inspect the source, then run cheap syntax/format checks before squashing:
+
 ```bash
+# Search marker families separately; avoid a complicated escaped regex.
+grep -n '<<<<<<<' <path>
+grep -n '>>>>>>>' <path>
+grep -n '%%%%%%%' <path>
+grep -n '+++++++' <path>
+
+# Inspect suspicious leftovers in the former conflict range.
+grep -nE '^[[:space:]]*\\|^[[:space:]]*[+-][[:space:]]' <path>
+
+# Use the project's formatter/parser, for example:
+cargo fmt --all -- --check
+
 jj st --no-pager
 ```
 
-The conflict warning should be gone. In the `jj new` workflow it shows:
+The grep checks should find no jj markers. Treat backslash- or diff-prefix
+matches as diagnostics: inspect them because legitimate source may also use
+those characters. A successful edit-tool response is not proof that the source
+is valid. In the `jj new` workflow `jj st` should show:
 `Hint: Conflict in parent commit has been resolved in working copy`.
 
 ## Step 6: Squash the resolution (jj new workflow only)
