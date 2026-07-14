@@ -43,6 +43,14 @@ workspace name as the directory name. Repo at `~/src/pantoken` with workspace
 `<name>@` marker meaningful without needing a project prefix in the directory
 name.
 
+Because `.workspaces` lives inside the repository, add it to the repository's
+ignore file so the main working copy does not scan workspace contents as
+changes:
+
+```gitignore
+.workspaces/
+```
+
 `NAME` appears in `jj workspace list` and as `<name>@` in `jj log` from any
 workspace. Pick something descriptive; you'll see it until you `forget`.
 
