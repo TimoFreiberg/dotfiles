@@ -27,17 +27,21 @@ Not the right tool for:
 ## Create
 
 ```bash
+# Create the workspace directory inside the repo (if needed)
+mkdir -p /abs/path/to/repo/.workspaces
+
 # Default: shares parents with current @
-jj workspace add --name NAME /abs/path/to/new-workspace
+jj workspace add --name NAME /abs/path/to/repo/.workspaces/NAME
 
 # With an explicit base revision
-jj workspace add --name NAME -r <rev> /abs/path/to/new-workspace
+jj workspace add --name NAME -r <rev> /abs/path/to/repo/.workspaces/NAME
 ```
 
-Convention: put the workspace as a sibling of the repo. Repo at
-`~/src/foo` → workspace at `~/src/foo-NAME/`. Keeps `jj log`'s
-`<name>@` marker meaningful and avoids nesting a workspace under a path
-the main repo scans.
+Convention: put workspaces in the repo's `.workspaces` directory, using the
+workspace name as the directory name. Repo at `~/src/pantoken` with workspace
+`feature-1` → `~/src/pantoken/.workspaces/feature-1/`. Keeps `jj log`'s
+`<name>@` marker meaningful without needing a project prefix in the directory
+name.
 
 `NAME` appears in `jj workspace list` and as `<name>@` in `jj log` from any
 workspace. Pick something descriptive; you'll see it until you `forget`.
