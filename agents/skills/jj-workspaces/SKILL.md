@@ -54,6 +54,11 @@ changes:
 `NAME` appears in `jj workspace list` and as `<name>@` in `jj log` from any
 workspace. Pick something descriptive; you'll see it until you `forget`.
 
+When the harness supports todos, create a todo immediately after creating the
+workspace to remind yourself to clean it up when the task is complete. A
+workspace is not finished until it has been checked, forgotten, and its
+workspace directory removed.
+
 ## Work inside
 
 You don't have to `cd` into the workspace. jj accepts a repo path via
