@@ -13,3 +13,5 @@ command = /opt/homebrew/bin/fish
 # log into a new server over ssh. If that fails, use a
 # fallback TERM env var
 shell-integration-features = ssh-terminfo,ssh-env
+
+macos-option-as-alt = true
