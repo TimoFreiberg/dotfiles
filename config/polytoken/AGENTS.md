@@ -1,6 +1,5 @@
-## Tooling
+## Version Control
 
-Prefer `fish` over `bash`, if available.
 Prefer `jj` over `git`. If anything goes wrong with jj, **read the jj skill
 file** before attempting to fix it.
 
@@ -10,7 +9,8 @@ file** before attempting to fix it.
 - Commit only the files you touched: `jj commit <paths...> -m "..."`
 - Do NOT push without asking.
 
-Commit messages:
+### Commit Messages
+
 - Imperative mood, ≤72 chars, no trailing period.
 - Check `jj log` for existing conventions in the project.
 - Skip footers and sign-offs.
