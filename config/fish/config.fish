@@ -14,6 +14,12 @@ fish_add_path --move ~/dotfiles/bin
 set -x EDITOR nvim
 set -x VISUAL nvim
 set -x XDG_CONFIG_HOME $HOME/.config
+
+set -l local_functions_dir $XDG_CONFIG_HOME/fish/functions/local
+if test -d $local_functions_dir
+    set --prepend fish_function_path $local_functions_dir
+end
+
 set -x EMACS_HOME $XDG_CONFIG_HOME/emacs/
 set -x NOTE_FILE ~/Dropbox/notes/notes.md
 
