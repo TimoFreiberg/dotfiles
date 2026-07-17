@@ -88,11 +88,10 @@ function jprc --description "Create a GitHub PR from a jj revision"
     set -l diff_context (jj diff -r $rev 2>&1 | head -200)
     set -l log_context (jj log -r "trunk()..$rev" --no-graph 2>&1)
 
-    set -l system_prompt "Generate a short Git branch name (max 20 chars, lowercase, hyphen-separated).
+    set -l branch_prompt "Generate a short Git branch name (max 20 chars, lowercase, hyphen-separated).
 No prefixes like feat/ or fix/. Just a concise descriptive name.
-Reply with ONLY the branch name, nothing else."
-
-    set -l user_prompt "Here is the diff and log for the changes:
+Reply with ONLY the branch name, nothing else.
+Here is the diff and log for the changes:
 
 --- jj log ---
 $log_context
@@ -101,7 +100,7 @@ $log_context
 $diff_context"
 
     echo "Generating branch name..."
-    set -l suggested (echo "$user_prompt" | claude -p --tools "" --no-session-persistence --disable-slash-commands --model sonnet --system-prompt "$system_prompt" 2>&1 | string trim)
+    set -l suggested (echo "$branch_prompt" | polytoken exec --model gpt-5.6-luna | string trim)
 
     if test -z "$suggested"
         echo "Error: LLM returned empty branch name" >&2
@@ -158,7 +157,10 @@ $commit_messages
 --- jj diff (truncated) ---
 $diff_context"
 
-    set -l pr_lines (echo "$user_prompt" | claude -p --tools "" --no-session-persistence --disable-slash-commands --model sonnet --system-prompt "$system_prompt" 2>&1)
+    set -l pr_prompt "$system_prompt
+
+$user_prompt"
+    set -l pr_lines (echo "$pr_prompt" | polytoken exec --model gpt-5.6-luna 2>&1)
     set -l title (string trim $pr_lines[1])
     set -l body (string join \n $pr_lines[2..] | string trim)
 
