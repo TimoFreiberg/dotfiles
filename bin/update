@@ -55,7 +55,7 @@ echo ""
 # 1. Homebrew
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 1/6  brew upgrade"
+echo " 1/5  brew upgrade"
 echo "──────────────────────────────────────────"
 brew upgrade; or begin
     echo "  ⚠ brew upgrade failed (exit $status)"; set had_errors 1
@@ -105,7 +105,7 @@ echo ""
 # 2. Rust toolchain
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 2/6  rustup update"
+echo " 2/5  rustup update"
 echo "──────────────────────────────────────────"
 rustup update; or begin
     echo "  ⚠ rustup update failed (exit $status)"; set had_errors 1
@@ -153,10 +153,21 @@ end
 echo ""
 
 # ──────────────────────────────────────────────
-# 5. Neovim plugins
+# 3. Polytoken
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 5/6  nvim +PlugClean +PlugInstall +PlugUpdate"
+echo " 3/5  polytoken update"
+echo "──────────────────────────────────────────"
+polytoken update; or begin
+    echo "  ⚠ polytoken update failed (exit $status)"; set had_errors 1
+end
+echo ""
+
+# ──────────────────────────────────────────────
+# 4. Neovim plugins
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " 4/5  nvim +PlugClean +PlugInstall +PlugUpdate"
 echo "──────────────────────────────────────────"
 nvim +PlugClean +PlugInstall +PlugUpdate +qall; or begin
     echo "  ⚠ nvim plugin update failed (exit $status)"; set had_errors 1
@@ -164,10 +175,10 @@ end
 echo ""
 
 # ──────────────────────────────────────────────
-# 6. jj-backed repos (fetch + fast-forward)
+# 5. jj-backed repos (fetch + fast-forward)
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 6/6  repos (jj git fetch + fast-forward)"
+echo " 5/5  repos (jj git fetch + fast-forward)"
 echo "──────────────────────────────────────────"
 
 update_jj_repo dotfiles "$HOME/dotfiles" main; or set had_errors 1
@@ -182,8 +193,8 @@ echo "────────────────────────�
 
 set -l tools_to_check \
     atuin bat brew bun cargo cargo-binstall cargo-nextest cargo-sweep \
-    claude curl direnv eza fd fzf gh git jj just nvim pi rg rustup \
-    shellcheck ssh starship tig tmux tokei trash uv zoxide zstd
+    claude curl direnv eza fd fzf gh git jj just nvim pi polytoken rg \
+    rustup shellcheck ssh starship tig tmux tokei trash uv zoxide zstd
 
 set -l missing_tools
 for tool in $tools_to_check
