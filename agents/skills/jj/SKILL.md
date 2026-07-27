@@ -19,6 +19,8 @@ See [reference.md](reference.md) for advanced topics (rewriting history, splitti
 
 **NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message`. Bare `jj squash` opens an interactive editor and will hang.
 
+Without `--to`, squash targets the direct parent only; pass `--from <rev> --to <rev>` to squash into an arbitrary commit regardless of history.
+
 The same trap applies to bare `jj describe` and `jj commit` — always pass `-m "msg"`. Avoid `jj diffedit` entirely (always interactive).
 
 ## Splitting Commits
