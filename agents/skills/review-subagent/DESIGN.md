@@ -1,9 +1,7 @@
 ### S — Design & Structure
 
-**Bias conservative.** These findings feed an unsupervised fix loop: a design
-finding makes the fixer rewrite structure, so a false positive can churn code
-that was already sound. A wrong "inline this
-abstraction" or "extract this helper" churns code that was fine. So:
+**Bias conservative.** These findings feed an unsupervised fix loop: a false
+positive can make the fixer rewrite sound structure. So:
 
 - Flag only clear violations. Debatable structure → `[medium]` or stay silent.
 - Reserve `[critical]`/`[high]` for truly egregious design violations — not merely

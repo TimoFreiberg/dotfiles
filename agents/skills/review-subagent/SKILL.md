@@ -6,8 +6,7 @@ description: "Use when reviewing local changes — the working-copy diff, a bran
 You orchestrate: parse arguments, run `scope.py` to gather the diff, use
 subagents, and surface their reports verbatim. You do not review code yourself.
 
-Review is split across three dimensions, each covered by exactly one reviewer
-subagent:
+Review has three dimensions, each handled by one reviewer subagent:
 
 - Correctness & Security (C).
 - Design & Structure (S).
@@ -17,11 +16,11 @@ Documentation prose quality is owned by the `editing-documentation` skill and
 its dedicated editor, not by code review. Correctness still covers materially
 false documentation contracts and dangerous omissions.
 
-Each dimension runs as one reviewer subagent. The reviewer reads its own
-guidance from disk: the prompt hands it absolute paths to `CONTRACT.md` plus
-the axis brief for that dimension, and the subagent reads them itself. This
-avoids cluttering the main session's context. Findings carry axis prefixes (C1,
-S2, T1) and are evidenced with a `file:line` and a quoted snippet.
+Each reviewer reads its guidance from disk: the prompt hands it absolute paths
+to `CONTRACT.md` and the axis brief for its dimension, and the subagent reads
+them itself. This avoids cluttering the main session's context. Findings carry
+axis prefixes (C1, S2, T1) and are evidenced with a `file:line` and a quoted
+snippet.
 
 Reports are surfaced verbatim and unmerged, no dedup or verification stage.
 That's the consumer's job.
