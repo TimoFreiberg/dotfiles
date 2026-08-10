@@ -1,8 +1,8 @@
 ### S — Design & Structure
 
-**Bias conservative.** Like the documentation axis, these findings feed an
-unsupervised fix loop — but the blast radius is larger: a design finding makes
-the fixer *rewrite structure*, not just edit a comment. A wrong "inline this
+**Bias conservative.** These findings feed an unsupervised fix loop: a design
+finding makes the fixer rewrite structure, so a false positive can churn code
+that was already sound. A wrong "inline this
 abstraction" or "extract this helper" churns code that was fine. So:
 
 - Flag only clear violations. Debatable structure → `[medium]` or stay silent.

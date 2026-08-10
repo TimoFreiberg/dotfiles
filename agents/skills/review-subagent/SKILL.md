@@ -9,13 +9,17 @@ subagents, and surface their reports verbatim. You do not review code yourself.
 Review is split across two axis groups, each dimension covered exactly once:
 
 - Group 1 — C+S: Correctness & Security, Design & Structure.
-- Group 2 — D+T: Documentation & Comments, Test Correctness.
+- Group 2 — T: Test Correctness.
+
+Documentation prose quality is owned by the `editing-documentation` skill and
+its dedicated editor, not by code review. Correctness still covers materially
+false documentation contracts and dangerous omissions.
 
 Each group runs as one reviewer subagent. The reviewer reads its own guidance
 from disk: the prompt hands it absolute paths to `CONTRACT.md` plus the axis
 brief file(s) for that group, and the subagent reads them itself. This avoids
 cluttering the main session's context. Findings carry axis prefixes (C1, S2,
-D1, T3) and are evidenced with a `file:line` and a quoted snippet.
+T1) and are evidenced with a `file:line` and a quoted snippet.
 
 Reports are surfaced verbatim and unmerged, no dedup or verification stage.
 That's the consumer's job.
@@ -29,6 +33,7 @@ When `--description` is provided, Group 1 additionally produces a
 
 - `uncommitted` — uncommitted working-copy changes (git mode misses untracked files; jj snapshots them)
 - `commit <revset>` — jj revset, or git ref/range
+- `since <baseline> [<final>]` — patch changes between frozen commits
 - `branch <name>` — diff from `<name>` to current
 - `file <path>` — uncommitted changes to one file
 - `pr <number>` — GitHub PR diff + metadata
@@ -59,7 +64,9 @@ and writes four files to a fresh temp dir whose path it prints on stdout:
 - `pr_context` — PR metadata + comments (only for `pr <number>`; otherwise empty)
 
 If the script exits non-zero, surface its stderr and stop. It already handles
-the empty-diff and missing-merge-base cases.
+the empty-diff and missing-merge-base cases. The `since` scope is the exception:
+an empty interdiff exits zero without an artifact path so callers can short
+circuit successfully.
 
 Do **not** read any generated scope files. Keep `scope_summary`, `header`, `diff`,
 and `pr_context` on disk and pass their absolute paths to the reviewer
@@ -79,7 +86,7 @@ context-isolation purpose of the scope script.
 Use subagents to run two reviewers in parallel:
 
 - Group 1 (C+S).
-- Group 2 (D+T).
+- Group 2 (T).
 
 Do not specify a model by default. Only pass a model override when the operator
 explicitly asked for one.
@@ -95,7 +102,7 @@ substitute the concrete absolute path, no `$HOME`; the subagent gets a plain
 string):
 
 - **Group 1 (C+S):** `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`
-- **Group 2 (D+T):** `CONTRACT.md`, `DOCUMENTATION.md`, `TESTS.md`
+- **Group 2 (T):** `CONTRACT.md`, `TESTS.md`
 
 Substitutions in the task-context block: `$SCOPE_SUMMARY` (scope_summary),
 `$INSTRUCTIONS` / `$DESCRIPTION` (flag values or empty), `$DIFF_PATH` (absolute
@@ -107,14 +114,14 @@ Each reviewer's final message is its report.
 
 ## Step 5: Surface the reports verbatim
 
-Print each group's report verbatim, in order (C+S first, D+T second), under a
+Print each group's report verbatim, in order (C+S first, T second), under a
 label header naming the group, and nothing else between or around them:
 
     ## Reviewer: C+S
 
     <that reviewer's report, verbatim>
 
-    ## Reviewer: D+T
+    ## Reviewer: T
 
     <that reviewer's report, verbatim>
 
@@ -172,7 +179,7 @@ $GUIDANCE_FILES
 
 ## Examples
 
-- `/review` → default scope; 2 reviewer subagents.
+- `/review` → default scope; C+S and T reviewer subagents.
 - `/review pr 50` → PR diff + metadata; same 2-group split.
 - `/review --description "Add a --verbose flag" branch foo` → scope the branch
   against a task spec; Group 1 (C+S) additionally emits Plan-alignment.

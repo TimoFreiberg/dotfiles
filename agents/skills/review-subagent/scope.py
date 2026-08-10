@@ -28,6 +28,21 @@ import tempfile
 # ---------- diff annotation -----------------------------------------------
 
 
+def strip_jj_synthetic_files(diff: str) -> str:
+    """Remove jj-only virtual files that are not working-tree content."""
+    synthetic_header = (
+        "diff --git a/JJ-COMMIT-DESCRIPTION b/JJ-COMMIT-DESCRIPTION"
+    )
+    out: list[str] = []
+    skip = False
+    for line in diff.splitlines(keepends=True):
+        if line.startswith("diff --git "):
+            skip = line.rstrip("\r\n") == synthetic_header
+        if not skip:
+            out.append(line)
+    return "".join(out)
+
+
 def annotate_diff(diff: str) -> str:
     """Prefix each diff body line with its real new-file source line number.
 
@@ -216,6 +231,31 @@ def gather_commit(revset: str) -> tuple[str, list[str], str, str]:
     return f"commit {revset}", commits, diff, stat
 
 
+def gather_since(
+    baseline: str, final: str | None = None
+) -> tuple[str, list[str], str, str]:
+    """Patch changes between frozen baseline and final commits."""
+    if have_jj():
+        target = final or "@-"
+        diff = strip_jj_synthetic_files(
+            run(["jj", "interdiff", "--from", baseline, "--to", target, "--git"])
+        )
+        stat = ""
+        commits = [f"baseline {baseline}", f"final {target}"]
+        return f"patch changes from {baseline} to {target}", commits, diff, stat
+    target = final or "HEAD"
+    revision_range = f"{baseline}..{target}"
+    diff = run(["git", "diff", revision_range])
+    stat = run(["git", "diff", "--stat", revision_range])
+    commits = run(["git", "log", "--oneline", revision_range]).strip().splitlines()
+    return (
+        f"changes from {baseline} to {target} ({plural(len(commits), 'commit')})",
+        commits,
+        diff,
+        stat,
+    )
+
+
 def gather_branch(name: str) -> tuple[str, list[str], str, str]:
     if have_jj():
         diff = run(["jj", "diff", "--git", "--from", name, "--to", "@"])
@@ -283,6 +323,9 @@ def main() -> int:
     sub.add_parser("uncommitted", help="uncommitted working-copy changes")
     p_commit = sub.add_parser("commit", help="jj revset, or git ref/range")
     p_commit.add_argument("revset")
+    p_since = sub.add_parser("since", help="patch changes between frozen commits")
+    p_since.add_argument("baseline")
+    p_since.add_argument("final", nargs="?")
     p_branch = sub.add_parser("branch", help="diff from <name> to current")
     p_branch.add_argument("name")
     p_file = sub.add_parser("file", help="uncommitted changes to one file")
@@ -298,6 +341,8 @@ def main() -> int:
         scope_summary, commits, diff, stat = gather_uncommitted()
     elif args.subcommand == "commit":
         scope_summary, commits, diff, stat = gather_commit(args.revset)
+    elif args.subcommand == "since":
+        scope_summary, commits, diff, stat = gather_since(args.baseline, args.final)
     elif args.subcommand == "branch":
         scope_summary, commits, diff, stat = gather_branch(args.name)
     elif args.subcommand == "file":
@@ -308,6 +353,9 @@ def main() -> int:
         die(f"unknown subcommand: {args.subcommand}")
 
     if not diff.strip():
+        if args.subcommand == "since":
+            sys.stderr.write(f"no changes since baseline: {args.baseline}\n")
+            return 0
         die(f"empty diff for scope: {scope_summary}")
 
     # Build the orchestrator-facing header (commit list + diffstat).

@@ -4,10 +4,9 @@ Review only test code that was added or modified. If the diff contains no test
 code, mark the Test Correctness coverage line accordingly and emit no
 T-prefixed findings.
 
-**Guard against masking bugs.** The fix loop is unsupervised, and the dangerous
-failure mode here is the *opposite* of the documentation and design axes: rather
-than deleting good things, a fixer will happily rewrite a test to pass against
-broken code — changing an assertion to match a buggy output and making a real
+**Guard against masking bugs.** The fix loop is unsupervised. A fixer can
+rewrite a test to pass against broken code — changing an assertion to match a
+buggy output and making a real
 bug look fixed. So:
 
 - When a test and the code it exercises disagree, do NOT assume the test is the

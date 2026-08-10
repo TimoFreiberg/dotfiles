@@ -1,6 +1,6 @@
 ---
 name: reviewer-2
-description: Review code for the review-subagent skill.
+description: Review test correctness for the review-subagent skill.
 polytoken:
   # Optional local pin, e.g. `model: provider/model-name` or `model: default_model:full`.
   inherit_tools: true

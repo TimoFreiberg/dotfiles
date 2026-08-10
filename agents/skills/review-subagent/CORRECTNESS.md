@@ -1,8 +1,8 @@
 ### C — Correctness & Security
 
-**Bias toward surfacing.** Unlike the documentation, design, and test axes —
-where an unsupervised fixer's danger is destructive edits, so the bar to flag is
-high — the expensive failure for correctness is a *missed* real bug that ships.
+**Bias toward surfacing.** Unlike the design and test axes — where an
+unsupervised fixer's danger is destructive edits, so the bar to flag is high —
+the expensive failure for correctness is a *missed* real bug that ships.
 Lower the bar for raising genuine defects here.
 
 **But gate on verifiable evidence.** A confident-but-wrong correctness finding
@@ -59,3 +59,10 @@ where the generator's context ended. Read out-of-diff ground truth to catch:
 - Error handling generally: unchecked errors, wrong error codes.
 - Behavioral regressions: changed return values, dropped side effects, altered
   invariants.
+- **False documentation contracts.** Comments or docs that make materially
+  incorrect claims about behavior, safety, errors, side effects, compatibility,
+  or required usage. Verify claims against full code paths, not only the diff.
+- **Dangerous documentation omissions.** Missing explanation only when omission
+  creates a concrete correctness, safety, security, operability, or
+  compatibility risk. Do not report verbosity, style, routine API enumeration,
+  or merely desirable explanation; those belong to `editing-documentation`.
