@@ -6,26 +6,29 @@ description: "Use when reviewing local changes — the working-copy diff, a bran
 You orchestrate: parse arguments, run `scope.py` to gather the diff, use
 subagents, and surface their reports verbatim. You do not review code yourself.
 
-Review is split across two axis groups, each dimension covered exactly once:
+Review is split across three dimensions, each covered by exactly one reviewer
+subagent:
 
-- Group 1 — C+S: Correctness & Security, Design & Structure.
-- Group 2 — T: Test Correctness.
+- Correctness & Security (C).
+- Design & Structure (S).
+- Test Correctness (T).
 
 Documentation prose quality is owned by the `editing-documentation` skill and
 its dedicated editor, not by code review. Correctness still covers materially
 false documentation contracts and dangerous omissions.
 
-Each group runs as one reviewer subagent. The reviewer reads its own guidance
-from disk: the prompt hands it absolute paths to `CONTRACT.md` plus the axis
-brief file(s) for that group, and the subagent reads them itself. This avoids
-cluttering the main session's context. Findings carry axis prefixes (C1, S2,
-T1) and are evidenced with a `file:line` and a quoted snippet.
+Each dimension runs as one reviewer subagent. The reviewer reads its own
+guidance from disk: the prompt hands it absolute paths to `CONTRACT.md` plus
+the axis brief for that dimension, and the subagent reads them itself. This
+avoids cluttering the main session's context. Findings carry axis prefixes (C1,
+S2, T1) and are evidenced with a `file:line` and a quoted snippet.
 
 Reports are surfaced verbatim and unmerged, no dedup or verification stage.
 That's the consumer's job.
 
-When `--description` is provided, Group 1 additionally produces a
-`## Plan alignment` section (the CONTRACT handles the format).
+When `--description` is provided, the Correctness & Security reviewer
+additionally produces a `## Plan alignment` section (the CONTRACT handles the
+format).
 
 ## Step 1: Parse `$ARGUMENTS`
 
@@ -41,7 +44,7 @@ When `--description` is provided, Group 1 additionally produces a
 **Flags** (any order, all optional):
 
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
-- `--description "..."` — task spec; enables the Plan-alignment section on Group 1
+- `--description "..."` — task spec; enables the Plan-alignment section on the Correctness & Security reviewer
 
 If parsing fails (unknown subcommand, missing required arg, or unknown flag),
 report the usage and stop.
@@ -81,43 +84,51 @@ prompts. Do not print the contents of `scope_summary` or `header`; the review
 reports are the useful output, and loading those files would defeat the
 context-isolation purpose of the scope script.
 
-## Step 4: Use subagents for the reviewer groups
+## Step 4: Use subagents for the reviewer dimensions
 
-Use subagents to run two reviewers in parallel:
+Use subagents to run three reviewers in parallel, one per dimension:
 
-- Group 1 (C+S).
-- Group 2 (T).
+- Correctness & Security (C).
+- Design & Structure (S).
+- Test Correctness (T).
 
 Do not specify a model by default. Only pass a model override when the operator
 explicitly asked for one.
 
 Do NOT read `CONTRACT.md` or the axis briefs yourself — hand each subagent the
-absolute paths and have it Read them. Build each group's `prompt:` from the
+absolute paths and have it Read them. Build each dimension's `prompt:` from the
 **Reviewer prompt** template below, filling in `$GUIDANCE_FILES` with that
-group's ordered path list (one per line) and the `## Task context`
+dimension's ordered path list (one per line) and the `## Task context`
 substitutions.
 
 Guidance file lists (all under `$HOME/dotfiles/agents/skills/review-subagent/` —
 substitute the concrete absolute path, no `$HOME`; the subagent gets a plain
 string):
 
-- **Group 1 (C+S):** `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`
-- **Group 2 (T):** `CONTRACT.md`, `TESTS.md`
+- **Correctness & Security (C):** `CONTRACT.md`, `CORRECTNESS.md`
+- **Design & Structure (S):** `CONTRACT.md`, `DESIGN.md`
+- **Test Correctness (T):** `CONTRACT.md`, `TESTS.md`
 
 Substitutions in the task-context block: `$SCOPE_SUMMARY` (scope_summary),
 `$INSTRUCTIONS` / `$DESCRIPTION` (flag values or empty), `$DIFF_PATH` (absolute
 path to the `diff` file), `$PR_CONTEXT_PATH` (absolute path to `pr_context` if
-the subcommand was `pr`, otherwise empty). Fill `$DESCRIPTION` only for Group 1;
-Group 2 gets empty `<description>`.
+the subcommand was `pr`, otherwise empty). Fill `$DESCRIPTION` only for the
+Correctness & Security reviewer; the Design & Structure and Test Correctness
+reviewers get empty `<description>`.
 
 Each reviewer's final message is its report.
 
 ## Step 5: Surface the reports verbatim
 
-Print each group's report verbatim, in order (C+S first, T second), under a
-label header naming the group, and nothing else between or around them:
+Print each dimension's report verbatim, in order (C first, S second, T third),
+under a label header naming the dimension, and nothing else between or around
+them:
 
-    ## Reviewer: C+S
+    ## Reviewer: C
+
+    <that reviewer's report, verbatim>
+
+    ## Reviewer: S
 
     <that reviewer's report, verbatim>
 
@@ -127,15 +138,15 @@ label header naming the group, and nothing else between or around them:
 
 Do not add commentary, summaries, merged findings, or re-sorting.
 
-Per group, treat it as failed if any of:
+Per dimension, treat it as failed if any of:
 
 - the subagent tool returned an error;
 - the final message is empty or whitespace-only;
 - the final message does not start with `# Code Review`.
 
-On failure, surface that group's message (or the tool error) verbatim under a
-`# Review failed (<group>)` heading. A failure in one group does NOT suppress
-the other — always surface every group's result.
+On failure, surface that dimension's message (or the tool error) verbatim under
+a `# Review failed (<dimension>)` heading. A failure in one dimension does NOT
+suppress the others — always surface every dimension's result.
 
 ## Looping
 
@@ -150,9 +161,9 @@ outstanding findings.
 
 ## Reviewer prompt
 
-Use this exact text for each group's `prompt:`, with the marked
-`$SUBSTITUTIONS` filled in. `$GUIDANCE_FILES` is that group's ordered list of
-absolute paths (see Step 4), one per line.
+Use this exact text for each dimension's `prompt:`, with the marked
+`$SUBSTITUTIONS` filled in. `$GUIDANCE_FILES` is that dimension's ordered list
+of absolute paths (see Step 4), one per line.
 
 ```
 You are an adversarial code reviewer.
@@ -179,7 +190,7 @@ $GUIDANCE_FILES
 
 ## Examples
 
-- `/review` → default scope; C+S and T reviewer subagents.
-- `/review pr 50` → PR diff + metadata; same 2-group split.
+- `/review` → default scope; C, S, and T reviewer subagents.
+- `/review pr 50` → PR diff + metadata; same three-dimension split.
 - `/review --description "Add a --verbose flag" branch foo` → scope the branch
-  against a task spec; Group 1 (C+S) additionally emits Plan-alignment.
+  against a task spec; the C reviewer additionally emits Plan-alignment.
