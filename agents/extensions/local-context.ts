@@ -20,8 +20,8 @@
  *     rev-parse --git-common-dir` resolves to <main>/.git in both cases; the
  *     main root is its parent. Colocated jj+git repos hit the jj branch first.
  *
- * Files read from the resolved root: CLAUDE.local.md, AGENTS.local.md.
- * Contents are re-read each turn so edits show up without a restart.
+ * The canonical file is AGENTS.local.md; CLAUDE.local.md is a compatibility
+ * fallback. Contents are re-read each turn so edits show up without a restart.
  *
  * Install: lives in ~/.pi/agent/extensions/ (global), so it applies to every
  * repo, not just one.
@@ -32,7 +32,8 @@ import * as path from "node:path";
 import { execFileSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const LOCAL_FILES = ["CLAUDE.local.md", "AGENTS.local.md"];
+// AGENTS.local.md is canonical; CLAUDE.local.md remains a compatibility fallback.
+const LOCAL_FILES = ["AGENTS.local.md", "CLAUDE.local.md"];
 
 /** Resolve the main repo root from any working copy (jj workspace, git worktree, or plain). */
 function resolveMainRepoRoot(startCwd: string): string | null {
@@ -77,29 +78,22 @@ function resolveMainRepoRoot(startCwd: string): string | null {
   }
 }
 
-/** Read the local instruction files from the repo root, concatenated. Null if none. */
+/** Read the canonical local file, falling back to its Claude-compatible name. */
 function loadLocalContext(
   repoRoot: string,
 ): { text: string; files: string[] } | null {
-  const parts: string[] = [];
-  const found: string[] = [];
-
   for (const name of LOCAL_FILES) {
     const p = path.join(repoRoot, name);
     try {
       if (!fs.statSync(p).isFile()) continue;
+      const content = fs.readFileSync(p, "utf8").trim();
+      if (content) return { text: `### ${name} (${p})\n\n${content}`, files: [name] };
     } catch {
-      continue; // missing
-    }
-    const content = fs.readFileSync(p, "utf8").trim();
-    if (content) {
-      parts.push(`### ${name} (${p})\n\n${content}`);
-      found.push(name);
+      continue;
     }
   }
 
-  if (parts.length === 0) return null;
-  return { text: parts.join("\n\n"), files: found };
+  return null;
 }
 
 export default function (pi: ExtensionAPI) {

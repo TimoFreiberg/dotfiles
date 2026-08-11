@@ -1,0 +1,16 @@
+[
+  {
+    "name": "load-local-agent-context-at-start",
+    "event": "session_start",
+    "handler": {
+      "bash": "python3 \"$HOME/dotfiles/agents/hooks/load-local-agent-context.py\""
+    }
+  },
+  {
+    "name": "load-local-agent-context-after-clear",
+    "event": "post_clear",
+    "handler": {
+      "bash": "python3 \"$HOME/dotfiles/agents/hooks/load-local-agent-context.py\""
+    }
+  }
+]
