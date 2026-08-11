@@ -3,22 +3,14 @@
  *
  * Pi natively loads AGENTS.md / CLAUDE.md walking up from cwd plus the global
  * ~/.pi/agent/AGENTS.md. It has no equivalent of Claude Code's CLAUDE.local.md
- * — the per-developer, gitignored instructions file. This extension adds that,
- * and fixes a wrinkle neither tool handles: such files live in .gitignore, so
- * jj workspaces (and git worktrees) never materialize them. From inside
- * ~/src/fastly/Varnish-hashset the file simply isn't on disk.
+ * — the per-developer, gitignored instructions file. This extension adds that.
  *
- * The trick: resolve the *main* repo root from any working copy and read the
- * local file from there, so one source of truth (the file in the main checkout)
- * feeds every workspace.
+ * The local file is read from the repository containing the current working
+ * directory. A jj workspace or git worktree therefore only sees local
+ * instructions present in that checkout, never a different checkout's file.
  *
- * Resolution, checked walking up from cwd:
- *   - jj: `.jj/repo` is a DIRECTORY in the main/default workspace (root = that
- *     dir), and a FILE in a secondary workspace whose contents are a path to
- *     <main>/.jj/repo (root = up two from the resolved target).
- *   - git: `.git` may be a dir (main checkout) or a file (worktree). `git
- *     rev-parse --git-common-dir` resolves to <main>/.git in both cases; the
- *     main root is its parent. Colocated jj+git repos hit the jj branch first.
+ * Resolution checks for `.jj/repo` or `.git` while walking up from cwd and
+ * returns the directory containing the marker.
  *
  * The canonical file is AGENTS.local.md; CLAUDE.local.md is a compatibility
  * fallback. Contents are re-read each turn so edits show up without a restart.
@@ -29,46 +21,21 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { execFileSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 // AGENTS.local.md is canonical; CLAUDE.local.md remains a compatibility fallback.
 const LOCAL_FILES = ["AGENTS.local.md", "CLAUDE.local.md"];
 
-/** Resolve the main repo root from any working copy (jj workspace, git worktree, or plain). */
-function resolveMainRepoRoot(startCwd: string): string | null {
+/** Resolve the repository root containing the current working directory. */
+function resolveRepoRoot(startCwd: string): string | null {
   let dir = path.resolve(startCwd);
   const fsRoot = path.parse(dir).root;
 
   while (true) {
-    const jjRepo = path.join(dir, ".jj", "repo");
-    if (fs.existsSync(jjRepo)) {
-      if (fs.statSync(jjRepo).isDirectory()) {
-        // main / default workspace: the repo root is this dir
-        return dir;
-      }
-      // secondary jj workspace: .jj/repo is a file holding a path to <main>/.jj/repo,
-      // relative to this workspace's .jj directory.
-      const target = fs.readFileSync(jjRepo, "utf8").trim();
-      const resolved = path.resolve(path.join(dir, ".jj"), target);
-      return path.dirname(path.dirname(resolved));
-    }
-
-    const gitPath = path.join(dir, ".git");
-    if (fs.existsSync(gitPath)) {
-      // pure git (colocated jj+git already returned above via the jj branch).
-      // --git-common-dir resolves to <main>/.git for both main checkouts and
-      // worktrees; the main root is its parent.
-      try {
-        const commonDir = execFileSync(
-          "git",
-          ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-          { cwd: dir, encoding: "utf8" },
-        ).trim();
-        if (commonDir) return path.dirname(commonDir);
-      } catch {
-        // fall through to using this dir
-      }
+    if (
+      fs.existsSync(path.join(dir, ".jj", "repo")) ||
+      fs.existsSync(path.join(dir, ".git"))
+    ) {
       return dir;
     }
 
@@ -100,7 +67,7 @@ export default function (pi: ExtensionAPI) {
   let repoRoot: string | null = null;
 
   pi.on("session_start", async (_event, ctx) => {
-    repoRoot = resolveMainRepoRoot(ctx.cwd);
+    repoRoot = resolveRepoRoot(ctx.cwd);
     if (!repoRoot) return;
     const loaded = loadLocalContext(repoRoot);
     if (loaded) {

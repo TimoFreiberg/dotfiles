@@ -6,42 +6,16 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
 
 LOCAL_FILES = ("AGENTS.local.md", "CLAUDE.local.md")
 
 
-def main_repo_root(start: Path) -> Path | None:
-    """Resolve the main checkout root from a repo, jj workspace, or git worktree."""
+def repo_root(start: Path) -> Path | None:
+    """Find the repository root containing the current working directory."""
     for directory in (start.resolve(), *start.resolve().parents):
-        jj_repo = directory / ".jj" / "repo"
-        if jj_repo.exists():
-            if jj_repo.is_dir():
-                return directory
-            target = (directory / ".jj" / jj_repo.read_text().strip()).resolve()
-            return target.parent.parent
-
-        git_path = directory / ".git"
-        if git_path.exists():
-            try:
-                result = subprocess.run(
-                    [
-                        "git",
-                        "rev-parse",
-                        "--path-format=absolute",
-                        "--git-common-dir",
-                    ],
-                    cwd=directory,
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-                common_dir = Path(result.stdout.strip())
-                if common_dir:
-                    return common_dir.parent
-            except (OSError, subprocess.CalledProcessError):
-                return directory
+        if (directory / ".jj" / "repo").exists() or (directory / ".git").exists():
+            return directory
     return None
 
 
@@ -58,7 +32,7 @@ def load_context(root: Path) -> tuple[str, str] | None:
         if content:
             context = (
                 "## Local (uncommitted) project instructions\n\n"
-                f"Loaded from `{name}` in the main repository checkout. These are "
+                f"Loaded from `{name}` in the current repository checkout. These are "
                 "this developer's private setup instructions; follow them with the "
                 "same weight as committed project instructions.\n\n"
                 f"{content}"
@@ -98,7 +72,7 @@ def main() -> int:
     cwd = Path(cwd_value) if isinstance(cwd_value, str) else Path(
         os.environ.get("POLYTOKEN_PROJECT_DIR", os.getcwd())
     )
-    root = main_repo_root(cwd)
+    root = repo_root(cwd)
     loaded = load_context(root) if root else None
     emit(loaded[0] if loaded else None)
     return 0
