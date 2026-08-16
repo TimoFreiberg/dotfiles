@@ -10,7 +10,7 @@ Review has three dimensions, each handled by one reviewer subagent:
 
 - Correctness & Security (C).
 - Design & Structure (S).
-- Test Correctness (T).
+- Test Correctness & Verification Adequacy (T).
 
 Documentation prose quality is owned by the `editing-documentation` skill and
 its dedicated editor, not by code review. Correctness still covers materially
@@ -24,10 +24,6 @@ snippet.
 
 Reports are surfaced verbatim and unmerged, no dedup or verification stage.
 That's the consumer's job.
-
-When `--description` is provided, the Correctness & Security reviewer
-additionally produces a `## Plan alignment` section (the CONTRACT handles the
-format).
 
 ## Step 1: Parse `$ARGUMENTS`
 
@@ -43,15 +39,14 @@ format).
 **Flags** (any order, all optional):
 
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
-- `--description "..."` — task spec; enables the Plan-alignment section on the Correctness & Security reviewer
 
 If parsing fails (unknown subcommand, missing required arg, or unknown flag),
 report the usage and stop.
 
 ## Step 2: Gather scope
 
-Run `scope.py` with the subcommand + positional arg (no flags — `--instructions`
-and `--description` are not passed to it):
+Run `scope.py` with the subcommand + positional arg (`--instructions` is not
+passed to it):
 
 ```
 uv run $HOME/dotfiles/agents/skills/review-subagent/scope.py [<subcommand> [<arg>]]
@@ -89,7 +84,7 @@ Use subagents to run three reviewers in parallel, one per dimension:
 
 - Correctness & Security (C).
 - Design & Structure (S).
-- Test Correctness (T).
+- Test Correctness & Verification Adequacy (T).
 
 Do not specify a model by default. Only pass a model override when the operator
 explicitly asked for one.
@@ -106,14 +101,12 @@ string):
 
 - **Correctness & Security (C):** `CONTRACT.md`, `CORRECTNESS.md`
 - **Design & Structure (S):** `CONTRACT.md`, `DESIGN.md`
-- **Test Correctness (T):** `CONTRACT.md`, `TESTS.md`
+- **Test Correctness & Verification Adequacy (T):** `CONTRACT.md`, `TESTS.md`
 
 Substitutions in the task-context block: `$SCOPE_SUMMARY` (scope_summary),
-`$INSTRUCTIONS` / `$DESCRIPTION` (flag values or empty), `$DIFF_PATH` (absolute
-path to the `diff` file), `$PR_CONTEXT_PATH` (absolute path to `pr_context` if
-the subcommand was `pr`, otherwise empty). Fill `$DESCRIPTION` only for the
-Correctness & Security reviewer; the Design & Structure and Test Correctness
-reviewers get empty `<description>`.
+`$INSTRUCTIONS` (flag value or empty), `$DIFF_PATH` (absolute path to the `diff`
+file), and `$PR_CONTEXT_PATH` (absolute path to `pr_context` for `pr`, otherwise
+empty).
 
 Each reviewer's final message is its report.
 
@@ -137,11 +130,12 @@ them:
 
 Do not add commentary, summaries, merged findings, or re-sorting.
 
-Per dimension, treat it as failed if any of:
-
-- the subagent tool returned an error;
-- the final message is empty or whitespace-only;
-- the final message does not start with `# Code Review`.
+Per dimension, treat it as failed if the subagent errors, returns empty output,
+or produces a malformed report. A valid report starts with `# Code Review`,
+contains `## Coverage`, `## Findings`, and `## Verdict` exactly once in that
+order, includes the expected axis coverage and verdict, uses only documented
+finding severities, and has an overall verdict consistent with its critical and
+high findings.
 
 On failure, surface that dimension's message (or the tool error) verbatim under
 a `# Review failed (<dimension>)` heading. A failure in one dimension does NOT
@@ -180,8 +174,6 @@ $GUIDANCE_FILES
 
 <instructions>$INSTRUCTIONS</instructions>
 
-<description>$DESCRIPTION</description>
-
 <diff_path>$DIFF_PATH</diff_path>
 
 <pr_context_path>$PR_CONTEXT_PATH</pr_context_path>
@@ -191,5 +183,5 @@ $GUIDANCE_FILES
 
 - `/review` → default scope; C, S, and T reviewer subagents.
 - `/review pr 50` → PR diff + metadata; same three-dimension split.
-- `/review --description "Add a --verbose flag" branch foo` → scope the branch
-  against a task spec; the C reviewer additionally emits Plan-alignment.
+- `/review --instructions "Focus on XSS" branch foo` → branch scope with an
+  additional explicit check for each reviewer.

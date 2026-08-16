@@ -20,19 +20,11 @@ Produce exactly this structure, in order:
    axis in your prompt, e.g.:
    - `- [x] Correctness & Security pass`
    - `- [x] Design & Structure pass`
-   - `- [x] Test Correctness pass` (or `- [x] Test Correctness — no test code in this diff`)
-   Add extra checklist items if `<instructions>` or `<description>` introduce
-   explicit checks (e.g. `- [x] XSS audit`). Mark a box `[~]` instead of `[x]`
+   - `- [x] Test Correctness & Verification Adequacy pass` (or `- [x] Test Correctness — no test code changed; verification adequacy checked`)
+   Add extra checklist items if `<instructions>` introduces explicit checks (e.g. `- [x] XSS audit`). Mark a box `[~]` instead of `[x]`
    if you ran the pass but the diff was too dense or unfamiliar to give a
    confident answer; explain in one line under the item.
-4. `## Plan alignment` — emit ONLY if the content between `<description>` and
-   `</description>` in your prompt contains at least one non-whitespace
-   character. Numbered requirements (`R1`, `R2`, …) extracted from the
-   description. For each: a one-line restatement of what was asked; a status of
-   `done` / `partial` / `missing` / `scope-deviated`; and an `Evidence:` line
-   with `file:line` + a quoted snippet (or, for `missing`, a one-line note on
-   what you searched and didn't find).
-5. `## Findings` — surviving findings, sorted by severity (critical → high →
+4. `## Findings` — surviving findings, sorted by severity (critical → high →
    medium → low), keeping axis prefixes. One level-3 heading per finding:
    `### C1 [critical] src/foo.rs:42 — buffer overflow on resize`. Then:
    - One paragraph explaining the issue and its impact.
@@ -41,7 +33,7 @@ Produce exactly this structure, in order:
      or test file (NOT a diff hunk header — quote the actual code).
    Note whether each finding is in newly added or pre-existing code; treat
    non-critical findings in pre-existing code as informational.
-6. `## Verdict` — one short line per axis you covered: `correct` if no surviving
+5. `## Verdict` — one short line per axis you covered: `correct` if no surviving
    critical or high finding exists in that axis, else `needs attention`. Then one
    overall line: `needs attention` if any critical or high finding exists, else
    `correct`.
@@ -52,6 +44,11 @@ Every finding MUST cite real `file:line` + quoted code a reader can verify in
 under 30 seconds. If you cannot, DROP the finding — absent beats
 visible-but-flagged. Never emit `Evidence: (none)` or use a diff hunk header as
 evidence.
+
+For a missing-verification finding, cite the changed production behavior as the
+primary `file:line` evidence, then add one `Search:` line naming the test paths,
+symbols, or repository checks inspected without finding regression-sensitive
+coverage. The absence itself does not need a fabricated test-file citation.
 
 **Reading line numbers.** The diff is annotated: each body line has a left
 gutter holding its real line number in the *current* (new) file, e.g.

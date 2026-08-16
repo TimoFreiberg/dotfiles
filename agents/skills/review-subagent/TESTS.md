@@ -1,8 +1,17 @@
-### T — Test Correctness
+### T — Test Correctness & Verification Adequacy
 
-Review only test code that was added or modified. If the diff contains no test
-code, mark the Test Correctness coverage line accordingly and emit no
-T-prefixed findings.
+Run two related passes:
+
+- **Test correctness:** when test code changed, check whether those tests are
+  trustworthy and fail for the intended reason.
+- **Verification adequacy:** whenever production behavior changed, identify the
+  regression-sensitive test or other approved check that would fail if the
+  behavior were reverted. Run this pass even when no test code changed.
+
+Do not demand a new test merely because production code changed. Existing tests,
+integration coverage, compile-time enforcement, or a concrete observable check
+may be adequate. Report a gap only when a specific changed behavior has no
+regression-sensitive verification.
 
 **Guard against masking bugs.** The unsupervised fix loop can rewrite a test to
 pass against broken code—changing an assertion to match a buggy output and
@@ -21,10 +30,13 @@ output** rather than derived from the requirement. Such a test asserts "the code
 does what it does" and cannot catch a bug. When you suspect this, say the
 expected value should be derived from intended behavior, not copied from output.
 
-**The revert experiment.** For each meaningfully changed line of production
-code, mentally revert it and ask: which test goes red? If the answer is "none,"
-that is a finding — name the line and the missing coverage. This is the sharpest
-check for "tests with no failing case" and for change that ships untested.
+**The revert experiment.** For each production behavior changed by the diff,
+identify the specific test or approved check and explain why reverting that
+behavior makes it fail. If none exists, emit a finding: cite the changed
+production line and state what behavior lacks regression protection. Search
+existing tests and repository verification conventions before concluding
+coverage is absent. This is the sharpest check for "tests with no failing case"
+and for change that ships unverified.
 
 #### Primary smell — over-mocking
 
