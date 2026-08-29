@@ -1,0 +1,52 @@
+# Reviewer pool
+
+This directory contains the shared, credential-free reviewer pool used by
+`review-subagent` and `plan-conformance-review`.
+
+## Machine override
+
+Copy the tracked example to the ignored local replacement and edit only the
+worker model references:
+
+```sh
+cp review-pool.example.yaml review-pool.local.yaml
+uv run review_pool.py --difficulty thorough --selection-provenance explicit
+```
+
+`review-pool.local.yaml` is a complete replacement, not a merge with the
+example. A malformed local file fails closed; it never silently falls back.
+Authentication belongs in Polytoken configuration or the environment, never in
+this YAML file. The root `.gitignore` rule protects the local replacement.
+
+The resolver checks every model reference against `polytoken models --format
+json`; a syntactically plausible reference is not sufficient. `uv` is required
+because `review_pool.py` declares pinned `PyYAML==6.0.2` using PEP 723 metadata.
+
+## Levels
+
+- **routine** tries one eventual report in GLM → Luna → DeepSeek order. A code
+  reviewer receives `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and `TESTS.md`
+  and covers C, S, and T together. Only a pre-handle startup rejection may
+  advance to the next candidate.
+- **thorough** runs GLM/Luna/DeepSeek in parallel, assigning slots 1/2/3 to
+  C/S/T.
+- **critical** runs GLM/Sol/DeepSeek in parallel, assigning slots 1/2/3 to
+  C/S/T.
+
+Conformance review has one existing conformance report at routine and three
+independent copies at the higher levels; it does not gain artificial axes.
+Reports remain attributable and are never deduplicated or majority-voted.
+
+Raw skill invocations default to `thorough` with provenance `raw-default`.
+Supplying `--difficulty` uses provenance `explicit`; the plan facet uses
+`plan-facet-claimed`. `--allow-downgrade` is a visible operator opt-in that
+allows only a pre-launch fallback from critical to thorough to routine. It is
+not an authentication boundary. The selection notice records requested and
+effective levels, provenance, config source, expected assignments, and any
+preflight fallback.
+
+The configured catalog is the authority for model availability. Inspect it with:
+
+```sh
+polytoken models --format json
+```

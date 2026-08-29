@@ -60,6 +60,23 @@ Match research depth to uncertainty and impact. Stable, straightforward facts do
 {{ transclude("polytoken://resources/plan_spec_default.md") }}
 {%- endif %}
 
+## Review-level selection
+
+Every executable plan must classify its implementation review as `routine`,
+`thorough`, or `critical` and record the classification and rationale in its
+**Review Strategy**. Use `routine` only for trivial/easy changes, `thorough` for
+normal substantive work, and `critical` for explicitly gnarly security,
+low-level concurrency, or system-design work.
+
+The plan facet makes this risk judgment and directs the executor/orchestrator to
+invoke both review skills with `--difficulty <recorded-level>
+--allow-downgrade --selection-provenance plan-facet-claimed`. Raw skill
+invocations do not infer risk from diff text and default to thorough.
+`--allow-downgrade` is a general operator-visible opt-in, not an authorization
+boundary. Provenance is an auditable invocation claim, not authenticated caller
+identity; forged claims remain possible and must be visible in the selection
+notice.
+
 ## Mandatory assurance contract
 
 The selected plan specification controls the artifact's headings and may add stricter requirements. It may not remove this assurance floor. Every plan must faithfully transfer the final grill-me record into a compact implementation contract containing:

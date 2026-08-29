@@ -27,15 +27,23 @@ Require exactly one governing-intent source:
 - `--plan <path>` — an approved plan or other specification artifact;
 - `--description "..."` — an explicit inline task specification.
 
-Also accept optional `--instructions "..."` review hints. Flags may appear in
-any order and each consumes exactly one following value. Parse exactly one scope
-subcommand with its documented arity (`since` accepts one or two positionals;
-the others have fixed arity), then reject duplicate flags, extra positionals,
-missing values, or both intent flags. Do not infer intent from commit messages,
-code, tests, PR discussion, or what seems desirable. If neither intent source is
-supplied, report usage and stop. Callers with an active saved plan must pass its
-artifact path explicitly; this keeps the reviewed version visible and
-reproducible.
+Also accept optional `--instructions "..."` review hints,
+`--difficulty routine|thorough|critical`, `--allow-downgrade`, and
+`--selection-provenance raw-default|explicit|plan-facet-claimed`. Flags may
+appear in any order and each valued flag consumes exactly one following value.
+Strip pool controls before invoking `scope.py`, and reject duplicate, unknown,
+malformed, or missing-value flags before scope work. Difficulty omitted means
+`thorough`/`raw-default`; supplied difficulty means `explicit`; the plan facet
+claims `plan-facet-claimed` and passes `--allow-downgrade`. Provenance is an
+auditable claim, not authorization. Do not infer risk from diff text.
+
+Parse exactly one scope subcommand with its documented arity (`since` accepts
+one or two positionals; the others have fixed arity), then reject duplicate
+flags, extra positionals, missing values, or both intent flags. Do not infer
+intent from commit messages, code, tests, PR discussion, or what seems
+desirable. If neither intent source is supplied, report usage and stop. Callers
+with an active saved plan must pass its artifact path explicitly; this keeps the
+reviewed version visible and reproducible.
 
 ## Gather the diff
 
@@ -55,11 +63,20 @@ absolute paths for the reviewer. Resolve `--plan` to an absolute path and verify
 that it is a readable file, but do not summarize it; the reviewer reads the
 source directly.
 
-## Run one fresh conformance reviewer
+## Run the selected conformance assignments
 
-Spawn one `general-purpose` subagent. Do not specify a model unless the operator
-explicitly requested one. Substitute concrete absolute paths and values into
-this prompt:
+Resolve the shared pool once with `review_pool.py` and keep its selection result
+in context. Routine launches one ordered-fallback worker using the existing
+conformance prompt. Thorough and critical launch three independent workers with
+identical conformance inputs, labeled P1/P2/P3 in pool order. Pass each
+assignment's `model_override` directly; do not create model-specific named
+subagents. Routine startup failover is the only in-batch retry: after a
+pre-handle provider/startup rejection, try the next candidate; after a handle
+exists, or on timeout/runtime/empty/malformed/invalid output, stop. Higher-level
+failures never silently replace a slot.
+
+Spawn the selected `general-purpose` subagents. Substitute concrete absolute
+paths and values into this prompt:
 
 ```text
 You are an adversarial implementation-conformance reviewer.
@@ -82,14 +99,25 @@ $HOME/dotfiles/agents/skills/plan-conformance-review/CONTRACT.md
 Replace `$HOME` with the concrete absolute home path. Exactly one of
 `<intent_path>` and `<intent_description>` must be non-empty.
 
-## Surface the report
+## Surface the reports
 
-On success, surface the subagent's final message verbatim and nothing else. A
-valid report starts with `# Plan Conformance Review`, contains each required
-level-2 heading exactly once and in contract order, uses only documented ledger
-statuses and finding tags, and ends with exactly one allowed verdict. Treat a
-subagent error, empty output, or malformed report as failure; surface its output
-or error verbatim under `# Review failed (plan conformance)`.
+Announce one compact selection/status notice first with requested/effective level,
+provenance, safe config source, expected assignments, and pre-launch fallback
+or startup attempts. Then emit each successful report in assignment order under
+`## Reviewer: <worker-id> (<replica>)`, preserving its body verbatim beginning
+with `# Plan Conformance Review`. Emit bounded stable-stage failure notices in
+the corresponding positions. Do not summarize, merge, deduplicate, majority-vote,
+or silently suppress reports.
+
+Validate each report independently: it starts with `# Plan Conformance Review`,
+contains each required level-2 heading exactly once and in contract order, uses
+only documented ledger statuses and finding tags, and ends with exactly one
+allowed verdict. A successful report after startup rejections is complete; all
+startup rejections are `not_started`; any started/runtime/validation failure
+makes the batch `incomplete` and `undetermined`, while retaining valid output.
+An incomplete batch cannot pass and requires a fresh explicit outer round after
+the operational cause is addressed. Mechanical live validation is deferred; the
+status behavior is an instruction-level contract in this session.
 
 When using this as an implementation gate, fix or explicitly rebut every
 finding with evidence and rerun against a committed, definite scope. Any real

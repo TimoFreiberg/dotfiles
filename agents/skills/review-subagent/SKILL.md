@@ -3,14 +3,23 @@ name: review-subagent
 description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with fresh reviewer subagents that return structured findings."
 ---
 
-You orchestrate: parse arguments, run `scope.py` to gather the diff, use
-subagents, and surface their reports verbatim. You do not review code yourself.
+You orchestrate: parse arguments, run `scope.py` to gather the diff, resolve a
+configured reviewer pool once, use subagents, and surface their reports
+verbatim. You do not review code yourself. The resolver is
+`uv run $HOME/dotfiles/agents/skills/review-subagent/review_pool.py`; keep its
+small JSON result in context and pass selected assignments directly to
+subagents. Do not create a manifest, report-file transport, digest, or live
+mechanical reducer.
 
-Review has three dimensions, each handled by one reviewer subagent:
+Review difficulty drives assignment:
 
-- Correctness & Security (C).
-- Design & Structure (S).
-- Test Correctness & Verification Adequacy (T).
+- **routine**: one eventual worker/report, with ordered candidates GLM → Luna →
+  DeepSeek. The worker reads `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and
+  `TESTS.md` and covers C, S, and T together.
+- **thorough**: three parallel workers in configured order, slots 1/2/3 mapped
+  to Correctness & Security (C), Design & Structure (S), and Test Correctness &
+  Verification Adequacy (T).
+- **critical**: the same C/S/T slots with the critical configured pool.
 
 Documentation prose quality is owned by the `editing-documentation` skill and
 its dedicated editor, not by code review. Correctness still covers materially
@@ -22,8 +31,11 @@ them itself. This avoids cluttering the main session's context. Findings carry
 axis prefixes (C1, S2, T1) and are evidenced with a `file:line` and a quoted
 snippet.
 
-Reports are surfaced verbatim and unmerged, no dedup or verification stage.
-That's the consumer's job.
+Reports are surfaced verbatim and unmerged, with worker labels. Keep every
+valid report and finding independently attributable: do not deduplicate,
+majority-vote, or silently discard output. Live report validation remains an
+instruction-level contract in this session; fixture helpers do not wrap live
+subagent output.
 
 ## Step 1: Parse `$ARGUMENTS`
 
@@ -39,6 +51,19 @@ That's the consumer's job.
 **Flags** (any order, all optional):
 
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
+- `--difficulty routine|thorough|critical` — requested pool level; omitted
+  means `thorough`.
+- `--allow-downgrade` — opt into pre-launch downgrade only.
+- `--selection-provenance raw-default|explicit|plan-facet-claimed` — auditable
+  invocation claim; it is not authorization. Omitted provenance is
+  `raw-default` when difficulty is omitted, otherwise `explicit`.
+
+Validate duplicates, unknown flags, and missing values before scope work. Strip
+all pool controls before invoking `scope.py`; never infer difficulty from the
+text of the diff. The plan facet passes the selected level,
+`--selection-provenance plan-facet-claimed`, and `--allow-downgrade`. Announce
+requested/effective level, provenance, safe example/local config source, and
+expected assignment count in one selection/status notice.
 
 If parsing fails (unknown subcommand, missing required arg, or unknown flag),
 report the usage and stop.
@@ -78,16 +103,22 @@ prompts. Do not print the contents of `scope_summary` or `header`; the review
 reports are the useful output, and loading those files would defeat the
 context-isolation purpose of the scope script.
 
-## Step 4: Use subagents for the reviewer dimensions
+## Step 4: Use subagents for the selected assignments
 
-Use subagents to run three reviewers in parallel, one per dimension:
+For `routine`, try the ordered candidates one at a time for the one combined
+C+S+T assignment. A spawn rejected before a handle exists for a bounded
+provider/startup reason may advance to the next candidate; once a handle exists,
+or for timeout, tool/runtime failure, empty/malformed/invalid output, stop and
+mark the batch incomplete. For `thorough` and `critical`, launch all three
+configured assignments in parallel, in pool order, mapping slots 1/2/3 to C/S/T.
+Never replace a failed higher-level slot automatically.
 
-- Correctness & Security (C).
-- Design & Structure (S).
-- Test Correctness & Verification Adequacy (T).
-
-Do not specify a model by default. Only pass a model override when the operator
-explicitly asked for one.
+Pass each worker's `model_override` from the resolver in the deployed
+`provider/model:thinking` form (for example,
+`codex/gpt-5.6-luna(xhigh)` becomes `codex/gpt-5.6-luna:xhigh`). Do not create
+one named subagent definition per model. The C/S/T guidance paths remain:
+C=`CONTRACT.md`, `CORRECTNESS.md`; S=`CONTRACT.md`, `DESIGN.md`;
+T=`CONTRACT.md`, `TESTS.md`. Routine receives all four files.
 
 Do NOT read `CONTRACT.md` or the axis briefs yourself — hand each subagent the
 absolute paths and have it Read them. Build each dimension's `prompt:` from the
@@ -110,36 +141,36 @@ empty).
 
 Each reviewer's final message is its report.
 
-## Step 5: Surface the reports verbatim
+## Step 5: Surface reports verbatim
 
-Print each dimension's report verbatim, in order (C first, S second, T third),
-under a label header naming the dimension, and nothing else between or around
-them:
+Print one compact selection/status notice first. Then emit assignments in order
+under `## Reviewer: <worker-id> (<axis-or-combined>)`, followed by the unchanged
+report body beginning with `# Code Review`. Emit a bounded, stable-stage failure
+notice in a failed assignment's position. Routine has one eventual report
+position even when startup candidates were rejected. Do not add a merged summary,
+re-sort findings, deduplicate reports, or vote.
 
-    ## Reviewer: C
+A successful report after startup rejections is complete. All routine startup
+rejections are `not_started`; any handle-created/runtime/validation failure is
+`incomplete`, retains successful output, and is undetermined. These status and
+failure rendering rules are prompt-level in this session, not a mechanically
+validated live envelope. Diagnostic excerpts are bounded to 4096 UTF-8 bytes,
+remove control characters, redact secret-like assignments/local-config content,
+and never include raw provider payloads.
 
-    <that reviewer's report, verbatim>
-
-    ## Reviewer: S
-
-    <that reviewer's report, verbatim>
-
-    ## Reviewer: T
-
-    <that reviewer's report, verbatim>
-
-Do not add commentary, summaries, merged findings, or re-sorting.
-
-Per dimension, treat it as failed if the subagent errors, returns empty output,
+Per assignment, treat it as failed if the subagent errors, returns empty output,
 or produces a malformed report. A valid report starts with `# Code Review`,
 contains `## Coverage`, `## Findings`, and `## Verdict` exactly once in that
 order, includes the expected axis coverage and verdict, uses only documented
 finding severities, and has an overall verdict consistent with its critical and
-high findings.
+high findings. Validate each report independently, without inserting a worker
+label inside its body.
 
-On failure, surface that dimension's message (or the tool error) verbatim under
-a `# Review failed (<dimension>)` heading. A failure in one dimension does NOT
-suppress the others — always surface every dimension's result.
+On failure, surface a stable stage/error classification under the assignment's
+outer reviewer label. A failure never suppresses successful assignments, but an
+incomplete batch must never be presented as a passed review. Require a fresh
+outer review round after the operational cause is addressed; this is not an
+automatic slot retry.
 
 ## Looping
 
