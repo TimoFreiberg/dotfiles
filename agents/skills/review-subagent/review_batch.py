@@ -94,15 +94,31 @@ def validate_code_report(report: str, expected_axes: Iterable[str] = ("C",)) -> 
     finding_headings = [line for line in finding_lines if line.startswith("### ")]
     if finding_headings:
         allowed_prefixes = "".join(re.escape(axis) for axis in expected_axes if axis in {"C", "S", "T"})
-        if any(not re.fullmatch(rf"### [{allowed_prefixes}]\d+ \[(?:critical|high|medium|low)\] .+", line) for line in finding_headings):
-            return False, "malformed or misattributed finding heading"
-        for index, heading in enumerate(finding_headings):
+        previous_ids: dict[str, int] = {}
+        previous_severity = -1
+        severity_rank = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+        parsed_headings: list[tuple[str, int, int, str]] = []
+        for line in finding_headings:
+            match = re.fullmatch(rf"### ([{allowed_prefixes}])(\d+) \[(critical|high|medium|low)\] .+", line)
+            if not match:
+                return False, "malformed or misattributed finding heading"
+            axis, number, severity = match.group(1), int(match.group(2)), match.group(3)
+            if number <= previous_ids.get(axis, 0) or severity_rank[severity] < previous_severity:
+                return False, "finding IDs or severity order is invalid"
+            previous_ids[axis] = number
+            previous_severity = severity_rank[severity]
+            parsed_headings.append((line, number, severity_rank[severity], axis))
+        for index, (heading, _number, _severity, _axis) in enumerate(parsed_headings):
             start = findings.find(heading)
-            end = findings.find(finding_headings[index + 1], start + len(heading)) if index + 1 < len(finding_headings) else len(findings)
+            end = findings.find(parsed_headings[index + 1][0], start + len(heading)) if index + 1 < len(parsed_headings) else len(findings)
             block = findings[start:end]
             evidence_lines = [line.strip() for line in block.splitlines() if line.strip().startswith("Evidence:")]
-            if len(evidence_lines) != 1 or not re.search(r"Evidence:\s*\S+:\d+", evidence_lines[0]) or not re.search(r"[\"'`].+[\"'`]", evidence_lines[0]):
+            evidence_pattern = r"Evidence:\s*\S+:\d+\s+(?:\"[^\"]+\"|'[^']+'|`[^`]+`)"
+            if len(evidence_lines) != 1 or not re.fullmatch(evidence_pattern, evidence_lines[0]):
                 return False, "finding lacks valid Evidence line"
+            body_lines = [line.strip() for line in block.splitlines()[1:] if line.strip() and not line.strip().startswith("Evidence:")]
+            if not body_lines:
+                return False, "finding lacks explanatory body"
     elif any(line.strip().lower() != "none" for line in finding_lines):
         return False, "findings section is neither none nor structured findings"
     verdict_lines = [line.strip().lower() for line in report[positions[2] + len("## Verdict") :].splitlines() if line.strip()]
@@ -150,11 +166,13 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
         end = findings.find(finding_headings[index + 1], start + len(heading)) if index + 1 < len(finding_headings) else len(findings)
         block = findings[start:end]
         if "Evidence:" in block:
-            evidence = block.split("Evidence:", 1)[1].splitlines()[0]
-            if not re.search(r"\S+:\d+", evidence) or not re.search(r"[\"'`].+[\"'`]", evidence):
+            evidence_lines = [line.strip() for line in block.splitlines() if line.strip().startswith("Evidence:")]
+            if len(evidence_lines) != 1 or not re.fullmatch(r"Evidence:\s*\S+:\d+\s+(?:\"[^\"]+\"|'[^']+'|`[^`]+`)", evidence_lines[0]):
                 return False, "finding has invalid Evidence line"
         elif not re.search(r"(?:Search|Ambiguity):\s*\S+", block):
             return False, "finding lacks evidence"
+        elif len(re.findall(r"^(?:Search|Ambiguity):\s*\S+", block, re.MULTILINE)) != 1:
+            return False, "finding has multiple evidence alternatives"
         body_lines = [line.strip() for line in block.splitlines()[1:] if line.strip() and not line.strip().startswith(("Evidence:", "Search:", "Ambiguity:"))]
         if not body_lines:
             return False, "finding lacks explanatory body"
@@ -186,7 +204,7 @@ def redact_diagnostic(value: Any, limit: int = MAX_DIAGNOSTIC_BYTES) -> str:
     text = "".join(char for char in text if char in "\t\n" or unicodedata.category(char) != "Cc")
     patterns = [
         (r"(?i)(authorization[\"']?)\s*[:=]\s*[\"']?(?:bearer\s+)?[^\s,}\"']+[\"']?", r"\1=<redacted>"),
-        (r"(?i)([\"']?(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?token|refresh[_-]?token|password|secret|credential)[\"']?)\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,}]+)", r"\1=<redacted>"),
+        (r"(?i)([\"']?(?:api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?token|refresh[_-]?token|password|secret|credential|private[_-]?key)[\"']?)\s*[:=]\s*(?:\"[^\"]*\"|'[^']*'|[^\s,}]+)", r"\1=<redacted>"),
         (r"(?i)(bearer)\s+[^\s,}\"]+", r"\1 <redacted>"),
         (r"(?i)(review-pool\.local\.yaml|local_config|serialized local configuration)\s*[:=]?[^\n]*", r"\1=<redacted>"),
     ]
@@ -240,7 +258,7 @@ def reduce_batch(kind: str, level: str, outcomes: list[dict[str, Any]]) -> dict[
         for outcome in outcomes[:expected]:
             if outcome.get("status") == "valid":
                 checker = validate_conformance_report if kind == "plan_conformance" else validate_code_report
-                axis = outcome.get("axis", "C")
+                axis = outcome.get("axis")
                 if kind == "code" and (axis not in {"C", "S", "T"} or axis in seen_axes):
                     failures.append({**outcome, "status": "invalid", "diagnostic": "duplicate or invalid axis"})
                     continue

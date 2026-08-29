@@ -128,11 +128,12 @@ class BatchTests(unittest.TestCase):
         self.assertNotIn("header-secret", header_redacted)
         self.assertNotIn("camel-secret", header_redacted)
         self.assertNotIn("refresh-secret", header_redacted)
+        self.assertNotIn("private-secret", batch.redact_diagnostic("private_key=private-secret"))
 
     def test_report_validation_rejects_bad_severity_and_inconsistent_verdict(self):
         bad_severity = code_report("C").replace("none", "### C1 [blocker] bad")
         self.assertFalse(batch.validate_code_report(bad_severity)[0])
-        contradictory = code_report("C").replace("none", "### C1 [critical] bad\n\nEvidence: file.py:1 \"bad\"").replace("correct", "needs attention")
+        contradictory = code_report("C").replace("none", "### C1 [critical] bad\n\nThe issue is serious.\n\nEvidence: file.py:1 \"bad\"").replace("correct", "needs attention")
         self.assertTrue(batch.validate_code_report(contradictory)[0])
         duplicate_axes = batch.reduce_batch("code", "thorough", [{"status": "valid", "axis": "C", "report": code_report("C")}] * 3)
         self.assertEqual(duplicate_axes["status"], "incomplete")
@@ -145,6 +146,8 @@ class BatchTests(unittest.TestCase):
         self.assertFalse(batch.validate_code_report(contradictory_final)[0])
         axis_contradiction = code_report("C S").replace("none", "### C1 [high] bad\n\nEvidence: src/a.py:1 `bad`", 1).replace("correct\ncorrect\ncorrect", "correct\nneeds attention\nneeds attention")
         self.assertFalse(batch.validate_code_report(axis_contradiction, ("C", "S"))[0])
+        missing_axis = batch.reduce_batch("code", "thorough", [{"status": "valid", "report": code_report("C")}] * 3)
+        self.assertEqual(missing_axis["status"], "incomplete")
 
     def test_fixture_diagnostics_are_bounded_and_redacted(self):
         self.test_diagnostic_redaction_bounds_and_removes_secrets()
