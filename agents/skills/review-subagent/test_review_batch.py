@@ -77,6 +77,10 @@ class BatchTests(unittest.TestCase):
         self.assertTrue(batch.validate_conformance_report(report)[0])
         reduced = batch.reduce_batch("plan_conformance", "routine", [{"status": "valid", "report": report}])
         self.assertEqual(reduced["verdict"], "not conformant")
+        bad_status = report.replace("R1 satisfied", "R1 not satisfied")
+        self.assertFalse(batch.validate_conformance_report(bad_status)[0])
+        bad_prose = report.replace("### A1 [blocking]", "unstructured prose\n### A1 [blocking]")
+        self.assertFalse(batch.validate_conformance_report(bad_prose)[0])
 
     def test_incomplete_round_requires_fresh_round(self):
         result = batch.reduce_batch("code", "thorough", [{"status": "valid", "report": code_report("C")}, {"status": "handle_created"}])

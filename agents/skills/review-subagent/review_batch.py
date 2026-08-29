@@ -125,14 +125,17 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
     findings = report[positions[1] : positions[2]]
     allowed_statuses = {"satisfied", "partial", "missing", "scope-deviated", "decision-violated", "deferral-violated", "indeterminate", "not-applicable"}
     ledger_items = [line for line in ledger.splitlines() if line.strip().startswith("-")]
-    if not ledger_items or any(not re.search(r"\b(?:R|I|N|D|F)\d+\b.*?\b(?:satisfied|partial|missing|scope-deviated|decision-violated|deferral-violated|indeterminate|not-applicable)\b", line) for line in ledger_items):
+    if not ledger_items or any(not re.search(r"\b(?:R|I|N|D|F)\d+\b.*?(?<!not )\b(?:satisfied|partial|missing|scope-deviated|decision-violated|deferral-violated|indeterminate|not-applicable)\b", line) for line in ledger_items):
         return False, "invalid ledger status"
     finding_lines = [line for line in findings.splitlines() if line.strip() and not line.strip().startswith("## Findings")]
     if not finding_lines:
         return False, "findings section is empty"
     finding_headings = [line for line in finding_lines if line.startswith("### ")]
-    if not finding_headings and any(line.strip().lower() != "none" for line in finding_lines):
-        return False, "findings section is malformed"
+    if not finding_headings:
+        if finding_lines != ["none"]:
+            return False, "findings section is malformed"
+    elif any(line not in finding_headings and finding_lines.index(line) < finding_lines.index(finding_headings[0]) for line in finding_lines):
+        return False, "findings section has prose before its first finding"
     if any(not re.fullmatch(r"### .+ \[(?:blocking|clarification)\] .+", line) for line in finding_headings):
         return False, "invalid finding tag"
     for index, heading in enumerate(finding_headings):
