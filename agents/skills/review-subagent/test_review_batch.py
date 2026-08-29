@@ -72,6 +72,11 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(result["verdict"], "not conformant")
         result = batch.reduce_batch("plan_conformance", "thorough", [{"status": "valid", "report": conformance_report("clarification required")}, {"status": "valid", "report": conformance_report("not conformant")}, {"status": "valid", "report": conformance_report("conformant")}])
         self.assertEqual(result["verdict"], "clarification required")
+        finding = "### A1 [blocking] R1 — requirement is missing\n\nThe implementation omits the requirement.\n\nEvidence: src/main.py:42 `missing_call()`\n"
+        report = conformance_report("not conformant").replace("none", finding, 1)
+        self.assertTrue(batch.validate_conformance_report(report)[0])
+        reduced = batch.reduce_batch("plan_conformance", "routine", [{"status": "valid", "report": report}])
+        self.assertEqual(reduced["verdict"], "not conformant")
 
     def test_incomplete_round_requires_fresh_round(self):
         result = batch.reduce_batch("code", "thorough", [{"status": "valid", "report": code_report("C")}, {"status": "handle_created"}])

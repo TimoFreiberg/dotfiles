@@ -128,17 +128,22 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
     if not ledger_items or any(not re.search(r"\b(?:R|I|N|D|F)\d+\b.*?\b(?:satisfied|partial|missing|scope-deviated|decision-violated|deferral-violated|indeterminate|not-applicable)\b", line) for line in ledger_items):
         return False, "invalid ledger status"
     finding_lines = [line for line in findings.splitlines() if line.strip() and not line.strip().startswith("## Findings")]
-    if not finding_lines and "none" not in findings.lower():
-        return False, "findings section is empty or malformed"
+    if not finding_lines:
+        return False, "findings section is empty"
     finding_headings = [line for line in finding_lines if line.startswith("### ")]
-    if any(not line.startswith("### ") for line in finding_lines if line.strip().lower() != "none"):
+    if not finding_headings and any(line.strip().lower() != "none" for line in finding_lines):
         return False, "findings section is malformed"
     if any(not re.fullmatch(r"### .+ \[(?:blocking|clarification)\] .+", line) for line in finding_headings):
         return False, "invalid finding tag"
     for index, heading in enumerate(finding_headings):
         start = findings.find(heading)
         end = findings.find(finding_headings[index + 1], start + len(heading)) if index + 1 < len(finding_headings) else len(findings)
-        if "Evidence:" not in findings[start:end] and "Search:" not in findings[start:end] and "Ambiguity:" not in findings[start:end]:
+        block = findings[start:end]
+        if "Evidence:" in block:
+            evidence = block.split("Evidence:", 1)[1].splitlines()[0]
+            if not re.search(r"\S+:\d+", evidence) or not re.search(r"[\"'`].+[\"'`]", evidence):
+                return False, "finding has invalid Evidence line"
+        elif "Search:" not in block and "Ambiguity:" not in block:
             return False, "finding lacks evidence"
     verdict = conformance_verdict(report)
     if verdict is None:
