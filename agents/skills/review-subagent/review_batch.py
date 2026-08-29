@@ -99,8 +99,10 @@ def validate_code_report(report: str, expected_axes: Iterable[str] = ("C",)) -> 
         for index, heading in enumerate(finding_headings):
             start = findings.find(heading)
             end = findings.find(finding_headings[index + 1], start + len(heading)) if index + 1 < len(finding_headings) else len(findings)
-            if "Evidence:" not in findings[start:end]:
-                return False, "finding lacks Evidence line"
+            block = findings[start:end]
+            evidence_lines = [line.strip() for line in block.splitlines() if line.strip().startswith("Evidence:")]
+            if len(evidence_lines) != 1 or not re.search(r"Evidence:\s*\S+:\d+", evidence_lines[0]) or not re.search(r"[\"'`].+[\"'`]", evidence_lines[0]):
+                return False, "finding lacks valid Evidence line"
     elif any(line.strip().lower() != "none" for line in finding_lines):
         return False, "findings section is neither none nor structured findings"
     verdict_lines = [line.strip().lower() for line in report[positions[2] + len("## Verdict") :].splitlines() if line.strip()]
@@ -141,8 +143,8 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
             return False, "findings section is malformed"
     elif any(line not in finding_headings and finding_lines.index(line) < finding_lines.index(finding_headings[0]) for line in finding_lines):
         return False, "findings section has prose before its first finding"
-    if any(not re.fullmatch(r"### .+ \[(?:blocking|clarification)\] .+", line) for line in finding_headings):
-        return False, "invalid finding tag"
+    if any(not re.fullmatch(r"### A\d+ \[(?:blocking|clarification)\] (?:R|I|N|D|F)\d+ — .+", line) for line in finding_headings):
+        return False, "invalid finding tag or identity"
     for index, heading in enumerate(finding_headings):
         start = findings.find(heading)
         end = findings.find(finding_headings[index + 1], start + len(heading)) if index + 1 < len(finding_headings) else len(findings)
@@ -153,6 +155,9 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
                 return False, "finding has invalid Evidence line"
         elif not re.search(r"(?:Search|Ambiguity):\s*\S+", block):
             return False, "finding lacks evidence"
+        body_lines = [line.strip() for line in block.splitlines()[1:] if line.strip() and not line.strip().startswith(("Evidence:", "Search:", "Ambiguity:"))]
+        if not body_lines:
+            return False, "finding lacks explanatory body"
     verdict = conformance_verdict(report)
     if verdict is None:
         return False, "missing allowed verdict"
@@ -160,10 +165,14 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
 
 
 def conformance_verdict(report: str) -> str | None:
-    marker = "## Verdict"
-    if marker not in report:
+    marker = "## Verdict\n"
+    positions = [index for index, line in enumerate(report.splitlines()) if line == "## Verdict"]
+    if len(positions) != 1:
         return None
-    tail = report[report.rfind(marker) + len(marker) :].strip()
+    marker_position = report.find(marker)
+    if marker_position < 0:
+        return None
+    tail = report[marker_position + len(marker) :].strip()
     lines = [line.strip().lower() for line in tail.splitlines() if line.strip()]
     if len(lines) != 1 or lines[0] not in {"clarification required", "not conformant", "conformant"}:
         return None
@@ -184,6 +193,7 @@ def redact_diagnostic(value: Any, limit: int = MAX_DIAGNOSTIC_BYTES) -> str:
     for pattern, replacement in patterns:
         text = re.sub(pattern, replacement, text)
     encoded = text.encode("utf-8", errors="replace")
+    text = encoded.decode("utf-8")
     if len(encoded) <= limit:
         return text
     marker = "…[truncated]"
