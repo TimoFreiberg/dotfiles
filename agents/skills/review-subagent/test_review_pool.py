@@ -165,8 +165,10 @@ class PoolTests(unittest.TestCase):
         base, level = pool.parse_model_reference("codex/gpt-5.6-luna(xhigh)")
         self.assertEqual(base, "codex/gpt-5.6-luna")
         self.assertEqual(level, "xhigh")
+        self.assertEqual(pool.model_override("codex/gpt-5.6-luna(high)"), "codex/gpt-5.6-luna:high")
+        self.assertEqual(pool.parse_model_reference("codex/gpt-5.6-luna(high)")[0], base)
         with self.assertRaises(pool.PoolError):
-            pool.parse_model_reference("other-provider/other-model(high)") if False else pool.parse_model_reference("provider/model/high")
+            pool.parse_model_reference("provider/model/high")
 
     def test_actual_model_override_payload_syntax(self):
         self.assertEqual(pool.model_override("zai/glm-5.3-flash(high)"), "zai/glm-5.3-flash:high")

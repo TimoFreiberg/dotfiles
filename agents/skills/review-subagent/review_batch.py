@@ -93,8 +93,9 @@ def validate_code_report(report: str, expected_axes: Iterable[str] = ("C",)) -> 
     finding_lines = [line for line in findings.splitlines() if line.strip() and not line.strip().startswith("## Findings")]
     finding_headings = [line for line in finding_lines if line.startswith("### ")]
     if finding_headings:
-        if any(not re.fullmatch(r"### [CST]\d+ \[(?:critical|high|medium|low)\] .+", line) for line in finding_headings):
-            return False, "malformed finding heading"
+        allowed_prefixes = "".join(re.escape(axis) for axis in expected_axes if axis in {"C", "S", "T"})
+        if any(not re.fullmatch(rf"### [{allowed_prefixes}]\d+ \[(?:critical|high|medium|low)\] .+", line) for line in finding_headings):
+            return False, "malformed or misattributed finding heading"
         for index, heading in enumerate(finding_headings):
             start = findings.find(heading)
             end = findings.find(finding_headings[index + 1], start + len(heading)) if index + 1 < len(finding_headings) else len(findings)
@@ -124,9 +125,14 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
     findings = report[positions[1] : positions[2]]
     allowed_statuses = {"satisfied", "partial", "missing", "scope-deviated", "decision-violated", "deferral-violated", "indeterminate", "not-applicable"}
     ledger_items = [line for line in ledger.splitlines() if line.strip().startswith("-")]
-    if ledger_items and any(not any(re.search(rf"\b{re.escape(status)}\b", line) for status in allowed_statuses) for line in ledger_items):
+    if not ledger_items or any(not re.search(r"\b(?:R|I|N|D|F)\d+\b.*?\b(?:satisfied|partial|missing|scope-deviated|decision-violated|deferral-violated|indeterminate|not-applicable)\b", line) for line in ledger_items):
         return False, "invalid ledger status"
-    finding_headings = [line for line in findings.splitlines() if line.startswith("### ")]
+    finding_lines = [line for line in findings.splitlines() if line.strip() and not line.strip().startswith("## Findings")]
+    if not finding_lines and "none" not in findings.lower():
+        return False, "findings section is empty or malformed"
+    finding_headings = [line for line in finding_lines if line.startswith("### ")]
+    if any(not line.startswith("### ") for line in finding_lines if line.strip().lower() != "none"):
+        return False, "findings section is malformed"
     if any(not re.fullmatch(r"### .+ \[(?:blocking|clarification)\] .+", line) for line in finding_headings):
         return False, "invalid finding tag"
     for index, heading in enumerate(finding_headings):
@@ -201,6 +207,8 @@ def reduce_batch(kind: str, level: str, outcomes: list[dict[str, Any]]) -> dict[
                 break
             failures.append(outcome)
             break
+        if valid and len(outcomes) != len(attempted):
+            failures.append({"status": "invalid", "diagnostic": "unexpected routine outcome count"})
     else:
         attempted = outcomes[:]
         if len(outcomes) != expected:

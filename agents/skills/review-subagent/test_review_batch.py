@@ -35,6 +35,9 @@ class BatchTests(unittest.TestCase):
         started_results = started.launch_routine()
         self.assertEqual([item["status"] for item in started_results], ["handle_created"])
         self.assertEqual(started.calls, [0])
+        for status in (fixture.FakeRunner.TIMEOUT, fixture.FakeRunner.MALFORMED):
+            outcome = fixture.FakeRunner([status]).launch_routine()
+            self.assertEqual([item["status"] for item in outcome], [status])
 
     def test_difficulty_flags_are_not_forwarded_to_scope(self):
         parsed = batch.normalize_arguments(["--instructions", "focus", "--difficulty", "critical", "--allow-downgrade", "commit", "abc"])
@@ -84,6 +87,8 @@ class BatchTests(unittest.TestCase):
         result = batch.reduce_batch("code", "routine", [{"status": "startup_rejected"}, {"status": "valid", "report": code_report("C S T")}])
         self.assertEqual(result["status"], "complete")
         self.assertEqual(len(result["valid_reports"]), 1)
+        trailing = batch.reduce_batch("code", "routine", [{"status": "valid", "report": code_report("C S T")}, {"status": "timeout"}])
+        self.assertEqual(trailing["status"], "incomplete")
 
     def test_all_routine_startup_rejections_are_not_started(self):
         result = batch.reduce_batch("plan_conformance", "routine", [{"status": "startup_rejected"}] * 3)
