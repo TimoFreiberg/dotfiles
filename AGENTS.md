@@ -3,13 +3,17 @@
 ## Symlink layout
 
 This repo is the backing store for all agent and shell config. The canonical
-source for agent configuration is the `agents/` directory. Everything else
+source for agent configuration is the `agents/` directory, with one deliberate
+exception: the global agent instructions chain is rooted in
+`config/polytoken/` — Polytoken reads that path directly and avoids following
+symlinks, so the real global-instructions file lives there and everything else
 symlinks into it:
 
 | Real path (in repo)          | Symlink                              | Purpose                            |
 |------------------------------|--------------------------------------|------------------------------------|
-| `agents/AGENTS.md`          | `claude/CLAUDE.md` → `../agents/AGENTS.md` | Global agent instructions (shared) |
-| `agents/AGENTS.md`          | `config/pi/agent/AGENTS.md` → `../../../agents/AGENTS.md` | Same file, read by Pi              |
+| `config/polytoken/AGENTS.md` | `agents/AGENTS.md` → `../config/polytoken/AGENTS.md` | Real global-instructions file, loaded by Polytoken directly |
+| `config/polytoken/AGENTS.md` | `claude/CLAUDE.md` → `../agents/AGENTS.md` | Global agent instructions (shared) |
+| `config/polytoken/AGENTS.md` | `config/pi/agent/AGENTS.md` → `../../../agents/AGENTS.md` | Same file, read by Pi              |
 | `AGENTS.md` (repo root)     | `CLAUDE.md` → `AGENTS.md`           | Project-level instructions         |
 | `agents/skills/`            | `claude/skills/`, `config/pi/agent/skills/` | Shared skill definitions           |
 | `agents/references/`        | `claude/references/`                 | Reference docs for skills          |
@@ -19,9 +23,12 @@ symlinks into it:
 | `claude/`                   | `~/.claude` → `~/dotfiles/claude`    | Claude Code config dir             |
 | (external, varies per machine) | `claude/memories/`              | Persistent agent memories          |
 
-**Key rule:** edit files in `agents/`, not through the symlinks. The repo-root
-`AGENTS.md` (project instructions) and `agents/AGENTS.md` (global instructions)
-are two different files — don't confuse them.
+**Key rule:** edit real files, not through the symlinks. The real global
+instructions file is `config/polytoken/AGENTS.md` (intentional: Polytoken reads
+that path directly and avoids following symlinks); `agents/AGENTS.md`,
+`claude/CLAUDE.md`, and `config/pi/agent/AGENTS.md` are all symlinks into it.
+The repo-root `AGENTS.md` (project instructions) and the global instructions
+file are two different files — don't confuse them.
 
 ## Portability
 
