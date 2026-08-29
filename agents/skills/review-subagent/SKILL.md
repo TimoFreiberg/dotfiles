@@ -31,11 +31,10 @@ them itself. This avoids cluttering the main session's context. Findings carry
 axis prefixes (C1, S2, T1) and are evidenced with a `file:line` and a quoted
 snippet.
 
-Reports are surfaced verbatim and unmerged, with worker labels. Keep every
-valid report and finding independently attributable: do not deduplicate,
-majority-vote, or silently discard output. Live report validation remains an
-instruction-level contract in this session; fixture helpers do not wrap live
-subagent output.
+Surface valid reports verbatim and unmerged with worker labels. Keep each
+report and finding attributable: do not deduplicate, majority-vote, or silently
+discard output. Live validation is instruction-level; fixture helpers do not
+wrap subagent output.
 
 ## Step 1: Parse `$ARGUMENTS`
 

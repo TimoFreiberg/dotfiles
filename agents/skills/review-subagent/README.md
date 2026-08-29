@@ -24,17 +24,17 @@ because `review_pool.py` declares pinned `PyYAML==6.0.2` using PEP 723 metadata.
 
 ## Levels
 
-- **routine** tries one eventual report in GLM → Luna → DeepSeek order. A code
-  reviewer receives `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and `TESTS.md`
-  and covers C, S, and T together. Only a pre-handle startup rejection may
-  advance to the next candidate.
+- **routine** uses ordered fallback GLM → Luna → DeepSeek for one eventual report.
+  The code reviewer receives `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and
+  `TESTS.md` and covers C, S, and T together. Only a pre-handle startup rejection
+  may advance to the next candidate.
 - **thorough** runs GLM/Luna/DeepSeek in parallel, assigning slots 1/2/3 to
   C/S/T.
 - **critical** runs GLM/Sol/DeepSeek in parallel, assigning slots 1/2/3 to
   C/S/T.
 
-Conformance review has one existing conformance report at routine and three
-independent copies at the higher levels; it does not gain artificial axes.
+Conformance review produces one report at routine and three independent copies
+at higher levels; it does not add artificial axes.
 Reports remain attributable and are never deduplicated or majority-voted.
 
 Raw skill invocations default to `thorough` with provenance `raw-default`.

@@ -95,9 +95,9 @@ explicitly numbered outer review round; this is not an automatic slot retry.
 
 The task passes only when both batches are complete, conformance is
 `conformant`, no non-rebutted critical or high code-review finding remains, and
-every medium or low finding is fixed or explicitly rebutted. These completeness
-and gate rules are prompt-level in this session; mechanical enforcement is
-reserved for the deferred wrapper/transport work.
+every medium or low finding is fixed or explicitly rebutted. These rules are
+prompt-level; mechanical enforcement remains deferred to wrapper/transport
+work.
 
 ## Common mistakes
 

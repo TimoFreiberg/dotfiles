@@ -116,8 +116,8 @@ allowed verdict. A successful report after startup rejections is complete; all
 startup rejections are `not_started`; any started/runtime/validation failure
 makes the batch `incomplete` and `undetermined`, while retaining valid output.
 An incomplete batch cannot pass and requires a fresh explicit outer round after
-the operational cause is addressed. Mechanical live validation is deferred; the
-status behavior is an instruction-level contract in this session.
+the operational cause is addressed. Live validation is deferred; status
+behavior is an instruction-level contract.
 
 When using this as an implementation gate, fix or explicitly rebut every
 finding with evidence and rerun against a committed, definite scope. Any real
