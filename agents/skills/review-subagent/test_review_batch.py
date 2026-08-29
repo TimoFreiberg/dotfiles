@@ -79,6 +79,8 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(reduced["verdict"], "not conformant")
         bad_status = report.replace("R1 satisfied", "R1 not satisfied")
         self.assertFalse(batch.validate_conformance_report(bad_status)[0])
+        contradictory_status = report.replace("R1 satisfied", "R1 not satisfied; partial implementation")
+        self.assertFalse(batch.validate_conformance_report(contradictory_status)[0])
         bad_prose = report.replace("### A1 [blocking]", "unstructured prose\n### A1 [blocking]")
         self.assertFalse(batch.validate_conformance_report(bad_prose)[0])
 

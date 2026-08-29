@@ -125,7 +125,8 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
     findings = report[positions[1] : positions[2]]
     allowed_statuses = {"satisfied", "partial", "missing", "scope-deviated", "decision-violated", "deferral-violated", "indeterminate", "not-applicable"}
     ledger_items = [line for line in ledger.splitlines() if line.strip().startswith("-")]
-    if not ledger_items or any(not re.search(r"\b(?:R|I|N|D|F)\d+\b.*?(?<!not )\b(?:satisfied|partial|missing|scope-deviated|decision-violated|deferral-violated|indeterminate|not-applicable)\b", line) for line in ledger_items):
+    status_pattern = r"\b(satisfied|partial|missing|scope-deviated|decision-violated|deferral-violated|indeterminate|not-applicable)\b"
+    if not ledger_items or any(not re.search(r"\b(?:R|I|N|D|F)\d+\b", line) or len(re.findall(status_pattern, line)) != 1 or re.search(r"\bnot\s+satisfied\b", line, re.IGNORECASE) for line in ledger_items):
         return False, "invalid ledger status"
     finding_lines = [line for line in findings.splitlines() if line.strip() and not line.strip().startswith("## Findings")]
     if not finding_lines:
