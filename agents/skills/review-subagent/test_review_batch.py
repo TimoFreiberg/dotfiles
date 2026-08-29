@@ -81,6 +81,10 @@ class BatchTests(unittest.TestCase):
         self.assertFalse(batch.validate_conformance_report(bad_status)[0])
         contradictory_status = report.replace("R1 satisfied", "R1 not satisfied; partial implementation")
         self.assertFalse(batch.validate_conformance_report(contradictory_status)[0])
+        suffixed_status = report.replace("R1 satisfied", "R1 satisfied-ish")
+        self.assertFalse(batch.validate_conformance_report(suffixed_status)[0])
+        empty_search = report.replace("Evidence: src/main.py:42 `missing_call()`", "Search:")
+        self.assertFalse(batch.validate_conformance_report(empty_search)[0])
         bad_prose = report.replace("### A1 [blocking]", "unstructured prose\n### A1 [blocking]")
         self.assertFalse(batch.validate_conformance_report(bad_prose)[0])
 
@@ -139,6 +143,8 @@ class BatchTests(unittest.TestCase):
         self.assertFalse(batch.validate_code_report(code_report("C").replace("correct", "garbage"))[0])
         contradictory_final = code_report("C").replace("none", "### C1 [critical] bad").replace("correct", "C: needs attention\ncorrect")
         self.assertFalse(batch.validate_code_report(contradictory_final)[0])
+        axis_contradiction = code_report("C S").replace("none", "### C1 [high] bad\n\nEvidence: src/a.py:1 `bad`", 1).replace("correct\ncorrect\ncorrect", "correct\nneeds attention\nneeds attention")
+        self.assertFalse(batch.validate_code_report(axis_contradiction, ("C", "S"))[0])
 
     def test_fixture_diagnostics_are_bounded_and_redacted(self):
         self.test_diagnostic_redaction_bounds_and_removes_secrets()

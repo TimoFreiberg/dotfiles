@@ -107,6 +107,10 @@ def validate_code_report(report: str, expected_axes: Iterable[str] = ("C",)) -> 
     expected_verdicts = len(tuple(expected_axes)) + 1
     if len(verdict_lines) != expected_verdicts or any(line not in {"correct", "needs attention"} for line in verdict_lines):
         return False, "missing or invalid axis/overall verdicts"
+    for index, axis in enumerate(expected_axes):
+        axis_findings = [line for line in finding_headings if line.startswith(f"### {axis}")]
+        if any(re.search(r"\[(?:critical|high)\]", line, re.IGNORECASE) for line in axis_findings) and verdict_lines[index] != "needs attention":
+            return False, f"{axis} verdict is inconsistent with critical or high findings"
     if re.search(r"\[(?:critical|high)\]", findings, re.IGNORECASE) and verdict_lines[-1] != "needs attention":
         return False, "verdict is inconsistent with critical or high findings"
     return True, "valid"
@@ -125,7 +129,7 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
     findings = report[positions[1] : positions[2]]
     allowed_statuses = {"satisfied", "partial", "missing", "scope-deviated", "decision-violated", "deferral-violated", "indeterminate", "not-applicable"}
     ledger_items = [line for line in ledger.splitlines() if line.strip().startswith("-")]
-    status_pattern = r"\b(satisfied|partial|missing|scope-deviated|decision-violated|deferral-violated|indeterminate|not-applicable)\b"
+    status_pattern = r"(?<![A-Za-z0-9_-])(satisfied|partial|missing|scope-deviated|decision-violated|deferral-violated|indeterminate|not-applicable)(?![A-Za-z0-9_-])"
     if not ledger_items or any(not re.search(r"\b(?:R|I|N|D|F)\d+\b", line) or len(re.findall(status_pattern, line)) != 1 or re.search(r"\bnot\s+satisfied\b", line, re.IGNORECASE) for line in ledger_items):
         return False, "invalid ledger status"
     finding_lines = [line for line in findings.splitlines() if line.strip() and not line.strip().startswith("## Findings")]
@@ -147,7 +151,7 @@ def validate_conformance_report(report: str) -> tuple[bool, str]:
             evidence = block.split("Evidence:", 1)[1].splitlines()[0]
             if not re.search(r"\S+:\d+", evidence) or not re.search(r"[\"'`].+[\"'`]", evidence):
                 return False, "finding has invalid Evidence line"
-        elif "Search:" not in block and "Ambiguity:" not in block:
+        elif not re.search(r"(?:Search|Ambiguity):\s*\S+", block):
             return False, "finding lacks evidence"
     verdict = conformance_verdict(report)
     if verdict is None:
