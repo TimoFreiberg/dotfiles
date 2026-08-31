@@ -25,3 +25,6 @@ restack = ["rebase", "--onto", "trunk()", "--source", "roots(trunk()..) & mutabl
 
 # `jj slip <pre-merge-rev> -r <revset> moves revset inbetween pre-merge-rev and the megamerge
 slip = ["rebase", "--before", "closest_merge(@)", "--after"]
+
+[ui]
+default-command = "log"
