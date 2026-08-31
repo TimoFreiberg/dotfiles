@@ -67,10 +67,11 @@ source directly.
 
 Resolve the shared pool once with `review_pool.py` and keep its selection result
 in context. Routine launches one ordered-fallback worker using the existing
-conformance prompt. Thorough and critical launch three independent workers with
-identical conformance inputs, labeled P1/P2/P3 in pool order. Pass each
-assignment's `model_override` directly; do not create model-specific named
-subagents. Routine startup failover is the only in-batch retry: after a
+conformance prompt. Thorough and critical launch nine independent workers with
+identical conformance inputs, running each configured model against each C/S/T
+assignment in pool order. Pass each assignment's `model_override` directly; do
+not create model-specific named subagents. Routine startup failover is the only
+in-batch retry: after a
 pre-handle provider/startup rejection, try the next candidate; after a handle
 exists, or on timeout/runtime/empty/malformed/invalid output, stop. Higher-level
 failures never silently replace a slot.

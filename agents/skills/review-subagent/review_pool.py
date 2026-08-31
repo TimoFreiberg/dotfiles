@@ -121,7 +121,7 @@ def validate_config(document: Any) -> dict[str, Any]:
             raise PoolError(f"level {level} contains duplicate workers")
         expected_count = 1 if level == "routine" else 3
         if level != "routine" and len(selected) != expected_count:
-            raise PoolError(f"level {level} requires exactly three workers")
+            raise PoolError(f"level {level} requires exactly three model workers")
         missing_workers = [item for item in selected if item not in normalized_workers]
         if missing_workers:
             raise PoolError(f"level {level} references unknown workers: {', '.join(missing_workers)}")
@@ -264,12 +264,15 @@ def _assignments(config: dict[str, Any], effective: str, selectable: dict[str, d
             code.append({**item, "slot": 1, "axis": "C+S+T"})
             conformance.append({**item, "slot": 1, "replica": "P1"})
     else:
-        for slot, axis, worker_id in zip((1, 2, 3), ("C", "S", "T"), ids):
+        slot = 0
+        for worker_id in ids:
             worker = config["workers"][worker_id]
-            item = {"slot": slot, "worker_id": worker_id, "model": worker["model"], "model_override": model_override(worker["model"]), "axis": axis}
-            code.append(item)
-            conformance.append({"slot": slot, "worker_id": worker_id, "model": worker["model"], "model_override": model_override(worker["model"]), "replica": f"P{slot}"})
-    expected_slots = 1 if effective == "routine" else 3
+            for axis in ("C", "S", "T"):
+                slot += 1
+                item = {"slot": slot, "worker_id": worker_id, "model": worker["model"], "model_override": model_override(worker["model"]), "axis": axis}
+                code.append(item)
+                conformance.append({"slot": slot, "worker_id": worker_id, "model": worker["model"], "model_override": model_override(worker["model"]), "replica": f"P{slot}"})
+    expected_slots = 1 if effective == "routine" else 9
     return {"code": {"strategy": config["levels"][effective]["strategy"], "expected_slots": expected_slots, "assignments": code, "preflight": statuses}, "plan_conformance": {"strategy": config["levels"][effective]["strategy"], "expected_slots": expected_slots, "assignments": conformance, "preflight": statuses}}
 
 
