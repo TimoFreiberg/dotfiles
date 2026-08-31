@@ -167,7 +167,11 @@ def normalize_catalog(document: Any) -> dict[str, dict[str, Any]]:
         base = f"{entry['provider']}/{entry['name'].split('/', 1)[-1]}"
         if base in normalized:
             raise PoolError(f"model catalog contains duplicate identity: {base}")
-        normalized[base] = {"levels": set(levels), "selectable": set(values)}
+        selectable = {
+            value if "/" in value else f"{entry['provider']}/{value}"
+            for value in values
+        }
+        normalized[base] = {"levels": set(levels), "selectable": selectable}
     return normalized
 
 
