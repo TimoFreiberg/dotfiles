@@ -50,6 +50,12 @@ echo "[user]
 
 echo "Add name and email to ~/.gitconfig"
 
+echo "Add config/jj/conf.d/user.toml as follows:
+[user]
+name = 
+email = 
+"
+
 backup_dotfile .claude
 symlink_dotfile_as claude .claude
 
@@ -58,5 +64,3 @@ if test (uname) = "Darwin"
   defaults write com.apple.dock autohide-delay -float 0 && defaults write com.apple.dock autohide-time-modifier -float 0.4 && killall Dock
   defaults write com.apple.Preview ApplePersistenceIgnoreState YES
 end
-
-echo "symlink $(pwd)/claude/memories to a repo if you want to back it up"
