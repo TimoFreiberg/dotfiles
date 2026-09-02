@@ -18,9 +18,12 @@ example. A malformed local file fails closed; it never silently falls back.
 Authentication belongs in Polytoken configuration or the environment, never in
 this YAML file. The root `.gitignore` rule protects the local replacement.
 
-The resolver checks every model reference against `polytoken models --format
-json`; a syntactically plausible reference is not sufficient. `uv` is required
-because `review_pool.py` declares pinned `PyYAML==6.0.2` using PEP 723 metadata.
+Use exact selectable identifiers from `polytoken models --format json`, such as
+`gpt-5.6-luna(xhigh)`. Provider names are catalog metadata, not part of an
+identifier unless the configured model name itself contains a slash. The
+resolver passes the identifier unchanged to the subagent launcher and fails
+closed when it is not selectable. `uv` is required because `review_pool.py`
+declares pinned `PyYAML==6.0.2` using PEP 723 metadata.
 
 ## Levels
 

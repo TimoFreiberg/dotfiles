@@ -1,13 +1,13 @@
 version: 1
 workers:
   glm_flash:
-    model: "zai/glm-5.3-flash(high)"
+    model: "glm-5.3-flash(high)"
   codex_luna:
-    model: "codex/gpt-5.6-luna(xhigh)"
+    model: "gpt-5.6-luna(xhigh)"
   deepseek:
-    model: "deepseek/deepseek-v4-flash(high)"
+    model: "deepseek-v4-flash(high)"
   codex_sol:
-    model: "codex/gpt-5.6-sol(medium)"
+    model: "gpt-5.6-sol(medium)"
 levels:
   routine:
     strategy: ordered-fallback

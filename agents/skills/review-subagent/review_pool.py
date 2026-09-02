@@ -25,7 +25,7 @@ LEVELS = ("routine", "thorough", "critical")
 DOWNGRADE_CHAIN = ("critical", "thorough", "routine")
 PROVENANCES = ("raw-default", "explicit", "plan-facet-claimed")
 STRATEGIES = {"routine": "ordered-fallback", "parallel": "parallel"}
-MODEL_RE = re.compile(r"^(?P<base>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)(?:\((?P<reasoning>none|low|medium|high|xhigh|max)\))?$")
+MODEL_RE = re.compile(r"^(?P<base>[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?)(?:\((?P<reasoning>none|low|medium|high|xhigh|max)\))?$")
 ID_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$")
 
 
@@ -64,8 +64,8 @@ def parse_model_reference(reference: str) -> tuple[str, str | None]:
 
 
 def model_override(reference: str) -> str:
-    base, reasoning = parse_model_reference(reference)
-    return f"{base}:{reasoning}" if reasoning else base
+    parse_model_reference(reference)
+    return reference
 
 
 def _mapping(value: Any, label: str) -> dict[str, Any]:
@@ -164,14 +164,10 @@ def normalize_catalog(document: Any) -> dict[str, dict[str, Any]]:
         values = entry["selectable"]
         if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
             raise PoolError(f"model catalog entry {index} has invalid selectable values")
-        base = f"{entry['provider']}/{entry['name'].split('/', 1)[-1]}"
-        if base in normalized:
-            raise PoolError(f"model catalog contains duplicate identity: {base}")
-        selectable = {
-            value if "/" in value else f"{entry['provider']}/{value}"
-            for value in values
-        }
-        normalized[base] = {"levels": set(levels), "selectable": selectable}
+        name = entry["name"]
+        if name in normalized:
+            raise PoolError(f"model catalog contains duplicate identity: {name}")
+        normalized[name] = {"levels": set(levels), "selectable": set(values)}
     return normalized
 
 

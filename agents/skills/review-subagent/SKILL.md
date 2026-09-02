@@ -114,10 +114,10 @@ configured assignments in parallel, in model-major pool order, mapping each
 model to C/S/T.
 Never replace a failed higher-level slot automatically.
 
-Pass each worker's `model_override` from the resolver in the deployed
-`provider/model:thinking` form (for example,
-`codex/gpt-5.6-luna(xhigh)` becomes `codex/gpt-5.6-luna:xhigh`). Do not create
-one named subagent definition per model. The C/S/T guidance paths remain:
+Pass each worker's `model_override` from the resolver unchanged. It is an exact
+selectable identifier from `polytoken models`, including any parenthesized
+reasoning level (for example, `gpt-5.6-luna(xhigh)`). Do not create one named
+subagent definition per model. The C/S/T guidance paths remain:
 C=`CONTRACT.md`, `CORRECTNESS.md`; S=`CONTRACT.md`, `DESIGN.md`;
 T=`CONTRACT.md`, `TESTS.md`. Routine receives all four files.
 
