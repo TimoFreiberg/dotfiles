@@ -100,10 +100,15 @@ Work in this order:
 
 1. Correct or delete false claims. Verify authoritative-sounding rationale.
 2. Resolve prose called confusing or noisy in review feedback.
-3. Delete redundancy.
-4. Compress what survives.
-5. Rewrite only when deletion or compression cannot work.
-6. Add only to prevent a concrete correctness, safety, security, operability,
+3. Establish consistent terminology. Choose the exact domain term for each
+   concept and reuse it, even when repetition sounds less varied. Confirm that
+   alternate names denote the same concept, then replace them with the canonical
+   term. Keep another term only when sources verify a different referent, state,
+   or role; stylistic variation is not a distinction.
+4. Delete redundancy.
+5. Compress what survives.
+6. Rewrite only when deletion or compression cannot work.
+7. Add only to prevent a concrete correctness, safety, security, operability,
    compatibility, or task-completion failure; report that failure.
 
 Delete rather than polish prose that narrates implementation history, the PR or
@@ -119,11 +124,15 @@ Verify every retained claim against code or an external contract. For
 trace the enforcing mechanism. Delete or correct unsupported consequences; do
 not trust rationale because it sounds safety-relevant.
 
-Aim toward [ASD-STE100 Issue 9](https://asd-ste100.org/) clarity: direct active
-sentences, explicit actors and conditions, one action per step, consistent
-concrete terms, and no filler. This is STE-informed, not a compliance claim.
-Preserve exact identifiers, syntax, labels, examples, and machine-readable
-structure. Accuracy and safety outrank style.
+Aim toward [ASD-STE100 Issue 9](https://asd-ste100.org/) clarity: identify the
+actor, action, and conditions; prefer concrete verbs and exact terms; keep one
+action per procedural step; and remove filler. Replace vague categories and
+abstract nominalizations with the specific behavior when the source supports
+it. Treat active voice and shorter sentences as directional preferences, not
+requirements. Use them when they improve clarity; do not force either. This is
+STE-informed, not a compliance claim. Preserve exact identifiers,
+syntax, labels, examples, and machine-readable structure. Accuracy and safety
+outrank style.
 
 Do not rewrite generated or vendored files, legal text, externally fixed
 protocol/schema language, localization resources, snapshots, fixtures, golden

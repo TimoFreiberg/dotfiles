@@ -11,7 +11,7 @@ Treat an explicit path as supplied even when its value is empty. A supplied path
 
 ## Keep one canonical design
 
-While design is active, the private Markdown file is authoritative. Shape its curated core around the problem and outcome, constraints and non-goals, design and rationale (including meaningful rejected alternatives), and delivery and verification. State observable acceptance criteria and significant invariants, and map each to a named test, benchmark, fault scenario, or other concrete check. Add product or technical concerns only when they affect a decision, omit empty headings, and reserve open questions for decisions reviewers must make. Scale this core to the actual decision surface rather than imposing heavyweight sections.
+While design is active, the private Markdown file is authoritative. Shape its curated core around the problem and outcome, constraints and non-goals, design and rationale (including meaningful rejected alternatives), and delivery and verification. State observable acceptance criteria and significant invariants, and map each to a named test, benchmark, fault scenario, or other concrete check. Choose one exact term for each domain concept and reuse it; use another term only when a verified difference in referent, state, or role requires it. Define terms when readers would not know them or could confuse related concepts, but do not require a glossary when the prose is already clear. Add product or technical concerns only when they affect a decision, omit empty headings, and reserve open questions for decisions reviewers must make. Scale this core to the actual decision surface rather than imposing heavyweight sections.
 
 ## Work from evidence
 
