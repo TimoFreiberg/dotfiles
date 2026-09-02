@@ -119,9 +119,6 @@ def validate_config(document: Any) -> dict[str, Any]:
             raise PoolError(f"level {level} workers must be a non-empty list")
         if len(set(selected)) != len(selected):
             raise PoolError(f"level {level} contains duplicate workers")
-        expected_count = 1 if level == "routine" else 3
-        if level != "routine" and len(selected) != expected_count:
-            raise PoolError(f"level {level} requires exactly three model workers")
         missing_workers = [item for item in selected if item not in normalized_workers]
         if missing_workers:
             raise PoolError(f"level {level} references unknown workers: {', '.join(missing_workers)}")
@@ -242,7 +239,7 @@ def _level_readiness(config: dict[str, Any], level: str, selectable: dict[str, d
         statuses.append({"worker_id": worker_id, "model": reference, "resolvable": ok, "reason": reason})
         if ok:
             resolved.append(worker_id)
-    ready = bool(resolved) if level == "routine" else len(resolved) == 3
+    ready = bool(resolved) if level == "routine" else len(resolved) == len(worker_ids)
     return ready, statuses, resolved
 
 
@@ -268,7 +265,7 @@ def _assignments(config: dict[str, Any], effective: str, selectable: dict[str, d
                 item = {"slot": slot, "worker_id": worker_id, "model": worker["model"], "model_override": model_override(worker["model"]), "axis": axis}
                 code.append(item)
                 conformance.append({"slot": slot, "worker_id": worker_id, "model": worker["model"], "model_override": model_override(worker["model"]), "replica": f"P{slot}"})
-    expected_slots = 1 if effective == "routine" else 9
+    expected_slots = 1 if effective == "routine" else len(ids) * 3
     return {"code": {"strategy": config["levels"][effective]["strategy"], "expected_slots": expected_slots, "assignments": code, "preflight": statuses}, "plan_conformance": {"strategy": config["levels"][effective]["strategy"], "expected_slots": expected_slots, "assignments": conformance, "preflight": statuses}}
 
 

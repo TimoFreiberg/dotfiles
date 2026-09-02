@@ -31,13 +31,13 @@ declares pinned `PyYAML==6.0.2` using PEP 723 metadata.
   code reviewer receives `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and
   `TESTS.md` and covers C, S, and T together. Only a pre-handle startup rejection
   may advance to the next candidate.
-- **thorough** runs each configured model against C, S, and T in parallel: nine
-  assignments in model-major order.
-- **critical** runs the critical configured model list against C, S, and T in
-  parallel: nine assignments in model-major order.
+- **thorough** runs each configured model against C, S, and T in parallel, in
+  model-major order.
+- **critical** does the same with the critical configured model list.
 
-Conformance review produces one report at routine and nine independent copies
-at higher levels; it does not add artificial axes.
+Higher-level assignment counts are three times the selected pool size.
+Conformance review produces the same number of independent copies; it does not
+add artificial axes.
 Reports remain attributable and are never deduplicated or majority-voted.
 
 Raw skill invocations default to `thorough` with provenance `raw-default`.

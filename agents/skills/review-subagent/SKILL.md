@@ -16,11 +16,10 @@ Review difficulty drives assignment:
 - **routine**: one eventual worker/report, using the configured candidates in
   order. The worker reads `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and
   `TESTS.md` and covers C, S, and T together.
-- **thorough**: nine parallel workers, running each configured model against
+- **thorough**: parallel workers running each configured model against
   Correctness & Security (C), Design & Structure (S), and Test Correctness &
   Verification Adequacy (T).
-- **critical**: the same nine-assignment C/S/T matrix with the critical
-  configured model pool.
+- **critical**: the same C/S/T matrix with the critical configured model pool.
 
 Documentation prose quality is owned by the `editing-documentation` skill and
 its dedicated editor, not by code review. Correctness still covers materially
@@ -109,9 +108,8 @@ For `routine`, try the ordered candidates one at a time for the one combined
 C+S+T assignment. A spawn rejected before a handle exists for a bounded
 provider/startup reason may advance to the next candidate; once a handle exists,
 or for timeout, tool/runtime failure, empty/malformed/invalid output, stop and
-mark the batch incomplete. For `thorough` and `critical`, launch all nine
-configured assignments in parallel, in model-major pool order, mapping each
-model to C/S/T.
+mark the batch incomplete. For `thorough` and `critical`, launch every resolved
+assignment in parallel, in model-major pool order, mapping each model to C/S/T.
 Never replace a failed higher-level slot automatically.
 
 Pass each worker's `model_override` from the resolver unchanged. It is an exact

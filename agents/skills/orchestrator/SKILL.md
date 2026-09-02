@@ -85,9 +85,9 @@ successful fallback workers while preserving the requested policy.
 
 Treat all reports as authoritative, attributable output; do not rewrite, merge,
 deduplicate, majority-vote, or silently discard findings. A round's required
-cardinality is the effective level's cardinality for each returned batch: one
-routine report or nine higher-level reports, not a hard-coded count. Every
-expected report must be present and independently valid before passing. Resolve
+cardinality is the resolver's `expected_slots` for each returned batch: one
+routine report or three reports per selected higher-level model. Every expected
+report must be present and independently valid before passing. Resolve
 every finding from every valid report. Partial, `not_started`, `incomplete`, or
 `undetermined` batches never pass the gate, though successful partial output is
 retained for diagnosis. After addressing an operational cause, start a fresh
