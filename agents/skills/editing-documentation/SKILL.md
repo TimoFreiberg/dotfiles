@@ -8,7 +8,7 @@ description: "Use when cutting and rewriting changed comments or documentation; 
 Edit changed prose directly. Ask: **what concrete value would deletion lose?**
 If there is no specific answer, delete it. Prefer deletion to rewriting and no
 comment to a redundant, sloppy, or speculative one. Em-dashes are forbidden and
-must be removed; use semicolons, commas, parentheses, or periods instead.
+must be removed; use semicolons, commas, colons, parentheses, or periods instead.
 
 Review feedback calling prose "yap" is shorthand for comments that communicate
 nothing non-obvious: narration of visible code, prompt paraphrase, block-comment
