@@ -11,6 +11,11 @@ fish_add_path ~/bin/nogit
 fish_add_path ~/.bun/bin
 fish_add_path --move ~/dotfiles/bin
 
+# Automatically keep interactive SSH sessions inside a shared Zellij session.
+if status is-interactive; and set -q SSH_CONNECTION; and not set -q ZELLIJ; and type -q zellij
+    exec zellij attach --create ssh
+end
+
 set -x EDITOR nvim
 set -x VISUAL nvim
 set -x XDG_CONFIG_HOME $HOME/.config
