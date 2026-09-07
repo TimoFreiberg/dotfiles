@@ -13,13 +13,13 @@ they are repo-local and may not be registered in the current project's skill
 registry. Resolve `$HOME` to the user's home directory before passing paths
 to a file tool; file tools need not expand environment variables.
 
-Read `writing-claude-directives/SKILL.md` first, then select only the guides
+Read `writing-agent-directives/SKILL.md` first, then select only the guides
 needed for the task:
 
 | Task | Guide under the directory above |
 |------|---------------------------------|
 | Create, edit, or review a skill | `writing-skills/SKILL.md` |
-| Create or update AGENTS.md / CLAUDE.md | `writing-claude-md-files/SKILL.md` |
+| Create or update AGENTS.md / CLAUDE.md | `writing-agent-md-files/SKILL.md` |
 | Pressure-test a skill's behavioral rules | `testing-skills-with-subagents/SKILL.md` |
 | Write instructions involving shell commands, environment variables, credentials, file creation, or version control | `prompt-security-hardening/SKILL.md` |
 

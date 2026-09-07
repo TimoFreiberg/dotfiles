@@ -68,7 +68,7 @@ In the Refine phase, try contextual reframings before reaching for forceful
 language. "X breaks the build for the team" usually beats "NEVER do X" — and
 if the contextual version doesn't hold under pressure, that's signal that
 the skill is missing the actual mechanism, not that it needs more emphasis.
-See [`writing-claude-directives`](../writing-claude-directives/SKILL.md) on
+See [`writing-agent-directives`](../writing-agent-directives/SKILL.md) on
 compliance levers.
 
 ## Choosing the model

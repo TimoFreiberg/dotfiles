@@ -1,16 +1,17 @@
 ---
-name: writing-claude-md-files
+name: writing-agent-md-files
 description: "Use when creating or updating CLAUDE.md / AGENTS.md files for a project or a subdirectory. Covers the split between top-level (how to work here) and domain-level (why this exists, what it promises), and the freshness date convention."
+user-invocable: false
 ---
 
-# Writing CLAUDE.md / AGENTS.md Files
+# Writing Agent Markdown Files
 
 These files exist because agents start each session without context. They
 preserve the things you'd otherwise re-explain every time: how to build,
 what the conventions are, why a domain is shaped the way it is.
 
 For directive-writing fundamentals (token economy, motivation framing,
-discovery), see [writing-claude-directives](../writing-claude-directives/SKILL.md).
+discovery), see [writing-agent-directives](../writing-agent-directives/SKILL.md).
 
 Tools differ in which file they read — Claude Code reads `CLAUDE.md` (not
 `AGENTS.md`); most other agents read `AGENTS.md`. Keep one real file per

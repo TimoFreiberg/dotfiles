@@ -1,9 +1,10 @@
 ---
-name: writing-claude-directives
+name: writing-agent-directives
 description: "Use when writing instructions that guide an agent: skills, CLAUDE.md/AGENTS.md files, system prompts, agent prompts. Covers token efficiency, discovery, compliance, and the small repertoire of patterns that earn their keep."
+user-invocable: false
 ---
 
-# Writing Claude Directives
+# Writing Agent Directives
 
 Directives are instructions someone (a future you, a teammate's agent, a
 subagent) loads when they're working on something. Good directives say only
@@ -34,7 +35,7 @@ enough.
 **Honest vagueness over fake precision.** Precise-looking claims (versions,
 dates, counts, authorship) not grounded in primary evidence rot and
 propagate — downstream agents cite them without re-verifying. See
-[writing-claude-md-files](../writing-claude-md-files/SKILL.md) for the
+[writing-agent-md-files](../writing-agent-md-files/SKILL.md) for the
 doc-level treatment.
 
 **Placement matters.** First and last lines of a prompt get the most

@@ -10,7 +10,7 @@ the trigger fits. Treat it like any other piece of code: write it for the
 reader who'll use it, verify it does what you think, and don't ship until
 you've watched it work.
 
-Foundations live in [writing-claude-directives](../writing-claude-directives/SKILL.md)
+Foundations live in [writing-agent-directives](../writing-agent-directives/SKILL.md)
 (token efficiency, discovery, compliance). This skill is about skill-shaped
 directives specifically: when to make one, how to structure it, how to test it.
 
