@@ -6,15 +6,17 @@ workers:
     model: "gpt-5.6-luna(xhigh)"
   deepseek:
     model: "deepseek-v4-flash(high)"
-  codex_sol:
-    model: "gpt-5.6-sol(medium)"
+  astra_low:
+    model: "gpt-6-astra(low)"
+  astra_medium:
+    model: "gpt-6-astra(medium)"
 levels:
   routine:
     strategy: ordered-fallback
-    workers: [glm_flash, codex_luna, deepseek]
+    workers: [glm_flash, astra_low, deepseek]
   thorough:
     strategy: parallel
-    workers: [glm_flash, codex_luna, deepseek]
+    workers: [glm_flash, astra_medium, deepseek]
   critical:
     strategy: parallel
-    workers: [glm_flash, codex_sol, deepseek]
+    workers: [glm_flash, astra_medium, deepseek]
