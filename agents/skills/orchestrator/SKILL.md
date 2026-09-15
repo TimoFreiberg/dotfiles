@@ -78,10 +78,9 @@ For each open task or plan step, in order:
 ## Orchestrator-specific review gate
 
 At the start of each review round, use the plan's recorded difficulty and invoke
-both review skills with `--difficulty <level> --allow-downgrade
---selection-provenance plan-facet-claimed`. Each skill resolves its own shared
-pool view, so standalone routine invocations may independently realize different
-successful fallback workers while preserving the requested policy.
+both review skills with `--difficulty <level>`. Each skill selects the matching
+configured model group; routine uses one group-backed worker, while thorough and
+critical use three counted group-backed workers.
 
 Treat all reports as authoritative, attributable output; do not rewrite, merge,
 deduplicate, majority-vote, or silently discard findings. A round's required

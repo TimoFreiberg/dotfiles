@@ -3,23 +3,22 @@ name: review-subagent
 description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with fresh reviewer subagents that return structured findings."
 ---
 
-You orchestrate: parse arguments, run `scope.py` to gather the diff, resolve a
-configured reviewer pool once, use subagents, and surface their reports
-verbatim. You do not review code yourself. The resolver is
-`uv run $HOME/dotfiles/agents/skills/review-subagent/review_pool.py`; keep its
-small JSON result in context and pass selected assignments directly to
-subagents. Do not create a manifest, report-file transport, digest, or live
-mechanical reducer.
+You orchestrate: parse arguments, run `scope.py` to gather the diff, select the
+configured reviewer model group, use subagents, and surface their reports
+verbatim. You do not review code yourself. Use `review_routine` for routine,
+`review_thorough` for thorough, and `review_critical` for critical. Do not
+create a manifest, report-file transport, digest, or live mechanical reducer.
 
 Review difficulty drives assignment:
 
-- **routine**: one eventual worker/report, using the configured candidates in
-  order. The worker reads `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and
-  `TESTS.md` and covers C, S, and T together.
-- **thorough**: parallel workers running each configured model against
-  Correctness & Security (C), Design & Structure (S), and Test Correctness &
-  Verification Adequacy (T).
-- **critical**: the same C/S/T matrix with the critical configured model pool.
+- **routine**: one worker/report using the `review_routine` model group. The
+  worker reads `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and `TESTS.md` and
+  covers C, S, and T together.
+- **thorough**: three parallel workers using the `review_thorough` model group,
+  with clone ordinals 1/2/3 mapped to Correctness & Security (C), Design &
+  Structure (S), and Test Correctness & Verification Adequacy (T).
+- **critical**: three parallel workers using the `review_critical` model group,
+  with the same C/S/T clone mapping.
 
 Documentation prose quality is owned by the `editing-documentation` skill and
 its dedicated editor, not by code review. Correctness still covers materially
@@ -50,19 +49,13 @@ wrap subagent output.
 **Flags** (any order, all optional):
 
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
-- `--difficulty routine|thorough|critical` — requested pool level; omitted
+- `--difficulty routine|thorough|critical` — reviewer group to use; omitted
   means `thorough`.
-- `--allow-downgrade` — opt into pre-launch downgrade only.
-- `--selection-provenance raw-default|explicit|plan-facet-claimed` — auditable
-  invocation claim; it is not authorization. Omitted provenance is
-  `raw-default` when difficulty is omitted, otherwise `explicit`.
 
 Validate duplicates, unknown flags, and missing values before scope work. Strip
-all pool controls before invoking `scope.py`; never infer difficulty from the
-text of the diff. The plan facet passes the selected level,
-`--selection-provenance plan-facet-claimed`, and `--allow-downgrade`. Announce
-requested/effective level, provenance, safe example/local config source, and
-expected assignment count in one selection/status notice.
+`--difficulty` before invoking `scope.py`; never infer difficulty from the text
+of the diff. Announce the selected difficulty, model group, and expected
+assignment count in one selection/status notice.
 
 If parsing fails (unknown subcommand, missing required arg, or unknown flag),
 report the usage and stop.
@@ -104,20 +97,17 @@ context-isolation purpose of the scope script.
 
 ## Step 4: Use subagents for the selected assignments
 
-For `routine`, try the ordered candidates one at a time for the one combined
-C+S+T assignment. A spawn rejected before a handle exists for a bounded
-provider/startup reason may advance to the next candidate; once a handle exists,
-or for timeout, tool/runtime failure, empty/malformed/invalid output, stop and
-mark the batch incomplete. For `thorough` and `critical`, launch every resolved
-assignment in parallel, in model-major pool order, mapping each model to C/S/T.
-Never replace a failed higher-level slot automatically.
-
-Pass each worker's `model_override` from the resolver unchanged. It is an exact
-selectable identifier from `polytoken models`, including any parenthesized
-reasoning level (for example, `gpt-5.6-luna(xhigh)`). Do not create one named
-subagent definition per model. The C/S/T guidance paths remain:
-C=`CONTRACT.md`, `CORRECTNESS.md`; S=`CONTRACT.md`, `DESIGN.md`;
-T=`CONTRACT.md`, `TESTS.md`. Routine receives all four files.
+For `routine`, launch one `general-purpose` subagent with
+`model_override: "mg:review_routine"`. The model group supplies ordered
+provider failover for that one combined C+S+T assignment. For `thorough`,
+launch `count: 3` parallel `general-purpose` subagents with
+`model_override: "mg:review_thorough"`; for `critical`, do the same with
+`model_override: "mg:review_critical"`. Map clone ordinals 1/2/3 to C/S/T.
+Each clone starts at a different group candidate, and provider failover may
+advance an individual clone. Do not create one named subagent definition per
+model. The C/S/T guidance paths remain: C=`CONTRACT.md`,
+`CORRECTNESS.md`; S=`CONTRACT.md`, `DESIGN.md`; T=`CONTRACT.md`, `TESTS.md`.
+Routine receives all four files.
 
 Do NOT read `CONTRACT.md` or the axis briefs yourself — hand each subagent the
 absolute paths and have it Read them. Build each dimension's `prompt:` from the
@@ -142,15 +132,14 @@ Each reviewer's final message is its report.
 
 ## Step 5: Surface reports verbatim
 
-Print one compact selection/status notice first. Then emit assignments in order
-under `## Reviewer: <worker-id> (<axis-or-combined>)`, followed by the unchanged
-report body beginning with `# Code Review`. Emit a bounded, stable-stage failure
-notice in a failed assignment's position. Routine has one eventual report
-position even when startup candidates were rejected. Do not add a merged summary,
-re-sort findings, deduplicate reports, or vote.
+Print one compact selection/status notice first, naming the selected difficulty,
+model group, and expected assignment count. Then emit assignments in clone order
+under `## Reviewer: <clone-or-worker-id> (<axis-or-combined>)`, followed by the
+unchanged report body beginning with `# Code Review`. Emit a bounded,
+stable-stage failure notice in a failed assignment's position. Do not add a
+merged summary, re-sort findings, deduplicate reports, or vote.
 
-A successful report after startup rejections is complete. All routine startup
-rejections are `not_started`; any handle-created/runtime/validation failure is
+A successful report is complete; any launch/runtime/validation failure is
 `incomplete`, retains successful output, and is undetermined. These status and
 failure rendering rules are prompt-level in this session, not a mechanically
 validated live envelope. Diagnostic excerpts are bounded to 4096 UTF-8 bytes,
