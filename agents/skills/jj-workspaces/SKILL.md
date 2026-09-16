@@ -35,6 +35,9 @@ jj workspace add --name NAME /abs/path/to/repo/.workspaces/NAME
 
 # With an explicit base revision
 jj workspace add --name NAME -r <rev> /abs/path/to/repo/.workspaces/NAME
+
+# Copy repository-local instructions into the workspace, if present
+test ! -f /abs/path/to/repo/AGENTS.local.md || cp /abs/path/to/repo/AGENTS.local.md /abs/path/to/repo/.workspaces/NAME/AGENTS.local.md
 ```
 
 Convention: put workspaces in the repo's `.workspaces` directory, using the
