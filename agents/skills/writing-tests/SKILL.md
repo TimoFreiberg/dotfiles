@@ -1,6 +1,6 @@
 ---
 name: writing-tests
-description: "Use when implementing behavior, adding regression tests, or strengthening a test suite — targets subtle correctness bugs with discriminating examples and generated tests."
+description: "Use when implementing testable behavior, writing or reviewing tests"
 ---
 
 # Writing Tests
