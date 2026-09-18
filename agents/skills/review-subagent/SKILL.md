@@ -1,44 +1,36 @@
 ---
 name: review-subagent
-description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with fresh reviewer subagents that return structured findings."
+description: "Use when reviewing local changes — the working-copy diff, a branch, a commit, or a GitHub PR by number — with fresh reviewer subagents that return structured findings. Optionally checks the change against an approved plan or task specification."
 ---
 
-You orchestrate: parse arguments, run `scope.py` to gather the diff, select the
-configured reviewer model group, use subagents, and surface their reports
-verbatim. You do not review code yourself. Use `review_routine` for routine,
-`review_thorough` for thorough, and `review_critical` for critical. Do not
-create a manifest, report-file transport, digest, or live mechanical reducer.
+You orchestrate: parse arguments, run `scope.py` to gather the diff, launch
+reviewer subagents against the configured model group, and surface their reports
+verbatim. You do not review code yourself.
 
-Review difficulty drives assignment:
+## Dimensions
 
-- **routine**: one worker/report using the `review_routine` model group. The
-  worker reads `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, `TESTS.md`, and
-  `LEANNESS.md` and covers C, S, T, and L together.
-- **thorough**: four parallel workers using the `review_thorough` model group,
-  with clone ordinals 1/2/3/4 mapped to Correctness & Security (C), Design &
-  Structure (S), Test Correctness & Verification Adequacy (T), and Leanness &
-  Simplification (L).
-- **critical**: four parallel workers using the `review_critical` model group,
-  with the same C/S/T/L clone mapping.
+Three axes, one brief each:
 
-Documentation prose quality is owned by the `editing-documentation` skill and
-its dedicated editor, not by code review. Correctness still covers materially
-false documentation contracts and dangerous omissions.
+| Axis | Question | Brief |
+|---|---|---|
+| **C** — Correctness & Intent | Does this do the right thing, and what demonstrates that? | `CORRECTNESS.md` |
+| **S** — Style & Design | Is this well-shaped code for this codebase? | `STYLE.md` |
+| **L** — Leanness & Simplification | Can we deliver the same value with less machinery? | `LEANNESS.md` |
 
-Each reviewer reads its guidance from disk: the prompt hands it absolute paths
-to `CONTRACT.md` and the axis brief for its dimension, and the subagent reads
-them itself. This avoids cluttering the main session's context. Findings carry
-axis prefixes (C1, S2, T1, L1) and are evidenced with a `file:line` and a quoted
-snippet.
+C owns test *validity* — whether a test proves the right behavior, and what
+would fail if the behavior were reverted. S owns test *shape*. L owns test
+*machinery*. There is no separate test axis.
 
-Surface valid reports verbatim and unmerged with worker labels. Keep each
-report and finding attributable: do not deduplicate, majority-vote, or silently
-discard output. Live validation is instruction-level; fixture helpers do not
-wrap subagent output.
+C also owns plan conformance when `--plan` or `--description` is supplied. It
+reports a conformance verdict separately from severity, so a small-but-clear
+requirement violation still blocks. S and L do not receive the intent source.
+
+Documentation prose quality belongs to `editing-documentation`. C still covers
+materially false documentation claims and dangerous omissions.
 
 ## Step 1: Parse `$ARGUMENTS`
 
-**Subcommands** (mutually exclusive, optional — default scope is `trunk()..@` for jj or `<merge-base>..HEAD` for git):
+**Scope subcommands** (mutually exclusive, optional — default is `trunk()..@` for jj or `<merge-base>..HEAD` for git):
 
 - `uncommitted` — uncommitted working-copy changes (git mode misses untracked files; jj snapshots them)
 - `commit <revset>` — jj revset, or git ref/range
@@ -49,137 +41,138 @@ wrap subagent output.
 
 **Flags** (any order, all optional):
 
+- `--difficulty routine|thorough|critical` — omitted means `thorough`
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
-- `--difficulty routine|thorough|critical` — reviewer group to use; omitted
-  means `thorough`.
+- `--plan <path>` — approved plan or specification artifact for the C reviewer
+- `--description "..."` — inline task specification, as an alternative to `--plan`
 
-Validate duplicates, unknown flags, and missing values before scope work. Strip
-`--difficulty` before invoking `scope.py`; never infer difficulty from the text
-of the diff. Announce the selected difficulty, model group, and expected
-assignment count in one selection/status notice.
+Each valued flag consumes exactly one following value. Reject duplicate flags,
+unknown flags, missing values, extra positionals, and `--plan` together with
+`--description`. On a parse failure, report the usage and stop.
 
-If parsing fails (unknown subcommand, missing required arg, or unknown flag),
-report the usage and stop.
+Never infer difficulty from the diff, and never infer intent from commit
+messages, code, or PR discussion. A caller with an active plan must pass its
+path explicitly, so the reviewed version stays visible and reproducible.
+Resolve `--plan` to an absolute path and confirm it is readable, but do not read
+it — the reviewer reads it directly.
 
 ## Step 2: Gather scope
 
-Run `scope.py` with the subcommand + positional arg (`--instructions` is not
-passed to it):
+Strip the flags, then run:
 
 ```
 uv run $HOME/dotfiles/agents/skills/review-subagent/scope.py [<subcommand> [<arg>]]
 ```
 
-The script handles VCS detection (jj vs git), runs the right diff commands,
-and writes four files to a fresh temp dir whose path it prints on stdout:
+The script detects jj vs git, runs the right diff commands, and writes four
+files to a fresh temp dir whose path it prints on stdout:
 
 - `scope_summary` — one-line description (e.g. `default (trunk()..@, 3 changes)`)
-- `header` — commit list + diffstat for the orchestrator's scope header
+- `header` — commit list + diffstat
 - `diff` — unified diff for the reviewer prompt
 - `pr_context` — PR metadata + comments (only for `pr <number>`; otherwise empty)
 
-If the script exits non-zero, surface its stderr and stop. It already handles
-the empty-diff and missing-merge-base cases. The `since` scope is the exception:
-an empty interdiff exits zero without an artifact path so callers can short
-circuit successfully.
+If it exits non-zero, surface its stderr and stop. It already handles the
+empty-diff and missing-merge-base cases. An empty `since` interdiff exits zero
+with no artifact path, so callers can short circuit successfully.
 
-Do **not** read any generated scope files. Keep `scope_summary`, `header`, `diff`,
-and `pr_context` on disk and pass their absolute paths to the reviewer
-subagents. In particular, never load the diff or scope header into your own
-context merely to summarize it in the chat transcript. The reviewers read the
-artifacts directly.
+Keep the four artifacts on disk and pass their absolute paths to the reviewers.
+Do **not** read them — loading the diff or header into your own context to
+summarize it in the transcript defeats the purpose of the script.
 
-## Step 3: Record the scope artifact paths
+## Step 3: Launch the reviewers
 
-Keep the paths printed or returned by `scope.py` available for the reviewer
-prompts. Do not print the contents of `scope_summary` or `header`; the review
-reports are the useful output, and loading those files would defeat the
-context-isolation purpose of the scope script.
+Select the model group from the difficulty: `review_routine`, `review_thorough`,
+or `review_critical`. Launch `general-purpose` subagents with
+`model_override: "mg:<group>"`. Never create one subagent definition per model.
 
-## Step 4: Use subagents for the selected assignments
+- **routine** — **one** worker covering C, S and L together. One launch,
+  `count: 1`, all three briefs.
+- **thorough** — **one worker per dimension**, so three total. Three separate
+  launches, each `count: 1`, each with one brief. Every dimension therefore
+  starts at the group's first candidate and advances only on provider failure.
+- **critical** — **every dimension on every candidate**, so `3 × N` workers,
+  where `N` is the number of candidates in the group (three in the configured
+  review groups, giving nine workers). One launch per dimension with
+  `count: N`. Within a counted batch, clone *i* starts at candidate *i*, so each
+  dimension is reviewed once per model.
 
-For `routine`, launch one `general-purpose` subagent with
-`model_override: "mg:review_routine"`. The model group supplies ordered
-provider failover for that one combined C+S+T+L assignment. For `thorough`,
-launch `count: 4` parallel `general-purpose` subagents with
-`model_override: "mg:review_thorough"`; for `critical`, do the same with
-`model_override: "mg:review_critical"`. Map clone ordinals 1/2/3/4 to C/S/T/L.
-Starting candidates rotate through the group, wrapping when needed; provider
-failover may advance an individual clone. Do not create one named subagent
-definition per model. Use the guidance lists below; routine receives all five
-files.
+Provider failover may advance an individual worker past its starting candidate;
+that is expected and does not invalidate a report.
 
-Do NOT read `CONTRACT.md` or the axis briefs yourself — hand each subagent the
-absolute paths and have it Read them. Build each dimension's `prompt:` from the
-**Reviewer prompt** template below, filling in `$GUIDANCE_FILES` with that
-dimension's ordered path list (one per line) and the `## Task context`
-substitutions.
+Do NOT read `CONTRACT.md` or the briefs yourself — hand each subagent absolute
+paths and have it Read them. Build each prompt from the **Reviewer prompt**
+template below, with `$GUIDANCE_FILES` set to that assignment's ordered path
+list, one per line, under
+`$HOME/dotfiles/agents/skills/review-subagent/` (substitute the concrete
+absolute path; the subagent gets a plain string):
 
-Guidance file lists (all under `$HOME/dotfiles/agents/skills/review-subagent/` —
-substitute the concrete absolute path, no `$HOME`; the subagent gets a plain
-string):
+- **C:** `CONTRACT.md`, `CORRECTNESS.md`
+- **S:** `CONTRACT.md`, `STYLE.md`
+- **L:** `CONTRACT.md`, `LEANNESS.md`
+- **routine:** `CONTRACT.md`, `CORRECTNESS.md`, `STYLE.md`, `LEANNESS.md`
 
-- **Correctness & Security (C):** `CONTRACT.md`, `CORRECTNESS.md`
-- **Design & Structure (S):** `CONTRACT.md`, `DESIGN.md`
-- **Test Correctness & Verification Adequacy (T):** `CONTRACT.md`, `TESTS.md`
-- **Leanness & Simplification (L):** `CONTRACT.md`, `LEANNESS.md`
+Name the assigned axis explicitly in each prompt: set `$AXIS_NAME` and
+`$AXIS_PREFIX` to that assignment's name and letter from the table above, or to
+`Correctness & Intent, Style & Design and Leanness & Simplification` and
+`C, S and L` for routine. Do not mention another axis's name in a shared
+wrapper: reviewers adopt the name they are given and will report under the wrong
+axis if it contradicts their brief.
 
-Substitutions in the task-context block: `$SCOPE_SUMMARY` (scope_summary),
-`$INSTRUCTIONS` (flag value or empty), `$DIFF_PATH` (absolute path to the `diff`
-file), and `$PR_CONTEXT_PATH` (absolute path to `pr_context` for `pr`, otherwise
-empty).
+Fill `$PLAN_PATH` and `$DESCRIPTION` only for C and routine; leave both empty
+for S and L. At most one of them is ever non-empty.
 
 Each reviewer's final message is its report.
 
-## Step 5: Surface reports verbatim
+## Step 4: Surface reports verbatim
 
-Print one compact selection/status notice first, naming the selected difficulty,
-model group, and expected assignment count. Then emit assignments in clone order
-under `## Reviewer: <clone-or-worker-id> (<axis-or-combined>)`, followed by the
-unchanged report body beginning with `# Code Review`. Emit a bounded,
-stable-stage failure notice in a failed assignment's position. Do not add a
-merged summary, re-sort findings, deduplicate reports, or vote.
+Print one compact notice naming the selected difficulty, model group, and
+expected worker count. Then emit each assignment under
+`## Reviewer: <worker-id> (<axis>)`, followed by the unchanged report body
+beginning with `# Code Review`.
 
-A successful report is complete; any launch/runtime/validation failure is
-`incomplete`, retains successful output, and is undetermined. These status and
-failure rendering rules are prompt-level in this session, not a mechanically
-validated live envelope. Diagnostic excerpts are bounded to 4096 UTF-8 bytes,
-remove control characters, redact secret-like assignments/local-config content,
-and never include raw provider payloads.
+Keep every report and finding attributable: do not merge, re-sort, deduplicate,
+majority-vote, or silently discard output. At critical, the same axis returns
+several independent reports; present all of them side by side rather than
+reconciling them.
 
-Per assignment, treat it as failed if the subagent errors, returns empty output,
-or produces a malformed report. A valid report starts with `# Code Review`,
-contains `## Coverage`, `## Findings`, and `## Verdict` exactly once in that
-order, includes the expected axis coverage and verdict, uses only documented
-finding severities, and has an overall verdict consistent with its critical and
-high findings. Validate each report independently, without inserting a worker
-label inside its body.
+Validate each report independently, without inserting a worker label inside its
+body. A valid report starts with `# Code Review`, contains `## Coverage`,
+`## Findings` and `## Verdict` exactly once in that order, covers the expected
+axis, uses only documented severities, and has an overall verdict consistent
+with its critical and high findings. When an intent source was supplied, a C
+report must also carry an intent checklist and a conformance verdict.
 
-On failure, surface a stable stage/error classification under the assignment's
-outer reviewer label. A failure never suppresses successful assignments, but an
-incomplete batch must never be presented as a passed review. Require a fresh
-outer review round after the operational cause is addressed; this is not an
-automatic slot retry.
+Treat an assignment as failed if the subagent errors, returns empty output, or
+produces a malformed report. Emit a failure notice in that assignment's
+position, naming the stage and error class. Bound the excerpt, strip control
+characters, redact secret-like content, and never paste raw provider payloads.
+
+A failure never suppresses successful reports, but an incomplete batch must
+never be presented as a passed review. After fixing the operational cause,
+start a fresh review round; this is not an automatic per-worker retry.
 
 ## Looping
 
-When you use this skill as an adversarial reviewer gate during implementation,
-run it in a loop: implement → commit → review → fix → repeat. Commit between
-rounds so each reviewer sees the cumulative diff at a definite state. There is
-no fixed round cap — keep going until the review passes. If you keep looping on
-the same issue without converging, stop and escalate to the operator with the
-outstanding findings.
+As an adversarial gate during implementation, run this in a loop: implement →
+commit → review → fix → repeat. Commit between rounds so each reviewer sees the
+cumulative diff at a definite state. There is no round cap — keep going until
+the review passes. If you loop on the same issue without converging, stop and
+escalate to the operator with the outstanding findings.
+
+A conformance verdict is not severity-gated: any real `not conformant` item
+blocks, however small. `clarification required` goes to the intent owner, never
+to the reviewer's or implementer's own interpretation.
 
 ---
 
 ## Reviewer prompt
 
-Use this exact text for each dimension's `prompt:`, with the marked
-`$SUBSTITUTIONS` filled in. `$GUIDANCE_FILES` is that dimension's ordered list
-of absolute paths (see Step 4), one per line.
+Use this text for each assignment's `prompt:`, with the marked
+`$SUBSTITUTIONS` filled in.
 
 ```
-You are an adversarial code reviewer.
+You are an adversarial code reviewer. Your assigned axes are $AXIS_NAME ($AXIS_PREFIX).
 
 Before doing anything else, Read the following files in order and follow them
 exactly. They are your authoritative instructions for this review: the first is
@@ -194,6 +187,10 @@ $GUIDANCE_FILES
 
 <instructions>$INSTRUCTIONS</instructions>
 
+<plan_path>$PLAN_PATH</plan_path>
+
+<intent_description>$DESCRIPTION</intent_description>
+
 <diff_path>$DIFF_PATH</diff_path>
 
 <pr_context_path>$PR_CONTEXT_PATH</pr_context_path>
@@ -201,7 +198,11 @@ $GUIDANCE_FILES
 
 ## Examples
 
-- `/review` → default scope; C, S, T, and L reviewer subagents.
-- `/review pr 50` → PR diff + metadata; same four-dimension split.
+- `/review` → default scope, thorough: one C, one S and one L worker.
+- `/review --difficulty critical pr 50` → PR diff + metadata; each of C, S and L
+  reviewed once per model in `review_critical`.
+- `/review --difficulty routine uncommitted` → one worker covering all three axes.
+- `/review --plan docs/plan.md commit @-` → C also checks the change against the
+  approved plan and returns a separate conformance verdict.
 - `/review --instructions "Focus on XSS" branch foo` → branch scope with an
   additional explicit check for each reviewer.

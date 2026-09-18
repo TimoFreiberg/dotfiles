@@ -1,25 +1,36 @@
 # Reviewer model groups
 
-This directory contains the shared reviewer guidance used by
-`review-subagent` and `plan-conformance-review`. Model routing is configured in
-`config/polytoken/config.yaml` under `modelgroups`.
+Shared reviewer guidance used by `review-subagent`. Model routing is configured
+in `config/polytoken/config.yaml` under `modelgroups`.
 
-## Model groups
+## Axes
 
-- **routine** uses `review_routine` for one combined C/S/T/L report. The worker
-  receives `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, `TESTS.md`, and
-  `LEANNESS.md`.
-- **thorough** uses `review_thorough` for four counted workers mapped to C/S/T/L
-  by clone ordinal 1/2/3/4.
-- **critical** uses `review_critical` with the same four-worker mapping.
+`CONTRACT.md` defines the report shape; each axis brief defines what to look for:
 
-Starting candidates rotate through the configured group, wrapping when needed;
-provider failover may advance an individual clone. Reports remain attributable
-and are never deduplicated or majority-voted. `plan-conformance-review` retains
-its separate one/three-worker assignments.
+- `CORRECTNESS.md` — **C**, Correctness & Intent (owns test validity and, when an
+  intent source is supplied, plan conformance)
+- `STYLE.md` — **S**, Style & Design (owns test shape)
+- `LEANNESS.md` — **L**, Leanness & Simplification (owns test machinery)
 
-The configured model catalog can be inspected with:
+## Worker counts
+
+| Difficulty | Group | Workers |
+|---|---|---|
+| routine | `review_routine` | 1, covering C+S+L |
+| thorough | `review_thorough` | 3, one per axis |
+| critical | `review_critical` | 3 × N, each axis on each of the N candidates |
+
+Routine and thorough launch each assignment on its own, so every worker starts
+at the group's first candidate and advances only on provider failure. Critical
+launches one counted batch per axis, where clone *i* starts at candidate *i*, so
+each axis is reviewed once per model. Reports stay attributable and are never
+deduplicated or majority-voted.
+
+Inspect the configured catalog with:
 
 ```sh
 polytoken models --format json
 ```
+
+Every model named in a group must appear there, or the whole group is
+unroutable.

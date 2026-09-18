@@ -6,9 +6,9 @@ description: "Use when executing a multi-step plan and each implementation step 
 # Orchestrator
 
 Coordinate implementation of a plan one open task at a time. Use
-`review-subagent` for code quality and `plan-conformance-review` for intent:
-delegate implementation, run focused reviews, require the implementer to
-address findings, and approve each task before moving on.
+`review-subagent` for both code quality and intent: delegate implementation, run
+focused reviews, require the implementer to address findings, and approve each
+task before moving on.
 
 ## When to use
 
@@ -35,18 +35,19 @@ For each open task or plan step, in order:
    implementation and initial documentation edit. Record the immutable commit
    ID, not the jj change ID: later squashes can move a change ID to new content.
 5. **Run task-scoped review.** Invoke `review-subagent` against the task change,
-   not its default cumulative scope. Separately invoke `plan-conformance-review`
-   against the same scope with a task-scoped intent contract containing the
-   current task plus every applicable global invariant, non-goal, decision, and
-   deferral copied faithfully from the approved plan. Do not include later-task
-   requirements or reinterpret the plan; uncertain applicability goes to the
-   intent owner. The first review checks code quality; the second checks intent.
+   not its default cumulative scope. Pass `--description` with a task-scoped
+   intent contract containing the current task plus every applicable global
+   invariant, non-goal, decision, and deferral copied faithfully from the
+   approved plan; use `--plan` instead when that contract already exists as an
+   artifact. Do not include later-task requirements or reinterpret the plan;
+   uncertain applicability goes to the intent owner. The C axis returns the
+   conformance verdict alongside its findings.
 6. **Resolve findings through the implementer.** Give the complete reports to
    the same implementer. It must fix every determinate finding or rebut it with
-   evidence. Route `indeterminate` items and a `clarification required` verdict
-   to the intent owner; do not let implementation choose their meaning.
+   evidence. Route a `clarification required` verdict to the intent owner; do
+   not let implementation choose its meaning.
 7. **Freeze and repeat the review gate.** After each correction round, verify and
-   commit the corrections, record the immutable commit ID, then rerun both skills
+   commit the corrections, record the immutable commit ID, then rerun the review
    against the updated definite task scope with fresh reviewers. Continue until
    conformance passes and no non-rebutted critical or high code-review finding
    remains. Medium and low findings may remain only when addressed or explicitly
@@ -65,49 +66,47 @@ For each open task or plan step, in order:
    `## Reviewer prompt` template from `review-subagent`, but supply only
    `CONTRACT.md` and `CORRECTNESS.md` and instruct it to limit coverage to changed
    factual documentation claims and dangerous omissions. Do not include
-   `DESIGN.md`, `TESTS.md`, or `LEANNESS.md`. Fix semantic findings and repeat this
-   narrow check.
+   `STYLE.md` or `LEANNESS.md`, and do not pass an intent source. Fix semantic
+   findings and repeat this narrow check.
 10. **Update planning state.** Once approved, mark the task complete, update the
     plan and temporary workspace documents, then continue with a fresh
     implementer for the next task.
 11. **Run final whole-plan conformance.** After all tasks pass, commit the final
-    state and run `plan-conformance-review` over the cumulative implementation
-    scope with the complete approved plan artifact. Resolve mismatches before
-    declaring the plan complete; this catches omissions and cross-task drift that
-    task-scoped contracts cannot see.
+    state and run `review-subagent --plan <approved-plan>` over the cumulative
+    implementation scope. Resolve mismatches before declaring the plan complete;
+    this catches omissions and cross-task drift that task-scoped contracts
+    cannot see.
 
 ## Orchestrator-specific review gate
 
 At the start of each review round, use the plan's recorded difficulty and invoke
-both review skills with `--difficulty <level>`. Each skill selects the matching
-configured model group. Routine uses one worker per skill; thorough and critical
-use four C/S/T/L workers for `review-subagent` and three workers for
-`plan-conformance-review`.
+`review-subagent` with `--difficulty <level>`, which selects the matching
+configured model group. Routine runs one worker covering all axes, thorough runs
+one worker per axis, and critical runs each axis on each model in the group.
 
 Treat all reports as authoritative, attributable output; do not rewrite, merge,
-deduplicate, majority-vote, or silently discard findings. Every assignment
-specified by each skill must return an independently valid report before
-passing. Resolve every finding from every valid report. Partial, `not_started`,
-`incomplete`, or `undetermined` batches never pass the gate, though successful partial output is
-retained for diagnosis. After addressing an operational cause, start a fresh
-explicitly numbered outer review round; this is not an automatic slot retry.
+deduplicate, majority-vote, or silently discard findings. At critical, the same
+axis returns one report per model: resolve every finding from every valid
+report rather than reconciling them into a consensus. Every assignment the skill
+specifies must return an independently valid report before passing. Partial,
+`not_started`, `incomplete`, or `undetermined` batches never pass the gate,
+though successful partial output is retained for diagnosis. After addressing an
+operational cause, start a fresh explicitly numbered outer review round; this is
+not an automatic slot retry.
 
-The task passes only when both batches are complete, conformance is
-`conformant`, no non-rebutted critical or high code-review finding remains, and
-every medium or low finding is fixed or explicitly rebutted. These rules are
-prompt-level; mechanical enforcement remains deferred to wrapper/transport
-work.
+The task passes only when the batch is complete, conformance is `conformant`, no
+non-rebutted critical or high finding remains, and every medium or low finding
+is fixed or explicitly rebutted.
 
 ## Common mistakes
 
 - Implementing several tasks before reviewing any of them. Keep the loop scoped
   to one task.
 - Reviewing the cumulative default scope instead of the current task change.
-  Pass the same explicit task-scoped revision or range to both review skills.
-- Treating a reviewer’s silence or malformed report as approval. Follow both
-  review skills' validation rules, retain successful partial output, and begin a
-  fresh outer round after the operational cause is addressed. Only routine may
-  perform its bounded pre-handle startup fallback.
+  Pass an explicit task-scoped revision or range.
+- Treating a reviewer’s silence or malformed report as approval. Follow the
+  review skill's validation rules, retain successful partial output, and begin a
+  fresh outer round after the operational cause is addressed.
 - Letting the implementer dismiss findings without evidence. Require a fix or
   specific rebuttal for determinate findings; send ambiguity to the intent owner.
 - Rerunning against the old commit while corrections remain uncommitted. Freeze
