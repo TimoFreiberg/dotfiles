@@ -1,5 +1,9 @@
 ### S — Design & Structure
 
+This axis evaluates placement, boundaries, and API shape. Leave findings based
+solely on unnecessary machinery or test burden to Leanness & Simplification (L).
+The smells below belong here when they also reveal a structural problem.
+
 **Bias conservative.** These findings feed an unsupervised fix loop: a false
 positive can make the fixer rewrite sound structure. So:
 

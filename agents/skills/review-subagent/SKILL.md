@@ -12,13 +12,14 @@ create a manifest, report-file transport, digest, or live mechanical reducer.
 Review difficulty drives assignment:
 
 - **routine**: one worker/report using the `review_routine` model group. The
-  worker reads `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and `TESTS.md` and
-  covers C, S, and T together.
-- **thorough**: three parallel workers using the `review_thorough` model group,
-  with clone ordinals 1/2/3 mapped to Correctness & Security (C), Design &
-  Structure (S), and Test Correctness & Verification Adequacy (T).
-- **critical**: three parallel workers using the `review_critical` model group,
-  with the same C/S/T clone mapping.
+  worker reads `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, `TESTS.md`, and
+  `LEANNESS.md` and covers C, S, T, and L together.
+- **thorough**: four parallel workers using the `review_thorough` model group,
+  with clone ordinals 1/2/3/4 mapped to Correctness & Security (C), Design &
+  Structure (S), Test Correctness & Verification Adequacy (T), and Leanness &
+  Simplification (L).
+- **critical**: four parallel workers using the `review_critical` model group,
+  with the same C/S/T/L clone mapping.
 
 Documentation prose quality is owned by the `editing-documentation` skill and
 its dedicated editor, not by code review. Correctness still covers materially
@@ -27,7 +28,7 @@ false documentation contracts and dangerous omissions.
 Each reviewer reads its guidance from disk: the prompt hands it absolute paths
 to `CONTRACT.md` and the axis brief for its dimension, and the subagent reads
 them itself. This avoids cluttering the main session's context. Findings carry
-axis prefixes (C1, S2, T1) and are evidenced with a `file:line` and a quoted
+axis prefixes (C1, S2, T1, L1) and are evidenced with a `file:line` and a quoted
 snippet.
 
 Surface valid reports verbatim and unmerged with worker labels. Keep each
@@ -99,15 +100,14 @@ context-isolation purpose of the scope script.
 
 For `routine`, launch one `general-purpose` subagent with
 `model_override: "mg:review_routine"`. The model group supplies ordered
-provider failover for that one combined C+S+T assignment. For `thorough`,
-launch `count: 3` parallel `general-purpose` subagents with
+provider failover for that one combined C+S+T+L assignment. For `thorough`,
+launch `count: 4` parallel `general-purpose` subagents with
 `model_override: "mg:review_thorough"`; for `critical`, do the same with
-`model_override: "mg:review_critical"`. Map clone ordinals 1/2/3 to C/S/T.
-Each clone starts at a different group candidate, and provider failover may
-advance an individual clone. Do not create one named subagent definition per
-model. The C/S/T guidance paths remain: C=`CONTRACT.md`,
-`CORRECTNESS.md`; S=`CONTRACT.md`, `DESIGN.md`; T=`CONTRACT.md`, `TESTS.md`.
-Routine receives all four files.
+`model_override: "mg:review_critical"`. Map clone ordinals 1/2/3/4 to C/S/T/L.
+Starting candidates rotate through the group, wrapping when needed; provider
+failover may advance an individual clone. Do not create one named subagent
+definition per model. Use the guidance lists below; routine receives all five
+files.
 
 Do NOT read `CONTRACT.md` or the axis briefs yourself — hand each subagent the
 absolute paths and have it Read them. Build each dimension's `prompt:` from the
@@ -122,6 +122,7 @@ string):
 - **Correctness & Security (C):** `CONTRACT.md`, `CORRECTNESS.md`
 - **Design & Structure (S):** `CONTRACT.md`, `DESIGN.md`
 - **Test Correctness & Verification Adequacy (T):** `CONTRACT.md`, `TESTS.md`
+- **Leanness & Simplification (L):** `CONTRACT.md`, `LEANNESS.md`
 
 Substitutions in the task-context block: `$SCOPE_SUMMARY` (scope_summary),
 `$INSTRUCTIONS` (flag value or empty), `$DIFF_PATH` (absolute path to the `diff`
@@ -200,7 +201,7 @@ $GUIDANCE_FILES
 
 ## Examples
 
-- `/review` → default scope; C, S, and T reviewer subagents.
-- `/review pr 50` → PR diff + metadata; same three-dimension split.
+- `/review` → default scope; C, S, T, and L reviewer subagents.
+- `/review pr 50` → PR diff + metadata; same four-dimension split.
 - `/review --instructions "Focus on XSS" branch foo` → branch scope with an
   additional explicit check for each reviewer.

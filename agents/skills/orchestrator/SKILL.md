@@ -65,7 +65,8 @@ For each open task or plan step, in order:
    `## Reviewer prompt` template from `review-subagent`, but supply only
    `CONTRACT.md` and `CORRECTNESS.md` and instruct it to limit coverage to changed
    factual documentation claims and dangerous omissions. Do not include
-   `DESIGN.md` or `TESTS.md`. Fix semantic findings and repeat this narrow check.
+   `DESIGN.md`, `TESTS.md`, or `LEANNESS.md`. Fix semantic findings and repeat this
+   narrow check.
 10. **Update planning state.** Once approved, mark the task complete, update the
     plan and temporary workspace documents, then continue with a fresh
     implementer for the next task.
@@ -79,16 +80,15 @@ For each open task or plan step, in order:
 
 At the start of each review round, use the plan's recorded difficulty and invoke
 both review skills with `--difficulty <level>`. Each skill selects the matching
-configured model group; routine uses one group-backed worker, while thorough and
-critical use three counted group-backed workers.
+configured model group. Routine uses one worker per skill; thorough and critical
+use four C/S/T/L workers for `review-subagent` and three workers for
+`plan-conformance-review`.
 
 Treat all reports as authoritative, attributable output; do not rewrite, merge,
-deduplicate, majority-vote, or silently discard findings. A round's required
-cardinality is the resolver's `expected_slots` for each returned batch: one
-routine report or three reports per selected higher-level model. Every expected
-report must be present and independently valid before passing. Resolve
-every finding from every valid report. Partial, `not_started`, `incomplete`, or
-`undetermined` batches never pass the gate, though successful partial output is
+deduplicate, majority-vote, or silently discard findings. Every assignment
+specified by each skill must return an independently valid report before
+passing. Resolve every finding from every valid report. Partial, `not_started`,
+`incomplete`, or `undetermined` batches never pass the gate, though successful partial output is
 retained for diagnosis. After addressing an operational cause, start a fresh
 explicitly numbered outer review round; this is not an automatic slot retry.
 

@@ -6,9 +6,9 @@ description: "Use when checking whether an implementation matches an approved pl
 # Plan Conformance Review
 
 Review a diff against its governing intent. This is independent of
-`review-subagent`: C/S/T asks whether code is sound; this skill asks whether the
-change built the requested thing, avoided excluded work, and respected approved
-decisions and deferrals.
+`review-subagent`: C/S/T/L asks whether code is sound and lean; this skill asks
+whether the change built the requested thing, avoided excluded work, and
+respected approved decisions and deferrals.
 
 ## Invocation
 

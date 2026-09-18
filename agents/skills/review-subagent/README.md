@@ -6,19 +6,17 @@ This directory contains the shared reviewer guidance used by
 
 ## Model groups
 
-- **routine** uses `review_routine`: GLM → Luna → DeepSeek for one combined
-  report. The worker receives `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, and
-  `TESTS.md` and covers C, S, and T together.
-- **thorough** uses `review_thorough`: GLM, Luna, and DeepSeek in three counted
-  workers mapped to C/S/T by clone ordinal 1/2/3.
-- **critical** uses `review_critical`: GLM, Sol, and DeepSeek in three counted
-  workers mapped to C/S/T by clone ordinal 1/2/3.
+- **routine** uses `review_routine` for one combined C/S/T/L report. The worker
+  receives `CONTRACT.md`, `CORRECTNESS.md`, `DESIGN.md`, `TESTS.md`, and
+  `LEANNESS.md`.
+- **thorough** uses `review_thorough` for four counted workers mapped to C/S/T/L
+  by clone ordinal 1/2/3/4.
+- **critical** uses `review_critical` with the same four-worker mapping.
 
-Routine launches one worker with `mg:review_routine`. Thorough and critical
-launch three counted workers with the corresponding group. Each clone starts at
-a different group candidate, and Polytoken may advance an individual clone
-after provider failure. Reports remain attributable and are never deduplicated
-or majority-voted.
+Starting candidates rotate through the configured group, wrapping when needed;
+provider failover may advance an individual clone. Reports remain attributable
+and are never deduplicated or majority-voted. `plan-conformance-review` retains
+its separate one/three-worker assignments.
 
 The configured model catalog can be inspected with:
 

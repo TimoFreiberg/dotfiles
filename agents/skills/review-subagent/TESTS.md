@@ -11,7 +11,12 @@ Run two related passes:
 Do not demand a new test merely because production code changed. Existing tests,
 integration coverage, compile-time enforcement, or a concrete observable check
 may be adequate. Report a gap only when a specific changed behavior has no
-regression-sensitive verification.
+regression-sensitive verification and the operational risk justifies the cost.
+Name the supported scenario and consequence, not merely a conceivable failure.
+Unique coverage may be removed when its value does not justify its maintenance
+cost; do not demand its restoration solely because coverage decreased. Preserve
+protection against important failures, including rare security, data-loss, and
+recovery failures.
 
 **Guard against masking bugs.** The unsupervised fix loop can rewrite a test to
 pass against broken code—changing an assertion to match a buggy output and
@@ -32,8 +37,9 @@ expected value should be derived from intended behavior, not copied from output.
 
 **The revert experiment.** For each production behavior changed by the diff,
 identify the specific test or approved check and explain why reverting that
-behavior makes it fail. If none exists, emit a finding: cite the changed
-production line and state what behavior lacks regression protection. Search
+behavior makes it fail. If none exists and the gap meets the operational-value
+bar above, emit a finding: cite the changed production line and state the
+behavior and risk lacking regression protection. Search
 existing tests and repository verification conventions before concluding
 coverage is absent. This is the sharpest check for "tests with no failing case"
 and for change that ships unverified.
