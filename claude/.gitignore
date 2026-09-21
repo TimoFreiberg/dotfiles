@@ -1,12 +1,8 @@
 # Ignore everything by default (runtime state)
 *
 
-# Track these files
+# Keep the legacy directory safe for unmigrated machines while retaining only
+# shared assets that are still consumed by Pi or other agent tooling.
 !.gitignore
-!settings.json
-!CLAUDE.md
-!statusline.sh
 !skills
-!hooks/
-!hooks/**
 !references/

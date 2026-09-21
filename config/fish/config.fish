@@ -43,7 +43,6 @@ if status is-interactive
     abbr --add --global c cargo
     abbr --add --global tn tmux-new
     abbr --add --global zi 'z -i'
-    abbr --add --global cl 'claude --dangerously-skip-permissions'
     abbr --add --global pt 'polytoken'
 
     # git aliases
@@ -112,7 +111,11 @@ setenv FZF_DEFAULT_COMMAND 'fd --type file --follow'
 setenv FZF_CTRL_T_COMMAND 'fd --type file --follow'
 setenv FZF_DEFAULT_OPTS '--height 20%'
 
-test -e $XDG_CONFIG_HOME/fish/fastly-config.fish && source $XDG_CONFIG_HOME/fish/fastly-config.fish
+if test -f "$HOME/.local/share/fish/machine.fish"
+    source "$HOME/.local/share/fish/machine.fish"
+else if test -f "$XDG_CONFIG_HOME/fish/fastly-config.fish"
+    source "$XDG_CONFIG_HOME/fish/fastly-config.fish"
+end
 test -e $HOME/.local/share/fish/secrets.fish && source $HOME/.local/share/fish/secrets.fish
 set -gx BUN_INSTALL "$HOME/.bun"
 

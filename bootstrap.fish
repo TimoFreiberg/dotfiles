@@ -69,9 +69,6 @@ name =
 email = 
 "
 
-backup_dotfile .claude
-symlink_dotfile_as claude .claude
-
 # mac only
 if test (uname) = "Darwin"
   defaults write com.apple.dock autohide-delay -float 0 && defaults write com.apple.dock autohide-time-modifier -float 0.4 && killall Dock

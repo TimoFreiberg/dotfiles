@@ -65,10 +65,11 @@ with both the existing symlinked home and a migrated home.
 
 ## Current constraints
 
-- `bootstrap.fish` links `~/.config` and `~/.claude` into the checkout. Ignored
-  credentials, histories, caches, and machine settings can therefore live
-  physically inside the public repository today. Git ignore rules are not a
-  confidentiality boundary.
+- `bootstrap.fish` still links `~/.config` into the checkout on unmigrated
+  machines. Ignored credentials, histories, caches, and machine settings can
+  therefore live physically inside the public repository today. Git ignore rules
+  are not a confidentiality boundary; the retired `~/.claude` link is handled
+  separately by the migration helper after backup verification.
 - Fish loads an ignored employer-specific override and
   `$HOME/.local/share/fish/secrets.fish`. The override was absent on the
   inspected machine; its contents and other machines' variants still need an
@@ -160,7 +161,11 @@ The local chezmoi configuration belongs at
 `$HOME/.config/chezmoi/chezmoi.toml` when the live `.config` directory is
 prepared. During rehearsal and cutover, use a private config outside the
 checkout and any live `.config` symlink. Do not run an initial unqualified
-`chezmoi init` against a live home.
+`chezmoi init` against a live home. After the helper's `cutover` and passing
+`compare`, run `chezmoi init --source "$HOME/dotfiles"`, then
+`chezmoi apply --source "$HOME/dotfiles"` without `--force`. The helper's
+comparison proves only pre-apply copy/link equivalence; it does not validate
+chezmoi's intentional post-apply public-link or materialization differences.
 
 Use public templates for structural variation only:
 

@@ -5,7 +5,7 @@ lint: lint-sh lint-fish
 
 # Shellcheck bash/sh scripts
 lint-sh:
-    shellcheck bin/*.sh claude/hooks/*.sh
+    shellcheck bin/*.sh
 
 # Check fish formatting
 lint-fish:

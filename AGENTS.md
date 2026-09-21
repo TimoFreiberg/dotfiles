@@ -11,24 +11,25 @@ symlinks into it:
 
 | Real path (in repo)          | Symlink                              | Purpose                            |
 |------------------------------|--------------------------------------|------------------------------------|
-| `config/polytoken/AGENTS.md` | `agents/AGENTS.md` → `../config/polytoken/AGENTS.md` | Real global-instructions file, loaded by Polytoken directly |
-| `config/polytoken/AGENTS.md` | `claude/CLAUDE.md` → `../agents/AGENTS.md` | Global agent instructions (shared) |
-| `config/polytoken/AGENTS.md` | `config/pi/agent/AGENTS.md` → `../../../agents/AGENTS.md` | Same file, read by Pi              |
-| `AGENTS.md` (repo root)     | `CLAUDE.md` → `AGENTS.md`           | Project-level instructions         |
-| `agents/skills/`            | `claude/skills/`, `config/pi/agent/skills/` | Shared skill definitions           |
-| `agents/references/`        | `claude/references/`                 | Reference docs for skills          |
-| `agents/extensions/`        | `config/pi/agent/extensions/`        | Pi extensions                      |
-| `agents/agents/`            | `config/pi/agent/agents/`            | Pi agent definitions               |
-| `config/`                   | `~/.config` → `~/dotfiles/config`    | Shell & app config (fish, etc.)    |
-| `claude/`                   | `~/.claude` → `~/dotfiles/claude`    | Claude Code config dir             |
-| (external, varies per machine) | `claude/memories/`              | Persistent agent memories          |
+| `config/polytoken/AGENTS.md` | `agents/AGENTS.md` → `../config/polytoken/AGENTS.md` | Global source used by Polytoken and shared agent consumers |
+| `config/polytoken/AGENTS.md` | `config/pi/agent/AGENTS.md` → `../../../agents/AGENTS.md` | Same source, read by Pi |
+| `config/polytoken/AGENTS.md` | `~/.config/polytoken/AGENTS.md` (chezmoi) | Deployed regular copy for the new home layout |
+| `AGENTS.md` (repo root)     | —                                  | Repository instructions (not deployed global instructions) |
+| `agents/skills/`            | `config/pi/agent/skills/` → `../../../agents/skills/` | Shared skill definitions |
+| `agents/references/`        | `claude/references` → `../agents/references` (legacy) | Shared references retained for unmigrated legacy paths |
+| `agents/extensions/`        | `config/pi/agent/extensions/`       | Pi extensions |
+| `agents/agents/`            | `config/pi/agent/agents/`            | Pi agent definitions |
+| `config/`                   | `~/.config` → `~/dotfiles/config` (legacy only) | Shell and app config before chezmoi cutover |
+| `(external, varies per machine)` | `claude/memories/` (legacy only) | Private state; back up before helper retires `~/.claude` |
 
 **Key rule:** edit real files, not through the symlinks. The real global
 instructions file is `config/polytoken/AGENTS.md` (intentional: Polytoken reads
-that path directly and avoids following symlinks); `agents/AGENTS.md`,
-`claude/CLAUDE.md`, and `config/pi/agent/AGENTS.md` are all symlinks into it.
-The repo-root `AGENTS.md` (project instructions) and the global instructions
-file are two different files — don't confuse them.
+that path directly and avoids following symlinks); `agents/AGENTS.md` and
+`config/pi/agent/AGENTS.md` are symlinks into it. On a migrated home, chezmoi
+materializes `~/.config/polytoken/AGENTS.md` as a regular file. The `claude/`
+entries are legacy compatibility paths only; Claude Code-specific settings and
+hooks are retired. The repo-root `AGENTS.md` is a separate project-instructions
+file.
 
 ## Portability
 

@@ -193,7 +193,7 @@ echo "────────────────────────�
 
 set -l tools_to_check \
     atuin bat brew bun cargo cargo-binstall cargo-nextest cargo-sweep \
-    claude curl direnv eza fd fzf gh git jj just nvim pi polytoken rg \
+    curl direnv eza fd fzf gh git jj just nvim pi polytoken rg \
     rustup shellcheck ssh starship tig tmux tokei trash uv zoxide zstd
 
 set -l missing_tools
