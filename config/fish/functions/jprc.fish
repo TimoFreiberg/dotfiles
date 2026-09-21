@@ -69,18 +69,43 @@ function jprc --description "Create a GitHub PR from a jj revision"
     end
 
     # --- Check if revision already has a bookmark ---
-    set -l existing_bookmark (jj log -r "$rev" --no-graph -T 'local_bookmarks.join(",")' 2>&1)
-    if test -n "$existing_bookmark"
-        set -l clean_bookmark (string replace -r '\*$' '' -- $existing_bookmark)
-        echo "Revision $rev already has bookmark: $clean_bookmark"
-        read -p 'echo "Use this bookmark? [Y/n] "' -l use_existing
-        if test -z "$use_existing"; or string match -qi 'y' -- $use_existing
-            set -l branch_name $clean_bookmark
-            echo "Pushing $branch_name..."
-            jj git push --bookmark $branch_name
-            or return 1
-            __jprc_open_or_create_pr $branch_name $base $rev
-            return $status
+    set -l existing_bookmarks (jj log -r "$rev" --no-graph -T 'local_bookmarks.join(",")' 2>&1)
+    if test -n "$existing_bookmarks"
+        set -l bookmarks (string split ',' -- $existing_bookmarks | string replace -r '\*$' '')
+        if test (count $bookmarks) -gt 1
+            echo "Revision $rev has multiple bookmarks:"
+            for i in (seq (count $bookmarks))
+                echo "  $i) $bookmarks[$i]"
+            end
+            read -p 'echo "Pick bookmark (number, or Enter to create a new one): "' -l choice
+            if test -n "$choice"
+                if not string match -qr '^\d+$' -- $choice
+                    echo "Invalid choice" >&2
+                    return 1
+                end
+                if test $choice -lt 1 -o $choice -gt (count $bookmarks)
+                    echo "Out of range" >&2
+                    return 1
+                end
+                set -l branch_name $bookmarks[$choice]
+                echo "Pushing $branch_name..."
+                jj git push --bookmark $branch_name
+                or return 1
+                __jprc_open_or_create_pr $branch_name $base $rev
+                return $status
+            end
+        else
+            set -l clean_bookmark $bookmarks[1]
+            echo "Revision $rev already has bookmark: $clean_bookmark"
+            read -p 'echo "Use this bookmark? [Y/n] "' -l use_existing
+            if test -z "$use_existing"; or string match -qi 'y' -- $use_existing
+                set -l branch_name $clean_bookmark
+                echo "Pushing $branch_name..."
+                jj git push --bookmark $branch_name
+                or return 1
+                __jprc_open_or_create_pr $branch_name $base $rev
+                return $status
+            end
         end
     end
 
@@ -130,46 +155,8 @@ function __jprc_open_or_create_pr --argument-names branch_name base rev
         return $status
     end
 
-    # Single commit: gh/GitHub will pre-fill title and body from the commit message, which is correct.
-    set -l commits (jj log -r "trunk()..$rev" --no-graph -T '"x\n"')
-    if test (count $commits) -lt 2
-        echo "Creating PR (single commit, using commit message as default)..."
-        gh pr create --head $branch_name --base $base --web
-        return $status
-    end
+    set -l commit_messages (jj log -r "trunk()..$rev" --no-graph -T 'description ++ "\n\n"' 2>&1 | string collect)
 
-    echo "Generating PR title and body from "(count $commits)" commits..."
-    set -l diff_context (jj diff -r $rev 2>&1 | head -200)
-    set -l commit_messages (jj log -r "trunk()..$rev" --no-graph -T 'description ++ "\n--- commit boundary ---\n"' 2>&1)
-
-    set -l system_prompt "Generate a GitHub PR title and body summarizing the intent of the changes.
-This is scaffolding the user will edit, so be brief and focus on intent — not an exhaustive description.
-
-Prefer the existing commit-message language over paraphrasing. If one commit is the substantive change and others are minor (typo fixes, formatting, small cleanups), lead with the substantive commit's title and body verbatim, then append a short final note for the minor ones (e.g. 'Also fixes a typo in foo.rs.').
-
-Output format: first line is the title (imperative mood, no trailing period, max 72 chars), then a blank line, then the body. No markdown headers, no bullet lists unless genuinely useful, no trailing sign-offs.
-Reply with ONLY the title and body, nothing else."
-
-    set -l user_prompt "Here are the commit messages in this PR, in topological order:
-
-$commit_messages
-
---- jj diff (truncated) ---
-$diff_context"
-
-    set -l pr_prompt "$system_prompt
-
-$user_prompt"
-    set -l pr_lines (echo "$pr_prompt" | polytoken exec --model gpt-5.6-luna 2>&1)
-    set -l title (string trim $pr_lines[1])
-    set -l body (string join \n $pr_lines[2..] | string trim)
-
-    if test -z "$title"
-        echo "Warning: LLM returned empty title, falling back to interactive --web without scaffolding" >&2
-        gh pr create --head $branch_name --base $base --web
-        return $status
-    end
-
-    echo "Creating PR..."
-    gh pr create --head $branch_name --base $base --title "$title" --body "$body" --web
+    echo "Creating PR from the commit messages..."
+    gh pr create --head $branch_name --base $base --body "$commit_messages" --web
 end
