@@ -650,32 +650,33 @@ def preflight(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> 
     return current
 
 
-def make_manifest(home: Path, repo: Path, state: Path) -> dict[str, Any]:
+def make_manifest(home: Path, repo: Path, state: Path, *, backup_name: str = "backup") -> dict[str, Any]:
     snapshot = source_snapshot(home, repo)
-    backup = state / ".backup.staging"
-    if lexists(backup) or lexists(state / "backup"):
+    backup = state / backup_name
+    staging = state / f".{backup_name}.staging"
+    if lexists(staging) or lexists(backup):
         raise SafetyError("private backup or staging directory already exists without a usable manifest")
-    private_dir(backup)
+    private_dir(staging)
     try:
         config_target = Path(os.path.realpath(home / ".config"))
-        copy_tree(config_target, backup / "config")
-        if any(archive_compare(config_target, backup / "config", repo).values()):
+        copy_tree(config_target, staging / "config")
+        if any(archive_compare(config_target, staging / "config", repo).values()):
             raise SafetyError("configuration backup did not verify")
         claude_target = Path(os.path.realpath(home / ".claude")) if lexists(home / ".claude") else None
         if claude_target:
-            copy_tree(claude_target, backup / "claude")
-            if any(archive_compare(claude_target, backup / "claude", repo).values()):
+            copy_tree(claude_target, staging / "claude")
+            if any(archive_compare(claude_target, staging / "claude", repo).values()):
                 raise SafetyError("Claude backup did not verify")
         secret = secret_path(home)
         if lexists(secret):
             if secret.is_symlink() or not secret.is_file():
                 raise SafetyError("secrets interface is not a regular file")
-            copy_private_file(secret, backup / "secrets.fish")
+            copy_private_file(secret, staging / "secrets.fish")
         if not snapshots_equal(snapshot, source_snapshot(home, repo)):
             raise SafetyError("source changed while prepare was running")
-        os.replace(backup, state / "backup")
+        os.replace(staging, backup)
     except Exception:
-        shutil.rmtree(backup, ignore_errors=True)
+        shutil.rmtree(staging, ignore_errors=True)
         raise
     return {
         "version": VERSION,
@@ -683,7 +684,7 @@ def make_manifest(home: Path, repo: Path, state: Path) -> dict[str, Any]:
         "home": str(home),
         "repo": str(repo),
         "state": str(state),
-        "backup": str(state / "backup"),
+        "backup": str(backup),
         "copy_method": sparse_capability(),
         "source_snapshot": snapshot,
         "expected_config": snapshot["config"],
@@ -782,6 +783,28 @@ def cutover(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> No
     print("cutover: complete; .config is real, translated links verified, .pi is repointed, and .claude is retired")
 
 
+def refresh_interrupted_manifest(home: Path, repo: Path, state: Path, manifest: dict[str, Any]) -> None:
+    backup = state / "backup"
+    preserved = state / "backup-before-source-refresh"
+    if not lexists(backup):
+        raise SafetyError("prepared backup is missing; do not reconstruct private migration state manually")
+    if lexists(preserved):
+        raise SafetyError("previous stale backup is already preserved; inspect private state before continuing")
+    os.replace(backup, preserved)
+    try:
+        refreshed = make_manifest(home, repo, state)
+        refreshed["recovery"].append(f"The previous stale backup is preserved at {preserved}.")
+        write_manifest(state, refreshed)
+    except Exception:
+        new_backup = state / "backup"
+        if lexists(new_backup):
+            shutil.rmtree(new_backup, ignore_errors=True)
+        if lexists(preserved):
+            os.replace(preserved, backup)
+        raise
+    print("rollback: source changes accepted; verified backup refreshed and interrupted cutover reset to prepared")
+
+
 def rollback(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> None:
     manifest = read_manifest(state)
     if manifest is None or manifest["stage"] != "cutover-started":
@@ -792,6 +815,11 @@ def rollback(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> N
     if not args.confirm_rollback:
         raise SafetyError("rerun with --confirm-rollback to preserve new state and restore old links")
     require_writers(args.writers_stopped)
+    if args.accept_source_changes and (home / ".config").is_symlink():
+        if layout(home, repo) != "legacy":
+            raise SafetyError("source layout is no longer the expected legacy layout")
+        refresh_interrupted_manifest(home, repo, state, manifest)
+        return
     recovery = state / "recovery-new-config"
     if lexists(recovery):
         raise SafetyError("private recovery destination already exists; inspect it before continuing")
@@ -872,6 +900,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--colima-stopped", action="store_true", help="confirm Colima is stopped")
     result.add_argument("--confirm-cutover", action="store_true", help="confirm the home cutover step")
     result.add_argument("--confirm-rollback", action="store_true", help="confirm bounded rollback preserving new state")
+    result.add_argument(
+        "--accept-source-changes",
+        action="store_true",
+        help="accept legacy source changes while resetting an interrupted pre-swap cutover",
+    )
     result.add_argument("command", choices=("preflight", "prepare", "cutover", "compare", "rollback"))
     return result
 
