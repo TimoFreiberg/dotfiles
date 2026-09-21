@@ -1,0 +1,311 @@
+#!/usr/bin/env python3
+"""Report which Polytoken skills have been used in saved sessions."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from collections import Counter
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Iterable, Iterator
+
+
+SESSION_ROOT = Path("~/.local/share/polytoken/sessions").expanduser()
+LEGACY_SESSION_ROOT = Path("~/.local/share/polytoken/sessions-v1").expanduser()
+PROJECT_SKILL_DIRS = (
+    ".polytoken/skills",
+    ".agents/skills",
+    ".claude/skills",
+    ".pi/agent/skills",
+    ".config/polytoken/skills",
+)
+GLOBAL_SKILL_DIRS = (
+    ".config/polytoken/skills",
+    ".polytoken/skills",
+    ".agents/skills",
+    ".claude/skills",
+    ".pi/agent/skills",
+    ".config/pi/agent/skills",
+)
+
+
+@dataclass
+class SkillUsage:
+    """The aggregate state retained for one skill while logs are streamed."""
+
+    uses: int = 0
+    dates: Counter[str] = field(default_factory=Counter)
+    locations: set[str] = field(default_factory=set)
+
+    def add(self, day: str, location: str) -> None:
+        self.uses += 1
+        self.dates[day] += 1
+        self.locations.add(location)
+
+
+@dataclass
+class ScanStats:
+    sessions: int = 0
+    malformed_lines: int = 0
+    unreadable_logs: int = 0
+
+
+class SkillResolver:
+    """Resolve a skill against its session project before global skill roots."""
+
+    def __init__(
+        self,
+        home: Path | None = None,
+        project_dirs: Iterable[str] = PROJECT_SKILL_DIRS,
+        global_dirs: Iterable[str] = GLOBAL_SKILL_DIRS,
+    ) -> None:
+        self.home = (home or Path.home()).expanduser()
+        self.project_dirs = tuple(project_dirs)
+        self.global_dirs = tuple(global_dirs)
+
+    def resolve(self, skill: str, project_path: str | None) -> str:
+        if project_path:
+            project = Path(os.path.expandvars(project_path)).expanduser()
+            path = self._find(skill, (project / relative for relative in self.project_dirs))
+            if path:
+                return f"project:{display_path(path, self.home)}"
+
+        path = self._find(skill, (self.home / relative for relative in self.global_dirs))
+        if path:
+            return f"global:{display_path(path, self.home)}"
+        return "not found"
+
+    @staticmethod
+    def _find(skill: str, roots: Iterable[Path]) -> Path | None:
+        names = [skill]
+        if ":" in skill:
+            names.append(skill.rsplit(":", 1)[1])
+
+        for root in roots:
+            for name in names:
+                if not name or Path(name).name != name:
+                    continue
+                candidate = root / name / "SKILL.md"
+                if candidate.is_file():
+                    return candidate.resolve()
+        return None
+
+
+def display_path(path: Path, home_path: Path | None = None) -> str:
+    """Use a portable, readable home abbreviation in CLI output."""
+    home = str((home_path or Path.home()).expanduser())
+    text = str(path)
+    if text == home:
+        return "$HOME"
+    if text.startswith(home + os.sep):
+        return "$HOME" + text[len(home) :]
+    return text
+
+
+def choose_session_root(explicit: Path | None) -> Path:
+    if explicit is not None:
+        return explicit.expanduser()
+    if SESSION_ROOT.is_dir():
+        return SESSION_ROOT
+    if LEGACY_SESSION_ROOT.is_dir():
+        return LEGACY_SESSION_ROOT
+    return SESSION_ROOT
+
+
+def session_logs(root: Path) -> list[Path]:
+    if root.is_file():
+        return [root]
+    if not root.is_dir():
+        return []
+    return sorted(root.rglob("log.jsonl"))
+
+
+def load_session_metadata(log_path: Path) -> dict[str, Any]:
+    metadata_path = log_path.parent / "session.json"
+    try:
+        with metadata_path.open(encoding="utf-8") as stream:
+            value = json.load(stream)
+    except (OSError, json.JSONDecodeError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _walk_tool_blocks(value: Any) -> Iterator[dict[str, Any]]:
+    if isinstance(value, dict):
+        if value.get("type") == "tool_use":
+            yield value
+            return
+        for child in value.values():
+            yield from _walk_tool_blocks(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _walk_tool_blocks(child)
+
+
+def _skill_name(block: dict[str, Any]) -> str | None:
+    tool_name = block.get("name")
+    if not isinstance(tool_name, str) or tool_name.lower() not in {"skill", "skills"}:
+        return None
+
+    payloads = [block.get("input"), block.get("arguments"), block.get("parameters")]
+    for payload in payloads:
+        if not isinstance(payload, dict):
+            continue
+        candidates = [payload]
+        if isinstance(payload.get("value"), dict):
+            candidates.append(payload["value"])
+        for candidate in candidates:
+            for key in ("name", "skill"):
+                name = candidate.get(key)
+                if isinstance(name, str) and name.strip():
+                    return name.strip()
+    return None
+
+
+def skill_names(record: dict[str, Any]) -> Iterator[str]:
+    """Yield actual skill tool calls without matching prompt text.
+
+    Current logs put blocks in ``message``. Older exports can put them in the
+    public payload, so that shape is used only when the primary message has no
+    tool-use blocks; this avoids counting the same event twice.
+    """
+    primary = record.get("message")
+    blocks = list(_walk_tool_blocks(primary)) if primary is not None else []
+    if not blocks:
+        blocks = list(_walk_tool_blocks(record.get("public_payload")))
+    if not blocks:
+        blocks = list(_walk_tool_blocks(record.get("body")))
+    if not blocks:
+        blocks = list(_walk_tool_blocks(record))
+
+    for block in blocks:
+        name = _skill_name(block)
+        if name:
+            yield name
+
+
+def record_day(record: dict[str, Any], metadata: dict[str, Any]) -> str:
+    for source in (
+        record.get("committed_at"),
+        record.get("emitted_at"),
+        (record.get("message") or {}).get("emitted_at"),
+        metadata.get("created_at"),
+    ):
+        if not isinstance(source, str):
+            continue
+        try:
+            return datetime.fromisoformat(source.replace("Z", "+00:00")).date().isoformat()
+        except ValueError:
+            if len(source) >= 10 and source[4] == "-" and source[7] == "-":
+                return source[:10]
+    return "unknown"
+
+
+def scan_sessions(root: Path, resolver: SkillResolver | None = None) -> tuple[dict[str, SkillUsage], ScanStats]:
+    resolver = resolver or SkillResolver()
+    skills: dict[str, SkillUsage] = {}
+    stats = ScanStats()
+
+    for log_path in session_logs(root):
+        stats.sessions += 1
+        metadata = load_session_metadata(log_path)
+        project = metadata.get("project_path")
+        project_path = project if isinstance(project, str) else None
+        try:
+            stream = log_path.open(encoding="utf-8", errors="replace")
+        except OSError:
+            stats.unreadable_logs += 1
+            continue
+
+        with stream:
+            for line in stream:
+                if not line.strip():
+                    continue
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError:
+                    stats.malformed_lines += 1
+                    continue
+                if not isinstance(record, dict):
+                    continue
+                day = record_day(record, metadata)
+                for skill in skill_names(record):
+                    usage = skills.setdefault(skill, SkillUsage())
+                    usage.add(day, resolver.resolve(skill, project_path))
+
+    return skills, stats
+
+
+def _location_text(locations: set[str]) -> str:
+    return ", ".join(sorted(locations)) if locations else "not found"
+
+
+def print_report(root: Path, skills: dict[str, SkillUsage], stats: ScanStats) -> None:
+    total_uses = sum(usage.uses for usage in skills.values())
+    print(f"Polytoken skill history ({display_path(root)})")
+    print(f"{stats.sessions} sessions · {total_uses} uses · {len(skills)} skills")
+    if stats.malformed_lines or stats.unreadable_logs:
+        print(
+            f"Skipped: {stats.malformed_lines} malformed log lines, "
+            f"{stats.unreadable_logs} unreadable logs"
+        )
+    print()
+
+    if not skills:
+        print("No Skill tool uses found.")
+        return
+
+    rows = sorted(skills.items(), key=lambda item: (-item[1].uses, item[0]))
+    name_width = min(32, max(5, max(len(name) for name, _ in rows)))
+    print(f"{'SKILL':<{name_width}}  {'USES':>4}  {'DAYS':>4}  {'LAST USED':<10}  LOCATION")
+    print(f"{'-' * name_width}  {'-' * 4}  {'-' * 4}  {'-' * 10}  {'-' * 8}")
+    for name, usage in rows:
+        last_used = max(usage.dates)
+        short_name = name if len(name) <= name_width else name[: name_width - 1] + "…"
+        print(
+            f"{short_name:<{name_width}}  {usage.uses:>4}  "
+            f"{len(usage.dates):>4}  {last_used:<10}  {_location_text(usage.locations)}"
+        )
+
+    print()
+    print("Uses by day (UTC date from the session log):")
+    for name, usage in rows:
+        history = ", ".join(
+            f"{day} ({count})" for day, count in sorted(usage.dates.items())
+        )
+        print(f"  {name}: {history}")
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Stream Polytoken session logs and report Skill tool usage."
+    )
+    parser.add_argument(
+        "--sessions",
+        type=Path,
+        help=(
+            "Session root or log.jsonl file. Defaults to "
+            "$HOME/.local/share/polytoken/sessions, falling back to sessions-v1."
+        ),
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    root = choose_session_root(args.sessions)
+    if not root.exists():
+        print(f"error: session root does not exist: {root}", file=sys.stderr)
+        return 2
+
+    skills, stats = scan_sessions(root)
+    print_report(root, skills, stats)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
