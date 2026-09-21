@@ -1,5 +1,5 @@
 {{- $enableMacOnly := promptBoolOnce . "enableMacOnly" "Enable macOS-only configuration" -}}
-sourceDir = {{ .chezmoi.sourceDir | quote }}
+sourceDir = {{ .chezmoi.sourceDir | dir | quote }}
 mode = "symlink"
 
 [git]
