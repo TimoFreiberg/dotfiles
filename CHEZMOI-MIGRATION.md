@@ -5,11 +5,11 @@
 This repository now contains an additive chezmoi source under `home/`; it does
 not replace or relocate the canonical repository layout. `config/`, `agents/`,
 `bin/`, `.profile`, `.zshenv`, `gitconfig.ini`, `global-gitignore`, and the
-existing hidden skill paths remain where they are. No live home directory is
-modified by this task, and runtime, bootstrap, update, and cutover work remains
-deferred. Receiving or updating this repository revision is safe for an
-unmigrated machine; applying it is intentionally refused while the
-chezmoi destination `.config` is the legacy directory symlink.
+existing hidden skill paths remain where they are. No live home directory is modified by the source files themselves. The
+manual `bin/dotfiles-migrate` helper performs the separate prepare, cutover, and
+aggregate-compare steps. Receiving or updating this repository revision is safe
+for an unmigrated machine; chezmoi remains refused while the destination
+`.config` is the legacy directory symlink.
 
 The source root is selected by `.chezmoiroot` (`home`) and requires chezmoi
 `2.72.2` or newer. Source entries are an explicit public allowlist. Ordinary
@@ -305,10 +305,19 @@ closing a working session.
 6. Keep Pi's local active-role selection unless the owner opts into a template
    backed by a local choice. Leave Polytoken's local runtime/provider
    configuration and credentials unmanaged.
-7. Treat bootstrap and update changes as later retirement or cutover work, not
-   as prerequisites for this additive source. The same revision must work for
-   an unmigrated fixture and a migrated fixture; do not run a bootstrap mode
-   that assumes files were moved.
+7. Use `bin/dotfiles-migrate` for the owner-controlled copy cutover. `prepare`
+   records the current legacy `.config`, `.pi`, `.claude`, selected home files,
+   and secrets-interface metadata; `cutover` repeats that snapshot immediately
+   before the swap with writers stopped and refuses any drift. The helper
+   translates internal relative links for the new depth, uses absolute targets
+   for approved public checkout links, and refuses private or unknown checkout
+   links. It does not run chezmoi or claim that chezmoi applied configuration.
+   Backups and manifests remain outside the checkout, private state must be a
+   dedicated user-owned 0700 directory, and incomplete stages refuse rerun.
+   Use the manifest-led `rollback --confirm-rollback` only after an interrupted
+   cutover; it preserves new state in private recovery and does not silently
+   clobber it. The legacy bootstrap refuses a real migrated `.config` and must
+   not be used as a migration command.
 
 ### 3. Rehearse in isolation
 
@@ -335,10 +344,12 @@ data. Review real private targets only in a trusted local session.
 ### 4. Cut over one machine
 
 1. Keep source changes reversible and have a working shell open. With writers
-   stopped and backups verified, stage a real replacement `.config` directory
-   privately outside the checkout, preserving existing unmanaged state and
-   resolving old relative links deliberately. Preserve wanted Claude state in a
-   private archive; do not stage a replacement `.claude`.
+   stopped and backups verified, let `bin/dotfiles-migrate cutover` take its
+   immediate source snapshot and stage a real replacement `.config` privately
+   outside the checkout. It preserves existing unmanaged state, translates
+   internal relative links, and refuses private or unknown checkout links.
+   Preserve wanted Claude state in the private archive; do not stage a
+   replacement `.claude`.
 2. Remove only the recorded `.config` and `.claude` symlinks after verifying
    their targets; do not recursively delete linked trees. Install the staged
    real `.config`, including preserved Pi auth and session state. Replace the
@@ -374,7 +385,12 @@ recursive `re-add`. Use jj to fetch and integrate repository changes, followed
 by chezmoi apply; do not use chezmoi's Git update or commit automation against
 the jj working copy. Do not push automatically.
 
-## Disposable verification acceptance
+## Manual verification acceptance
+
+Use one agent review, a controlled owner-led migration, and a before/after
+directory comparison. The helper's comparison reads local bytes but prints only
+aggregate mismatch categories. Do not run a live migration as part of review.
+No permanent test framework or fixture belongs in this repository.
 
 The first-task review must use a disposable fixture with HOME, XDG
 config/data, cache, persistent state, source, destination, and config paths
@@ -388,7 +404,7 @@ installed.
 The fixture acceptance checks are:
 
 - Fresh apply creates only the explicit managed allowlist.
-- Every managed link resolves to the expected canonical absolute target.
+- Every translated internal link resolves at its new depth; approved public links resolve to canonical absolute targets; private checkout links are refused.
 - Polytoken instructions are regular, private, and rendered from the canonical
   file.
 - Unmanaged dummy auth, session, overlay, and runtime files survive apply.
@@ -423,13 +439,13 @@ live HOME.
 | Failure handling | Missing override works; unavailable optional secret backend cannot replace credentials with empty output; interrupted cutover is recoverable |
 | Rollback | Fixture restoration reproduces original symlinks, canonical repository sources, private state, file modes, and shell startup |
 
-Rollback requires both filesystem and repository restoration. Stop writers,
-preserve any new state created since cutover, and restore directory contents,
-local files, symlinks, and canonical checkout state from the private backup and
-manifest. The same repository revision remains valid for rollback; no source
-move or revision pin is required. A jj undo alone does not restore ignored files
-or the home directory. Never remove newly generated state without first
-preserving it.
+Rollback is bounded and manifest-led. Stop writers, run the helper's rollback
+command only for a recorded `cutover-started` stage, and preserve any new state
+created since cutover. The command moves the new real `.config` into the private
+state directory before restoring recorded old links; it does not restore or
+remove arbitrary files, and it never claims that chezmoi state was applied. If
+the recorded layout is not present, stop and inspect the private manifest
+manually. A jj undo alone does not restore ignored files or the home directory.
 
 ## Deferred decisions
 

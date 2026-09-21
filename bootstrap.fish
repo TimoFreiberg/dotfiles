@@ -4,6 +4,19 @@ cd (dirname (status --current-filename))
 
 set DOTFILEDIR (pwd)
 set HOMEDIR $HOME
+
+# Never run the legacy mutating bootstrap against a migrated home.
+set config_path "$HOMEDIR/.config"
+if test -d "$config_path"; and not test -L "$config_path"
+    echo "Refusing legacy bootstrap: ~/.config is already a real directory."
+    echo "Use bin/dotfiles-migrate compare, then manage the home with chezmoi."
+    exit 2
+end
+if test -L "$config_path"; and not test (readlink "$config_path") = "$DOTFILEDIR/config"
+    echo "Refusing legacy bootstrap: ~/.config has an unexpected symlink target."
+    exit 2
+end
+
 set tmpdir (mktemp -d)
 
 function backup_dotfile

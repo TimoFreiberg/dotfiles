@@ -1,6 +1,41 @@
 # Linux/MacOS Installation
 
-Run `bootstrap.fish`
+## Existing machines
+
+Do not run `bootstrap.fish` on a migrated home. It now refuses a real
+`~/.config`, but it still performs the old symlink setup on an unmigrated home.
+
+The migration is manual and never runs from shell startup:
+
+```sh
+bin/dotfiles-migrate preflight --dry-run
+bin/dotfiles-migrate prepare --writers-stopped --colima-stopped
+bin/dotfiles-migrate cutover --writers-stopped --colima-stopped --confirm-cutover
+bin/dotfiles-migrate compare
+```
+
+`prepare` stores a mode/link-target/content snapshot and verified sparse-aware
+backup outside this checkout. `cutover` takes a fresh snapshot immediately
+before swapping `.config`; it refuses any legacy source, `.pi`, `.claude`, home
+file, or secrets-interface change since `prepare`. Stop Polytoken, Pi, Claude,
+chezmoi, and Colima before `prepare` and `cutover`; the helper refuses active
+writers and never kills them. Relative links that remain inside `.config` are
+rewritten for the new depth, public checkout links become canonical absolute
+links, and private or unknown checkout links are refused. The helper does not
+run chezmoi or claim that chezmoi has applied configuration.
+
+Keep private state until `compare` passes and an owner approves cleanup. An
+interrupted cutover is recorded before the swap and refuses rerun; after
+stopping writers, use `bin/dotfiles-migrate rollback --writers-stopped
+--confirm-rollback` to move the new real `.config` into private recovery and
+restore only recorded old links. If the interruption happened before the swap,
+rollback verifies that the complete legacy snapshot is unchanged and returns the
+manifest to `prepared` for retry. Rollback never deletes new state. Use `--state
+PATH` only for a new, dedicated user-owned 0700 directory outside the
+repository. The helper prints categories and counts only, never file contents.
+
+For a new or intentionally legacy home, run `bootstrap.fish` from this
+checkout. It is not a migration tool and never applies chezmoi.
 
 ## MacOS notes
 - `brew install scroll-reverser maccy` 

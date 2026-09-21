@@ -1,0 +1,761 @@
+#!/usr/bin/env python3
+"""Manual, fail-closed migration of the legacy home symlink layout."""
+
+from __future__ import annotations
+
+import argparse
+import errno
+import hashlib
+import json
+import os
+import platform
+import shutil
+import stat
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any
+
+
+VERSION = 2
+WRITERS = ("polytoken", "polytoken-daemon", "pi", "claude", "chezmoi", "colima")
+CATEGORIES = ("missing", "extra", "type", "mode", "content", "link-target")
+HOME_SNAPSHOT_NAMES = (".profile", ".zshenv", ".gitconfig", ".tmux.conf")
+
+
+class SafetyError(Exception):
+    pass
+
+
+def lexists(path: Path) -> bool:
+    return os.path.lexists(path)
+
+
+def mode(path: Path) -> int:
+    return stat.S_IMODE(os.lstat(path).st_mode)
+
+
+def under(path: Path, parent: Path) -> bool:
+    try:
+        path.resolve(strict=False).relative_to(parent.resolve(strict=False))
+        return True
+    except ValueError:
+        return False
+
+
+def check_path_chain(path: Path) -> None:
+    """Reject symlinked or unsafe ancestors before creating private state."""
+    absolute = path.absolute()
+    current = Path(absolute.anchor)
+    for part in absolute.parts[1:]:
+        current /= part
+        if not lexists(current):
+            break
+        item = os.lstat(current)
+        if stat.S_ISLNK(item.st_mode):
+            if current == absolute or not Path(os.path.realpath(current)).is_dir():
+                raise SafetyError("private state path or ancestor is a symlink")
+            target = os.stat(current)
+            target_mode = stat.S_IMODE(target.st_mode)
+            safe_shared = target.st_uid == 0 and target_mode & stat.S_ISVTX and target_mode & 0o022 == 0o022
+            if target.st_uid not in (0, os.geteuid()) or (target_mode & 0o022 and not safe_shared):
+                raise SafetyError("private state path has an unsafe symlinked ancestor")
+            continue
+        if not stat.S_ISDIR(item.st_mode):
+            raise SafetyError("private state path has a non-directory ancestor")
+        if item.st_uid != os.geteuid() and stat.S_IMODE(item.st_mode) & 0o022:
+            raise SafetyError("private state path has an unsafe shared ancestor")
+
+
+def secure_directory(path: Path, label: str, *, create: bool = False) -> None:
+    check_path_chain(path)
+    if not lexists(path):
+        if not create:
+            raise SafetyError(f"{label} is missing")
+        path.mkdir(mode=0o700)
+    item = os.lstat(path)
+    if stat.S_ISLNK(item.st_mode) or not stat.S_ISDIR(item.st_mode):
+        raise SafetyError(f"{label} is not a real directory")
+    if item.st_uid != os.geteuid() or stat.S_IMODE(item.st_mode) != 0o700:
+        raise SafetyError(f"{label} must be user-owned mode 0700")
+
+
+def private_dir(path: Path) -> None:
+    secure_directory(path, "private directory", create=True)
+
+
+def private_file(path: Path, data: str) -> None:
+    check_path_chain(path.parent)
+    secure_directory(path.parent, "private file parent")
+    if lexists(path):
+        item = os.lstat(path)
+        if stat.S_ISLNK(item.st_mode) or not stat.S_ISREG(item.st_mode):
+            raise SafetyError("private manifest path is not a regular file")
+        if item.st_uid != os.geteuid() or mode(path) != 0o600:
+            raise SafetyError("private manifest has unsafe ownership or mode")
+    fd, temporary_name = tempfile.mkstemp(prefix=".manifest.", dir=path.parent)
+    temporary = Path(temporary_name)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        os.chmod(path, 0o600)
+    finally:
+        if lexists(temporary):
+            temporary.unlink()
+
+
+def read_manifest(state: Path) -> dict[str, Any] | None:
+    if not lexists(state):
+        return None
+    secure_directory(state, "private state")
+    path = state / "manifest.json"
+    if not lexists(path):
+        return None
+    item = os.lstat(path)
+    if stat.S_ISLNK(item.st_mode) or not stat.S_ISREG(item.st_mode):
+        raise SafetyError("private manifest is not a regular file")
+    if item.st_uid != os.geteuid() or mode(path) != 0o600:
+        raise SafetyError("private manifest has unsafe ownership or mode")
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise SafetyError("private manifest is unreadable or incomplete") from exc
+    if value.get("version") != VERSION or not value.get("stage"):
+        raise SafetyError("private manifest is incomplete")
+    return value
+
+
+def write_manifest(state: Path, value: dict[str, Any]) -> None:
+    private_file(state / "manifest.json", json.dumps(value, sort_keys=True, indent=2) + "\n")
+
+
+def sparse_capability() -> str:
+    system = platform.system()
+    if shutil.which("cp") is None:
+        raise SafetyError("sparse-aware copy utility cp is unavailable")
+    if system == "Darwin":
+        return "macOS clone-aware cp -a -c"
+    if system == "Linux":
+        return "GNU cp -a --reflink=auto --sparse=always"
+    raise SafetyError("this platform has no supported sparse-aware copy method")
+
+
+def copy_tree(source: Path, destination: Path) -> None:
+    method = sparse_capability()
+    if lexists(destination):
+        raise SafetyError("copy destination already exists")
+    destination.mkdir(mode=0o700)
+    if platform.system() == "Darwin":
+        command = ["cp", "-a", "-c", str(source) + "/.", str(destination)]
+    else:
+        command = ["cp", "-a", "--reflink=auto", "--sparse=always", str(source) + "/.", str(destination)]
+    try:
+        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise SafetyError(f"{method} could not create a verified private copy") from exc
+
+
+def copy_private_file(source: Path, destination: Path) -> None:
+    secure_directory(destination.parent, "private backup parent", create=True)
+    if lexists(destination):
+        raise SafetyError("private backup destination already exists")
+    try:
+        shutil.copyfile(source, destination, follow_symlinks=False)
+        os.chmod(destination, 0o600)
+    except OSError as exc:
+        raise SafetyError("private file backup failed") from exc
+
+
+def sparse_digest(path: Path) -> str:
+    """Hash data and hole extents without expanding a sparse file."""
+    digest = hashlib.sha256()
+    size = os.stat(path, follow_symlinks=False).st_size
+    fd = os.open(path, os.O_RDONLY)
+    try:
+        position = 0
+        while position < size:
+            try:
+                data = os.lseek(fd, position, os.SEEK_DATA)
+            except AttributeError as exc:
+                if size > 1 << 30:
+                    raise SafetyError("filesystem cannot compare a large sparse file safely") from exc
+                data = position
+            except OSError as exc:
+                if exc.errno == errno.ENXIO:
+                    digest.update(b"H")
+                    digest.update((size - position).to_bytes(8, "big"))
+                    position = size
+                    break
+                if size > 1 << 30:
+                    raise SafetyError("filesystem cannot compare a large sparse file safely") from exc
+                data = position
+            if data > position:
+                digest.update(b"H")
+                digest.update((data - position).to_bytes(8, "big"))
+            try:
+                hole = os.lseek(fd, data, os.SEEK_HOLE)
+            except (AttributeError, OSError) as exc:
+                if size > 1 << 30:
+                    raise SafetyError("filesystem cannot compare a large sparse file safely") from exc
+                hole = size
+            digest.update(b"D")
+            digest.update((data - position).to_bytes(8, "big"))
+            os.lseek(fd, data, os.SEEK_SET)
+            remaining = max(0, hole - data)
+            while remaining:
+                chunk = os.read(fd, min(1024 * 1024, remaining))
+                if not chunk:
+                    raise SafetyError("file changed during comparison")
+                digest.update(chunk)
+                remaining -= len(chunk)
+            position = hole
+            if position == data:
+                break
+        digest.update(size.to_bytes(8, "big"))
+        return digest.hexdigest()
+    finally:
+        os.close(fd)
+
+
+def public_repo_target(path: Path, repo: Path) -> bool:
+    allowed = (repo / "config", repo / "agents", repo / "bin", repo / ".profile", repo / ".zshenv")
+    if not any(path == candidate or under(path, candidate) for candidate in allowed):
+        return False
+    ignored = subprocess.run(
+        ["git", "check-ignore", "--no-index", "--quiet", str(path)],
+        cwd=repo,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return ignored.returncode != 0
+
+
+def resolved_signature(path: Path) -> dict[str, Any]:
+    if not lexists(path):
+        raise SafetyError("configuration contains a broken symlink")
+    item = os.lstat(path)
+    if stat.S_ISDIR(item.st_mode):
+        digest = hashlib.sha256()
+        entries = 0
+        for current, directories, files in os.walk(path, followlinks=False):
+            current_path = Path(current)
+            for name in sorted(set(directories + files)):
+                child = current_path / name
+                child_stat = os.lstat(child)
+                relative = child.relative_to(path).as_posix()
+                digest.update(relative.encode() + b"\\0")
+                digest.update(stat.S_IFMT(child_stat.st_mode).to_bytes(4, "big"))
+                digest.update(stat.S_IMODE(child_stat.st_mode).to_bytes(4, "big"))
+                entries += 1
+                if stat.S_ISREG(child_stat.st_mode):
+                    digest.update(sparse_digest(child).encode())
+                elif stat.S_ISLNK(child_stat.st_mode):
+                    digest.update(os.readlink(child).encode())
+        return {"kind": "directory", "entries": entries, "digest": digest.hexdigest()}
+    if stat.S_ISREG(item.st_mode):
+        return {"kind": "file", "size": item.st_size, "digest": sparse_digest(path)}
+    raise SafetyError("symlink resolves to an unsupported filesystem object")
+
+
+def translated_target(source_item: Path, destination_item: Path, source_root: Path, destination_root: Path, repo: Path) -> str:
+    resolved_text = os.path.realpath(source_item)
+    source_text = os.path.realpath(source_root)
+    if os.path.commonpath((resolved_text, source_text)) == source_text:
+        relative = os.path.relpath(resolved_text, source_text)
+        return os.path.relpath(destination_root / relative, destination_item.parent)
+    resolved = Path(resolved_text)
+    if under(resolved, repo):
+        if not public_repo_target(resolved, repo):
+            raise SafetyError("configuration contains a private link back into the checkout")
+        return str(resolved)
+    return str(resolved)
+
+
+def inventory(root: Path, repo: Path, *, translate_to: Path | None = None) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    if not root.is_dir() or root.is_symlink():
+        raise SafetyError("inventory source is not a real directory")
+    for current, directories, files in os.walk(root, topdown=True, followlinks=False):
+        current_path = Path(current)
+        for name in sorted(set(directories + files)):
+            item = current_path / name
+            relative = item.relative_to(root).as_posix()
+            item_stat = os.lstat(item)
+            item_mode = stat.S_IMODE(item_stat.st_mode)
+            if stat.S_ISLNK(item_stat.st_mode):
+                destination_item = (translate_to / relative) if translate_to else item
+                result[relative] = {
+                    "kind": "symlink",
+                    "mode": item_mode,
+                    "target": translated_target(item, destination_item, root, translate_to or root, repo)
+                    if translate_to
+                    else os.readlink(item),
+                    "resolved": resolved_signature(Path(os.path.realpath(item))),
+                }
+                if name in directories:
+                    directories.remove(name)
+            elif stat.S_ISDIR(item_stat.st_mode):
+                result[relative] = {"kind": "directory", "mode": item_mode}
+            elif stat.S_ISREG(item_stat.st_mode):
+                result[relative] = {
+                    "kind": "file",
+                    "mode": item_mode,
+                    "size": item_stat.st_size,
+                    "blocks": item_stat.st_blocks,
+                    "digest": sparse_digest(item),
+                }
+            else:
+                raise SafetyError("configuration contains an unsupported filesystem object")
+    return result
+
+
+def compare_inventory(old: dict[str, dict[str, Any]], new: dict[str, dict[str, Any]]) -> dict[str, int]:
+    counts = {category: 0 for category in CATEGORIES}
+    for relative in sorted(set(old) | set(new)):
+        if relative not in old:
+            counts["extra"] += 1
+            continue
+        if relative not in new:
+            counts["missing"] += 1
+            continue
+        left, right = old[relative], new[relative]
+        if left["kind"] != right["kind"]:
+            counts["type"] += 1
+            continue
+        if left.get("mode") != right.get("mode"):
+            counts["mode"] += 1
+        if left["kind"] == "symlink":
+            if left.get("target") != right.get("target"):
+                counts["link-target"] += 1
+            if left.get("resolved") != right.get("resolved"):
+                counts["content"] += 1
+        elif left["kind"] == "file":
+            if left.get("size") != right.get("size") or left.get("digest") != right.get("digest"):
+                counts["content"] += 1
+    return counts
+
+
+def compare_trees(before: Path, after: Path, repo: Path) -> dict[str, int]:
+    return compare_inventory(inventory(before, repo), inventory(after, repo))
+
+
+def archive_compare(before: Path, after: Path, repo: Path) -> dict[str, int]:
+    """Compare an archive copy without requiring its relative links to resolve."""
+    left = inventory(before, repo)
+    right = inventory(after, repo)
+    counts = {category: 0 for category in CATEGORIES}
+    for relative in sorted(set(left) | set(right)):
+        if relative not in left:
+            counts["extra"] += 1
+            continue
+        if relative not in right:
+            counts["missing"] += 1
+            continue
+        a, b = left[relative], right[relative]
+        if a["kind"] != b["kind"]:
+            counts["type"] += 1
+        elif a.get("mode") != b.get("mode"):
+            counts["mode"] += 1
+        elif a["kind"] == "symlink" and a.get("target") != b.get("target"):
+            counts["link-target"] += 1
+        elif a["kind"] == "file" and (a.get("size"), a.get("digest")) != (b.get("size"), b.get("digest")):
+            counts["content"] += 1
+    return counts
+
+
+def rewrite_links(source_root: Path, destination_root: Path, repo: Path) -> None:
+    for current, directories, files in os.walk(destination_root, topdown=True, followlinks=False):
+        current_path = Path(current)
+        for name in sorted(set(directories + files)):
+            destination_item = current_path / name
+            if not destination_item.is_symlink():
+                continue
+            relative = destination_item.relative_to(destination_root)
+            source_item = source_root / relative
+            target = translated_target(source_item, destination_item, source_root, destination_root, repo)
+            destination_item.unlink()
+            os.symlink(target, destination_item)
+            if name in directories:
+                directories.remove(name)
+
+
+def exact_link(path: Path, target: Path, *, legacy_trailing_slash: bool = False) -> bool:
+    if not path.is_symlink():
+        return False
+    actual = os.readlink(path)
+    expected = str(target)
+    allowed = {expected}
+    if legacy_trailing_slash:
+        allowed.add(expected + os.sep)
+    if actual in allowed:
+        return True
+    # macOS can spell the same volume as /var and /private/var.
+    return os.path.isabs(actual) and os.path.realpath(path) == str(target.resolve())
+
+
+def active_writers() -> bool:
+    for name in WRITERS:
+        try:
+            found = subprocess.run(["pgrep", "-x", name], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            return False
+        if found.returncode == 0:
+            return True
+    return False
+
+
+def secret_path(home: Path) -> Path:
+    return home / ".local" / "share" / "fish" / "secrets.fish"
+
+
+def state_path(home: Path, supplied: Path | None, repo: Path) -> Path:
+    if supplied is not None:
+        state = supplied.expanduser().absolute()
+    else:
+        base = Path(os.environ.get("XDG_STATE_HOME", home / ".local" / "state")).expanduser()
+        state = base / "dotfiles-migrate"
+    if state == home or under(state, repo) or state == repo:
+        raise SafetyError("private migration state must be a dedicated directory outside the checkout and home root")
+    return state
+
+
+def layout(home: Path, repo: Path) -> str:
+    config = home / ".config"
+    pi = home / ".pi"
+    claude = home / ".claude"
+    if exact_link(config, repo / "config"):
+        if lexists(pi) and not exact_link(pi, repo / "config" / "pi", legacy_trailing_slash=True):
+            raise SafetyError("legacy .pi link has an unexpected target")
+        if lexists(claude) and not exact_link(claude, repo / "claude"):
+            raise SafetyError("legacy .claude link has an unexpected target")
+        return "legacy"
+    if lexists(config) and config.is_dir() and not config.is_symlink():
+        if not exact_link(pi, config / "pi") or lexists(claude):
+            raise SafetyError("real .config has an unknown or conflicting top-level layout")
+        return "migrated"
+    if lexists(config):
+        raise SafetyError(".config has an unexpected type or target")
+    raise SafetyError(".config is absent; refusing an ambiguous home layout")
+
+
+def require_colima(repo: Path, acknowledged: bool) -> None:
+    if lexists(repo / "config" / "colima") and not acknowledged:
+        raise SafetyError("stop Colima and rerun with --colima-stopped")
+
+
+def require_writers(acknowledged: bool) -> None:
+    if not acknowledged:
+        raise SafetyError("stop configuration writers and rerun with --writers-stopped")
+    if active_writers():
+        raise SafetyError("an active configuration writer was detected; stop it first")
+
+
+def descriptor(path: Path) -> dict[str, Any]:
+    if not lexists(path):
+        return {"kind": "absent"}
+    item = os.lstat(path)
+    value: dict[str, Any] = {"mode": stat.S_IMODE(item.st_mode)}
+    if stat.S_ISLNK(item.st_mode):
+        value.update({"kind": "symlink", "target": os.readlink(path), "resolved": resolved_signature(Path(os.path.realpath(path)))})
+    elif stat.S_ISREG(item.st_mode):
+        value.update({"kind": "file", "size": item.st_size, "digest": sparse_digest(path)})
+    elif stat.S_ISDIR(item.st_mode):
+        value["kind"] = "directory"
+    else:
+        raise SafetyError("home snapshot contains an unsupported filesystem object")
+    return value
+
+
+def source_snapshot(home: Path, repo: Path) -> dict[str, Any]:
+    config_target = Path(os.path.realpath(home / ".config"))
+    claude = home / ".claude"
+    claude_target = Path(os.path.realpath(claude)) if lexists(claude) else None
+    if not config_target.is_dir() or config_target.is_symlink():
+        raise SafetyError("legacy .config target is not a real directory")
+    if claude_target is not None and (not claude_target.is_dir() or claude_target.is_symlink()):
+        raise SafetyError("legacy .claude target is not a real directory")
+    secret = secret_path(home)
+    return {
+        "config": inventory(config_target, repo),
+        "claude": inventory(claude_target, repo) if claude_target else None,
+        "top_level": {name: descriptor(home / name) for name in (".config", ".pi", ".claude")},
+        "home_files": {name: descriptor(home / name) for name in HOME_SNAPSHOT_NAMES},
+        "secret": descriptor(secret),
+    }
+
+
+def snapshots_equal(expected: dict[str, Any], actual: dict[str, Any]) -> bool:
+    return expected == actual
+
+
+def preflight(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> str:
+    method = sparse_capability()
+    manifest = read_manifest(state)
+    if manifest and manifest["stage"] in ("preparing", "cutover-started"):
+        raise SafetyError("an interrupted migration is recorded; use the private manifest-led rollback procedure")
+    current = layout(home, repo)
+    if current == "legacy" and not args.dry_run:
+        require_colima(repo, args.colima_stopped)
+    if args.dry_run:
+        print(f"preflight: {current}; no changes made; copy method: {method}")
+    return current
+
+
+def make_manifest(home: Path, repo: Path, state: Path) -> dict[str, Any]:
+    snapshot = source_snapshot(home, repo)
+    backup = state / ".backup.staging"
+    if lexists(backup) or lexists(state / "backup"):
+        raise SafetyError("private backup or staging directory already exists without a usable manifest")
+    private_dir(backup)
+    try:
+        config_target = Path(os.path.realpath(home / ".config"))
+        copy_tree(config_target, backup / "config")
+        if any(archive_compare(config_target, backup / "config", repo).values()):
+            raise SafetyError("configuration backup did not verify")
+        claude_target = Path(os.path.realpath(home / ".claude")) if lexists(home / ".claude") else None
+        if claude_target:
+            copy_tree(claude_target, backup / "claude")
+            if any(archive_compare(claude_target, backup / "claude", repo).values()):
+                raise SafetyError("Claude backup did not verify")
+        secret = secret_path(home)
+        if lexists(secret):
+            if secret.is_symlink() or not secret.is_file():
+                raise SafetyError("secrets interface is not a regular file")
+            copy_private_file(secret, backup / "secrets.fish")
+        if not snapshots_equal(snapshot, source_snapshot(home, repo)):
+            raise SafetyError("source changed while prepare was running")
+        os.replace(backup, state / "backup")
+    except Exception:
+        shutil.rmtree(backup, ignore_errors=True)
+        raise
+    return {
+        "version": VERSION,
+        "stage": "prepared",
+        "home": str(home),
+        "repo": str(repo),
+        "state": str(state),
+        "backup": str(state / "backup"),
+        "copy_method": sparse_capability(),
+        "source_snapshot": snapshot,
+        "expected_config": snapshot["config"],
+        "secret": {**snapshot["secret"], "parent_mode": mode(secret_path(home).parent) if snapshot["secret"].get("kind") != "absent" else None},
+        "home_files": snapshot["home_files"],
+        "recovery": [
+            "Keep this manifest and backup private.",
+            "Cutover refuses any source change since prepare; rerun prepare only after owner review.",
+            "If cutover is interrupted, stop writers and run rollback --writers-stopped --confirm-rollback.",
+            "Rollback moves the new real .config into private recovery before restoring links; it never deletes new state.",
+        ],
+    }
+
+
+def prepare(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> None:
+    current = preflight(home, repo, state, args)
+    if current != "legacy":
+        print("prepare: already migrated; no changes made")
+        return
+    if args.dry_run:
+        print("prepare: would create a private verified backup; no changes made")
+        return
+    require_writers(args.writers_stopped)
+    require_colima(repo, args.colima_stopped)
+    private_dir(state)
+    manifest = read_manifest(state)
+    if manifest is not None:
+        if manifest["stage"] in ("prepared", "cutover-complete", "rolled-back"):
+            print(f"prepare: already {manifest['stage']}; no changes made")
+            return
+        raise SafetyError("private migration state already exists")
+    manifest = make_manifest(home, repo, state)
+    write_manifest(state, manifest)
+    print("prepare: verified private backup is ready; no home files changed")
+
+
+def cutover(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> None:
+    manifest = read_manifest(state)
+    if manifest and manifest["stage"] == "cutover-started":
+        raise SafetyError("cutover is interrupted; stop writers and use rollback --confirm-rollback")
+    current = preflight(home, repo, state, args)
+    if manifest is None or manifest["stage"] != "prepared":
+        if current == "migrated":
+            print("cutover: already migrated; no changes made")
+            return
+        raise SafetyError("cutover requires a completed prepare stage")
+    if args.dry_run:
+        print("cutover: backup and confirmations valid; no changes made")
+        return
+    if not args.confirm_cutover:
+        raise SafetyError("rerun with --confirm-cutover to make the home cutover")
+    require_writers(args.writers_stopped)
+    require_colima(repo, args.colima_stopped)
+    current_snapshot = source_snapshot(home, repo)
+    if not snapshots_equal(manifest["source_snapshot"], current_snapshot):
+        raise SafetyError("legacy source changed since prepare; refusing stale-backup cutover")
+    source_root = Path(os.path.realpath(home / ".config"))
+    manifest["stage"] = "cutover-started"
+    write_manifest(state, manifest)
+    temporary_parent = Path(tempfile.mkdtemp(prefix=".dotfiles-migrate-", dir=home))
+    temporary = temporary_parent / "config"
+    try:
+        copy_tree(source_root, temporary)
+        rewrite_links(source_root, temporary, repo)
+        expected = inventory(source_root, repo, translate_to=home / ".config")
+        actual = inventory(temporary, repo)
+        if any(compare_inventory(expected, actual).values()):
+            raise SafetyError("translated cutover staging did not verify")
+        os.replace(temporary, home / ".config")
+        pi = home / ".pi"
+        pi_temp = home / ".pi.dotfiles-migrate-new"
+        if lexists(pi_temp):
+            raise SafetyError("temporary Pi link already exists")
+        os.symlink(str(home / ".config" / "pi"), pi_temp)
+        os.replace(pi_temp, pi)
+        claude = home / ".claude"
+        if lexists(claude):
+            if not exact_link(claude, repo / "claude"):
+                raise SafetyError("Claude link changed during cutover")
+            os.unlink(claude)
+        secret = secret_path(home)
+        if manifest["secret"].get("kind") != "absent":
+            if not secret.is_file() or secret.is_symlink():
+                raise SafetyError("secrets interface changed during cutover")
+            os.chmod(secret.parent, 0o700)
+            os.chmod(secret, 0o600)
+        manifest["expected_config"] = expected
+        manifest["home_files_after"] = {name: descriptor(home / name) for name in HOME_SNAPSHOT_NAMES}
+        manifest["stage"] = "cutover-complete"
+        write_manifest(state, manifest)
+    except Exception:
+        raise
+    finally:
+        if lexists(temporary_parent):
+            shutil.rmtree(temporary_parent, ignore_errors=True)
+    print("cutover: complete; .config is real, translated links verified, .pi is repointed, and .claude is retired")
+
+
+def rollback(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> None:
+    manifest = read_manifest(state)
+    if manifest is None or manifest["stage"] != "cutover-started":
+        raise SafetyError("rollback is available only for an interrupted cutover")
+    if args.dry_run:
+        print("rollback: interrupted manifest found; no changes made")
+        return
+    if not args.confirm_rollback:
+        raise SafetyError("rerun with --confirm-rollback to preserve new state and restore old links")
+    require_writers(args.writers_stopped)
+    recovery = state / "recovery-new-config"
+    if lexists(recovery):
+        raise SafetyError("private recovery destination already exists; inspect it before continuing")
+    config = home / ".config"
+    if config.is_symlink():
+        if not snapshots_equal(manifest["source_snapshot"], source_snapshot(home, repo)):
+            raise SafetyError("legacy layout changed after interruption; inspect private manifest before recovery")
+        manifest["stage"] = "prepared"
+        write_manifest(state, manifest)
+        print("rollback: unchanged legacy layout verified; prepared backup retained for retry")
+        return
+    if not config.is_dir():
+        raise SafetyError("rollback will not clobber an unknown .config layout")
+    private_dir(state)
+    os.replace(config, recovery)
+    os.symlink(manifest["source_snapshot"]["top_level"][".config"]["target"], config)
+    pi = home / ".pi"
+    old_pi = manifest["source_snapshot"]["top_level"][".pi"]
+    if old_pi["kind"] == "symlink":
+        if lexists(pi):
+            if not exact_link(pi, home / ".config" / "pi") and os.readlink(pi) != old_pi["target"]:
+                raise SafetyError("rollback found an unexpected .pi link")
+            os.unlink(pi)
+        os.symlink(old_pi["target"], pi)
+    elif lexists(pi):
+        if not exact_link(pi, home / ".config" / "pi"):
+            raise SafetyError("rollback found an unexpected .pi path")
+        os.unlink(pi)
+    claude = home / ".claude"
+    old_claude = manifest["source_snapshot"]["top_level"][".claude"]
+    if old_claude["kind"] == "symlink" and not lexists(claude):
+        os.symlink(old_claude["target"], claude)
+    old_secret = manifest["secret"]
+    secret = secret_path(home)
+    if old_secret.get("kind") != "absent" and lexists(secret):
+        os.chmod(secret.parent, old_secret.get("parent_mode", 0o700))
+        os.chmod(secret, old_secret["mode"])
+    manifest["stage"] = "rolled-back"
+    manifest["recovery_new_config"] = str(recovery)
+    write_manifest(state, manifest)
+    print("rollback: old links restored; new .config preserved in private recovery")
+
+
+def compare_after(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> None:
+    manifest = read_manifest(state)
+    if manifest is None or manifest["stage"] != "cutover-complete":
+        raise SafetyError("compare requires a completed cutover stage")
+    if layout(home, repo) != "migrated":
+        raise SafetyError("post-cutover layout does not match the recorded migration")
+    expected = manifest.get("expected_config")
+    if expected is None:
+        raise SafetyError("manifest lacks translated link expectations; do not claim migration success")
+    actual = inventory(home / ".config", repo)
+    counts = compare_inventory(expected, actual)
+    if manifest["secret"].get("kind") != "absent":
+        secret = secret_path(home)
+        if not lexists(secret) or secret.is_symlink() or not secret.is_file():
+            counts["missing"] += 1
+        elif mode(secret) != 0o600 or mode(secret.parent) != 0o700:
+            counts["mode"] += 1
+    for name in HOME_SNAPSHOT_NAMES:
+        if manifest.get("home_files_after", {}).get(name) != descriptor(home / name):
+            counts["content"] += 1
+    total = sum(counts.values())
+    print("compare: PASS" if total == 0 else "compare: MISMATCH")
+    for category in CATEGORIES:
+        print(f"  {category}: {counts[category]}")
+    if total:
+        raise SafetyError("before/after comparison found mismatches")
+
+
+def parser() -> argparse.ArgumentParser:
+    result = argparse.ArgumentParser(description="Explicit, fail-closed dotfiles home migration")
+    result.add_argument("--home", type=Path, default=Path.home(), help=argparse.SUPPRESS)
+    result.add_argument("--state", type=Path, help="private state directory outside the checkout")
+    result.add_argument("--dry-run", action="store_true", help="run checks without changing files")
+    result.add_argument("--writers-stopped", action="store_true", help="confirm relevant writers are stopped")
+    result.add_argument("--colima-stopped", action="store_true", help="confirm Colima is stopped")
+    result.add_argument("--confirm-cutover", action="store_true", help="confirm the home cutover step")
+    result.add_argument("--confirm-rollback", action="store_true", help="confirm bounded rollback preserving new state")
+    result.add_argument("command", choices=("preflight", "prepare", "cutover", "compare", "rollback"))
+    return result
+
+
+def main() -> int:
+    args = parser().parse_args()
+    home = args.home.expanduser().absolute()
+    repo = Path(__file__).resolve().parent.parent
+    try:
+        state = state_path(home, args.state, repo)
+        if args.command == "preflight":
+            preflight(home, repo, state, args)
+        elif args.command == "prepare":
+            prepare(home, repo, state, args)
+        elif args.command == "cutover":
+            cutover(home, repo, state, args)
+        elif args.command == "rollback":
+            rollback(home, repo, state, args)
+        else:
+            compare_after(home, repo, state, args)
+    except SafetyError as exc:
+        print(f"refused: {exc}", file=sys.stderr)
+        return 2
+    except OSError:
+        print("refused: filesystem operation failed; inspect the private recovery state", file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
