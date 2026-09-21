@@ -22,14 +22,18 @@ function jprc --description "Create a GitHub PR from a jj revision"
         set base $_flag_base
     else
         # Find bookmarked ancestors (excluding the target rev itself) to use as base
-        set -l candidates (jj log -r "(trunk()::$rev & bookmarks()) ~ $rev" --no-graph -T 'bookmarks.join(",") ++ "\n"' 2>&1)
+        set -l candidate_lines (jj log -r "(trunk()::$rev & bookmarks()) ~ $rev" --no-graph -T 'bookmarks.join(",") ++ "\n"' 2>&1)
         if test $status -ne 0
             echo "Error: failed to query jj log" >&2
-            echo $candidates >&2
+            echo $candidate_lines >&2
             return 1
         end
 
-        # Filter out entries that are just the target revision's own bookmark
+        set -l candidates
+        for candidate_line in $candidate_lines
+            set -a candidates (string split ',' -- $candidate_line)
+        end
+
         # We want the "nearest ancestor with a bookmark" as base
         switch (count $candidates)
             case 0
@@ -110,8 +114,8 @@ function jprc --description "Create a GitHub PR from a jj revision"
     end
 
     # --- Generate branch name via LLM ---
-    set -l diff_context (jj diff -r $rev 2>&1 | head -200)
-    set -l log_context (jj log -r "trunk()..$rev" --no-graph 2>&1)
+    set -l diff_context (jj diff --from $base --to $rev 2>&1 | head -200)
+    set -l log_context (jj log -r "$base..$rev" --no-graph 2>&1)
 
     set -l branch_prompt "Generate a short Git branch name (max 20 chars, lowercase, hyphen-separated).
 No prefixes like feat/ or fix/. Just a concise descriptive name.
@@ -148,10 +152,10 @@ $diff_context"
 end
 
 function __jprc_open_or_create_pr --argument-names branch_name base rev
-    set -l existing_pr (gh pr list --head $branch_name --state open --json url --jq '.[0].url' 2>/dev/null)
+    set -l existing_pr (gh pr list --head $branch_name --base $base --state open --json url --jq '.[0].url' 2>/dev/null)
     if test -n "$existing_pr"
         echo "Opening existing PR: $existing_pr"
-        gh pr view $branch_name --web
+        gh pr view $existing_pr --web
         return $status
     end
 
