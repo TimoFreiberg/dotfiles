@@ -85,5 +85,40 @@ class ErrorReportingTests(unittest.TestCase):
         self.assertIn("permission denied", detail)
 
 
+class PathReplacementTests(unittest.TestCase):
+    def test_replaces_directory_symlink_and_preserves_target_contents(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            old_target = root / "legacy"
+            old_target.mkdir()
+            (old_target / "old").write_text("old", encoding="utf-8")
+            replacement = root / "replacement"
+            replacement.mkdir()
+            (replacement / "new").write_text("new", encoding="utf-8")
+            destination = root / ".config"
+            os.symlink(old_target, destination, target_is_directory=True)
+
+            MIGRATE.replace_path(replacement, destination)
+
+            self.assertFalse(destination.is_symlink())
+            self.assertEqual((destination / "new").read_text(encoding="utf-8"), "new")
+            self.assertFalse((destination / "old").exists())
+
+    def test_restores_directory_symlink_when_replacement_fails(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            old_target = root / "legacy"
+            old_target.mkdir()
+            destination = root / ".config"
+            original_target = str(old_target)
+            os.symlink(original_target, destination, target_is_directory=True)
+
+            with self.assertRaises(FileNotFoundError):
+                MIGRATE.replace_path(root / "missing", destination)
+
+            self.assertTrue(destination.is_symlink())
+            self.assertEqual(os.readlink(destination), original_target)
+
+
 if __name__ == "__main__":
     unittest.main()

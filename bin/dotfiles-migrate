@@ -497,6 +497,23 @@ def rewrite_links(source_root: Path, destination_root: Path, repo: Path) -> None
                 directories.remove(name)
 
 
+def replace_path(source: Path, destination: Path) -> None:
+    """Replace a path, including a directory symlink on macOS."""
+    if not destination.is_symlink():
+        os.replace(source, destination)
+        return
+    target = os.readlink(destination)
+    destination.unlink()
+    try:
+        os.replace(source, destination)
+    except BaseException as exc:
+        try:
+            os.symlink(target, destination)
+        except OSError as restore_error:
+            raise restore_error from exc
+        raise
+
+
 def exact_link(path: Path, target: Path, *, legacy_trailing_slash: bool = False) -> bool:
     if not path.is_symlink():
         return False
@@ -735,7 +752,7 @@ def cutover(home: Path, repo: Path, state: Path, args: argparse.Namespace) -> No
         actual = inventory(temporary, repo)
         if any(compare_inventory(expected, actual).values()):
             raise SafetyError("translated cutover staging did not verify")
-        os.replace(temporary, home / ".config")
+        replace_path(temporary, home / ".config")
         pi = home / ".pi"
         pi_temp = home / ".pi.dotfiles-migrate-new"
         if lexists(pi_temp):
