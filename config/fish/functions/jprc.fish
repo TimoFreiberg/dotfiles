@@ -155,7 +155,7 @@ function __jprc_open_or_create_pr --argument-names branch_name base rev
         return $status
     end
 
-    set -l commit_messages (jj log -r "trunk()..$rev" --no-graph -T 'description ++ "\n\n"' 2>&1 | string collect)
+    set -l commit_messages (jj log -r "$base..$rev" --no-graph -T 'description ++ "\n\n"' 2>&1 | string collect)
 
     echo "Creating PR from the commit messages..."
     gh pr create --head $branch_name --base $base --body "$commit_messages" --web
