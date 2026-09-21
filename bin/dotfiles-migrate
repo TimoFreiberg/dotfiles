@@ -365,7 +365,13 @@ def translated_target(source_item: Path, destination_item: Path, source_root: Pa
     return str(resolved)
 
 
-def inventory(root: Path, repo: Path, *, translate_to: Path | None = None) -> dict[str, dict[str, Any]]:
+def inventory(
+    root: Path,
+    repo: Path,
+    *,
+    translate_to: Path | None = None,
+    resolve_symlinks: bool = True,
+) -> dict[str, dict[str, Any]]:
     result: dict[str, dict[str, Any]] = {}
     if not root.is_dir() or root.is_symlink():
         raise SafetyError("inventory source is not a real directory")
@@ -380,22 +386,25 @@ def inventory(root: Path, repo: Path, *, translate_to: Path | None = None) -> di
             item_mode = stat.S_IMODE(item_stat.st_mode)
             if stat.S_ISLNK(item_stat.st_mode):
                 destination_item = (translate_to / relative) if translate_to else item
-                resolved = Path(os.path.realpath(item))
-                if not lexists(resolved):
-                    raise SafetyError(
-                        "configuration contains a broken symlink",
-                        path=item,
-                        detail=f"target: {os.readlink(item)} (resolved: {resolved})",
-                        hint="restore the target or remove the dangling symlink, then rerun",
-                    )
-                result[relative] = {
+                target = os.readlink(item)
+                value = {
                     "kind": "symlink",
                     "mode": item_mode,
                     "target": translated_target(item, destination_item, root, translate_to or root, repo)
                     if translate_to
-                    else os.readlink(item),
-                    "resolved": resolved_signature(resolved),
+                    else target,
                 }
+                if resolve_symlinks:
+                    resolved = Path(os.path.realpath(item))
+                    if not lexists(resolved):
+                        raise SafetyError(
+                            "configuration contains a broken symlink",
+                            path=item,
+                            detail=f"target: {target} (resolved: {resolved})",
+                            hint="restore the target or remove the dangling symlink, then rerun",
+                        )
+                    value["resolved"] = resolved_signature(resolved)
+                result[relative] = value
                 if name in directories:
                     directories.remove(name)
             elif stat.S_ISDIR(item_stat.st_mode):
@@ -450,8 +459,8 @@ def compare_trees(before: Path, after: Path, repo: Path) -> dict[str, int]:
 
 def archive_compare(before: Path, after: Path, repo: Path) -> dict[str, int]:
     """Compare an archive copy without requiring its relative links to resolve."""
-    left = inventory(before, repo)
-    right = inventory(after, repo)
+    left = inventory(before, repo, resolve_symlinks=False)
+    right = inventory(after, repo, resolve_symlinks=False)
     counts = {category: 0 for category in CATEGORIES}
     for relative in sorted(set(left) | set(right)):
         if relative not in left:

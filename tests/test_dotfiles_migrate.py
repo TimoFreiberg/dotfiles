@@ -32,6 +32,21 @@ class ErrorReportingTests(unittest.TestCase):
         self.assertIn("target: missing-target (resolved:", message)
         self.assertIn("restore the target or remove the dangling symlink", message)
 
+    def test_archive_compare_allows_relative_links_to_leave_the_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "config"
+            (source / "polytoken").mkdir(parents=True)
+            (root / "agents" / "skills").mkdir(parents=True)
+            os.symlink("../../agents/skills", source / "polytoken" / "skills")
+            archive = root / "state" / "backup" / "config"
+            archive.parent.mkdir(parents=True)
+            MIGRATE.copy_tree(source, archive)
+
+            counts = MIGRATE.archive_compare(source, archive, root / "repo")
+
+        self.assertEqual(counts, {category: 0 for category in MIGRATE.CATEGORIES})
+
     def test_unsupported_configuration_object_reports_path_and_type(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / "config"
