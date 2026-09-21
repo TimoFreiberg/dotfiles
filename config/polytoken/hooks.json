@@ -12,5 +12,12 @@
     "handler": {
       "bash": "python3 \"$HOME/dotfiles/agents/hooks/load-local-agent-context.py\""
     }
+  },
+  {
+    "name": "load-local-agent-context-after-compaction",
+    "event": "post_compaction",
+    "handler": {
+      "bash": "python3 \"$HOME/dotfiles/agents/hooks/load-local-agent-context.py\""
+    }
   }
 ]
