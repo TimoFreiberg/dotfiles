@@ -15,7 +15,10 @@ bin/dotfiles-migrate compare
 ```
 
 `prepare` stores a mode/link-target/content snapshot and verified sparse-aware
-backup outside this checkout. `cutover` takes a fresh snapshot immediately
+backup outside this checkout. Unix-domain socket entries are excluded from
+copies, snapshots, and comparisons; the originals are left untouched. Writers
+must still be stopped, and FIFOs/devices remain unsupported.
+`cutover` takes a fresh snapshot immediately
 before swapping `.config`; it refuses any legacy source, `.pi`, `.claude`, home
 file, or secrets-interface change since `prepare`. Stop Polytoken, Pi, chezmoi,
 and Colima before `prepare` and `cutover`; the helper refuses active writers and

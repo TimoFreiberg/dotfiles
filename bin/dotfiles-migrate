@@ -149,13 +149,26 @@ def copy_tree(source: Path, destination: Path) -> None:
     method = sparse_capability()
     if lexists(destination):
         raise SafetyError("copy destination already exists")
-    destination.mkdir(mode=0o700)
-    if platform.system() == "Darwin":
-        command = ["cp", "-a", "-c", str(source) + "/.", str(destination)]
-    else:
-        command = ["cp", "-a", "--reflink=auto", "--sparse=always", str(source) + "/.", str(destination)]
-    try:
+    def copy_entry(src: Path, dst: Path) -> None:
+        kind = os.lstat(src).st_mode
+        if stat.S_ISSOCK(kind):
+            return
+        if stat.S_ISDIR(kind):
+            dst.mkdir(mode=0o700)
+            for child in src.iterdir():
+                copy_entry(child, dst / child.name)
+            shutil.copystat(src, dst, follow_symlinks=False)
+            return
+        if not (stat.S_ISREG(kind) or stat.S_ISLNK(kind)):
+            raise SafetyError("configuration contains an unsupported filesystem object")
+        if platform.system() == "Darwin":
+            command = ["cp", "-a", "-c", str(src), str(dst)]
+        else:
+            command = ["cp", "-a", "--reflink=auto", "--sparse=always", str(src), str(dst)]
         subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+
+    try:
+        copy_entry(source, destination)
     except (OSError, subprocess.CalledProcessError) as exc:
         raise SafetyError(f"{method} could not create a verified private copy") from exc
 
@@ -247,6 +260,8 @@ def resolved_signature(path: Path) -> dict[str, Any]:
             for name in sorted(set(directories + files)):
                 child = current_path / name
                 child_stat = os.lstat(child)
+                if stat.S_ISSOCK(child_stat.st_mode):
+                    continue
                 relative = child.relative_to(path).as_posix()
                 digest.update(relative.encode() + b"\\0")
                 digest.update(stat.S_IFMT(child_stat.st_mode).to_bytes(4, "big"))
@@ -286,6 +301,8 @@ def inventory(root: Path, repo: Path, *, translate_to: Path | None = None) -> di
             item = current_path / name
             relative = item.relative_to(root).as_posix()
             item_stat = os.lstat(item)
+            if stat.S_ISSOCK(item_stat.st_mode):
+                continue
             item_mode = stat.S_IMODE(item_stat.st_mode)
             if stat.S_ISLNK(item_stat.st_mode):
                 destination_item = (translate_to / relative) if translate_to else item
