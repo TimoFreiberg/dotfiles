@@ -8,8 +8,8 @@ not replace or relocate the canonical repository layout. `config/`, `agents/`,
 existing hidden skill paths remain where they are. No live home directory is
 modified by this task, and runtime, bootstrap, update, and cutover work remains
 deferred. Receiving or updating this repository revision is safe for an
-unmigrated machine; applying it is intentionally refused while `$HOME/.config`
-is the legacy directory symlink.
+unmigrated machine; applying it is intentionally refused while the
+chezmoi destination `.config` is the legacy directory symlink.
 
 The source root is selected by `.chezmoiroot` (`home`) and requires chezmoi
 `2.72.2` or newer. Source entries are an explicit public allowlist. Ordinary

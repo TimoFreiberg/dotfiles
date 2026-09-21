@@ -1,6 +1,6 @@
-{{- $config := lstat (joinPath .chezmoi.homeDir ".config") -}}
+{{- $config := lstat (joinPath .chezmoi.destDir ".config") -}}
 {{- if and $config (eq $config.type "symlink") -}}
-{{ fail "refusing chezmoi operation: $HOME/.config is still a symlink; use the migration command before applying this source" }}
+{{ fail "refusing chezmoi operation: destination .config is still a symlink; use the migration command before applying this source" }}
 {{- end -}}
 {{- if ne .chezmoi.os "darwin" }}
 .config/karabiner/
