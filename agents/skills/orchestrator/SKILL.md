@@ -1,6 +1,8 @@
 ---
 name: orchestrator
 description: "Use when executing a multi-step plan and each implementation step should be delegated to subagents and independently reviewed."
+polytoken:
+    disable_model_invocation: true
 ---
 
 # Orchestrator

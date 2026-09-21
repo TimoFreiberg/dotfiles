@@ -2,6 +2,8 @@
 name: debug
 description: "Use when a test failure, regression, exception, hang, wrong result, or unexpected behavior needs diagnosis — gathers evidence, traces the relevant path, and verifies the cause before recommending a fix."
 argument-hint: "<description of the bug or unexpected behavior>"
+polytoken:
+    disable_model_invocation: true
 ---
 
 # Debug
