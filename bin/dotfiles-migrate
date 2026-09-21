@@ -24,8 +24,49 @@ CATEGORIES = ("missing", "extra", "type", "mode", "content", "link-target")
 HOME_SNAPSHOT_NAMES = (".profile", ".zshenv", ".gitconfig", ".tmux.conf")
 
 
+def exception_detail(exc: BaseException) -> str:
+    if isinstance(exc, OSError):
+        detail = str(exc)
+        if exc.filename is not None:
+            detail += f" (path: {exc.filename})"
+        if exc.filename2 is not None:
+            detail += f" (secondary path: {exc.filename2})"
+        return detail
+    if isinstance(exc, subprocess.CalledProcessError):
+        detail = f"command exited with status {exc.returncode}: {exc.cmd!r}"
+        if exc.stderr:
+            stderr = exc.stderr.decode(errors="replace") if isinstance(exc.stderr, bytes) else str(exc.stderr)
+            detail += f"; stderr: {stderr.strip()}"
+        return detail
+    return str(exc)
+
+
 class SafetyError(Exception):
-    pass
+    def __init__(
+        self,
+        message: str,
+        *,
+        path: Path | None = None,
+        detail: str | None = None,
+        hint: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.message = message
+        self.path = path
+        self.detail = detail
+        self.hint = hint
+
+    def __str__(self) -> str:
+        lines = [self.message]
+        if self.path is not None:
+            lines.append(f"  path: {self.path}")
+        if self.detail is not None:
+            lines.append(f"  detail: {self.detail}")
+        if self.__cause__ is not None:
+            lines.append(f"  cause: {exception_detail(self.__cause__)}")
+        if self.hint is not None:
+            lines.append(f"  action: {self.hint}")
+        return "\n".join(lines)
 
 
 def lexists(path: Path) -> bool:
@@ -55,24 +96,43 @@ def check_path_chain(path: Path) -> None:
         item = os.lstat(current)
         if stat.S_ISLNK(item.st_mode):
             if current == absolute or not Path(os.path.realpath(current)).is_dir():
-                raise SafetyError("private state path or ancestor is a symlink")
+                raise SafetyError(
+                    "private state path or ancestor is a symlink",
+                    path=current,
+                    hint="use a real private state directory outside symlinked paths",
+                )
             target = os.stat(current)
             target_mode = stat.S_IMODE(target.st_mode)
             safe_shared = target.st_uid == 0 and target_mode & stat.S_ISVTX and target_mode & 0o022 == 0o022
             if target.st_uid not in (0, os.geteuid()) or (target_mode & 0o022 and not safe_shared):
-                raise SafetyError("private state path has an unsafe symlinked ancestor")
+                raise SafetyError(
+                    "private state path has an unsafe symlinked ancestor",
+                    path=current,
+                    detail=f"target mode: {oct(target_mode)}; owner uid: {target.st_uid}",
+                    hint="choose a user-owned private state path with safe ancestor permissions",
+                )
             continue
         if not stat.S_ISDIR(item.st_mode):
-            raise SafetyError("private state path has a non-directory ancestor")
+            raise SafetyError(
+                "private state path has a non-directory ancestor",
+                path=current,
+                detail=stat.filemode(item.st_mode),
+                hint="replace the ancestor with a directory or choose another state path",
+            )
         if item.st_uid != os.geteuid() and stat.S_IMODE(item.st_mode) & 0o022:
-            raise SafetyError("private state path has an unsafe shared ancestor")
+            raise SafetyError(
+                "private state path has an unsafe shared ancestor",
+                path=current,
+                detail=f"mode: {oct(stat.S_IMODE(item.st_mode))}; owner uid: {item.st_uid}",
+                hint="choose a private state path without an unsafe shared ancestor",
+            )
 
 
 def secure_directory(path: Path, label: str, *, create: bool = False) -> None:
     check_path_chain(path)
     if not lexists(path):
         if not create:
-            raise SafetyError(f"{label} is missing")
+            raise SafetyError(f"{label} is missing", path=path, hint="create it or choose a path that exists")
         path.mkdir(mode=0o700)
     item = os.lstat(path)
     if stat.S_ISLNK(item.st_mode) or not stat.S_ISDIR(item.st_mode):
@@ -160,7 +220,12 @@ def copy_tree(source: Path, destination: Path) -> None:
             shutil.copystat(src, dst, follow_symlinks=False)
             return
         if not (stat.S_ISREG(kind) or stat.S_ISLNK(kind)):
-            raise SafetyError("configuration contains an unsupported filesystem object")
+            raise SafetyError(
+                "configuration contains an unsupported filesystem object",
+                path=src,
+                detail=stat.filemode(kind),
+                hint="remove the socket, device, FIFO, or other unsupported entry and rerun",
+            )
         if platform.system() == "Darwin":
             command = ["cp", "-a", "-c", str(src), str(dst)]
         else:
@@ -250,7 +315,11 @@ def public_repo_target(path: Path, repo: Path) -> bool:
 
 def resolved_signature(path: Path) -> dict[str, Any]:
     if not lexists(path):
-        raise SafetyError("configuration contains a broken symlink")
+        raise SafetyError(
+            "symlink target does not exist",
+            path=path,
+            hint="restore the target or remove the dangling symlink, then rerun",
+        )
     item = os.lstat(path)
     if stat.S_ISDIR(item.st_mode):
         digest = hashlib.sha256()
@@ -274,7 +343,12 @@ def resolved_signature(path: Path) -> dict[str, Any]:
         return {"kind": "directory", "entries": entries, "digest": digest.hexdigest()}
     if stat.S_ISREG(item.st_mode):
         return {"kind": "file", "size": item.st_size, "digest": sparse_digest(path)}
-    raise SafetyError("symlink resolves to an unsupported filesystem object")
+    raise SafetyError(
+        "symlink resolves to an unsupported filesystem object",
+        path=path,
+        detail=stat.filemode(item.st_mode),
+        hint="replace the link with a regular file or directory, or remove it before rerunning",
+    )
 
 
 def translated_target(source_item: Path, destination_item: Path, source_root: Path, destination_root: Path, repo: Path) -> str:
@@ -306,13 +380,21 @@ def inventory(root: Path, repo: Path, *, translate_to: Path | None = None) -> di
             item_mode = stat.S_IMODE(item_stat.st_mode)
             if stat.S_ISLNK(item_stat.st_mode):
                 destination_item = (translate_to / relative) if translate_to else item
+                resolved = Path(os.path.realpath(item))
+                if not lexists(resolved):
+                    raise SafetyError(
+                        "configuration contains a broken symlink",
+                        path=item,
+                        detail=f"target: {os.readlink(item)} (resolved: {resolved})",
+                        hint="restore the target or remove the dangling symlink, then rerun",
+                    )
                 result[relative] = {
                     "kind": "symlink",
                     "mode": item_mode,
                     "target": translated_target(item, destination_item, root, translate_to or root, repo)
                     if translate_to
                     else os.readlink(item),
-                    "resolved": resolved_signature(Path(os.path.realpath(item))),
+                    "resolved": resolved_signature(resolved),
                 }
                 if name in directories:
                     directories.remove(name)
@@ -327,7 +409,12 @@ def inventory(root: Path, repo: Path, *, translate_to: Path | None = None) -> di
                     "digest": sparse_digest(item),
                 }
             else:
-                raise SafetyError("configuration contains an unsupported filesystem object")
+                raise SafetyError(
+                    "configuration contains an unsupported filesystem object",
+                    path=item,
+                    detail=stat.filemode(item_stat.st_mode),
+                    hint="remove the socket, device, FIFO, or other unsupported entry and rerun",
+                )
     return result
 
 
@@ -478,13 +565,27 @@ def descriptor(path: Path) -> dict[str, Any]:
     item = os.lstat(path)
     value: dict[str, Any] = {"mode": stat.S_IMODE(item.st_mode)}
     if stat.S_ISLNK(item.st_mode):
-        value.update({"kind": "symlink", "target": os.readlink(path), "resolved": resolved_signature(Path(os.path.realpath(path)))})
+        target = os.readlink(path)
+        resolved = Path(os.path.realpath(path))
+        if not lexists(resolved):
+            raise SafetyError(
+                "home snapshot contains a broken symlink",
+                path=path,
+                detail=f"target: {target}",
+                hint="restore the target or remove the dangling symlink, then rerun",
+            )
+        value.update({"kind": "symlink", "target": target, "resolved": resolved_signature(resolved)})
     elif stat.S_ISREG(item.st_mode):
         value.update({"kind": "file", "size": item.st_size, "digest": sparse_digest(path)})
     elif stat.S_ISDIR(item.st_mode):
         value["kind"] = "directory"
     else:
-        raise SafetyError("home snapshot contains an unsupported filesystem object")
+        raise SafetyError(
+            "home snapshot contains an unsupported filesystem object",
+            path=path,
+            detail=stat.filemode(item.st_mode),
+            hint="replace the entry with a regular file, directory, or symlink, then rerun",
+        )
     return value
 
 
@@ -768,8 +869,10 @@ def main() -> int:
     except SafetyError as exc:
         print(f"refused: {exc}", file=sys.stderr)
         return 2
-    except OSError:
-        print("refused: filesystem operation failed; inspect the private recovery state", file=sys.stderr)
+    except OSError as exc:
+        print("refused: filesystem operation failed", file=sys.stderr)
+        print(f"  cause: {exception_detail(exc)}", file=sys.stderr)
+        print("  action: resolve the reported filesystem problem and rerun", file=sys.stderr)
         return 2
     return 0
 
