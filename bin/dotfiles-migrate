@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import errno
 import hashlib
 import json
@@ -457,6 +458,78 @@ def compare_trees(before: Path, after: Path, repo: Path) -> dict[str, int]:
     return compare_inventory(inventory(before, repo), inventory(after, repo))
 
 
+DIFF_MAX_BYTES = 1 << 20
+DIFF_MAX_LINES = 200
+
+
+def text_diff(before: Path, after: Path, label: str) -> list[str] | None:
+    """Return a bounded text diff, or None when the files are not diffable text."""
+    try:
+        before_bytes = before.read_bytes()
+        after_bytes = after.read_bytes()
+    except OSError:
+        return None
+    if len(before_bytes) > DIFF_MAX_BYTES or len(after_bytes) > DIFF_MAX_BYTES:
+        return None
+    if b"\x00" in before_bytes or b"\x00" in after_bytes:
+        return None
+    try:
+        before_text = before_bytes.decode("utf-8").splitlines(keepends=True)
+        after_text = after_bytes.decode("utf-8").splitlines(keepends=True)
+    except UnicodeDecodeError:
+        return None
+    lines = list(
+        difflib.unified_diff(
+            before_text,
+            after_text,
+            fromfile=f"before {label}",
+            tofile=f"after {label}",
+        )
+    )
+    if len(lines) > DIFF_MAX_LINES:
+        return lines[:DIFF_MAX_LINES] + [f"... diff truncated after {DIFF_MAX_LINES} lines ...\\n"]
+    return lines
+
+
+def print_content_diffs(
+    manifest: dict[str, Any],
+    home: Path,
+    expected: dict[str, dict[str, Any]],
+    actual: dict[str, dict[str, Any]],
+    home_file_mismatches: list[str],
+) -> None:
+    """Print explicitly requested diagnostics without exposing private paths."""
+    backup_config = Path(manifest["backup"]) / "config"
+    printed = False
+    for relative in sorted(set(expected) & set(actual)):
+        before_entry, after_entry = expected[relative], actual[relative]
+        if before_entry.get("kind") != "file" or after_entry.get("kind") != "file":
+            continue
+        if (
+            before_entry.get("size"),
+            before_entry.get("digest"),
+        ) == (
+            after_entry.get("size"),
+            after_entry.get("digest"),
+        ):
+            continue
+        diff = text_diff(backup_config / relative, home / ".config" / relative, f".config/{relative}")
+        if diff is None:
+            print(f"  .config/{relative}: content differs (binary, too large, or unavailable for text diff)")
+        elif diff:
+            print("".join(diff), end="")
+        else:
+            print(f"  .config/{relative}: content differs (no printable line diff)")
+        printed = True
+
+    for name in home_file_mismatches:
+        print(f"  {name}: content differs (original bytes were not retained by the migration manifest)")
+        printed = True
+
+    if not printed:
+        print("  content mismatch has no printable text diff (metadata or resolved-link content)")
+
+
 def archive_compare(before: Path, after: Path, repo: Path) -> dict[str, int]:
     """Compare an archive copy without requiring its relative links to resolve."""
     left = inventory(before, repo, resolve_symlinks=False)
@@ -880,13 +953,18 @@ def compare_after(home: Path, repo: Path, state: Path, args: argparse.Namespace)
             counts["missing"] += 1
         elif mode(secret) != 0o600 or mode(secret.parent) != 0o700:
             counts["mode"] += 1
+    home_file_mismatches = []
     for name in HOME_SNAPSHOT_NAMES:
         if manifest.get("home_files_after", {}).get(name) != descriptor(home / name):
             counts["content"] += 1
+            home_file_mismatches.append(name)
     total = sum(counts.values())
     print("compare: PASS" if total == 0 else "compare: MISMATCH")
     for category in CATEGORIES:
         print(f"  {category}: {counts[category]}")
+    if total and args.show_diff:
+        print("diffs:")
+        print_content_diffs(manifest, home, expected, actual, home_file_mismatches)
     if total:
         raise SafetyError("before/after comparison found mismatches")
 
@@ -896,6 +974,11 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--home", type=Path, default=Path.home(), help=argparse.SUPPRESS)
     result.add_argument("--state", type=Path, help="private state directory outside the checkout")
     result.add_argument("--dry-run", action="store_true", help="run checks without changing files")
+    result.add_argument(
+        "--show-diff",
+        action="store_true",
+        help="show bounded unified diffs for content mismatches (may reveal private values)",
+    )
     result.add_argument("--writers-stopped", action="store_true", help="confirm relevant writers are stopped")
     result.add_argument("--colima-stopped", action="store_true", help="confirm Colima is stopped")
     result.add_argument("--confirm-cutover", action="store_true", help="confirm the home cutover step")

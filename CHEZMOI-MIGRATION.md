@@ -393,8 +393,10 @@ the jj working copy. Do not push automatically.
 ## Manual verification acceptance
 
 Use one agent review, a controlled owner-led migration, and a before/after
-directory comparison. The helper's comparison reads local bytes but prints only
-aggregate mismatch categories. Do not run a live migration as part of review.
+directory comparison. The helper's comparison reads local bytes and prints only
+aggregate mismatch categories by default. Pass `--show-diff` to print bounded
+unified diffs for changed text files; this may reveal private values. Do not run
+a live migration as part of review.
 No permanent test framework or fixture belongs in this repository.
 
 The first-task review must use a disposable fixture with HOME, XDG

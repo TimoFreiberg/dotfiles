@@ -28,8 +28,9 @@ private or unknown checkout links are refused. The helper does not run chezmoi
 or claim that chezmoi has applied configuration.
 
 `compare` is the pre-chezmoi gate: it checks that the migrated real `.config`
-copy and translated links match the cutover snapshot. It does not validate
-chezmoi's later public links or materialized files.
+copy and translated links match the cutover snapshot. Add `--show-diff` to print
+bounded unified diffs for changed text files; this may reveal private values. It
+does not validate chezmoi's later public links or materialized files.
 
 Keep private state until `compare` passes and an owner approves cleanup. An
 interrupted cutover is recorded before the swap and refuses rerun; after

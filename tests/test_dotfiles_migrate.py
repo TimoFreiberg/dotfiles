@@ -1,5 +1,7 @@
+import contextlib
 import importlib.machinery
 import importlib.util
+import io
 import os
 import stat
 import tempfile
@@ -83,6 +85,63 @@ class ErrorReportingTests(unittest.TestCase):
 
         self.assertIn("command exited with status 1", detail)
         self.assertIn("permission denied", detail)
+
+
+class DiffOutputTests(unittest.TestCase):
+    def test_text_diff_reports_regular_text_changes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            before = root / "before"
+            after = root / "after"
+            before.write_text("same\nold\n", encoding="utf-8")
+            after.write_text("same\nnew\n", encoding="utf-8")
+
+            diff = MIGRATE.text_diff(before, after, ".config/example")
+
+        self.assertIsNotNone(diff)
+        rendered = "".join(diff or [])
+        self.assertIn("--- before .config/example", rendered)
+        self.assertIn("-old", rendered)
+        self.assertIn("+new", rendered)
+
+    def test_text_diff_refuses_binary_content(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            before = root / "before"
+            after = root / "after"
+            before.write_bytes(b"before\x00")
+            after.write_bytes(b"after\x00")
+
+            diff = MIGRATE.text_diff(before, after, ".config/example")
+
+        self.assertIsNone(diff)
+
+    def test_print_content_diffs_labels_changed_config_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            backup = root / "backup" / "config"
+            current = root / "home" / ".config"
+            backup.mkdir(parents=True)
+            current.mkdir(parents=True)
+            (backup / "example").write_text("old\n", encoding="utf-8")
+            (current / "example").write_text("new\n", encoding="utf-8")
+            entry = {"kind": "file", "size": 4, "digest": "old"}
+            actual = {"kind": "file", "size": 4, "digest": "new"}
+            output = io.StringIO()
+
+            with contextlib.redirect_stdout(output):
+                MIGRATE.print_content_diffs(
+                    {"backup": str(root / "backup")},
+                    root / "home",
+                    {"example": entry},
+                    {"example": actual},
+                    [],
+                )
+
+        rendered = output.getvalue()
+        self.assertIn("--- before .config/example", rendered)
+        self.assertIn("-old", rendered)
+        self.assertIn("+new", rendered)
 
 
 class PathReplacementTests(unittest.TestCase):
