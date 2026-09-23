@@ -18,8 +18,19 @@ Use the requested change ID when supplied. Otherwise:
 jj log --no-pager -r 'roots(conflicts())'
 ```
 
-If `@` is that revision, resolve it in place and skip the squash step. Otherwise
-create a resolution change on top of it:
+Before `jj new`, check whether the **whole commit is obsolete**, including its
+non-conflicting changes. If its entire intended effect is already present or
+explicitly superseded, use `jj abandon <change-id>` instead of resolving files.
+One redundant hunk or a difficult merge is not enough; ask the user if discarding
+the intent requires a product decision. If a resolution child already exists,
+inspect and account for its edits before abandoning the parent.
+
+Abandoning rebases descendants and can introduce conflicts. Recheck
+`roots(conflicts())`, resolve any remaining conflicts, and verify the resulting
+behavior with relevant project checks before finishing.
+
+If the commit is still needed and `@` is that revision, resolve it in place and
+skip the squash step. Otherwise create a resolution change on top of it:
 
 ```bash
 jj new <change-id>
