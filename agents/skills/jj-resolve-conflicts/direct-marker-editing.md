@@ -1,8 +1,8 @@
 # Direct Marker Editing Fallback
 
-Use this procedure only when `jcw` is unavailable. Resolve conflicts by
-understanding the intent of every side, editing the native markers out of the
-file, and squashing the fix into the conflicted commit.
+Use this procedure only for region-level resolution when `jcw` is unavailable.
+For whole-file selection, use the [main skill](SKILL.md#2-choose-the-resolution-method).
+A rejected `jcw` proposal is not a reason to switch to direct editing.
 
 ## Core idea
 
@@ -58,8 +58,7 @@ resolving a parent often auto-resolves descendants.
 - If `@` is the earliest conflicted revision, the markers are already
   materialized in the working copy. Edit them in place; the next snapshot
   records the resolution. No squash needed — skip Step 6.
-- Otherwise, create a resolution change on top of the conflicted commit
-  (don't describe it — see Step 6):
+- Otherwise, create a resolution change on top of the conflicted commit:
 
 ```bash
 jj new <change-id>
@@ -146,13 +145,10 @@ is valid. In the `jj new` workflow `jj st` should show:
 ## Step 6: Squash the resolution (jj new workflow only)
 
 ```bash
-jj squash --no-pager
+jj squash --use-destination-message --no-pager
 ```
 
-Bare `jj squash` is safe *only because* the resolution change has no
-description — jj keeps the destination's message silently. If the change got
-described, bare squash opens an editor and hangs; use
-`jj squash -u` (`--use-destination-message`) instead.
+Always pass the message flag to avoid opening an editor.
 
 Expect `Existing conflicts were resolved or abandoned from N commits` —
 descendants rebased on the fix. The working copy is left as a new empty
