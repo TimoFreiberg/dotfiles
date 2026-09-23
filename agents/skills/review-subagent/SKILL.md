@@ -91,11 +91,13 @@ or `review_critical`. Launch `general-purpose` subagents with
 - **thorough** — **one worker per dimension**, so three total. Three separate
   launches, each `count: 1`, each with one brief. Every dimension therefore
   starts at the group's first candidate and advances only on provider failure.
-- **critical** — **every dimension on every candidate**, so `3 × N` workers,
-  where `N` is the number of candidates in the group (three in the configured
-  review groups, giving nine workers). One launch per dimension with
-  `count: N`. Within a counted batch, clone *i* starts at candidate *i*, so each
-  dimension is reviewed once per model.
+- **critical** — **C on every candidate; S and L once each**, for `N + 2`
+  workers, where `N` is the number of candidates in the group (three in the
+  configured review groups, giving five workers). Launch C with `count: N`, and
+  launch S and L separately with `count: 1` each. Within C's counted batch,
+  clone *i* starts at candidate *i*, so correctness is reviewed once per model;
+  S and L start at the group's first candidate and advance only on provider
+  failure, as in thorough mode.
 
 Provider failover may advance an individual worker past its starting candidate;
 that is expected and does not invalidate a report.
@@ -132,9 +134,9 @@ expected worker count. Then emit each assignment under
 beginning with `# Code Review`.
 
 Keep every report and finding attributable: do not merge, re-sort, deduplicate,
-majority-vote, or silently discard output. At critical, the same axis returns
-several independent reports; present all of them side by side rather than
-reconciling them.
+majority-vote, or silently discard output. At critical, C returns several
+independent reports; present all of them side by side rather than reconciling
+them. S and L each return one report.
 
 Validate each report independently, without inserting a worker label inside its
 body. A valid report starts with `# Code Review`, contains `## Coverage`,
@@ -199,8 +201,8 @@ $GUIDANCE_FILES
 ## Examples
 
 - `/review` → default scope, thorough: one C, one S and one L worker.
-- `/review --difficulty critical pr 50` → PR diff + metadata; each of C, S and L
-  reviewed once per model in `review_critical`.
+- `/review --difficulty critical pr 50` → PR diff + metadata; C is reviewed once
+  per model in `review_critical`, while S and L each have one reviewer.
 - `/review --difficulty routine uncommitted` → one worker covering all three axes.
 - `/review --plan docs/plan.md commit @-` → C also checks the change against the
   approved plan and returns a separate conformance verdict.
