@@ -160,7 +160,66 @@ function __jprc_open_or_create_pr --argument-names branch_name base rev
     end
 
     set -l commit_messages (jj log -r "$base..$rev" --no-graph -T 'description ++ "\n\n"' 2>&1 | string collect)
+    if test $pipestatus[1] -ne 0
+        echo "Error: failed to read commit descriptions between $base and $rev" >&2
+        echo $commit_messages >&2
+        return 1
+    end
+    set commit_messages (string trim --right -- "$commit_messages")
 
-    echo "Creating PR from the commit messages..."
-    gh pr create --head $branch_name --base $base --body "$commit_messages" --web
+    # Read the default PR template from the target revision, matching gh's search order.
+    set -l base_files (jj file list -r "$base" 2>&1)
+    if test $status -ne 0
+        echo "Error: failed to list files in base revision $base" >&2
+        echo $base_files >&2
+        return 1
+    end
+
+    set -l template_path
+    for template_scope in github root docs
+        set -l template_pattern
+        switch $template_scope
+            case github
+                set template_pattern '^\.github/PULL[-_]REQUEST[-_]TEMPLATE(\.|$)'
+            case root
+                set template_pattern '^PULL[-_]REQUEST[-_]TEMPLATE(\.|$)'
+            case docs
+                set template_pattern '^docs/PULL[-_]REQUEST[-_]TEMPLATE(\.|$)'
+        end
+
+        for candidate in $base_files
+            if string match -qri "$template_pattern" -- "$candidate"
+                set template_path $candidate
+                break
+            end
+        end
+
+        if test -n "$template_path"
+            break
+        end
+    end
+
+    set -l template_body
+    if test -n "$template_path"
+        set template_body (jj file show -r "$base" "$template_path" 2>&1 | string collect)
+        if test $pipestatus[1] -ne 0
+            echo "Error: failed to read PR template '$template_path' from $base" >&2
+            echo $template_body >&2
+            return 1
+        end
+    end
+
+    set -l pr_body "$commit_messages"
+    if test -n "$template_body"
+        if test -n "$commit_messages"
+            set pr_body (printf '%s\n\n%s' "$commit_messages" "$template_body" | string collect)
+        else
+            set pr_body "$template_body"
+        end
+        echo "Creating PR with commit descriptions and template '$template_path'..."
+    else
+        echo "Creating PR from the commit messages..."
+    end
+
+    gh pr create --head $branch_name --base $base --body "$pr_body" --web
 end
