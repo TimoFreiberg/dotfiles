@@ -15,6 +15,12 @@ See [reference.md](reference.md) for advanced topics (rewriting history, splitti
 - **Changes vs commits**: A change has a stable _change ID_ (short, letters only); a commit has a _commit ID_ (hex). Prefer change IDs in commands.
 - **Immutable revisions**: By default, `trunk()`, tags, and untracked remote bookmarks (and their ancestors) are immutable. Local bookmarks off trunk are mutable. Use `jj new` to create a mutable change on top.
 
+## Graph view for orientation
+
+Especially when rearranging branch history, the commit tree can be hard to navigate without a graph view.
+The bare `jj` command prints a graph of all commits that are effectively in progress.
+If that prints too much, find the first commit of the current branch via `jj log -r 'trunk()::@'` and then run `jj log -r '<commit-id>::` to print the entire tree under the given commit.
+
 ## Squashing
 
 **NEVER** run `jj squash` without `-m "msg"` or `--use-destination-message`. Bare `jj squash` opens an interactive editor and will hang.
