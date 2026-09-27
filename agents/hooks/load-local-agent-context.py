@@ -50,10 +50,16 @@ def hook_input() -> dict[str, object]:
 
 
 def emit(context: str | None) -> None:
-    if os.environ.get("POLYTOKEN_HOOK_EVENT"):
+    hook_event = os.environ.get("POLYTOKEN_HOOK_EVENT")
+    if hook_event:
         result: dict[str, str] = {"outcome": "allow"}
-        if context:
-            result["additional_context"] = context
+        context_field = {
+            "session_start": "additional_context",
+            "post_clear": "additional_context",
+            "post_compaction": "append_to_output",
+        }.get(hook_event)
+        if context and context_field:
+            result[context_field] = context
     elif context:
         result = {
             "hookSpecificOutput": {
