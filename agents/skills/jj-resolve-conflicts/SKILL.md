@@ -109,7 +109,13 @@ result before squashing. This is not permission to bypass a rejected proposal.
 ## 4. Verify
 
 Resolve every listed file, then run the project's formatter/parser and relevant
-tests, including any adjacent integration edits. Review the complete diff:
+tests, including any adjacent integration edits.
+
+Unless instructed otherwise, an intermediate commit in a branch need not build
+if the failure is unrelated to the resolution, such as a dependency on a later
+commit. Confirm that the resolution itself introduced no errors, then continue.
+
+Review the complete diff:
 
 ```bash
 jj diff --no-pager --git
