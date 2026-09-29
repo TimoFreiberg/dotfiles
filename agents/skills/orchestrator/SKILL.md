@@ -1,127 +1,195 @@
 ---
 name: orchestrator
-description: "Use when executing a multi-step plan and each implementation step should be delegated to subagents and independently reviewed."
-polytoken:
-    disable_model_invocation: true
+description: "Use when executing an approved implementation plan: delegate implementation to subagents, run review, test-coverage, and completeness gates with bounded repair rounds, and report every unresolved finding for a follow-up session."
 ---
 
 # Orchestrator
 
-Coordinate implementation of a plan one open task at a time. Use
-`review-subagent` for both code quality and intent: delegate implementation, run
-focused reviews, require the implementer to address findings, and approve each
-task before moving on.
+You coordinate; you do not write production code, tests, or documentation
+yourself. Delegate implementation, run the gates, route findings to repairers,
+and end with a report a follow-up session can act on without this transcript.
 
-## When to use
+## Inputs
 
-Load this skill when a plan has multiple open tasks and you want a disciplined
-implement–review–fix loop rather than implementing the whole plan in one pass.
+Read the approved plan once and extract:
 
-Do not use it for a one-line change, a plan with no open tasks, or a review that
-has no implementer or task list to coordinate.
+- **Review level** from its Review Strategy (`routine | thorough | critical`).
+  If it records none, choose one with the rubric in `review-subagent` before
+  starting and state the choice and reason in your first message.
+- **Round cap:** `routine` ⇒ 2 review rounds; `thorough` and `critical` ⇒ 4.
+- Acceptance criteria, invariants, non-goals, approved deferrals, and the
+  step-to-test mapping.
+- The plan path, for `--plan` on every review.
 
-## Procedure
+Record the base commit ID (not the jj change ID) before any implementation.
 
-For each open task or plan step, in order:
+## Todos
 
-1. **Choose the next task.** Read the plan and task list. Select the next open
-   task or step; do not start later tasks early.
-2. **Delegate implementation.** Send a fresh implementer subagent a focused
-   prompt containing the task, acceptance criteria, repository context, and
-   expected verification. The implementer owns the code change.
-3. **Edit documentation.** Invoke `editing-documentation` against the task scope.
-   Preserve the initial diff artifact for the final pass. The dedicated subagent
-   directly deletes or rewrites changed prose before code review. Require a
-   successful result, including an explicit no-op when no edit is warranted.
-4. **Verify and freeze the baseline.** Run relevant checks, then commit the
-   implementation and initial documentation edit. Record the immutable commit
-   ID, not the jj change ID: later squashes can move a change ID to new content.
-5. **Run task-scoped review.** Invoke `review-subagent` against the task change,
-   not its default cumulative scope. Pass `--description` with a task-scoped
-   intent contract containing the current task plus every applicable global
-   invariant, non-goal, decision, and deferral copied faithfully from the
-   approved plan; use `--plan` instead when that contract already exists as an
-   artifact. Do not include later-task requirements or reinterpret the plan;
-   uncertain applicability goes to the intent owner. The C axis returns the
-   conformance verdict alongside its findings.
-6. **Resolve findings through the implementer.** Give the complete reports to
-   the same implementer. It must fix every determinate finding or rebut it with
-   evidence. Route a `clarification required` verdict to the intent owner; do
-   not let implementation choose its meaning.
-7. **Freeze and repeat the review gate.** After each correction round, verify and
-   commit the corrections, record the immutable commit ID, then rerun the review
-   against the updated definite task scope with fresh reviewers. Continue until
-   conformance passes and no non-rebutted critical or high code-review finding
-   remains. Medium and low findings may remain only when addressed or explicitly
-   rebutted; surface accepted risk.
-8. **Edit review-loop documentation.** After the review gate passes, commit the
-   final fixes and record that commit ID. Invoke
-   `editing-documentation since <baseline-commit-id> <final-commit-id>`, passing
-   both the new interdiff artifact and the preserved initial implementation diff.
-   In jj this uses `jj interdiff` between the two frozen patches; in git it uses
-   `git diff <baseline>..<final>`. Never target jj's empty post-commit `@`.
-   An empty scope means review fixes introduced no prose to edit and is a
-   successful short circuit.
-9. **Verify final semantics.** Run relevant tests and documentation checks. If
-   the final editor changed factual documentation or comments, run a fresh
-   correctness-only reviewer over that final documentation diff. Use the
-   `## Reviewer prompt` template from `review-subagent`, but supply only
-   `CONTRACT.md` and `CORRECTNESS.md` and instruct it to limit coverage to changed
-   factual documentation claims and dangerous omissions. Do not include
-   `STYLE.md` or `LEANNESS.md`, and do not pass an intent source. Fix semantic
-   findings and repeat this narrow check.
-10. **Update planning state.** Once approved, mark the task complete, update the
-    plan and temporary workspace documents, then continue with a fresh
-    implementer for the next task.
-11. **Run final whole-plan conformance.** After all tasks pass, commit the final
-    state and run `review-subagent --plan <approved-plan>` over the cumulative
-    implementation scope. Resolve mismatches before declaring the plan complete;
-    this catches omissions and cross-task drift that task-scoped contracts
-    cannot see.
+Keep the todo list high level: implementation (one item per phase), gates,
+repair rounds, report. Subagents keep their own step-level todos; do not copy
+them into yours.
 
-## Orchestrator-specific review gate
+## 1. Implement
 
-At the start of each review round, use the plan's recorded difficulty and invoke
-`review-subagent` with `--difficulty <level>`, which selects the matching
-configured model group. Routine runs one worker covering all axes, thorough runs
-one worker per axis, and critical runs each axis on each model in the group.
+One fresh `general-purpose` implementer receives the whole plan by default.
 
-Treat all reports as authoritative, attributable output; do not rewrite, merge,
-deduplicate, majority-vote, or silently discard findings. At critical, the same
-axis returns one report per model: resolve every finding from every valid
-report rather than reconciling them into a consensus. Every assignment the skill
-specifies must return an independently valid report before passing. Partial,
-`not_started`, `incomplete`, or `undetermined` batches never pass the gate,
-though successful partial output is retained for diagnosis. After addressing an
-operational cause, start a fresh explicitly numbered outer review round; this is
-not an automatic slot retry.
+Split into **sequential phases** only when the plan is long enough that one
+implementer would plausibly exhaust its context, or the plan itself defines
+phases. Each phase gets a fresh implementer, the full plan, the phase's steps,
+and the previous phases' reports. Run the build and relevant tests after each
+phase before starting the next. Never run implementers concurrently.
 
-The task passes only when the batch is complete, conformance is `conformant`, no
-non-rebutted critical or high finding remains, and every medium or low finding
-is fixed or explicitly rebutted.
+Every implementer prompt contains the full plan path, its assigned steps, the
+acceptance criteria it owns, the requirement to write the tests the plan maps
+to those criteria (loading `writing-tests`), and this return contract:
+
+```
+status: complete | blocked
+changed_files: [paths]
+tests: [test file::name → AC ids it covers]
+commands: [command → pass/fail]
+skipped: [check → reason]        # a skipped check is not a pass
+assumptions: [...]
+side_observations: [out-of-scope issues noticed, with file:line]
+blockers: [...]
+```
+
+Implementers commit their own work at a verified state. They do not expand
+scope silently; anything ambiguous goes in `assumptions` or `blockers`.
+
+A `blocked` status that needs an operator decision ends the run: skip to the
+report.
+
+## 2. Round 1: parallel gates
+
+When implementation is committed, record the commit ID as the review baseline
+and dispatch in parallel, all against that same frozen commit:
+
+- **Review:** `review-subagent --difficulty <level> --plan <plan> commit
+  <base>..<baseline>` (in git, `branch <base>`). This includes plan
+  conformance for the whole change.
+- **Coverage check:** one fresh `general-purpose` subagent that reads
+  `COVERAGE.md` in this skill's directory and follows it. Give it the plan
+  path, the diff artifact from `scope.py`, and the implementers' `tests` and
+  `commands` fields.
+- **Documentation edit:** `editing-documentation commit <base>..<baseline>`.
+  It writes to the working copy; reviewers read the frozen diff, so this is
+  safe.
+
+Wait for all three. Commit the documentation edits.
+
+## 3. Findings ledger
+
+Keep one ledger for the run, written to a temporary file so it can be passed
+to later rounds. Each entry:
+
+```
+id: <reviewer id, e.g. R1-C2, COV-3, CPL-1>
+source: review | coverage | completeness
+severity: critical | high | medium | low
+location: file:line
+summary: <one line>
+disposition: open | fixed | rebutted | fixed-by-doc-edit | unresolved
+note: <fix commit, rebuttal evidence, or why unresolved>
+```
+
+Blocking means `critical` or `high`, a `not conformant` plan-conformance item,
+or a coverage `not covered` verdict. Medium and low findings are fixed or
+rebutted in the same repair pass and never open another round by themselves.
+
+Before repair, mark prose findings that the documentation edit already
+resolved as `fixed-by-doc-edit`. A `clarification required` conformance item
+goes straight to `unresolved`: implementation must not choose its meaning.
+
+## 4. Repair
+
+Dispatch one repair implementer with the plan, the ledger's open code and test
+findings, and the same return contract. It must fix each finding or rebut it
+with evidence; rebuttals are recorded, not argued further unless a reviewer
+brings new evidence.
+
+Remaining prose findings go to the documentation editor instead (resume the
+round-1 editor with `resume_from`), running concurrently with the repair
+implementer. Tell both not to commit; commit their combined result yourself
+once both finish.
+
+## 5. Verification rounds
+
+After each repair commit, run `review-subagent` again with the same level and
+plan, the repair delta as scope (`commit <previous-commit>..<repair-commit>`
+in jj; `branch <previous-commit>` in git, from the repair commit checked out),
+and `--prior-findings <ledger>`. Reviewers in these rounds verify fixes and
+examine the repair's blast radius; they do not rescan unchanged code.
+
+- A rebuttal-only round (no code changed) needs no re-review.
+- Re-run the coverage check only if it had findings or the repair changed
+  tests, and only on the repair delta.
+- Stop repairing when the latest round has no open blocking finding.
+
+**Round cap.** Round 1 plus verification rounds count against the cap. When
+the cap is reached with blocking findings open, do not start another round:
+mark them `unresolved` with the reason `round cap` and continue to the
+completeness check. Never downgrade a finding's severity to make a round pass.
+
+**Non-convergence.** If a finding reverses an earlier accepted fix, the same
+material is re-litigated without new evidence, or new blocking findings keep
+appearing on unchanged code, stop early and treat the remaining findings as
+unresolved with the reason `non-convergence`.
+
+## 6. Completeness check
+
+Once, after the review loop ends (clean or capped), dispatch one fresh
+`general-purpose` subagent that reads `COMPLETENESS.md` in this skill's
+directory. Give it the plan path, the cumulative diff (`commit
+<base>..<final>`), and the ledger. Prefer a model different from the first
+candidate of the review group when one is available.
+
+If it rejects, run one repair and re-check the repair delta once. Findings
+still open after that are `unresolved`. Do not re-run the review panel for a
+completeness repair; the next session or the operator's review covers it.
+
+## 7. Report
+
+Final message, in this order:
+
+1. **Outcome:** one line — complete, complete with unresolved findings, or
+   blocked.
+2. **What changed:** short summary, the base and final commit IDs, and the
+   commits in between.
+3. **Test inventory:** every new or changed test by name, grouped by
+   acceptance criterion. If any criterion has no test, say so explicitly;
+   that criterion is an unresolved finding.
+4. **How to verify:** concrete commands and observable behavior.
+5. **Rebuttals:** each rebutted finding with its one-line evidence, so the
+   operator can overrule one.
+6. **Unresolved findings**, as a self-contained block the operator can paste
+   into a fresh session:
+
+   ```
+   ## Unresolved findings
+   Plan: <absolute path>
+   Change: <final commit ID> (base <base commit ID>)
+   Review level: <level>
+
+   ### <id> [<severity>] <file:line> — <summary>
+   Why unresolved: round cap | non-convergence | needs operator decision | blocked
+   What to do: <the reviewer's recommendation, concrete>
+   Evidence: <quoted code or reviewer text>
+   ```
+
+7. **Side observations:** out-of-scope issues from implementers and reviewers,
+   with `file:line`, unrated.
+
+Omit empty sections.
 
 ## Common mistakes
 
-- Implementing several tasks before reviewing any of them. Keep the loop scoped
-  to one task.
-- Reviewing the cumulative default scope instead of the current task change.
-  Pass an explicit task-scoped revision or range.
-- Treating a reviewer’s silence or malformed report as approval. Follow the
-  review skill's validation rules, retain successful partial output, and begin a
-  fresh outer round after the operational cause is addressed.
-- Letting the implementer dismiss findings without evidence. Require a fix or
-  specific rebuttal for determinate findings; send ambiguity to the intent owner.
-- Rerunning against the old commit while corrections remain uncommitted. Freeze
-  every correction round and review its updated immutable scope.
-- Checking an early task against the complete multi-task plan. Use the faithful
-  task-scoped contract, then run whole-plan conformance after all tasks.
-- Stopping after one review round when a critical or high finding remains.
-- Recording a jj change ID as the documentation baseline. Record the commit ID;
-  the fix loop may rewrite or squash the change.
-- Skipping the final documentation pass because the initial pass was clean.
-- Running the full review suite after final documentation editing instead of the
-  narrow semantic check, which can reopen the prose feedback loop.
-- Forgetting to update the task list, plan, or temporary plan references after
-  approval.
-- Reusing an implementer for a later task. Use a fresh implementer for each
-  task so earlier assumptions do not silently carry over.
+- Writing code yourself instead of dispatching an implementer.
+- Running the documentation edit before review instead of beside it.
+- Starting a verification round without `--prior-findings`, which turns it
+  into a fresh full review and restarts the nitpick cycle.
+- Treating a malformed or failed reviewer report as a pass. An incomplete
+  batch is a failed round; fix the operational cause and rerun it (this does
+  not count against the cap).
+- Letting a clean later round erase an earlier unresolved finding.
+- Reusing an implementer across phases; each phase starts fresh.

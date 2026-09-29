@@ -90,6 +90,31 @@ readers, and improve a weak local pattern when the benefit is concrete and the
 remedy stays local. Do not demand a standard the change cannot reach without
 unrelated rework.
 
+**Rate impact, not effort or novelty.** Judge severity by what happens if the
+finding is left unfixed. When you would have to argue the severity rather than
+the defect, it is not critical or high.
+
+## Verification rounds
+
+When `<prior_findings_path>` is non-empty, this is a verification round. The
+diff is only the repair made since the earlier round, and the file lists every
+earlier finding with its disposition. Read it first.
+
+- For each finding the repair claims to fix, confirm the fix in the code. If
+  it is not fixed, re-file it under its original id with new evidence.
+- Review the repair diff and the code it touches for regressions. New issues
+  in that material are ordinary findings at their honest severity.
+- Do not rescan code outside the repair and its blast radius, and do not
+  re-open `rebutted` findings unless the repair changed the rebutted code or
+  you have evidence the rebuttal missed. Say which.
+- A new critical or high finding on code earlier rounds already saw must
+  explain why they missed it; otherwise rate it medium.
+- If your finding would undo an earlier accepted fix, say so explicitly and
+  cite its id; the caller escalates instead of repairing again.
+
+In `## Coverage`, add one line per earlier finding you verified:
+`- [x] <id> fixed` or `- [ ] <id> still open — <reason>`.
+
 ## Findings feed an unsupervised fix loop
 
 Your report is consumed by a fix agent that acts on findings without human

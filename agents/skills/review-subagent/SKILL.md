@@ -41,20 +41,44 @@ materially false documentation claims and dangerous omissions.
 
 **Flags** (any order, all optional):
 
-- `--difficulty routine|thorough|critical` — omitted means `thorough`
+- `--difficulty routine|thorough|critical` — see **Choosing the level** below
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
 - `--plan <path>` — approved plan or specification artifact for the C reviewer
 - `--description "..."` — inline task specification, as an alternative to `--plan`
+- `--prior-findings <path>` — findings ledger from earlier rounds; switches
+  reviewers to verification mode (see **Verification rounds**)
 
 Each valued flag consumes exactly one following value. Reject duplicate flags,
 unknown flags, missing values, extra positionals, and `--plan` together with
 `--description`. On a parse failure, report the usage and stop.
 
-Never infer difficulty from the diff, and never infer intent from commit
-messages, code, or PR discussion. A caller with an active plan must pass its
-path explicitly, so the reviewed version stays visible and reproducible.
-Resolve `--plan` to an absolute path and confirm it is readable, but do not read
-it — the reviewer reads it directly.
+Never infer intent from commit messages, code, or PR discussion. A caller with
+an active plan must pass its path explicitly, so the reviewed version stays
+visible and reproducible. Resolve `--plan` and `--prior-findings` to absolute
+paths and confirm they are readable, but do not read them — the reviewer reads
+them directly.
+
+### Choosing the level
+
+A level recorded in an approved plan wins; pass it through. Otherwise the
+caller chooses before invoking, and when `--difficulty` is omitted you choose
+after Step 2 using the `header` artifact (commit list and diffstat) plus what
+the operator said about the change. Judge by **risk, not size**:
+
+- **routine** — local, low-risk changes whose correctness is easy to see:
+  docs, comments, config values, renames and other mechanical edits (even
+  large ones), a contained bug fix with a direct test, test-only changes. No
+  change to a public interface, persisted or wire format, concurrency,
+  security, or error-handling policy.
+- **thorough** — normal substantive work: new behavior, logic changes across
+  modules, changed interfaces or contracts, non-trivial refactors.
+- **critical** — security or authentication, concurrency and ownership,
+  persisted-data migrations, or system-design changes where a subtle mistake
+  is costly.
+
+Do not raise the level for size or caution alone; raise it only when a risk
+domain above applies. Print the chosen level with a one-line reason in the
+selection notice so the operator can overrule it.
 
 ## Step 2: Gather scope
 
@@ -77,8 +101,9 @@ empty-diff and missing-merge-base cases. An empty `since` interdiff exits zero
 with no artifact path, so callers can short circuit successfully.
 
 Keep the four artifacts on disk and pass their absolute paths to the reviewers.
-Do **not** read them — loading the diff or header into your own context to
-summarize it in the transcript defeats the purpose of the script.
+Do **not** read `diff` or `pr_context` — loading them into your own context
+defeats the purpose of the script. You may read `header` (commit list and
+diffstat) when you must choose the level yourself.
 
 ## Step 3: Launch the reviewers
 
@@ -122,14 +147,16 @@ wrapper: reviewers adopt the name they are given and will report under the wrong
 axis if it contradicts their brief.
 
 Fill `$PLAN_PATH` and `$DESCRIPTION` only for C and routine; leave both empty
-for S and L. At most one of them is ever non-empty.
+for S and L. At most one of them is ever non-empty. Fill `$PRIOR_FINDINGS_PATH`
+for every reviewer when `--prior-findings` was given.
 
 Each reviewer's final message is its report.
 
 ## Step 4: Surface reports verbatim
 
-Print one compact notice naming the selected difficulty, model group, and
-expected worker count. Then emit each assignment under
+Print one compact notice naming the selected difficulty (with its one-line
+reason when you chose it), model group, and expected worker count. Then emit
+each assignment under
 `## Reviewer: <worker-id> (<axis>)`, followed by the unchanged report body
 beginning with `# Code Review`.
 
@@ -156,11 +183,24 @@ start a fresh review round; this is not an automatic per-worker retry.
 
 ## Looping
 
-As an adversarial gate during implementation, run this in a loop: implement →
-commit → review → fix → repeat. Commit between rounds so each reviewer sees the
-cumulative diff at a definite state. There is no round cap — keep going until
-the review passes. If you loop on the same issue without converging, stop and
-escalate to the operator with the outstanding findings.
+As an adversarial gate during implementation: implement → commit → review →
+fix → commit → verify. Commit between rounds so each reviewer sees a definite
+state.
+
+### Verification rounds
+
+After the first round, review only the repair delta and pass the findings
+ledger with `--prior-findings`. Reviewers then confirm each fix, check the
+repair and its blast radius for regressions, and leave dispositioned findings
+closed unless they cite new evidence. Without the ledger, every round is a
+fresh full review that finds new nitpicks and never converges.
+
+Cap rounds at 2 for `routine` and 4 for `thorough` or `critical`, counting the
+first round. When the cap is reached with critical or high findings open, stop
+and report them as unresolved with their evidence and recommendations, so a
+follow-up session can pick them up. Stop early the same way when a finding
+reverses an earlier accepted fix or the same material is re-litigated without
+new evidence. Never downgrade a finding to make a round pass.
 
 A conformance verdict is not severity-gated: any real `not conformant` item
 blocks, however small. `clarification required` goes to the intent owner, never
@@ -196,11 +236,14 @@ $GUIDANCE_FILES
 <diff_path>$DIFF_PATH</diff_path>
 
 <pr_context_path>$PR_CONTEXT_PATH</pr_context_path>
+
+<prior_findings_path>$PRIOR_FINDINGS_PATH</prior_findings_path>
 ```
 
 ## Examples
 
-- `/review` → default scope, thorough: one C, one S and one L worker.
+- `/review` → default scope; the level is chosen from the diffstat and
+  announced with a reason.
 - `/review --difficulty critical pr 50` → PR diff + metadata; C is reviewed once
   per model in `review_critical`, while S and L each have one reviewer.
 - `/review --difficulty routine uncommitted` → one worker covering all three axes.

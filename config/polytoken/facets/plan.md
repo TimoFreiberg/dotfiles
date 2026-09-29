@@ -63,18 +63,21 @@ Match research depth to uncertainty and impact. Stable, straightforward facts do
 ## Review-level selection
 
 Every executable plan must classify its implementation review as `routine`,
-`thorough`, or `critical` and record the classification and rationale in its
-**Review Strategy**. Use `routine` only for trivial/easy changes, `thorough` for
-normal substantive work, and `critical` for explicitly gnarly security,
-low-level concurrency, or system-design work.
+`thorough`, or `critical` using the rubric in `review-subagent` ("Choosing the
+level": judge by risk, not size), and record the level and a one-line
+rationale in its **Review Strategy**. The level also sets the executor's
+review round cap (2 for `routine`, 4 otherwise), so do not inflate it for
+caution.
 
-The plan facet records the risk judgment and directs the executor/orchestrator
-to invoke both review skills with `--difficulty <recorded-level>
---allow-downgrade --selection-provenance plan-facet-claimed`. Raw skill
-invocations do not infer risk from diff text and default to `thorough`.
-`--allow-downgrade` is an operator-visible opt-in, not an authorization
-boundary. Provenance is an unauthenticated claim; forged claims remain possible
-and must be visible in the selection notice.
+## Execution
+
+Every executable plan's Review Strategy must direct the execute agent to load
+the `orchestrator` skill with the plan and follow it: implementation is
+delegated to subagents, gates run on the recorded level, and the final report
+lists every unresolved finding. Write `@skill:orchestrator` literally in the
+plan so the reference survives handoff. When the plan is long, mark phase
+boundaries in the Implementation Plan; the orchestrator gives each phase a
+fresh implementer.
 
 ## Mandatory assurance contract
 
