@@ -66,8 +66,7 @@ When implementation is committed, record the commit ID as the review baseline
 and dispatch in parallel, all against that same frozen commit:
 
 - **Review:** `review-subagent --difficulty <level> --plan <plan> commit
-  <base>..<baseline>` (in git, `branch <base>`). This includes plan
-  conformance for the whole change.
+  <base>..<baseline>`. This includes plan conformance for the whole change.
 - **Coverage check:** one fresh `general-purpose` subagent that reads
   `COVERAGE.md` in this skill's directory and follows it. Give it the plan
   path, the diff artifact from `scope.py`, and the implementers' `tests` and
@@ -116,8 +115,7 @@ once both finish.
 ## 5. Verification rounds
 
 After each repair commit, run `review-subagent` again with the same level and
-plan, the repair delta as scope (`commit <previous-commit>..<repair-commit>`
-in jj; `branch <previous-commit>` in git, from the repair commit checked out),
+plan, the repair delta as scope (`commit <previous-commit>..<repair-commit>`),
 and `--prior-findings <ledger>`. Reviewers in these rounds verify fixes and
 examine the repair's blast radius; they do not rescan unchanged code.
 

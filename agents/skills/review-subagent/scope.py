@@ -126,7 +126,11 @@ def annotate_diff(diff: str) -> str:
 
 def run(cmd: list[str], check: bool = True) -> str:
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True)
+        # Diffs can contain non-UTF-8 bytes (fixtures, legacy encodings);
+        # replace them rather than crash the whole review.
+        r = subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        )
     except FileNotFoundError:
         die(f"command not found: {cmd[0]}")
     if check and r.returncode != 0:
@@ -162,6 +166,34 @@ def format_commit_list(commits: list[str]) -> str:
 
 def plural(n: int, word: str) -> str:
     return f"{n} {word}{'s' if n != 1 else ''}"
+
+
+def diffstat_from_diff(diff: str) -> str:
+    """Per-file added/removed counts, for scopes whose VCS gives no stat."""
+    files: list[tuple[str, int, int]] = []
+    in_hunk = False
+    for line in diff.splitlines():
+        if line.startswith("diff --git "):
+            # "diff --git a/<path> b/<path>": take the new-side path.
+            path = line.rsplit(" b/", 1)[-1]
+            files.append((path, 0, 0))
+            in_hunk = False
+        elif line.startswith("@@"):
+            in_hunk = True
+        elif in_hunk and files:
+            path, added, removed = files[-1]
+            if line.startswith("+"):
+                files[-1] = (path, added + 1, removed)
+            elif line.startswith("-"):
+                files[-1] = (path, added, removed + 1)
+    if not files:
+        return ""
+    width = max(len(p) for p, _, _ in files)
+    rows = [f" {p:<{width}} | +{a} -{r}" for p, a, r in files]
+    total_a = sum(a for _, a, _ in files)
+    total_r = sum(r for _, _, r in files)
+    rows.append(f"{plural(len(files), 'file')} changed, +{total_a} -{total_r}")
+    return "\n".join(rows)
 
 
 # ---------- gather --------------------------------------------------------
@@ -357,6 +389,9 @@ def main() -> int:
             sys.stderr.write(f"no changes since baseline: {args.baseline}\n")
             return 0
         die(f"empty diff for scope: {scope_summary}")
+
+    if not stat.strip():
+        stat = diffstat_from_diff(diff)
 
     # Build the orchestrator-facing header (commit list + diffstat).
     header_parts = []

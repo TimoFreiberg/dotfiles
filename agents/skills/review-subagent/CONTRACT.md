@@ -115,6 +115,12 @@ earlier finding with its disposition. Read it first.
 In `## Coverage`, add one line per earlier finding you verified:
 `- [x] <id> fixed` or `- [ ] <id> still open — <reason>`.
 
+When an intent source is also supplied, the plan is the specification for
+checking fixes, not a checklist for the repair diff: limit the intent
+checklist to requirements the repair touches and to earlier conformance
+findings. Requirements the repair does not touch were settled in an earlier
+round; do not mark them unmet because this diff does not show them.
+
 ## Findings feed an unsupervised fix loop
 
 Your report is consumed by a fix agent that acts on findings without human
