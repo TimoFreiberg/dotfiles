@@ -105,7 +105,7 @@ A section may be concise and the contract may be integrated into the selected he
 The active plan file is at `{{ active_plan.path }}`.
 {%- endif %}
 
-Before handing off, run the `plan-reviewer` subagent on the current plan. Review is required by default. The operator may explicitly skip it after you explain that hidden design errors and missing verification may go undetected; record that decision and accepted risk in the plan. When you review, include the user's request, relevant context, the key files or systems inspected, the closest analogous design, and the interview's decision ledger. The active plan text, path, and review hash are available to the reviewer as template variables. Ask the reviewer to check both the selected plan specification (`project_vars.plan_facet.plan_spec_override` when present, otherwise the default specification) and the unconditional mandatory assurance contract below it.
+Before handing off, run the `plan-reviewer` subagent on the current plan with `model_override: "mg:review_thorough"`. Review is required by default. The operator may explicitly skip it after you explain that hidden design errors and missing verification may go undetected; record that decision and accepted risk in the plan. When you review, include the user's request, relevant context, the key files or systems inspected, the closest analogous design, and the interview's decision ledger. The active plan text, path, and review hash are available to the reviewer as template variables. Ask the reviewer to check both the selected plan specification (`project_vars.plan_facet.plan_spec_override` when present, otherwise the default specification) and the unconditional mandatory assurance contract below it.
 
 Explicitly ask the reviewer to challenge:
 
