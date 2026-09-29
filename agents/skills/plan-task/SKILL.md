@@ -1,0 +1,151 @@
+---
+name: plan-task
+description: "Use when planning implementation work in plan facet: interview with grill-me, write a self-contained plan that opens with the orchestrator execution line, and run a bounded plan-review loop before handoff."
+---
+
+# Plan Task
+
+Produce a reviewed handoff plan for `orchestrator`. This skill adds to the
+plan facet's own instructions; where they differ, this skill wins.
+
+## 1. Interview
+
+Invoke `grill-me` before writing the plan and follow it to completion, even
+when the request sounds specific. The operator decides every consequential
+tradeoff. Silence, an agent-authored `TBD`, general permission to defer, or
+"decide during implementation" is not a decision.
+
+Execute cannot ask questions, so every approved deferral records its bounded
+placeholder behavior, what execution may and must not decide, the accepted
+risk, the follow-up trigger, and the operator's approval.
+
+Before proposing structural divergence, inspect the closest analogous code,
+its tests, and relevant history.
+
+## 2. Choose the review level
+
+Classify implementation review as `routine`, `thorough`, or `critical` with
+the rubric in `review-subagent` ("Choosing the level": risk, not size). The
+level sets the round cap for plan review here and for implementation review
+in `orchestrator`: 2 for `routine`, 4 otherwise. Do not inflate it for
+caution.
+
+## 3. Write the plan
+
+The plan opens, before any heading, with one line: the words `Execute with`,
+a space, the skill reference `@skill:orchestrator`, and
+`(review level: <level>).` In the plan, write the reference as plain text,
+not in backticks as shown here: Polytoken expands it only when whitespace
+precedes the `@`, and the expansion is what loads the skill in execute.
+
+The plan follows the facet's plan specification, and must also contain:
+
+- **Objective and non-goals.**
+- **Current-state evidence:** existing behavior, the closest analogous code,
+  constraints, with stable file and symbol references.
+- **Decisions and rationale:** each consequential decision, the chosen option,
+  important rejected alternatives, and whether the operator decided it or it
+  is uncontroversial local mechanics.
+- **Invariants and acceptance criteria** (`AC.1`, `AC.2`, …), each observable.
+- **Implementation sequence:** touch points and dependency order. When the
+  plan is long, mark phase boundaries; `orchestrator` gives each phase a fresh
+  implementer.
+- **Applicable assurance concerns** from the grill-me sweep; only those that
+  apply.
+- **Verification traceability:** each acceptance criterion and significant
+  invariant mapped to a named test or observable check that would fail on
+  regression.
+- **Approved deferrals and residual risk.**
+
+For each area the plan modifies, say whether to replace or patch it. Replace
+when most of it would change, when its structure is wrong for the
+requirement, or when the change adds branches to already-complex code.
+
+**Specification band.** Include enough to verify the work and nothing that
+only narrates how to build it. Required: observable done-when criteria with
+concrete literals, settled interfaces at every boundary, migration strategy
+for touched persisted or wire formats, test intent per criterion, touch
+points. Not required: internal algorithm choices any conforming
+implementation could make, or code-granularity steps.
+
+**Cold start.** A fresh implementer must be able to execute without this
+conversation: concrete paths, commands, and names; no references to chat
+history or unstated context.
+
+**No escape hatches.** Do not write `optional`, `if time permits`, `best
+effort`, `stub for now`, `leave a TODO`, or "if X is hard, do Y instead" for
+in-scope work. Write "if X is hard, research and solve X." Out-of-scope work
+belongs under non-goals; in-scope work that must wait needs an approved
+deferral.
+
+## 4. Review loop
+
+Run the `plan-reviewer` subagent with `model_override: "mg:review_thorough"`.
+Review is required unless the operator explicitly skips it after you explain
+the risk; record that in the plan. Give the reviewer the operator's request,
+the key files inspected, the closest analogous design, and the decision
+ledger, and ask it to challenge:
+
+- consequential choices the plan treats as implementation details;
+- divergence from analogous code without evidence and operator approval;
+- unnecessary abstractions, caches, queues, stores, or control paths;
+- acceptance criteria or invariants without regression-sensitive checks;
+- unresolved decisions disguised as executor discretion, assumptions, or
+  follow-ups, and escape-hatch language;
+- deferrals missing approval, bounds, forbidden choices, risk, or trigger;
+- a missing or malformed opening execution line.
+
+Include these filing rules in the reviewer prompt:
+
+- "Insufficient detail" must name the verification it blocks. "Excess detail"
+  must name the constraint it gets wrong or the implementer freedom it removes
+  without contract value.
+- Borderline severity is medium, not high. Rate impact if unfixed, not effort.
+
+**Findings ledger.** Assign each finding an id (`P1-3`: round 1, finding 3)
+and record its disposition: `fixed`, `rebutted` (with evidence), or `open`.
+
+**Dispositions: tighten, don't expand.** Fix a finding by tightening or
+clarifying existing text first; add steps, sections, or criteria only when
+that cannot resolve it. Every addition is new surface for the next round.
+Fix or rebut medium and low findings in the same pass; they never trigger
+another round.
+
+**Rounds 2+ verify.** Give the reviewer the ledger and the plan diff since the
+last round. It confirms each fix, checks the edited text for regressions, and
+does not re-open rebutted findings without new evidence or rescan unchanged
+sections. A new critical or high finding on unchanged text must explain why
+earlier rounds missed it.
+
+**Stop conditions:**
+
+- Done when the latest round has no open critical or high finding.
+- **Round cap** reached with critical or high findings open: stop and ask the
+  operator with the outstanding findings and your proposed dispositions.
+- **Oscillation:** a finding that reverses an earlier accepted fix, or the
+  same material re-litigated without new evidence: stop and ask the operator.
+- A rebutted critical or high finding needs the operator's affirmative
+  acceptance before handoff; record it in the plan.
+
+Never downgrade a finding to end the loop.
+
+**Test infrastructure gaps.** If a behavior cannot be adequately tested
+because the harness or tooling is missing: when building it is local,
+repository-consistent mechanics, add it to the plan with its own acceptance
+criteria. When it is a consequential expansion, ask the operator through
+`grill-me`: build it now, reduce scope to what is testable, or split it off.
+Proceeding without it is an explicit deferral that forbids claiming coverage
+for the affected criteria.
+
+## 5. Re-grill on consequential edits
+
+Clerical and reviewer-requested clarifications need no new interview. An edit
+that changes scope, architecture, state, lifecycle, concurrency, failure
+semantics, compatibility, security, or another consequential choice goes back
+through `grill-me` for an operator decision, then back through review.
+
+## 6. Handoff
+
+Call `handoff_plan` once the loop has ended cleanly or the operator has
+decided on what remains. Auto-handoff never supplies approval for
+consequential choices, deferrals, test gaps, rebuttals, or skipped review.

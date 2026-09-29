@@ -14,3 +14,8 @@ file** before attempting to fix it.
 - Imperative mood, ≤72 chars, no trailing period.
 - Check `jj log` for existing conventions in the project.
 - Skip footers and sign-offs.
+
+## Planning
+
+In plan facet, before writing any handoff plan, load the `plan-task` skill and
+follow it.
