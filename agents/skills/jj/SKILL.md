@@ -15,6 +15,25 @@ See [reference.md](reference.md) for advanced topics (rewriting history, splitti
 - **Changes vs commits**: A change has a stable _change ID_ (short, letters only); a commit has a _commit ID_ (hex). Prefer change IDs in commands.
 - **Immutable revisions**: By default, `trunk()`, tags, and untracked remote bookmarks (and their ancestors) are immutable. Local bookmarks off trunk are mutable. Use `jj new` to create a mutable change on top.
 
+## Shared history across workspaces
+
+Workspaces isolate checked-out files and each workspace's `@`, not repository
+history. Ordinary `jj new`, `jj describe`, `jj commit`, and `jj rebase`
+operations change shared repository state immediately; no fetch, push, or
+transfer between workspaces is needed. File edits enter that shared state when
+jj snapshots the edited workspace, usually at its next command.
+
+Rewriting another workspace's `@`, directly or through an ancestor rewrite,
+can leave its on-disk checkout stale. Creating an independent leaf does not
+inherently stale other workspaces. A finished commit is already available to
+all workspaces, but visibility does not change their checked-out files or
+integrate the commit into another branch.
+
+After `jj commit`, verify that `@` is empty and `@-` contains the intended
+changes. The parent survives forgetting the workspace without a bookmark,
+push, or rebase. See [jj-workspaces](../jj-workspaces/SKILL.md#clean-up) for
+the finish-and-cleanup sequence.
+
 ## Graph view for orientation
 
 Especially when rearranging branch history, the commit tree can be hard to navigate without a graph view.
