@@ -71,11 +71,14 @@ caution.
 
 ## Execution
 
-Every executable plan's Review Strategy must direct the execute agent to load
-the `orchestrator` skill with the plan and follow it: implementation is
-delegated to subagents, gates run on the recorded level, and the final report
-lists every unresolved finding. Write `@skill:orchestrator` literally in the
-plan so the reference survives handoff. When the plan is long, mark phase
+Every executable plan must open, before any heading, with one line: the words
+`Execute with`, a space, the reference `@skill:orchestrator` written as plain
+text (not in backticks; Polytoken expands it only after whitespace), and
+`(review level: <routine | thorough | critical>).`
+
+The execute agent loads the `orchestrator` skill and follows it: implementation
+is delegated to subagents, gates run on the recorded level, and the final
+report lists every unresolved finding. When the plan is long, mark phase
 boundaries in the Implementation Plan; the orchestrator gives each phase a
 fresh implementer.
 

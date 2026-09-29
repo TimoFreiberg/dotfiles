@@ -13,9 +13,10 @@ and end with a report a follow-up session can act on without this transcript.
 
 Read the approved plan once and extract:
 
-- **Review level** from its Review Strategy (`routine | thorough | critical`).
-  If it records none, choose one with the rubric in `review-subagent` before
-  starting and state the choice and reason in your first message.
+- **Review level** from the plan's opening "Execute with …" line, falling back
+  to its Review Strategy.
+  If neither records one, choose one with the rubric in `review-subagent`
+  before starting and state the choice and reason in your first message.
 - **Round cap:** `routine` ⇒ 2 review rounds; `thorough` and `critical` ⇒ 4.
 - Acceptance criteria, invariants, non-goals, approved deferrals, and the
   step-to-test mapping.
