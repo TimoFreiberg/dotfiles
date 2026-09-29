@@ -1,12 +1,12 @@
 ---
 name: plan-task
-description: "Use when planning implementation work in plan facet: interview with grill-me, write a self-contained plan that opens with the orchestrator execution line, and run a bounded plan-review loop before handoff."
+description: "Use when planning implementation work in plan facet"
 ---
 
 # Plan Task
 
-Produce a reviewed handoff plan for `orchestrator`. This skill adds to the
-plan facet's own instructions; where they differ, this skill wins.
+Produce a reviewed handoff plan. This skill adds to the plan facet's own
+instructions.
 
 ## 1. Interview
 
@@ -19,9 +19,6 @@ Execute cannot ask questions, so every approved deferral records its bounded
 placeholder behavior, what execution may and must not decide, the accepted
 risk, the follow-up trigger, and the operator's approval.
 
-Before proposing structural divergence, inspect the closest analogous code,
-its tests, and relevant history.
-
 ## 2. Choose the review level
 
 Classify implementation review as `routine`, `thorough`, or `critical` with
@@ -32,30 +29,16 @@ caution.
 
 ## 3. Write the plan
 
-The plan opens, before any heading, with one line: the words `Execute with`,
-a space, the skill reference `@skill:orchestrator`, and
-`(review level: <level>).` In the plan, write the reference as plain text,
-not in backticks as shown here: Polytoken expands it only when whitespace
-precedes the `@`, and the expansion is what loads the skill in execute.
+The plan opens with one line:
+"Execute with @skill:orchestrator(review level: <level>)."
+Replace `<level>` with the review level, otherwise keep this verbatim to keep
+the skill reference intact.
 
-The plan follows the facet's plan specification, and must also contain:
-
-- **Objective and non-goals.**
-- **Current-state evidence:** existing behavior, the closest analogous code,
-  constraints, with stable file and symbol references.
-- **Decisions and rationale:** each consequential decision, the chosen option,
-  important rejected alternatives, and whether the operator decided it or it
-  is uncontroversial local mechanics.
-- **Invariants and acceptance criteria** (`AC.1`, `AC.2`, …), each observable.
-- **Implementation sequence:** touch points and dependency order. When the
-  plan is long, mark phase boundaries; `orchestrator` gives each phase a fresh
-  implementer.
-- **Applicable assurance concerns** from the grill-me sweep; only those that
-  apply.
-- **Verification traceability:** each acceptance criterion and significant
-  invariant mapped to a named test or observable check that would fail on
-  regression.
-- **Approved deferrals and residual risk.**
+Follow the facet's plan specification, and carry the `grill-me` record into
+the plan: non-goals, each consequential decision with its rationale and
+whether the operator made it, and approved deferrals with their bounds. When
+the plan is long, mark phase boundaries; `orchestrator` gives each phase a
+fresh implementer.
 
 For each area the plan modifies, say whether to replace or patch it. Replace
 when most of it would change, when its structure is wrong for the
@@ -80,22 +63,8 @@ deferral.
 
 ## 4. Review loop
 
-Run the `plan-reviewer` subagent with `model_override: "mg:review_thorough"`.
-Review is required unless the operator explicitly skips it after you explain
-the risk; record that in the plan. Give the reviewer the operator's request,
-the key files inspected, the closest analogous design, and the decision
-ledger, and ask it to challenge:
-
-- consequential choices the plan treats as implementation details;
-- divergence from analogous code without evidence and operator approval;
-- unnecessary abstractions, caches, queues, stores, or control paths;
-- acceptance criteria or invariants without regression-sensitive checks;
-- unresolved decisions disguised as executor discretion, assumptions, or
-  follow-ups, and escape-hatch language;
-- deferrals missing approval, bounds, forbidden choices, risk, or trigger;
-- a missing or malformed opening execution line.
-
-Include these filing rules in the reviewer prompt:
+Run the `plan-reviewer` subagent with `model_override: "mg:review_thorough"`,
+and include these filing rules in its prompt:
 
 - "Insufficient detail" must name the verification it blocks. "Excess detail"
   must name the constraint it gets wrong or the implementer freedom it removes
@@ -124,8 +93,6 @@ earlier rounds missed it.
   operator with the outstanding findings and your proposed dispositions.
 - **Oscillation:** a finding that reverses an earlier accepted fix, or the
   same material re-litigated without new evidence: stop and ask the operator.
-- A rebutted critical or high finding needs the operator's affirmative
-  acceptance before handoff; record it in the plan.
 
 Never downgrade a finding to end the loop.
 
@@ -148,4 +115,4 @@ through `grill-me` for an operator decision, then back through review.
 
 Call `handoff_plan` once the loop has ended cleanly or the operator has
 decided on what remains. Auto-handoff never supplies approval for
-consequential choices, deferrals, test gaps, rebuttals, or skipped review.
+consequential choices, deferrals, or test gaps.
