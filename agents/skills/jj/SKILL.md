@@ -1,6 +1,6 @@
 ---
 name: jj
-description: "Use when committing, rebasing, inspecting history, or fixing repo state with jj (Jujutsu) — including colocated .git/.jj repos, detached-HEAD confusion, and stale-workspace errors (read this before running `jj workspace update-stale`; it can silently discard uncommitted changes). Flags interactive commands that hang agents."
+description: "Use when committing, rebasing, inspecting history, or fixing repo state with jj (Jujutsu) — including colocated .git/.jj repos, detached-HEAD confusion, and stale-workspace recovery. Flags interactive commands that hang agents."
 ---
 
 # jj Command Reference
@@ -105,23 +105,33 @@ If a command puts the wrong changes into the wrong commit (e.g. squash into the 
 
 ## Stale Workspaces
 
-When jj reports a workspace is stale (e.g. the working-copy parent was rewritten
-in another workspace — often a concurrent session), it helpfully suggests
-`jj workspace update-stale`. **Don't run it reflexively.** A tool error that
-hands you its own recovery command reads as routine, but this one is destructive:
-`update-stale` can **overwrite the workspace contents**, and any uncommitted
-changes in the working copy are silently lost. Committed changes survive — they
-get rebased onto the rewritten parent — so the fix is to commit *before*
-recovering, not after losing work.
+When jj reports that a workspace is stale (for example, after another workspace
+rewrites its working-copy parent), snapshotting commands are blocked. `jj st`,
+`jj commit`, and `jj new` cannot run first. Run `jj workspace update-stale`
+directly. It saves on-disk edits into history before checking out the updated
+commit, so tracked edits remain recoverable even if their files are replaced on
+disk.
 
-Before running `jj workspace update-stale`:
+Usually, no other agent or session should be writing files in this workspace.
+Concurrent writes during checkout are the realistic risk of losing edits.
+If you notice edits happening concurrently to your session, don't proceed,
+escalate to the operator to synchronize.
 
-1. **Commit any uncommitted changes first** — `jj commit <paths> -m "msg"`. A
-   committed change is rebased by `update-stale`, not discarded. This is the
-   reliable protection. (`jj new` to park them on a fresh change works too.)
-2. If you genuinely can't commit, back up the workspace contents instead:
-   `cp -r <workspace-dir> <workspace-dir>.backup`
-3. Run `jj workspace update-stale` in the workspace.
-4. If you used a backup, merge it back and commit:
-   `rsync -a --ignore-existing <workspace-dir>.backup/ <workspace-dir>/` then
-   `jj commit -m "msg"`, then clean up: `rm -rf <workspace-dir>.backup`.
+Afterward, read the command output and run `jj log`:
+
+- If the output says `Concurrent modification detected` or `jj log` shows a
+divergent `@` (`??`), the local edits are in the other commit of the divergent
+change, not in `@`. Compare it with `jj diff --from @ --to <other-commit-id>`,
+bring the needed paths into `@` with
+`jj restore --from <other-commit-id> --into @ <paths>`, resolve any conflict
+markers, then run `jj abandon <other-commit-id>` once its changes are recovered.
+- If `jj log` shows `RECOVERY COMMIT FROM jj workspace update-stale`, that
+commit holds the old state. Build on it or restore the needed changes from it.
+- Ignored, untracked, and oversized files are left on disk untouched by
+checkout. Review any needed files separately after recovery; they are not part
+of the saved tracked edits.
+
+If edits still appear to be missing, find the operation just before
+`update-stale` in `jj op log`. Inspect it with `jj op show <op-id>`;
+`jj --at-op=<op-id> log` shows the repository state at that operation. Use
+`jj file show -r <revision> <path>` to read the old tracked content.

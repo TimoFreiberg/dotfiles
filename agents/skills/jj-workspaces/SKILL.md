@@ -88,16 +88,17 @@ inside the workspace, chain with `;` or `&&` in a single call:
 cd /abs/path/to/workspace && jj st && jj new -m scratch
 ```
 
-## Stale working copies
+## Stale Workspaces
 
 Rewriting another workspace's `@`, directly or through an ancestor rewrite
 (rebase, squash, abandon), changes shared history without updating that
 workspace's files. Its checkout can become stale. Creating an independent
 leaf commit does not inherently stale other workspaces.
 
-Before running `jj workspace update-stale`, read the
-[jj stale-workspace guidance](../jj/SKILL.md#stale-workspaces) and protect
-local work; do not treat the suggested recovery command as routine cleanup.
+When a workspace is stale, follow the
+[jj stale-workspace guidance](../jj/SKILL.md#stale-workspaces): run
+`jj workspace update-stale`, then check `jj log` for divergence and recover any
+saved edits from the sibling commit if needed.
 
 ## Clean up
 
