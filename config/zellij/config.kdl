@@ -3,6 +3,9 @@
 //
 
 keybinds clear-defaults=true {
+    normal {
+        bind "Alt g" { Write 7; } // Send Ctrl+G to the application.
+    }
     locked {
         bind "Ctrl g" { SwitchToMode "normal"; }
     }
