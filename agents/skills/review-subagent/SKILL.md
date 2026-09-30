@@ -72,9 +72,10 @@ the operator said about the change. Judge by **risk, not size**:
   security, or error-handling policy.
 - **thorough** — normal substantive work: new behavior, logic changes across
   modules, changed interfaces or contracts, non-trivial refactors.
-- **critical** — security or authentication, concurrency and ownership,
+- **critical** — Only used for extra gnarly changes, requires operator approval.
+  Propose critical for security or authentication, concurrency and ownership,
   persisted-data migrations, or system-design changes where a subtle mistake
-  is costly.
+  is costly, without approval we fall back to thorough.
 
 Do not raise the level for size or caution alone; raise it only when a risk
 domain above applies. Print the chosen level with a one-line reason in the
