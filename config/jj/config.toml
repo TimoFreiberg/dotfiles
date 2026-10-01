@@ -11,6 +11,7 @@ concat(
 
 [revset-aliases]
 "closest_merge(to)" = "heads(::to & merges())"
+"branch_leaves" = "((roots(trunk()..@)::) ~ ::@) ~ empty()"
 
 
 [aliases]
