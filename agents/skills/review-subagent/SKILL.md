@@ -42,6 +42,7 @@ materially false documentation claims and dangerous omissions.
 **Flags** (any order, all optional):
 
 - `--difficulty routine|thorough|critical` — see **Choosing the level** below
+  (`critical` only on explicit operator request)
 - `--instructions "..."` — free-form review hints (e.g. "focus on XSS")
 - `--plan <path>` — approved plan or specification artifact for the C reviewer
 - `--description "..."` — inline task specification, as an alternative to `--plan`
@@ -63,23 +64,24 @@ them directly.
 A level recorded in an approved plan wins; pass it through. Otherwise the
 caller chooses before invoking, and when `--difficulty` is omitted you choose
 after Step 2 using the `header` artifact (commit list and diffstat) plus what
-the operator said about the change. Judge by **risk, not size**:
+the operator said about the change. Choose only between two levels, judging
+by **risk, not size**:
 
 - **routine** — local, low-risk changes whose correctness is easy to see:
   docs, comments, config values, renames and other mechanical edits (even
   large ones), a contained bug fix with a direct test, test-only changes. No
   change to a public interface, persisted or wire format, concurrency,
   security, or error-handling policy.
-- **thorough** — normal substantive work: new behavior, logic changes across
-  modules, changed interfaces or contracts, non-trivial refactors.
-- **critical** — Only used for extra gnarly changes, requires operator approval.
-  Propose critical for security or authentication, concurrency and ownership,
-  persisted-data migrations, or system-design changes where a subtle mistake
-  is costly, without approval we fall back to thorough.
+- **thorough** — everything else, including security, concurrency, FFI,
+  memory safety, persisted-data migrations, and distributed-systems changes.
 
-Do not raise the level for size or caution alone; raise it only when a risk
-domain above applies. Print the chosen level with a one-line reason in the
-selection notice so the operator can overrule it.
+**critical** is operator-only. Use it only when the operator explicitly asks
+for it in the current request (`--difficulty critical`, or naming
+`review_critical`). Never select, propose, recommend, or record it in a plan
+yourself, however risky the change looks.
+
+Do not raise the level for size or caution alone. Print the chosen level with
+a one-line reason in the selection notice so the operator can overrule it.
 
 ## Step 2: Gather scope
 
@@ -117,7 +119,7 @@ or `review_critical`. Launch `general-purpose` subagents with
 - **thorough** — **one worker per dimension**, so three total. Three separate
   launches, each `count: 1`, each with one brief. Every dimension therefore
   starts at the group's first candidate and advances only on provider failure.
-- **critical** — **C on every candidate; S and L once each**, for `N + 2`
+- **critical** (operator-only) — **C on every candidate; S and L once each**, for `N + 2`
   workers, where `N` is the number of candidates in the group (three in the
   configured review groups, giving five workers). Launch C with `count: N`, and
   launch S and L separately with `count: 1` each. Within C's counted batch,

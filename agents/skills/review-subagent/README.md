@@ -18,12 +18,12 @@ in `config/polytoken/config.yaml` under `modelgroups`.
 |---|---|---|
 | routine | `review_routine` | 1, covering C+S+L |
 | thorough | `review_thorough` | 3, one per axis |
-| critical | `review_critical` | 3 × N, each axis on each of the N candidates |
+| critical (operator-only) | `review_critical` | N + 2: C on each of the N candidates, S and L once |
 
-Routine and thorough launch each assignment on its own, so every worker starts
-at the group's first candidate and advances only on provider failure. Critical
-launches one counted batch per axis, where clone *i* starts at candidate *i*, so
-each axis is reviewed once per model. Reports stay attributable and are never
+Each assignment launches on its own, so every worker starts at the group's
+first candidate and advances only on provider failure. The exception is
+critical's C batch, where clone *i* starts at candidate *i*, so correctness is
+reviewed once per model. Reports stay attributable and are never
 deduplicated or majority-voted.
 
 Inspect the configured catalog with:

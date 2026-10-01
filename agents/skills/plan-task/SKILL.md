@@ -21,8 +21,9 @@ risk, the follow-up trigger, and the operator's approval.
 
 ## 2. Choose the review level
 
-Classify implementation review as `routine`, `thorough`, or `critical` with
-the rubric in `review-subagent` ("Choosing the level": risk, not size). The
+Classify implementation review as `routine` or `thorough` with the rubric in
+`review-subagent` ("Choosing the level": risk, not size). Record `critical`
+only when the operator explicitly asked for it. The
 level sets the round cap for plan review here and for implementation review
 in `orchestrator`: 2 for `routine`, 4 otherwise. Do not inflate it for
 caution.
