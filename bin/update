@@ -140,6 +140,10 @@ echo "  Updating cargo-sweep..."
 cargo binstall cargo-sweep -y; or begin
     echo "  ⚠ cargo binstall failed (exit $status)"; set had_errors 1
 end
+echo "  Updating jcw..."
+cargo binstall jj-conflict-workspace -y; or begin
+    echo "  ⚠ cargo binstall failed (exit $status)"; set had_errors 1
+end
 echo ""
 
 echo "──────────────────────────────────────────"
