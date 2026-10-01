@@ -44,11 +44,20 @@ propose creating a doc and wait for authorization; routine fixes need no doc.
 
 ## Keep it current
 
-When session work changes open items or agreed design, update the page without
-asking; whole-page restructuring and compression are allowed. Update once, with
-the final handoff, not mid-session. Questions posed to the operator while the main
-task is ongoing stay off the page; open items raised in the final handoff go on
-it. Honor explicit read-only requests.
+**Autonomous writes touch only the open-items checklist.** When session work
+changes open items, update that checklist without asking, once, with the final
+handoff, not mid-session. Questions posed to the operator while the main task is
+ongoing stay off the page; open items raised in the final handoff go on it.
+Honor explicit read-only requests.
+
+**Never edit the technical design or notable changes on your own.** At the
+final handoff, check them against the session's work and, if something is now
+wrong, stale, or missing, propose a minimal diff in the final message: the
+section, the exact old text, and the replacement. Prefer deletions and
+corrections over additions; propose nothing when the design is still accurate.
+Apply a proposal only when the operator asks (e.g. "please make the change"),
+exactly as proposed or as they adjust it. An operator request to write or edit
+the design authorizes that edit.
 
 Use the editor workflow in [writing-design-docs](../writing-design-docs/SKILL.md).
 Implementation subagents return findings and evidence, not page edits. The caller
@@ -59,5 +68,5 @@ assumptions and implementation/design mismatches as unresolved. Pause dependent
 work and ask about consequential choices; continue independent agreed work.
 If asking is unavailable, report and block the dependent work.
 
-Report the updated page and a short summary; on failure, say the page is stale
-and what update is pending.
+Report the updated page, a short summary, and any proposed design diff; on
+failure, say the page is stale and what update is pending.
