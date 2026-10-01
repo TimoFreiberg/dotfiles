@@ -55,6 +55,10 @@ final handoff, check them against the session's work and, if something is now
 wrong, stale, or missing, propose a minimal diff in the final message: the
 section, the exact old text, and the replacement. Prefer deletions and
 corrections over additions; propose nothing when the design is still accurate.
+Preserve the doc's level of detail: a concern it never covered stays out by
+default. Propose adding one only if it is core to the architecture, something a
+reader needs to understand how the task works, not an incidental implementation
+choice.
 Apply a proposal only when the operator asks (e.g. "please make the change"),
 exactly as proposed or as they adjust it. An operator request to write or edit
 the design authorizes that edit.
