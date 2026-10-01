@@ -20,18 +20,19 @@ An editor given a selected page skips matching.
 
 ## Page shape
 
-**Task state first**, short enough to scan on return:
+**Task state first: an open-items checklist, nothing else.** One line per
+unchecked item, about 15 words at most; no cap on count. An item qualifies only
+if it is unresolved *and* not visible from `jj log` or the open PRs:
 
-- **Current state:** implemented versus proposed, and what was verified when.
-- **Next review target:** one artifact or behavior, where to find it, and the
-  judgment needed. Say when no human review is needed.
-- **Open subtasks:** concrete remaining chunks, separating agent work from work
-  waiting on the operator.
-- **Decisions / assumptions:** what needs attention; distinguish confirmed
-  decisions from agent assumptions. Keep settled rationale with the design.
-- **Risks / verification gaps:** material limitations and untested behavior.
-- **Done when:** a short observable acceptance checklist. Mark verified items
-  only with evidence; keep criteria here rather than duplicating them below.
+- a decision the operator owes, or one waiting on someone else;
+- an external prerequisite or dependency;
+- a known gap or unexplained failure that would otherwise be forgotten.
+
+Delete items when resolved; keep no checked items and no history. Never include
+change IDs, hashes, bookmarks, push or PR status, commands, hosts, test names or
+counts, verification narratives, review results, or what a commit does. Accepted
+design limitations belong in the technical design; acceptance criteria belong in
+outcome and scope. If nothing qualifies, write "No open items."
 
 **Technical design below:** outcome, scope, high-level architecture, and only
 critical constraints and rationale. Describe the current design once. Keep a
@@ -50,9 +51,9 @@ description of when to read it. Do not archive discarded prose merely to preserv
 ## Delegate the edit
 
 The caller supplies the selected page URL (or authorized creation destination)
-and a compact update: new facts with evidence, operator-confirmed decisions,
-unapproved assumptions, remaining work, verification results and gaps, and the
-next review target. Unknown state stays unknown; a test's existence is not a pass.
+and a compact update: open items to add or resolve, and confirmed design
+changes. Verification evidence goes in the caller's reply to the operator, never
+onto the page. Unknown state stays unknown; a test's existence is not a pass.
 
 Dispatch one fresh general-purpose subagent as the documentation editor. Tell it
 to load this skill, use only the selected destination, and follow the steps below

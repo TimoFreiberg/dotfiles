@@ -44,9 +44,11 @@ propose creating a doc and wait for authorization; routine fixes need no doc.
 
 ## Keep it current
 
-When session work changes task state, verification, or agreed design, update the
-page without asking; whole-page restructuring and compression are allowed. Batch
-at checkpoints and before handoff or completion. Honor explicit read-only requests.
+When session work changes open items or agreed design, update the page without
+asking; whole-page restructuring and compression are allowed. Update once, with
+the final handoff, not mid-session. Questions posed to the operator while the main
+task is ongoing stay off the page; open items raised in the final handoff go on
+it. Honor explicit read-only requests.
 
 Use the editor workflow in [writing-design-docs](../writing-design-docs/SKILL.md).
 Implementation subagents return findings and evidence, not page edits. The caller
