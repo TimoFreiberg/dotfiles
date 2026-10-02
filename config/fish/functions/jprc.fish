@@ -129,7 +129,7 @@ $log_context
 $diff_context"
 
     echo "Generating branch name..."
-    set -l suggested (echo "$branch_prompt" | polytoken exec --model gpt-5.6-luna | string trim)
+    set -l suggested (echo "$branch_prompt" | polytoken exec | string trim)
 
     if test -z "$suggested"
         echo "Error: LLM returned empty branch name" >&2
