@@ -31,6 +31,19 @@ Do not fix code during review unless explicitly asked.
 
 For each question, give exact file locations and line ranges in the reading revision—usually a modest changed section plus one caller or dependency. Refresh locations before every question; stale tool output, conflict resolutions, and changed files invalidate old line numbers.
 
+Make each question easy to scan: start with a Markdown heading, list each source-file line range in its own bullet, and put the question itself in bold. Use this layout:
+
+```markdown
+### Question 1
+
+Brief orientation.
+
+- `path/to/file.ts:20–35`
+- `path/to/caller.ts:50–60`
+
+**What happens when …?**
+```
+
 Give just enough orientation to start reading. Neither the orientation, the chosen range, nor the question's phrasing may give away the answer; avoid leading questions and trivia answerable from the orientation. Ask one question, then wait.
 
 Prefer neutral, code-dependent prompts: what happens here, trace a value, predict an outcome, identify an assumption, compare old and new behavior, or explain an ordering decision.
