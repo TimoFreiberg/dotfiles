@@ -23,21 +23,29 @@ function update_jj_repo --argument-names name dir bookmark
     end
 
     set -l had_err 0
+    set -l fetch_succeeded 0
+
     echo "  $name: fetching from origin..."
-    jj git fetch; or begin
+    jj git fetch; and set fetch_succeeded 1; or begin
         echo "  ⚠ $name: jj git fetch failed (exit $status)"
         set had_err 1
     end
 
-    if jj log -r "$bookmark@origin" --no-graph 2>/dev/null | head -1 | string match -q '*'
+    # Check if $bookmark@origin exists after a successful fetch
+    if test $fetch_succeeded -eq 1; and jj log -r "$bookmark@origin" --no-graph 2>/dev/null | head -1 | string match -q '*'
         set -l local_id (jj log -r "$bookmark" --no-graph -T 'commit_id' 2>/dev/null)
         set -l origin_id (jj log -r "$bookmark@origin" --no-graph -T 'commit_id' 2>/dev/null)
+        set -l can_rebase 0
 
         if test "$local_id" = "$origin_id"
             echo "  ✓ $name: $bookmark is already up to date with origin"
+            set can_rebase 1
         else if jj log -r "$bookmark::$bookmark@origin" --no-graph 2>/dev/null | grep -q .
             echo "  $name: fast-forwarding $bookmark to $bookmark@origin..."
-            jj bookmark set "$bookmark" -r "$bookmark@origin"; and echo "  ✓ $name: $bookmark fast-forwarded"; or begin
+            if jj bookmark set "$bookmark" -r "$bookmark@origin"
+                echo "  ✓ $name: $bookmark fast-forwarded"
+                set can_rebase 1
+            else
                 echo "  ⚠ $name: fast-forward failed (exit $status)"
                 set had_err 1
             end
@@ -45,14 +53,16 @@ function update_jj_repo --argument-names name dir bookmark
             echo "  ⚠ $name: $bookmark has diverged from origin — cannot fast-forward"
             echo "     (local $bookmark is not an ancestor of origin's $bookmark)"
         end
-    else
-        echo "  ℹ  $name: $bookmark@origin not found after fetch — skipping fast-forward"
-    end
 
-    echo "  $name: rebasing checked-out branch onto $bookmark..."
-    jj rebase --branch @ --destination "$bookmark"; or begin
-        echo "  ⚠ $name: rebase onto $bookmark failed (exit $status)"
-        set had_err 1
+        if test $can_rebase -eq 1
+            echo "  $name: rebasing current branch onto $bookmark..."
+            jj rebase --branch @ --destination "$bookmark"; or begin
+                echo "  ⚠ $name: rebase onto $bookmark failed (exit $status)"
+                set had_err 1
+            end
+        end
+    else
+        echo "  ℹ  $name: $bookmark@origin not found after fetch — skipping fast-forward and rebase"
     end
 
     cd "$original_dir"
