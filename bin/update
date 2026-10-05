@@ -64,6 +64,11 @@ echo "────────────────────────�
 echo " 1/4  mise tools"
 echo "──────────────────────────────────────────"
 if type -q mise
+    mise self-update --yes; or begin
+        echo "  ⚠ mise self-update failed (exit $status)"
+        set had_errors 1
+    end
+
     # Run from HOME so a scheduled invocation from another repo cannot select
     # that repo's project-specific tool versions instead of the global defaults.
     mise --cd "$HOME" install; or begin
