@@ -25,6 +25,8 @@ Keep two ledgers:
 - **Coverage** — each chunk is **unread**, **in progress**, **inspected**, or **unresolved**. Show it at the start and when a chunk changes state, not every turn.
 - **Concerns** — findings and open doubts. Inspection is not approval, and one answered question does not mean the whole chunk was read.
 
+Independently check each chunk for possible defects while preparing questions and verifying answers. Track suspected issues in Concerns even when the user does not notice them; helping the user learn does not mean withholding problems you find. Keep this investigation within the review scope.
+
 Do not fix code during review unless explicitly asked.
 
 ## 3. Ask one question at a time
@@ -57,7 +59,11 @@ After each answer:
 3. Treat "I don't know what this symbol does" as a normal request for context: fetch and explain the definition or caller instead of sending the user on a scavenger hunt.
 4. Adapt difficulty. After two misses in a row, narrow the next question or offer context. When answers come easily, move sooner to counterexamples and mistake-hunting.
 
-Before marking a chunk inspected, ask whether anything else in its line ranges caught the user's eye. Record uncertainty and concerns without turning the session into a fix loop. A finding is a bonus, not the success criterion.
+Before marking a chunk inspected or moving on after a skip:
+
+1. Unless the user chose to skip, ask whether anything else in its line ranges caught their eye, then wait for their response.
+2. Re-check and bring up any issues you found that the user has not already raised, with exact references and a concrete failure case or impact. Distinguish confirmed defects from open doubts and update Concerns. Raise them even if the user's answers were correct; correct understanding is not evidence that the code is correct.
+3. Update Coverage without turning the session into a fix loop. Finding a defect is not required to finish a chunk, and inspection is not approval.
 
 ## 4. Commands and modes
 
