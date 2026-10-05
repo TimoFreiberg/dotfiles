@@ -22,6 +22,11 @@ path=(
 path=(${^path}(N-/))
 export PATH
 
+# Expose globally configured mise tools to Zsh and its child processes.
+if command -v mise >/dev/null 2>&1; then
+  eval "$(mise activate zsh --shims)"
+fi
+
 # Make fish-format secrets (set -x NAME VALUE) available to zsh agent/script shells.
 # Secrets stay only in secrets.fish (single source of truth); this just translates them
 # at init. Guarded so a parse hiccup can never abort .zshenv.

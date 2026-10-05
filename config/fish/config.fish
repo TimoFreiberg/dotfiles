@@ -15,6 +15,15 @@ set -x EDITOR nvim
 set -x VISUAL nvim
 set -x XDG_CONFIG_HOME $HOME/.config
 
+# Keep mise-managed global tools available to interactive and scripted Fish.
+if type -q mise
+    if status is-interactive
+        mise activate fish | source
+    else
+        mise activate fish --shims | source
+    end
+end
+
 set -l local_functions_dir $XDG_CONFIG_HOME/fish/functions/local
 if test -d $local_functions_dir
     set --prepend fish_function_path $local_functions_dir
@@ -22,7 +31,6 @@ end
 
 set -x EMACS_HOME $XDG_CONFIG_HOME/emacs/
 set -x NOTE_FILE ~/Dropbox/notes/notes.md
-
 
 # Abbreviations
 if status is-interactive
@@ -38,7 +46,7 @@ if status is-interactive
     abbr --add --global c cargo
     abbr --add --global tn tmux-new
     abbr --add --global zi 'z -i'
-    abbr --add --global pt 'polytoken'
+    abbr --add --global pt polytoken
 
     # git aliases
     abbr --add --global gl 'git log'
@@ -86,15 +94,14 @@ if status is-interactive
     abbr --add --global jjgf 'jj git fetch'
     abbr --add --global jjgp 'jj git push'
 
-
-    if command -v eza > /dev/null
+    if command -v eza >/dev/null
         abbr --add --global l eza
         abbr --add --global ll 'eza -l'
         abbr --add --global la 'eza -la'
     end
 
     # Primary prompt — fish_prompt.fish is the fallback on systems without starship
-    if type starship > /dev/null 2>&1
+    if type starship >/dev/null 2>&1
         eval (starship init fish)
     end
 

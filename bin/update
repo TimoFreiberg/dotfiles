@@ -1,28 +1,33 @@
 #!/usr/bin/env fish
 
-# Daily system updater
-# Runs all update commands sequentially, printing normal output.
+# Update mise-managed tools and user-level development tools. Native OS updates
+# are kept separate so this can run unattended on Linux without sudo.
 
 set -l had_errors 0
+set -l swupd_pending 0
+set -l swupd_labels
 
 # Fetch + fast-forward a jj-backed repo's bookmark to its origin counterpart.
-# Returns nonzero if a step failed; a missing dir is a soft skip (return 0),
-# since some repos (e.g. work checkouts) only exist on certain machines.
+# A missing directory or origin bookmark is a soft skip.
 function update_jj_repo --argument-names name dir bookmark
     if not test -d "$dir"
         echo "  ℹ  $dir not found — skipping $name"
         return 0
     end
 
-    cd "$dir"
-    set -l had_err 0
-
-    echo "  $name: fetching from origin..."
-    jj git fetch; or begin
-        echo "  ⚠ $name: jj git fetch failed (exit $status)"; set had_err 1
+    set -l original_dir $PWD
+    cd "$dir"; or begin
+        echo "  ⚠ $name: could not enter $dir (exit $status)"
+        return 1
     end
 
-    # Check if $bookmark@origin exists after fetch
+    set -l had_err 0
+    echo "  $name: fetching from origin..."
+    jj git fetch; or begin
+        echo "  ⚠ $name: jj git fetch failed (exit $status)"
+        set had_err 1
+    end
+
     if jj log -r "$bookmark@origin" --no-graph 2>/dev/null | head -1 | string match -q '*'
         set -l local_id (jj log -r "$bookmark" --no-graph -T 'commit_id' 2>/dev/null)
         set -l origin_id (jj log -r "$bookmark@origin" --no-graph -T 'commit_id' 2>/dev/null)
@@ -31,8 +36,9 @@ function update_jj_repo --argument-names name dir bookmark
             echo "  ✓ $name: $bookmark is already up to date with origin"
         else if jj log -r "$bookmark::$bookmark@origin" --no-graph 2>/dev/null | grep -q .
             echo "  $name: fast-forwarding $bookmark to $bookmark@origin..."
-            jj bookmark set $bookmark -r $bookmark@origin; and echo "  ✓ $name: $bookmark fast-forwarded"; or begin
-                echo "  ⚠ $name: fast-forward failed (exit $status)"; set had_err 1
+            jj bookmark set "$bookmark" -r "$bookmark@origin"; and echo "  ✓ $name: $bookmark fast-forwarded"; or begin
+                echo "  ⚠ $name: fast-forward failed (exit $status)"
+                set had_err 1
             end
         else
             echo "  ⚠ $name: $bookmark has diverged from origin — cannot fast-forward"
@@ -42,7 +48,7 @@ function update_jj_repo --argument-names name dir bookmark
         echo "  ℹ  $name: $bookmark@origin not found after fetch — skipping fast-forward"
     end
 
-    cd -
+    cd "$original_dir"
     return $had_err
 end
 
@@ -52,157 +58,135 @@ echo "========================================"
 echo ""
 
 # ──────────────────────────────────────────────
-# 1. Homebrew
+# 1. mise-managed tools
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 1/5  brew upgrade"
+echo " 1/4  mise tools"
 echo "──────────────────────────────────────────"
-brew upgrade; or begin
-    echo "  ⚠ brew upgrade failed (exit $status)"; set had_errors 1
-end
-
-echo "  Cleaning up old versions..."
-brew cleanup; or begin
-    echo "  ⚠ brew cleanup failed (exit $status)"; set had_errors 1
-end
-
-echo "  Removing unused dependencies..."
-brew autoremove; or begin
-    echo "  ⚠ brew autoremove failed (exit $status)"; set had_errors 1
-end
-echo ""
-
-# ──────────────────────────────────────────────
-# macOS system updates
-# ──────────────────────────────────────────────
-echo "──────────────────────────────────────────"
-echo "      softwareupdate (list only)"
-echo "──────────────────────────────────────────"
-
-set -l swupd_tmp (mktemp)
-softwareupdate --list > $swupd_tmp 2>&1
-set -l swupd_exit $status
-
-cat $swupd_tmp
-
-if test $swupd_exit -ne 0
-    echo "  ⚠ softwareupdate --list failed"
+if type -q mise
+    # Run from HOME so a scheduled invocation from another repo cannot select
+    # that repo's project-specific tool versions instead of the global defaults.
+    mise --cd "$HOME" install; or begin
+        echo "  ⚠ mise install failed (exit $status)"
+        set had_errors 1
+    end
+    mise --cd "$HOME" upgrade; or begin
+        echo "  ⚠ mise upgrade failed (exit $status)"
+        set had_errors 1
+    end
+else
+    echo "  ⚠ mise not found — install the global tool set manually"
     set had_errors 1
-    set -g swupd_pending 0
-else if grep -q "No new software available" $swupd_tmp
-    set -g swupd_pending 0
-else
-    set -g swupd_pending (grep -c "^* Label:" $swupd_tmp)
-    set -g swupd_labels (grep "^* Label:" $swupd_tmp | sed 's/^* Label: //')
+end
+echo ""
+
+# ──────────────────────────────────────────────
+# 2. macOS native updates
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " 2/4  macOS updates"
+echo "──────────────────────────────────────────"
+if test (uname -s) = Darwin
+    if type -q brew
+        brew upgrade; or begin
+            echo "  ⚠ brew upgrade failed (exit $status)"
+            set had_errors 1
+        end
+        echo "  Cleaning up old versions..."
+        brew cleanup; or begin
+            echo "  ⚠ brew cleanup failed (exit $status)"
+            set had_errors 1
+        end
+        echo "  Removing unused dependencies..."
+        brew autoremove; or begin
+            echo "  ⚠ brew autoremove failed (exit $status)"
+            set had_errors 1
+        end
+    else
+        echo "  ⚠ Homebrew not found"
+        set had_errors 1
+    end
+
     echo ""
-    echo "  → $swupd_pending update(s) available (install manually: softwareupdate --install --all)"
-end
+    echo "  softwareupdate (list only)"
+    set -l swupd_tmp (mktemp)
+    softwareupdate --list >$swupd_tmp 2>&1
+    set -l swupd_exit $status
+    cat $swupd_tmp
 
-rm -f $swupd_tmp
-echo ""
-
-# ──────────────────────────────────────────────
-# 2. Rust toolchain
-# ──────────────────────────────────────────────
-echo "──────────────────────────────────────────"
-echo " 2/5  rustup update"
-echo "──────────────────────────────────────────"
-rustup update; or begin
-    echo "  ⚠ rustup update failed (exit $status)"; set had_errors 1
-end
-echo ""
-
-echo "──────────────────────────────────────────"
-echo "      cargo tool updates"
-echo "──────────────────────────────────────────"
-
-# Install cargo-binstall if missing, otherwise update it.
-if command -v cargo-binstall > /dev/null 2>&1
-    echo "  Updating cargo-binstall..."
-    cargo binstall cargo-binstall -y; or begin
-        echo "  ⚠ cargo-binstall update failed (exit $status)"; set had_errors 1
+    if test $swupd_exit -ne 0
+        echo "  ⚠ softwareupdate --list failed"
+        set had_errors 1
+    else if grep -q "No new software available" $swupd_tmp
+        set swupd_pending 0
+    else
+        set swupd_labels (grep "^* Label:" $swupd_tmp | sed 's/^* Label: //')
+        set swupd_pending (count $swupd_labels)
+        if test $swupd_pending -gt 0
+            echo ""
+            echo "  → $swupd_pending update(s) available (install manually: softwareupdate --install --all)"
+        end
     end
+
+    rm -f $swupd_tmp
 else
-    echo "  Installing cargo-binstall..."
-    curl -L --proto '=https' --tlsv1.2 -sSf \
-        https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh \
-        | bash; or begin
-        echo "  ⚠ cargo-binstall installation failed (exit $status)"; set had_errors 1
-    end
-end
-
-# Update cargo-installed tools via binstall (pre-built binaries)
-echo "  Updating cargo-nextest..."
-cargo nextest self update -y; or begin
-    echo "  ⚠ cargo-nextest update failed (exit $status)"; set had_errors 1
-end
-echo "  Updating cargo-sweep..."
-cargo binstall cargo-sweep -y; or begin
-    echo "  ⚠ cargo binstall failed (exit $status)"; set had_errors 1
-end
-echo "  Updating jcw..."
-cargo binstall jj-conflict-workspace -y; or begin
-    echo "  ⚠ cargo binstall failed (exit $status)"; set had_errors 1
-end
-echo ""
-
-echo "──────────────────────────────────────────"
-echo "      cargo sweep (clean old builds)"
-echo "──────────────────────────────────────────"
-# --time 3 = remove artifacts older than 3 days.
-# -r = recursive scan for Cargo workspaces.
-cargo sweep --time 3 -r ~/src; or begin
-    echo "  ⚠ cargo sweep failed (exit $status)"; set had_errors 1
+    echo "  Skipping native OS updates (not macOS; manage Linux updates with the host)."
 end
 echo ""
 
 # ──────────────────────────────────────────────
-# 3. Polytoken
+# 3. User-level updates
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 3/5  polytoken update"
+echo " 3/4  user-level updates"
 echo "──────────────────────────────────────────"
 polytoken update; or begin
-    echo "  ⚠ polytoken update failed (exit $status)"; set had_errors 1
+    echo "  ⚠ polytoken update failed (exit $status)"
+    set had_errors 1
+end
+
+if test -d "$HOME/src"
+    echo "  Cleaning old Cargo build artifacts under $HOME/src..."
+    mise --cd "$HOME" exec -- cargo sweep --time 3 -r "$HOME/src"; or begin
+        echo "  ⚠ cargo sweep failed (exit $status)"
+        set had_errors 1
+    end
+else
+    echo "  ℹ  $HOME/src not found — skipping cargo sweep"
+end
+
+mise --cd "$HOME" exec -- nvim +PlugClean +PlugInstall +PlugUpdate +qall; or begin
+    echo "  ⚠ nvim plugin update failed (exit $status)"
+    set had_errors 1
 end
 echo ""
 
 # ──────────────────────────────────────────────
-# 4. Neovim plugins
+# 4. jj-backed repos (fetch + fast-forward)
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 4/5  nvim +PlugClean +PlugInstall +PlugUpdate"
+echo " 4/4  repos (jj git fetch + fast-forward)"
 echo "──────────────────────────────────────────"
-nvim +PlugClean +PlugInstall +PlugUpdate +qall; or begin
-    echo "  ⚠ nvim plugin update failed (exit $status)"; set had_errors 1
-end
-echo ""
-
-# ──────────────────────────────────────────────
-# 5. jj-backed repos (fetch + fast-forward)
-# ──────────────────────────────────────────────
-echo "──────────────────────────────────────────"
-echo " 5/5  repos (jj git fetch + fast-forward)"
-echo "──────────────────────────────────────────"
-
 update_jj_repo dotfiles "$HOME/dotfiles" main; or set had_errors 1
 echo ""
 
-# ──────────────────────────────────────────────
-# Tool presence check
-# ──────────────────────────────────────────────
+# Presence check: mise-managed tools plus commands provisioned outside mise.
 echo "──────────────────────────────────────────"
 echo " Tool presence check"
 echo "──────────────────────────────────────────"
 
 set -l tools_to_check \
-    atuin bat brew bun cargo cargo-binstall cargo-nextest cargo-sweep \
-    curl direnv eza fd fzf gh git jj just nvim pi polytoken rg \
-    rustup shellcheck ssh starship tig tmux tokei trash uv zoxide zstd
+    atuin bat bun cargo cargo-binstall cargo-nextest cargo-sweep \
+    curl direnv eza fd fzf gh git jj just mise nvim pi polytoken rg \
+    rustc rustup shellcheck ssh starship tig tmux tokei trash uv zoxide zstd
+
+if test (uname -s) = Darwin
+    set -a tools_to_check brew
+end
 
 set -l missing_tools
 for tool in $tools_to_check
-    if not command -v $tool > /dev/null 2>&1
+    if not command -v $tool >/dev/null 2>&1
         set -a missing_tools $tool
     end
 end
@@ -226,14 +210,13 @@ echo "            Summary"
 echo "========================================"
 
 set -l summary_items
-
 if test $had_errors -eq 0
     set -a summary_items "  ✓ All updates completed"
 else
     set -a summary_items "  ⚠ Some updates had errors (see above)"
 end
 
-if set -q swupd_pending[1]; and test $swupd_pending -gt 0
+if test $swupd_pending -gt 0
     set -a summary_items "  ℹ  $swupd_pending macOS update(s) pending:"
     for label in $swupd_labels
         set -a summary_items "       - $label"
