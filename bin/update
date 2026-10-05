@@ -64,9 +64,13 @@ echo "────────────────────────�
 echo " 1/4  mise tools"
 echo "──────────────────────────────────────────"
 if type -q mise
-    mise self-update --yes; or begin
-        echo "  ⚠ mise self-update failed (exit $status)"
-        set had_errors 1
+    if test (uname -s) = Darwin
+        echo "  mise is managed by Homebrew; it will update with brew upgrade"
+    else
+        mise self-update --yes; or begin
+            echo "  ⚠ mise self-update failed (exit $status)"
+            set had_errors 1
+        end
     end
 
     # Run from HOME so a scheduled invocation from another repo cannot select
