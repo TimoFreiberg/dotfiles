@@ -29,3 +29,4 @@ slip = ["rebase", "--before", "closest_merge(@)", "--after"]
 
 [ui]
 default-command = "log"
+conflict-marker-style = "git"
