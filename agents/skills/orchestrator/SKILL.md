@@ -50,22 +50,17 @@ and a severity (critical/high/medium/low) per finding. Dispatch in parallel:
   no confidence: tests of library behavior, integration tests for trivial
   branches, redundant cases. Name what can be deleted.
 
-## 3. Findings ledger
+## 3. Repair and verify
 
-Keep one ledger file for the run: id, source, severity, location, summary,
-disposition (`open | fixed | rebutted | unresolved`), note. Blocking means
-critical or high. Medium and low are fixed or rebutted in the same repair
-pass and never open a round by themselves.
+Blocking means critical or high. One repair implementer gets the plan and all
+findings; it fixes each or rebuts it with evidence. Medium and low findings
+are handled in the same pass and never open a round by themselves.
 
-## 4. Repair and verify
-
-One repair implementer gets the plan and open findings; it fixes each or
-rebuts it with evidence.
-
-Re-review only the repair delta (`<previous>..<repair>`) with the ledger:
-reviewers confirm fixes and check the blast radius, and do not re-open
-rebutted findings without new evidence. A rebuttal-only round needs no
-re-review. Stop when no blocking finding is open.
+Then resume each reviewer (`resume_from`) with the repair delta
+(`<previous>..<repair>`) and the implementer's fixes and rebuttals: confirm
+fixes, check the blast radius, and don't re-open rebutted findings without
+new evidence. A rebuttal-only round needs no re-review. Stop when no blocking
+finding is open.
 
 At the round cap (round 1 counts), or when findings oscillate or keep
 appearing on unchanged code, stop and mark the remainder `unresolved`. Never
@@ -73,12 +68,12 @@ downgrade a severity to pass a round. A failed or malformed reviewer report is
 a failed round, not a pass; fix the cause and rerun it (does not count
 against the cap).
 
-## 5. Prose
+## 4. Prose
 
 Once the review loop ends, run @skill:polish-prose on `<base>..<latest>` and
 commit its file edits. Record the final commit ID after this step.
 
-## 6. Report
+## 5. Report
 
 Final message, omitting empty sections:
 
