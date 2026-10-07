@@ -13,25 +13,14 @@ report a follow-up session can act on without this transcript.
 
 Read the approved plan once and extract the review level (from its opening
 "Execute with …" line), acceptance criteria, non-goals, and approved
-deferrals. If no level is recorded, choose one (below) and state it with a
-one-line reason in your first message.
+deferrals. If no level is recorded, choose one and state it with a one-line
+reason in your first message.
 
 Record the base commit ID (not the jj change ID) before any implementation.
 
 ## Review levels
 
-Judge by risk, not size.
-
-- **routine** — local, low-risk, easy-to-see correctness: docs, config,
-  mechanical edits, a contained fix with a direct test. Group
-  `review_routine`; one reviewer covering correctness and leanness; 2 rounds.
-- **thorough** — everything else (public interfaces, persisted or wire
-  formats, concurrency, security, error-handling policy). Group
-  `review_thorough`; one correctness and one leanness reviewer; 4 rounds.
-- **critical** — only when the operator explicitly asks; never pick it
-  yourself. Group `review_critical`; correctness with `count` equal to the
-  number of candidates (each clone starts on a different model), one leanness
-  reviewer; 4 rounds.
+Choose and apply the level per @skill:review-levels.
 
 Launch reviewers as `general-purpose` with `model_override: "mg:<group>"`.
 
