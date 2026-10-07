@@ -15,6 +15,9 @@ and the task isn't routine, propose creating one. Read it before substantial
 work. Code is the source of truth for implementation, the page for intent;
 surface mismatches rather than resolving them.
 
+Make page edits through a subagent with `model_override: "mg:docs"`, passing it
+the page, the update, and the necessary context.
+
 The page starts with an open-items checklist: decisions owed, external
 dependencies, and known gaps not visible from `jj log` or open PRs. Delete
 items once resolved. Below it, a concise technical design: outcome, scope,

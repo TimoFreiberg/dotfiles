@@ -31,9 +31,9 @@ caution.
 ## 3. Write the plan
 
 The plan opens with one line:
-"Execute with @skill:orchestrator(review level: <level>)."
-Replace `<level>` with the review level, otherwise keep this verbatim to keep
-the skill reference intact.
+`Execute with @skill:orchestrator(review level: <level>).`
+Replace `<level>` with the review level and omit the backticks, otherwise keep
+this verbatim to keep the skill reference intact.
 
 Follow the facet's plan specification, and carry the `grill-me` record into
 the plan: non-goals, each consequential decision with its rationale and

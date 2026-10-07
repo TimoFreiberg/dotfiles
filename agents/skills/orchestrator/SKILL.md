@@ -61,10 +61,10 @@ and a severity (critical/high/medium/low) per finding. Dispatch in parallel:
   no confidence: tests of library behavior, integration tests for trivial
   branches, redundant cases. Name what can be deleted.
 - **Documentation writer** (only if the change has comments or docs worth
-  writing): one `general-purpose` subagent with `model_override:
-  "mg:review_thorough"`. It writes or rewrites the change's docs and comments
-  so a reader without this context understands them standalone, and deletes
-  what says nothing beyond the code. It does not commit.
+  writing): one subagent with `model_override: "mg:docs"`. It writes or rewrites
+  the change's docs and comments so a reader without this context understands
+  them standalone, and deletes what says nothing beyond the code. It does not
+  commit.
 
 When the writer finishes, commit its edits and dispatch one **documentation
 reviewer** on that commit: could a reader who knows the product but not this
