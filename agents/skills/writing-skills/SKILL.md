@@ -23,5 +23,5 @@ Prefer porting a good existing skill over elaborating your own.
 When you cut something, say what and why, so the operator can put it back.
 
 For instructions that touch credentials, shell, or version control, also read
-`$HOME/dotfiles/.polytoken/skills/prompt-security-hardening/SKILL.md`; to
-pressure-test behavior, `$HOME/dotfiles/.polytoken/skills/testing-skills-with-subagents/SKILL.md`.
+`$HOME/dotfiles/.agents/skills/prompt-security-hardening/SKILL.md`; to
+pressure-test behavior, `$HOME/dotfiles/.agents/skills/testing-skills-with-subagents/SKILL.md`.
