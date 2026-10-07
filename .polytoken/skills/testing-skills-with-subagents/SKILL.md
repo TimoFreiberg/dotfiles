@@ -10,8 +10,7 @@ to know if it does that is to put an agent in the situation and watch.
 This skill is the loop for doing that — borrowed shape from TDD: try
 without, write, try with, refine.
 
-Pair this with [writing-skills](../writing-skills/SKILL.md) when you're
-authoring; that's where the file shape and content patterns live.
+Pair this with the `writing-skills` skill when you're authoring.
 
 ## When this is worth the time
 
@@ -67,8 +66,6 @@ In the Refine phase, try contextual reframings before reaching for forceful
 language. "X breaks the build for the team" usually beats "NEVER do X" — and
 if the contextual version doesn't hold under pressure, that's signal that
 the skill is missing the actual mechanism, not that it needs more emphasis.
-See [`writing-agent-directives`](../writing-agent-directives/SKILL.md) on
-compliance levers.
 
 ## Choosing the model
 

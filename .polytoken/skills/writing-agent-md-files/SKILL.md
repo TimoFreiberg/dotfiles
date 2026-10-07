@@ -9,9 +9,6 @@ These files exist because agents start each session without context. They
 preserve the things you'd otherwise re-explain every time: how to build,
 what the conventions are, why a domain is shaped the way it is.
 
-For directive-writing fundamentals (token economy, motivation framing,
-discovery), see [writing-agent-directives](../writing-agent-directives/SKILL.md).
-
 Tools differ in which file they read — Claude Code reads `CLAUDE.md` (not
 `AGENTS.md`); most other agents read `AGENTS.md`. Keep one real file per
 repo and bridge with a symlink or an `@AGENTS.md` import line so every
