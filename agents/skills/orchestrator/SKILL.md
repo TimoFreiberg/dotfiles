@@ -49,15 +49,6 @@ and a severity (critical/high/medium/low) per finding. Dispatch in parallel:
   config, and defensive code the requirements don't need, and tests that add
   no confidence: tests of library behavior, integration tests for trivial
   branches, redundant cases. Name what can be deleted.
-- **Documentation writer** (only if the change has comments or docs worth
-  writing): one subagent with `model_override: "mg:docs"`. It writes or rewrites
-  the change's docs and comments so a reader without this context understands
-  them standalone, and deletes what says nothing beyond the code. It does not
-  commit.
-
-When the writer finishes, commit its edits and dispatch one **documentation
-reviewer** on that commit: could a reader who knows the product but not this
-work understand it? It reports anything unclear, unexplained, or false.
 
 ## 3. Findings ledger
 
@@ -68,9 +59,8 @@ pass and never open a round by themselves.
 
 ## 4. Repair and verify
 
-One repair implementer gets the plan and open code/test findings; it fixes
-each or rebuts it with evidence. Documentation findings go back to the writer
-(`resume_from`), concurrently. Commit their combined result.
+One repair implementer gets the plan and open findings; it fixes each or
+rebuts it with evidence.
 
 Re-review only the repair delta (`<previous>..<repair>`) with the ledger:
 reviewers confirm fixes and check the blast radius, and do not re-open
@@ -83,7 +73,12 @@ downgrade a severity to pass a round. A failed or malformed reviewer report is
 a failed round, not a pass; fix the cause and rerun it (does not count
 against the cap).
 
-## 5. Report
+## 5. Prose
+
+Once the review loop ends, run @skill:polish-prose on `<base>..<latest>` and
+commit its file edits. Record the final commit ID after this step.
+
+## 6. Report
 
 Final message, omitting empty sections:
 
