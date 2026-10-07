@@ -22,11 +22,11 @@ Record the base commit ID (not the jj change ID) before any implementation.
 
 Choose and apply the level per @skill:review-levels.
 
-Launch reviewers as `general-purpose` with `model_override: "mg:<group>"`.
+Launch reviewers with `model_override: "mg:<group>"`.
 
 ## 1. Implement
 
-One fresh `general-purpose` implementer gets the whole plan. Split into
+One fresh implementer gets the whole plan. Split into
 sequential phases (fresh implementer each, never concurrent) only when the
 plan defines phases or would exhaust one context. Implementers write the tests
 the plan asks for, commit at a verified state, and report changed files,
