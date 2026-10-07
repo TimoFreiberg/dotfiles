@@ -6,12 +6,11 @@ description: "Use when committing, rebasing, inspecting history, or fixing repo 
 For syntax, run `jj <subcommand> --help`.
 
 **Never open an editor or TUI.** Pass `-m` to `jj describe`, `jj commit` and
-`jj squash` (or `--use-destination-message` for squash). Never run `jj split`,
-`jj diffedit`, or bare `jj resolve`. To split a commit, either
-`jj duplicate <rev> --onto <rev>-`, trim the duplicate, then
-`jj rebase -s <rev> -d <duplicate>`; or `jj new <rev>-`,
-`jj restore --from <rev> <paths>`, then `jj rebase -s <rev> -d @`. Either way
-jj drops the moved changes from the original.
+`jj squash` (or `--use-destination-message` for squash). Never run
+`jj diffedit`, bare `jj resolve`, or `jj split` without paths. Split by file
+with `jj split -m "<msg>" <paths>`. For a hunk-level split, `jj new <rev>-`,
+bring in the wanted part with `jj restore --from <rev> <paths>` plus edits,
+then `jj rebase -s <rev> -d @`; jj drops the moved changes from the original.
 
 Colocated repos: a detached git HEAD is normal. Don't fix it, and don't
 change state through git; read-only git commands are fine.
@@ -20,8 +19,9 @@ Other repos: use `jj -R <abs-path>`; `cd` doesn't persist between tool
 calls. Bare `jj` shows the in-progress graph; `jj log -r '<rev>::'` shows
 everything under a commit.
 
-Undo, don't hand-repair. Find the bad operation in `jj op log`, then
-`jj op revert <op-id>`, or `jj op restore <op-id>` to return to that state.
+Undo, don't hand-repair: `jj undo` for the last operation; otherwise find the
+bad one in `jj op log`, then `jj op revert <op-id>`, or `jj op restore <op-id>`
+to return to that state.
 
 Before deleting a branch, `jj git fetch`, then check that
 `jj diff --from main@origin --to <bookmark>` is empty. Local refs may be
