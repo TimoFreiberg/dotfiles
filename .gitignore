@@ -4,4 +4,3 @@
 .todo/.lock
 node_modules/
 config/fish/secrets.fish
-/agents/skills/review-subagent/review-pool.local.yaml

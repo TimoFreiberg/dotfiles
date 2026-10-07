@@ -44,7 +44,7 @@ Most skills land in one of three shapes:
 
 | Type      | What it is                                | Examples                              |
 |-----------|-------------------------------------------|---------------------------------------|
-| Technique | Concrete method with steps                | `review-subagent`, `debug`            |
+| Technique | Concrete method with steps                | `orchestrator`, `debug`               |
 | Pattern   | Mental model for a class of problem       | `prompt-security-hardening` (safe/unsafe pairs) |
 | Reference | API / syntax / tool docs in skill form    | `jj`                                  |
 
