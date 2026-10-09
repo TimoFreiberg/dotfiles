@@ -7,8 +7,9 @@ set -l had_errors 0
 set -l swupd_pending 0
 set -l swupd_labels
 
-# Fetch + fast-forward a jj-backed repo's bookmark to its origin counterpart.
-# A missing directory or origin bookmark is a soft skip.
+# Fetch + fast-forward a jj-backed repo's bookmark to its origin counterpart,
+# then rebase the checked-out branch onto the local bookmark. A missing
+# directory or origin bookmark is a soft skip.
 function update_jj_repo --argument-names name dir bookmark
     if not test -d "$dir"
         echo "  ℹ  $dir not found — skipping $name"
@@ -46,6 +47,12 @@ function update_jj_repo --argument-names name dir bookmark
         end
     else
         echo "  ℹ  $name: $bookmark@origin not found after fetch — skipping fast-forward"
+    end
+
+    echo "  $name: rebasing checked-out branch onto $bookmark..."
+    jj rebase --branch @ --destination "$bookmark"; or begin
+        echo "  ⚠ $name: rebase onto $bookmark failed (exit $status)"
+        set had_err 1
     end
 
     cd "$original_dir"
