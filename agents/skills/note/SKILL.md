@@ -17,5 +17,4 @@ without the file, PR, or error. `<repo>` is the current repository's directory
 name. One line, no sub-bullets.
 
 Don't commit, touch neighboring files, or act on the note; morning grooming
-triages the inbox. Reply only with the line written. The operator usually
-rewinds this exchange afterwards.
+triages the inbox. Reply only with the line written.
