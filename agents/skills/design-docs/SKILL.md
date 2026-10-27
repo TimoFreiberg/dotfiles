@@ -1,19 +1,24 @@
 ---
 name: design-docs
-description: "Use before substantial task work to find and read its Confluence design doc, when asked for a PRD or technical design, and when session work makes the doc stale."
+description: "Use when `find-design-doc` printed a design doc URL, when asked for a PRD or technical design, or when session work makes a found doc stale."
 ---
 
-Each task has one Confluence page under the collection page
-`$DESIGN_DOCS_CONFLUENCE_PARENT_ID` (space `$DESIGN_DOCS_CONFLUENCE_SPACE_KEY`,
-site `$DESIGN_DOCS_CONFLUENCE_CLOUD_ID`). If these are unset or the Atlassian
-tools fail, say so and stop.
+Design docs exist only for tasks with a Jira ticket. `find-design-doc` (on
+`PATH`) is the only lookup: it scans `trunk()..@` descriptions and bookmarks
+for Jira keys and prints `KEY<TAB>TITLE<TAB>URL` per matching page (exit 0),
+`No design doc: …` (exit 1), or an error (exit 2). Run it once; don't search
+Confluence by other means. On "No design doc", carry on without one and don't
+propose creating one. On an error, say so and continue.
 
-Find the page: one the operator names; else a child matching the ticket ID
-from the current change's unmerged commits or bookmarks; else one whose title
-matches the branch or commit titles. Ask when ambiguous. If nothing matches
-and the task isn't routine, propose creating one. Read it before substantial
-work. Code is the source of truth for implementation, the page for intent;
-surface mismatches rather than resolving them.
+Read the found page with the Atlassian tools before substantial work. Code is
+the source of truth for implementation, the page for intent; surface
+mismatches rather than resolving them.
+
+Create a page only when the operator asks: a child of
+`$DESIGN_DOCS_CONFLUENCE_PARENT_ID` (space `$DESIGN_DOCS_CONFLUENCE_SPACE_KEY`,
+site `$DESIGN_DOCS_CONFLUENCE_CLOUD_ID`), titled `KEY: Short name` so the
+script finds it, and make sure a commit description or bookmark carries the
+key.
 
 Make page edits through a subagent with `model_override: "mg:docs"`, passing it
 the page, the update, and the necessary context.

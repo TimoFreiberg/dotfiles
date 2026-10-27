@@ -1,0 +1,125 @@
+#!/usr/bin/env python3
+"""find-design-doc: find the Confluence design doc for the current jj change.
+
+Collects Jira keys (e.g. ABC-123) from the descriptions and bookmarks of
+`trunk()..@`, then looks for pages under the design-docs collection page whose
+title contains one of those keys. With no keys it exits without any network
+call, so ticketless work costs nothing.
+
+Usage: find-design-doc [KEY ...]   (explicit keys skip the jj scan)
+
+Output and exit status:
+  0  one line per matching page: KEY<TAB>TITLE<TAB>URL
+  1  "No design doc: <reason>"
+  2  lookup failed (missing env, jj or HTTP error); message on stderr
+
+Env: JIRA_URL (https://<site>.atlassian.net), JIRA_USER_EMAIL, JIRA_API_TOKEN,
+     DESIGN_DOCS_CONFLUENCE_PARENT_ID
+"""
+import base64
+import json
+import os
+import re
+import subprocess
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+
+KEY_RE = re.compile(r"\b[A-Z][A-Z0-9]{1,9}-[0-9]+\b")
+# Uppercase-dash-number tokens that are not Jira tickets.
+NOT_TICKETS = {"UTF", "SHA", "ISO", "RFC", "CVE", "HTTP", "TLS", "AES", "MD", "X"}
+
+JJ_TEMPLATE = 'description ++ "\\n" ++ bookmarks.map(|b| b.name()).join(" ") ++ "\\n"'
+
+
+def fail(msg):
+    print(f"find-design-doc: {msg}", file=sys.stderr)
+    sys.exit(2)
+
+
+def none_found(reason):
+    print(f"No design doc: {reason}")
+    sys.exit(1)
+
+
+def keys_from_jj():
+    try:
+        out = subprocess.run(
+            ["jj", "log", "--no-graph", "--ignore-working-copy",
+             "-r", "trunk()..@", "-T", JJ_TEMPLATE],
+            capture_output=True, text=True, check=True, timeout=20,
+        ).stdout
+    except FileNotFoundError:
+        fail("jj not found")
+    except subprocess.CalledProcessError as e:
+        if "no jj repo" in e.stderr.lower() or "there is no jj repo" in e.stderr.lower():
+            none_found("not in a jj repo")
+        fail(f"jj log failed: {e.stderr.strip()}")
+    return extract_keys(out)
+
+
+def extract_keys(text):
+    seen = []
+    for key in KEY_RE.findall(text):
+        if key.split("-")[0] not in NOT_TICKETS and key not in seen:
+            seen.append(key)
+    return seen
+
+
+def search(keys):
+    env = {k: os.environ.get(k, "") for k in (
+        "JIRA_URL", "JIRA_USER_EMAIL", "JIRA_API_TOKEN",
+        "DESIGN_DOCS_CONFLUENCE_PARENT_ID")}
+    missing = [k for k, v in env.items() if not v]
+    if missing:
+        fail("missing env: " + ", ".join(missing))
+
+    title_terms = " OR ".join(f'title ~ "{k}"' for k in keys)
+    cql = (f"type = page AND ancestor = {env['DESIGN_DOCS_CONFLUENCE_PARENT_ID']}"
+           f" AND ({title_terms})")
+    base = env["JIRA_URL"].rstrip("/") + "/wiki"
+    url = f"{base}/rest/api/search?" + urllib.parse.urlencode({"cql": cql, "limit": 25})
+    auth = base64.b64encode(
+        f"{env['JIRA_USER_EMAIL']}:{env['JIRA_API_TOKEN']}".encode()).decode()
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"Basic {auth}", "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.load(resp)
+    except urllib.error.HTTPError as e:
+        fail(f"Confluence search returned HTTP {e.code}")
+    except (urllib.error.URLError, TimeoutError) as e:
+        fail(f"Confluence search failed: {e}")
+
+    link_base = data.get("_links", {}).get("base", base)
+    hits = []
+    for r in data.get("results", []):
+        title = r.get("content", {}).get("title") or r.get("title", "")
+        webui = r.get("content", {}).get("_links", {}).get("webui") or r.get("url", "")
+        # CQL title search is fuzzy; keep only exact key matches.
+        for k in keys:
+            if re.search(rf"(?<![A-Z0-9-]){re.escape(k)}(?![0-9])", title):
+                hits.append((k, title, link_base + webui))
+                break
+    return hits
+
+
+def main():
+    args = sys.argv[1:]
+    if args and args[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return
+    keys = extract_keys(" ".join(args)) if args else keys_from_jj()
+    if not keys:
+        none_found("no Jira key in trunk()..@ descriptions or bookmarks")
+    hits = search(keys)
+    if not hits:
+        none_found("no page under the design-docs parent titled with "
+                   + ", ".join(keys))
+    for k, title, url in hits:
+        print(f"{k}\t{title}\t{url}")
+
+
+if __name__ == "__main__":
+    main()
