@@ -15,8 +15,3 @@ If anything goes wrong with jj,
 - Imperative mood, ≤72 chars, no trailing period.
 - Check `jj log` for existing conventions in the project.
 - Skip footers and sign-offs.
-
-## Design Docs
-
-Before task work in a jj repo, run `find-design-doc` once. If it prints a
-URL, load the design-docs skill; otherwise don't look for a design doc.
