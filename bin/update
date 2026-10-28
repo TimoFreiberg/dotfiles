@@ -220,7 +220,7 @@ echo "────────────────────────�
 
 set -l tools_to_check \
     atuin bat bun cargo cargo-binstall cargo-nextest cargo-sweep \
-    curl direnv eza fd fzf gh git jj just mise nvim pi polytoken rg \
+    crit curl direnv eza fd fzf gh git jj just mise nvim pi polytoken rg \
     rustc rustup shellcheck ssh starship tig tmux tokei trash uv zoxide zstd
 
 if test (uname -s) = Darwin

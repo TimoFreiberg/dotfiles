@@ -7,6 +7,7 @@ cargo-binstall = "latest"
 "cargo:cargo-sweep" = "latest"
 "cargo:jj-conflict-workspace" = { version = "latest", bin = "jcw" }
 chezmoi = "latest"
+"github:tomasz-tomczyk/crit" = { version = "latest", format = "raw", bin = "crit" }
 delta = "latest"
 direnv = "latest"
 eza = "latest"
