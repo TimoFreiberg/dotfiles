@@ -16,6 +16,14 @@
     "enabled": true,
   },
   "autosave": "on_focus_change",
+  "auto_install_extensions": {
+    "rust-glancer": true,
+  },
+  "languages": {
+    "Rust": {
+      "language_servers": ["rust-glancer", "!rust-analyzer"],
+    },
+  },
   "buffer_font_family": "Comic Code",
   "vim_mode": true,
   "icon_theme": {
