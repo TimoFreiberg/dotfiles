@@ -48,7 +48,13 @@ and a severity (critical/high/medium/low) per finding. Dispatch in parallel:
 - **Leanness:** are we going galaxy-brained? Flag machinery, abstraction,
   config, and defensive code the requirements don't need, and tests that add
   no confidence: tests of library behavior, integration tests for trivial
-  branches, redundant cases. Name what can be deleted.
+  branches, redundant cases. Name what can be deleted. Anything the plan
+  didn't ask for has to justify itself: does it guard against something
+  likely, or just add verification for its own sake?
+
+Repair implementers follow the same rule: a finding that asks for scope the
+plan lacks (a feature, workaround, or test coverage beyond the acceptance
+criteria) gets rebutted, or added only when it fixes a real defect.
 
 ## 3. Repair and verify
 
@@ -79,11 +85,14 @@ Final message, omitting empty sections:
 
 1. **Outcome:** complete, complete with unresolved findings, or blocked.
 2. **What changed:** short summary, base and final commit IDs.
-3. **Tests:** new or changed tests by acceptance criterion; say explicitly
+3. **Beyond the plan:** everything added that the plan didn't ask for
+   (features, workarounds, extra tests, review-driven additions), each with
+   why it stayed, so the operator can cut it.
+4. **Tests:** new or changed tests by acceptance criterion; say explicitly
    which criteria have none.
-4. **How to verify:** commands and observable behavior.
-5. **Rebuttals:** each with one-line evidence, so the operator can overrule.
-6. **Unresolved findings**, as a block pasteable into a fresh session: plan
+5. **How to verify:** commands and observable behavior.
+6. **Rebuttals:** each with one-line evidence, so the operator can overrule.
+7. **Unresolved findings**, as a block pasteable into a fresh session: plan
    path, final and base commit IDs, review level, then per finding its id,
    severity, location, why unresolved, what to do, and evidence.
-7. **Side observations:** out-of-scope issues with `file:line`.
+8. **Side observations:** out-of-scope issues with `file:line`.

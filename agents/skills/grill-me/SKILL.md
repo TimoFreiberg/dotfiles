@@ -17,6 +17,11 @@ another question still open belongs to a later round.
 Treat the ontology as part of the design: which concepts exist, what they are
 called, and whether they fit the domain and the codebase's existing terms.
 
+State the assumptions that bound the design as questions too, especially
+which side has to change: planning a change here assumes we can't, or don't
+want to, change the other system or the upstream dependency. The operator may
+know that changing the other side is the cheaper path.
+
 Finding facts is your job, never the operator's. When a frontier question
 needs a fact from the code or environment, dispatch a subagent to find it
 rather than asking. Don't block on it: only questions downstream of a running
