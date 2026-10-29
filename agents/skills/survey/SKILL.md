@@ -11,7 +11,9 @@ as this gets.
 
 1. Ask the operator for a brain dump of what they think needs to happen and
    what they know or suspect. If the invoking message already contains it,
-   use that. Don't correct it yet; that's the next step.
+   use that. If the work has a Jira ticket, read it first with
+   [`ticket-context`](../task-ticket/ticket-context) and treat it as part of
+   the dump. Don't correct it yet; that's the next step.
 2. Check it against the code with subagents. Mark each claim confirmed, wrong
    (with evidence), or unknown. Unknown means the code can't answer it
    (intent, plans, ownership decisions); everything else, find out. Then add
