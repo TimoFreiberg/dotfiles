@@ -8,10 +8,11 @@ they need to know what they are approving and what the codebase will contain
 afterwards. Don't post comments, edit code, or give a merge verdict.
 
 Settle the scope first (PR URL, branch, or revset); ask if it's unclear.
-Check out someone else's PR in a jj workspace so references point at real
-code. Read the stated intent if there is one: the PR description, ticket, or
-plan. Then dispatch two jobs in parallel, giving both the scope, the checkout,
-and any stated intent:
+Check out someone else's PR in a jj workspace per @skill:jj-workspaces so
+references point at real code, and remove the workspace when done. Read the
+stated intent if there is one: the PR description, ticket, or plan. Then
+dispatch two jobs in parallel, giving both the scope, the checkout, and any
+stated intent:
 
 - **Findings:** reviewers with `model_override: "mg:review_thorough"`, one
   per role. Correctness: does it do what it claims, is it wired up and

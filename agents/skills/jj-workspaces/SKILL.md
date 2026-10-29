@@ -15,7 +15,8 @@ ignore file if missing), named after the task:
     jj workspace add --name NAME [-r <rev>] <repo>/.workspaces/NAME
     test ! -f <repo>/AGENTS.local.md || cp <repo>/AGENTS.local.md <repo>/.workspaces/NAME/
 
-Then add a todo to clean it up. Work in it with `pushd .workspaces/NAME`.
+Always remove it when the task is done; no workspace outlives its task. Add a
+todo for that now. Work in it with `pushd .workspaces/NAME`.
 If it goes stale, follow the `jj` skill.
 
 To finish: commit, check that `@` is empty and `@-` holds the work, leave the
