@@ -15,6 +15,11 @@ set -x EDITOR nvim
 set -x VISUAL nvim
 set -x XDG_CONFIG_HOME $HOME/.config
 
+# Prefer Homebrew fish for programs that choose a shell from the environment.
+if test (uname -s) = Darwin; and test -x /opt/homebrew/bin/fish
+    set -gx SHELL /opt/homebrew/bin/fish
+end
+
 # Keep mise-managed global tools available to interactive and scripted Fish.
 if type -q mise
     if status is-interactive

@@ -22,6 +22,11 @@ path=(
 path=(${^path}(N-/))
 export PATH
 
+# Prefer Homebrew fish for programs that choose a shell from the environment.
+if [[ $OSTYPE == darwin* && -x /opt/homebrew/bin/fish ]]; then
+  export SHELL=/opt/homebrew/bin/fish
+fi
+
 # Expose globally configured mise tools to Zsh and its child processes.
 if command -v mise >/dev/null 2>&1; then
   eval "$(mise activate zsh --shims)"
