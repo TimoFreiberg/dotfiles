@@ -14,11 +14,18 @@ function abbreviatedPath(path, homePath) {
   return current.startsWith(prefix) ? `~/${path.slice(prefix.length)}` : path;
 }
 
-function cwdDisplay(space, path, localHome) {
-  if (!path) return null;
-  const workspace = typeof space.folder === "string"
+function workspacePath(space, all, localHome) {
+  for (const tab of space.tabs) {
+    const pane = all.find(p => p.tab === tab.id && p.terminal && p.cwd);
+    if (pane) return pane.cwd;
+  }
+  return typeof space.folder === "string"
     ? (space.folder || (space.machine == null ? localHome : null))
     : null;
+}
+
+function cwdDisplay(space, path, workspace, localHome) {
+  if (!path) return null;
   if (workspace && normalizePath(path) === normalizePath(workspace)) return null;
   return {
     text: space.machine == null ? abbreviatedPath(path, localHome) : path,
@@ -88,13 +95,10 @@ export default class WorkspaceTree extends View {
   row(space, tab, all, t) {
     const pane = this.representative(tab, all);
     const title = tab.named ? tab.name : (pane?.title || pane?.program?.name || tab.name || "Terminal");
-    const agent = pane?.program?.agent && pane.program.icon
-      ? pane
-      : all
-        .filter(p => p.tab === tab.id && p.terminal && p.program?.agent && p.program?.icon)
-        .sort((a, b) => a.terminal < b.terminal ? -1 : a.terminal > b.terminal ? 1 : 0)[0];
+    const agent = all.find(p => p.tab === tab.id && p.terminal && p.program?.agent && p.program?.icon);
     const path = pane?.cwd;
-    const cwd = cwdDisplay(space, path, path && space.machine == null ? home() : null);
+    const localHome = path && space.machine == null ? home() : null;
+    const cwd = cwdDisplay(space, path, workspacePath(space, all, localHome), localHome);
     return h_flex().id(`session-${tab.id}`).h(29).flex_none().min_w(0).pl(27).pr(6).gap(6).items_center().rounded(6)
       .bg(space.active && tab.active ? t.selected : t.chrome).hover(s => s.bg(t.hover)).cursor_pointer()
       .on_click(() => { if (!space.active) run("space.select", { id: space.id }); run("tab.select", { id: tab.id }); })
@@ -104,6 +108,7 @@ export default class WorkspaceTree extends View {
         ? svg(agent.program.icon).size(14).flex_none().text_color(t.muted)
         : image(agent.program.icon).size(14).flex_none()))
       .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).tooltip(title).child(title))
+      .when(tab.panes > 1, el => el.child(div().flex_none().text_color(t.dim).tooltip(`${tab.panes} panes`).child(`${tab.panes}`)))
       .when(Boolean(cwd), el => el.child(div().w_1_3().max_w(140).flex_none().overflow_hidden().text_ellipsis_start().text_color(t.dim).tooltip(cwd.tooltip).child(cwd.text)));
   }
 

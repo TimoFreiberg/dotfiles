@@ -55,13 +55,39 @@ const row = sidebar.row(space, tab, modelPanes, {});
 row.events.on_click();
 assert.deepEqual(calls.splice(0), [["space.select", { id: "s1" }], ["tab.select", { id: "t1" }]]);
 assert.equal(row.nodes[1].tip, "Second");
-assert.equal(row.nodes[2].tip, "/two");
+assert.equal(row.nodes.length, 2, "the first live terminal's cwd is hidden");
+const baselineTabs = [{ id: "baseline-first", name: "First" }, { id: "baseline-second", name: "Second" }];
+const baselineSpace = { ...space, folder: modelHome, tabs: baselineTabs };
+const baselinePanes = [
+  { tab: baselineTabs[0].id, terminal: "first", title: "First", cwd: `${modelHome}/repo`, program: {} },
+  { tab: baselineTabs[1].id, terminal: "second", title: "Second", cwd: `${modelHome}/repo`, program: {} },
+];
+for (const testTab of baselineTabs) {
+  assert.equal(sidebar.row(baselineSpace, testTab, baselinePanes, {}).nodes.length, 2,
+    "live first terminal cwd, not stale stored home, is the workspace baseline");
+}
+
+const differingPanes = [baselinePanes[0], { ...baselinePanes[1], cwd: `${modelHome}/repo/sub` }];
+assert.equal(sidebar.row(baselineSpace, baselineTabs[1], differingPanes, {}).nodes[2].nodes[0], "~/repo/sub", "a different live cwd remains visible");
+const reversePanes = [...baselinePanes].reverse();
+reversePanes[0] = { ...reversePanes[0], cwd: `${modelHome}/other` };
+assert.equal(sidebar.row(baselineSpace, baselineTabs[0], reversePanes, {}).nodes.length, 2, "tab order takes precedence over global pane order");
+const splitBaseline = [
+  { tab: baselineTabs[0].id, terminal: null, cwd: "/mod" },
+  { tab: baselineTabs[0].id, terminal: "no-cwd", cwd: "" },
+  { ...baselinePanes[0], cwd: "/first-live/" },
+  { ...baselinePanes[0], terminal: "later", cwd: "/later" },
+];
+assert.equal(sandbox.workspacePath(baselineSpace, splitBaseline, modelHome), "/first-live/", "the first terminal pane with a live cwd supplies the baseline");
+
 function renderCwdRow(cwd, folder, machine = null) {
   const id = `cwd-${++cwdTestId}`;
   const testTab = { id, name: id, named: false, active: false };
-  const testSpace = { ...space, id: `${id}-space`, folder, machine, tabs: [testTab] };
+  const baselineTab = { id: `${id}-baseline` };
+  const testSpace = { ...space, id: `${id}-space`, folder, machine, tabs: [baselineTab, testTab] };
+  const baseline = { tab: baselineTab.id, terminal: baselineTab.id, cwd: folder || (machine == null ? modelHome : null) };
   const terminal = { tab: id, terminal: id, title: id, cwd, program: {} };
-  return sidebar.row(testSpace, testTab, [terminal], {});
+  return sidebar.row(testSpace, testTab, [baseline, terminal], {});
 }
 function renderCwd(cwd, folder, machine = null) {
   return renderCwdRow(cwd, folder, machine).nodes[2] ?? null;
@@ -73,18 +99,22 @@ const homeChild = `${modelHome}/projects/demo`;
 const childNode = renderCwd(homeChild, "/workspace");
 assert.equal(childNode.nodes[0], "~/projects/demo");
 assert.equal(childNode.tip, homeChild, "the shortened cwd still has a full-path tooltip");
+assert.equal(childNode.calls.some(([name]) => name === "text_ellipsis_start"), true, "long cwd paths truncate at the start");
 const nearPrefix = `${modelHome}-archive/project`;
 assert.equal(renderCwd(nearPrefix, "/workspace").nodes[0], nearPrefix, "sibling prefixes are not home paths");
 const equalPathRow = renderCwdRow("/workspace/", "/workspace");
 assert.equal(equalPathRow.nodes.length, 2, "equal cwd has no trailing cwd node");
 assert.equal(equalPathRow.nodes[1].calls.some(([name]) => name === "flex_1"), true, "the title keeps the freed cwd width");
 assert.equal(renderCwd("/workspace/sub", "/workspace").nodes[0], "/workspace/sub", "a different cwd remains visible");
-assert.equal(renderCwd("/workspace", undefined).nodes[0], "/workspace", "an unavailable workspace path does not suppress cwd");
+assert.equal(sandbox.workspacePath({ ...space, folder: "/stored/", tabs: [tab] }, [], modelHome), "/stored/", "stored folder is the fallback without a live cwd");
+assert.equal(sandbox.workspacePath({ ...space, folder: "", tabs: [tab] }, [], modelHome), modelHome, "empty local stored folder means home");
+assert.equal(sandbox.workspacePath({ ...space, folder: "", machine: "builder", tabs: [tab] }, [], null), null, "empty remote stored folder is not local home");
+assert.equal(sandbox.workspacePath({ ...space, folder: undefined, tabs: [tab] }, [], modelHome), null, "an unavailable stored folder stays unknown");
 const callsBeforeRemote = homeCalls;
 const remotePath = `${modelHome}/remote/project`;
 assert.equal(renderCwd(remotePath, "/remote/workspace", "builder").nodes[0], remotePath, "remote paths are not abbreviated with local home");
 assert.equal(homeCalls, callsBeforeRemote, "remote spaces do not request local home");
-assert.equal(renderCwd(modelHome, undefined, "builder").nodes[0], modelHome, "a remote path that looks like local home stays full without a workspace path");
+assert.equal(sandbox.cwdDisplay({ machine: "builder" }, modelHome, null, null).text, modelHome, "a remote path that looks like local home stays full without a workspace path");
 const iconTheme = { muted: "muted", dim: "dim", foreground: "foreground", selected: "selected", chrome: "chrome", hover: "hover" };
 const agentTab = { id: "agent-tab", name: "Agent", named: false, active: false, status: "working" };
 const agentSpace = { ...space, id: "agent-space", folder: "/workspace", tabs: [agentTab] };
@@ -98,7 +128,7 @@ assert.equal(agentRow.nodes[1].source, "icons/codex.svg", "the chosen representa
 assert.equal(agentRow.nodes[1].calls.find(([name]) => name === "text_color")[1], "muted", "tinted SVG icons use Herdr's tint behavior");
 assert.equal(agentRow.nodes[2].nodes[0], "Agent session");
 const reorderedAgentRow = sidebar.row(agentSpace, agentTab, [anotherAgentPane, agentPane, ordinaryPane], iconTheme);
-assert.equal(reorderedAgentRow.nodes[1].source, "icons/codex.svg", "the representative icon stays stable across pane ordering");
+assert.equal(reorderedAgentRow.nodes[1].source, "icons/other.svg", "the first agent icon follows pane order, independently of the representative");
 assert.equal(reorderedAgentRow.nodes[2].nodes[0], "Agent session", "the representative title stays stable across pane ordering");
 const shellTab = { id: "shell-tab", name: "Shell", named: false, active: false };
 const shellPane = { tab: shellTab.id, terminal: "shell", title: "Shell session", cwd: "/workspace", program: {} };
@@ -107,13 +137,21 @@ const earlierFallbackAgent = { tab: shellTab.id, terminal: "agent-a", title: "Ea
 sidebar.representatives[shellTab.id] = shellPane.terminal;
 const shellSpace = { ...space, id: "shell-space", folder: "/workspace", tabs: [shellTab] };
 const shellRow = sidebar.row(shellSpace, shellTab, [fallbackAgent, shellPane, earlierFallbackAgent], iconTheme);
-assert.equal(shellRow.nodes[1].kind, "image", "full-color agent icons use image");
-assert.equal(shellRow.nodes[1].source, "icons/full-color.png", "the fallback uses the lowest terminal address, not pane order");
+assert.equal(shellRow.nodes[1].kind, "svg", "tinted agent icons use svg");
+assert.equal(shellRow.nodes[1].source, "icons/later.png", "the first agent icon follows pane order, not terminal address");
 assert.equal(shellRow.nodes[2].nodes[0], "Shell session", "an agent icon does not replace an ordinary representative's title");
 const reorderedShellRow = sidebar.row(shellSpace, shellTab, [earlierFallbackAgent, fallbackAgent, shellPane], iconTheme);
-assert.equal(reorderedShellRow.nodes[1].source, "icons/full-color.png", "fallback icon stays the same after pane reordering");
-assert.equal(reorderedShellRow.nodes[2].nodes[0], "Shell session", "fallback selection does not change the shell representative title");
+assert.equal(reorderedShellRow.nodes[1].kind, "image", "full-color agent icons use image");
+assert.equal(reorderedShellRow.nodes[1].source, "icons/full-color.png", "reordering changes the first icon");
+assert.equal(reorderedShellRow.nodes[2].nodes[0], "Shell session", "icon selection does not change the shell representative title");
 assert.equal(row.nodes.some(node => node?.kind === "svg" || node?.kind === "image"), false, "ordinary panes do not receive a shell icon");
+for (const count of [0, 1]) {
+  assert.equal(sidebar.row(space, { ...tab, panes: count }, modelPanes, iconTheme).nodes.length, 2, "zero and one panes have no count");
+}
+const splitRow = sidebar.row(space, { ...tab, panes: 3 }, modelPanes, iconTheme);
+assert.equal(splitRow.nodes[2].nodes[0], "3", "multiple panes show their count after the title");
+assert.equal(splitRow.nodes[2].tip, "3 panes");
+assert.equal(splitRow.nodes[2].calls.find(([name]) => name === "text_color")[1], "dim");
 const renderedSidebar = sidebar.render();
 const filesTool = lookup(renderedSidebar, "files-tool"), changesTool = lookup(renderedSidebar, "changes-tool");
 const settingsTool = lookup(renderedSidebar, "settings-tool"), paletteTool = lookup(renderedSidebar, "palette-tool");
