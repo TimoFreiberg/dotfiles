@@ -99,8 +99,9 @@ export default class WorkspaceTree extends View {
     const remote = ms.some(m => m.name !== null);
     const groups = remote ? ms : [{ name: null, layout: "ready" }];
     const panel = find(layout(), "panel"), body = find(layout(), "panel-body");
-    // After Herdr updates, compare shipped workspace/tab controls and capabilities.
-    // Put newly supported UI features without a dedicated home in these bottom tools.
+    // nothing here tracks Herdr releases. After a Herdr update, compare the shipped
+    // workspace and tab controls with this mod and put newly supported features
+    // that have no place elsewhere in these bottom tools
     const tool = (id, label, action, on = false) => h_flex().id(id).h(27).px(8).items_center().rounded(6).cursor_pointer()
       .bg(on ? t.selected : t.chrome).text_color(t.muted).hover(s => s.bg(t.hover).text_color(t.foreground)).on_click(action).child(label);
     return v_flex().size_full().min_h(0).bg(t.chrome).text_size(12.5)
