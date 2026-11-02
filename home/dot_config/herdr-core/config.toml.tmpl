@@ -1,0 +1,8 @@
+{{- $fish := lookPath "fish" -}}
+{{- if not $fish -}}
+{{- fail "fish is required for herdr-core; install it and ensure it is on PATH" -}}
+{{- end -}}
+{{- if not (isAbs $fish) -}}
+{{- fail "fish must resolve to an absolute executable path for herdr-core" -}}
+{{- end -}}
+{{ dict "shell" (list $fish) | toToml }}
