@@ -51,7 +51,7 @@ if status is-interactive
     abbr --add --global c cargo
     abbr --add --global tn tmux-new
     abbr --add --global zi 'z -i'
-    abbr --add --global pt polytoken
+    abbr --add --global pt herdr-polytoken
 
     # git aliases
     abbr --add --global gl 'git log'

@@ -4,4 +4,5 @@
 {{- end -}}
 {{- if ne .chezmoi.os "darwin" }}
 .config/karabiner/
+.config/herdr-app/keys.json
 {{- end }}

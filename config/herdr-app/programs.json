@@ -1,0 +1,11 @@
+{
+  "programs": {
+    "polytoken": {
+      "name": "Polytoken",
+      "icon": "polytoken-icons/polytoken.webp",
+      "tint": false,
+      "tile": "#6d28d9",
+      "run": ["herdr-polytoken", "new"]
+    }
+  }
+}

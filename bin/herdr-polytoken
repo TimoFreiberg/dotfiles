@@ -1,0 +1,53 @@
+#!/bin/bash
+# Bridge Polytoken's built-in Herdr status reporter to herdr-core with OSC 7501.
+# All normal arguments and session storage remain Polytoken's responsibility.
+
+# Keep this marker for callbacks from sessions started with the old hpt command.
+if [[ ${HPT_REPORTER:-} == 1 && ${1:-} == pane ]]; then
+    case ${2:-} in
+        report-agent)
+            shift 2
+            state=
+            while (($#)); do
+                if [[ $1 == --state ]]; then
+                    # Reject missing or repeated states rather than reporting stale data.
+                    [[ $# -ge 2 && -z $state ]] || exit 2
+                    state=$2
+                    shift 2
+                else
+                    shift
+                fi
+            done
+            case $state in
+                working|idle|blocked)
+                    printf '\033]7501;state=%s:app=polytoken\033\134' "$state" > /dev/tty
+                    ;;
+                *) exit 2 ;;
+            esac
+            ;;
+        release-agent)
+            printf '\033]7501;state=clear\033\134' > /dev/tty
+            ;;
+        report-metadata)
+            # OSC 7501 state reports do not carry Polytoken's model or facet.
+            ;;
+        *) exit 2 ;;
+    esac
+    exit $?
+fi
+
+# Preserve standalone Polytoken and the legacy Herdr TUI environment.
+if [[ -z ${HC_TERMINAL_ID:-} ]]; then
+    exec polytoken "$@"
+fi
+
+# Reporter subprocesses have null standard streams; they reopen /dev/tty.
+# An absolute path also keeps callbacks working after a project changes directory.
+script_path=${BASH_SOURCE[0]}
+[[ $script_path == */* ]] || script_path=./$script_path
+script_path=$(CDPATH='' cd -P -- "${script_path%/*}" >/dev/null && printf '%s/%s' "$PWD" "${script_path##*/}") || exit 1
+export HPT_REPORTER=1
+export HERDR_ENV=1
+export HERDR_BIN_PATH="$script_path"
+export HERDR_PANE_ID="$HC_TERMINAL_ID"
+exec polytoken "$@"

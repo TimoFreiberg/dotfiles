@@ -1,0 +1,5 @@
+#!/bin/bash
+# Forward callbacks from existing Polytoken sessions that still call hpt.
+script_path=${BASH_SOURCE[0]}
+[[ $script_path == */* ]] || script_path=./$script_path
+exec "${script_path%/*}/herdr-polytoken" "$@"

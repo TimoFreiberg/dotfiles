@@ -25,3 +25,11 @@ karabiner/automatic_backups
 !atuin/config.toml
 !polytoken
 !zellij
+!herdr-app
+herdr-app/*
+!herdr-app/README.md
+!herdr-app/keys.json
+!herdr-app/programs.json
+!herdr-app/polytoken-icons
+herdr-app/polytoken-icons/*
+!herdr-app/polytoken-icons/polytoken.webp
