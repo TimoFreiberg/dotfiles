@@ -1,6 +1,30 @@
-import { View, div, svg } from "gpui-kit";
+import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { spaces, panes, machines, theme, run, openOverlay, layout, window, props } from "herdr";
+import { spaces, panes, machines, theme, run, openOverlay, layout, window, props, home } from "herdr";
+
+function normalizePath(path) {
+  return path.replace(/\/+$/, "") || "/";
+}
+
+function abbreviatedPath(path, homePath) {
+  if (!homePath) return path;
+  const root = normalizePath(homePath), current = normalizePath(path);
+  if (current === root) return "~";
+  const prefix = root === "/" ? "/" : `${root}/`;
+  return current.startsWith(prefix) ? `~/${path.slice(prefix.length)}` : path;
+}
+
+function cwdDisplay(space, path, localHome) {
+  if (!path) return null;
+  const workspace = typeof space.folder === "string"
+    ? (space.folder || (space.machine == null ? localHome : null))
+    : null;
+  if (workspace && normalizePath(path) === normalizePath(workspace)) return null;
+  return {
+    text: space.machine == null ? abbreviatedPath(path, localHome) : path,
+    tooltip: path,
+  };
+}
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -64,14 +88,21 @@ export default class WorkspaceTree extends View {
   row(space, tab, all, t) {
     const pane = this.representative(tab, all);
     const title = tab.named ? tab.name : (pane?.title || pane?.program?.name || tab.name || "Terminal");
-    const cwd = pane?.cwd;
+    const agent = pane?.program?.agent && pane.program.icon
+      ? pane
+      : all.find(p => p.tab === tab.id && p.program?.agent && p.program?.icon);
+    const path = pane?.cwd;
+    const cwd = cwdDisplay(space, path, path && space.machine == null ? home() : null);
     return h_flex().id(`session-${tab.id}`).h(29).flex_none().min_w(0).pl(27).pr(6).gap(6).items_center().rounded(6)
       .bg(space.active && tab.active ? t.selected : t.chrome).hover(s => s.bg(t.hover)).cursor_pointer()
       .on_click(() => { if (!space.active) run("space.select", { id: space.id }); run("tab.select", { id: tab.id }); })
       .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "menu", kind: "popup", width: 200, props: { tab: "tab", target: { id: tab.id, space: space.id } } }); })
       .child(this.status(tab.status, t))
+      .when(Boolean(agent), el => el.child(agent.program.tint
+        ? svg(agent.program.icon).size(14).flex_none().text_color(t.muted)
+        : image(agent.program.icon).size(14).flex_none()))
       .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).tooltip(title).child(title))
-      .when(Boolean(cwd), el => el.child(div().w_1_3().max_w(140).flex_none().overflow_hidden().text_ellipsis_start().text_color(t.dim).tooltip(cwd).child(cwd)));
+      .when(Boolean(cwd), el => el.child(div().w_1_3().max_w(140).flex_none().overflow_hidden().text_ellipsis_start().text_color(t.dim).tooltip(cwd.tooltip).child(cwd.text)));
   }
 
   space(space, all, t, available) {
@@ -102,8 +133,10 @@ export default class WorkspaceTree extends View {
     // nothing here tracks Herdr releases. After a Herdr update, compare the shipped
     // workspace and tab controls with this mod and put newly supported features
     // that have no place elsewhere in these bottom tools
-    const tool = (id, label, action, on = false) => h_flex().id(id).h(27).px(8).items_center().rounded(6).cursor_pointer()
-      .bg(on ? t.selected : t.chrome).text_color(t.muted).hover(s => s.bg(t.hover).text_color(t.foreground)).on_click(action).child(label);
+    const tool = (id, label, action, on = false, subtle = false, icon = null) => h_flex().id(id).h(27).px(8).items_center().rounded(6).cursor_pointer()
+      .when(Boolean(icon), el => el.gap(6).child(svg(icon).size(14).flex_none().text_color(t.muted)))
+      .text_size(subtle ? 11.5 : 12.5).bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : subtle ? t.dim : t.muted)
+      .hover(s => s.bg(t.hover).text_color(t.foreground)).on_click(action).child(label);
     return v_flex().size_full().min_h(0).bg(t.chrome).text_size(12.5)
       .child(h_flex().h(32).px(12).items_center().justify_between().text_color(t.dim).child("Workspaces")
         .child(div().id("workspace-create").size(24).flex().items_center().justify_center().rounded(6).tooltip("New workspace").hover(s => s.bg(t.hover)).on_click(() => run("space.new")).child("+")))
@@ -113,9 +146,9 @@ export default class WorkspaceTree extends View {
         return [...heading, ...matching.map(s => this.space(s, all, t, m.layout === "ready"))];
       })))
       .child(v_flex().border_t(1).border_color(t.border).p(6)
-        .child(tool("files-tool", "Files", () => this.togglePanel("files"), panel && !panel.hidden && body?.active === "files"))
-        .child(tool("changes-tool", "Changes", () => this.togglePanel("changes"), panel && !panel.hidden && body?.active === "changes"))
-        .child(tool("settings-tool", "Settings", () => run("app.settings")))
+        .child(tool("files-tool", "Files", () => this.togglePanel("files"), panel && !panel.hidden && body?.active === "files", true))
+        .child(tool("changes-tool", "Changes", () => this.togglePanel("changes"), panel && !panel.hidden && body?.active === "changes", true))
+        .child(tool("settings-tool", "Settings", () => run("app.settings"), false, false, "mods/workspace-chrome/settings.svg"))
         .child(tool("palette-tool", "Command palette", () => run("app.palette")))
         .when(Boolean(window()?.buttons), el => el.child(h_flex().children([
           tool("minimize-window", "−", () => run("window.minimize")),
