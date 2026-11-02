@@ -122,7 +122,14 @@ const ordinaryPane = { tab: agentTab.id, terminal: "shell-pane", title: "Shell",
 const agentPane = { tab: agentTab.id, terminal: "agent-pane", title: "Agent session", cwd: "/workspace", program: { agent: true, name: "Codex", icon: "icons/codex.svg", tint: true } };
 const anotherAgentPane = { tab: agentTab.id, terminal: "other-agent", title: "Other agent", cwd: "/workspace", program: { agent: true, name: "Other", icon: "icons/other.svg", tint: true } };
 const agentRow = sidebar.row(agentSpace, agentTab, [ordinaryPane, agentPane, anotherAgentPane], iconTheme);
-assert.equal(agentRow.nodes[0].source, "mods/workspace-chrome/spinner.svg", "the status marker remains first");
+assert.equal(agentRow.nodes[0].source, "mods/workspace-chrome/spinner.svg", "the working session spinner remains first");
+const workingHeader = lookup(sidebar.space({ ...agentSpace, status: "working" }, [], iconTheme, true), "workspace-agent-space");
+assert.equal(workingHeader.nodes.length, 3, "a working workspace has no status marker or spacer");
+for (const status of ["blocked", "done"]) {
+  const header = lookup(sidebar.space({ ...agentSpace, status }, [], { ...iconTheme, [status]: status }, true), "workspace-agent-space");
+  assert.equal(header.nodes.length, 4, `${status} workspace retains its status marker`);
+  assert.equal(header.nodes[2].calls.find(([name]) => name === "bg")[1], status);
+}
 assert.equal(agentRow.nodes[1].kind, "svg");
 assert.equal(agentRow.nodes[1].source, "icons/codex.svg", "the chosen representative's agent icon is shown");
 assert.equal(agentRow.nodes[1].calls.find(([name]) => name === "text_color")[1], "muted", "tinted SVG icons use Herdr's tint behavior");
