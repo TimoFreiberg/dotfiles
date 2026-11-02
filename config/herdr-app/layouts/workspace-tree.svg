@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400" viewBox="0 0 640 400">
+  <rect width="640" height="400" rx="12" fill="#16191e"/>
+  <path fill="#252a31" d="M0 12Q0 0 12 0H190V400H12Q0 400 0 388Z"/>
+  <g fill="#a8b1bd" font-family="sans-serif" font-size="13"><text x="20" y="42">Workspaces</text><text x="20" y="78">⌄ Project</text><text x="37" y="107">● Session</text><text x="37" y="135">● Terminal</text><text x="20" y="171">› Other workspace</text><text x="20" y="333">Files</text><text x="20" y="357">Changes</text><text x="20" y="381">Settings</text></g>
+  <rect x="201" y="12" width="427" height="348" rx="8" fill="#101318" stroke="#414b58"/>
+  <rect x="201" y="12" width="427" height="29" rx="8" fill="#252a31"/>
+  <text x="217" y="32" font-family="sans-serif" font-size="12" fill="#a8b1bd">Terminal</text>
+  <text x="220" y="75" font-family="monospace" font-size="15" fill="#a8b1bd">$</text>
+</svg>

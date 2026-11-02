@@ -4,7 +4,7 @@
 
 Fish's `pt` abbreviation expands to `herdr-polytoken`. Start a new shell or run `abbr --add --global pt herdr-polytoken` in an existing Fish shell.
 
-`programs.json` adds Polytoken to Herdr's agent menu as `herdr-polytoken new`. Open the menu with the + beside the top tab bar, then select Polytoken under “Start an agent.” This adds Polytoken without replacing Herdr's default fallback shell. The full-color icon comes from [sjennings/polytoken-herdr-core](https://github.com/sjennings/polytoken-herdr-core/blob/0704710dc89c4b4dffd486a5dc644f3ec421c7ce/assets/polytoken.webp). A chezmoi template includes it as a regular file in Herdr's home because external icon symlinks are not supported.
+`programs.json` adds Polytoken to Herdr's agent menu as `herdr-polytoken new`. In the default layout, open the menu with the + beside the top tab bar; in the workspace tree layout, use the + on a space. Then select Polytoken. This adds Polytoken without replacing Herdr's default fallback shell. The full-color icon comes from [sjennings/polytoken-herdr-core](https://github.com/sjennings/polytoken-herdr-core/blob/0704710dc89c4b4dffd486a5dc644f3ec421c7ce/assets/polytoken.webp). A chezmoi template includes it as a regular file in Herdr's home because external icon symlinks are not supported.
 
 The `keys.json` terminal binding sends ESC CR for Shift-Enter, which Polytoken accepts as a newline. It applies to terminal panes; plain Enter remains unchanged, and Cmd-Shift-Enter still zooms the pane. Remove the `shift-enter` entry to remove the workaround. The key file also contains macOS Cmd shortcuts, so chezmoi deploys it only on macOS and leaves Linux shortcuts unchanged.
 
@@ -28,6 +28,28 @@ shellcheck bin/herdr-polytoken bin/hpt
 ```
 
 Status is advisory, not proof of task success. The bridge reports state and clears it, but does not report model or facet metadata, blocked-reason text, or implement legacy restore commands. Normal `polytoken continue` and retained session history are unchanged. The bridge does not arrange terminals started by subagents.
+
+## Workspace tree layout
+
+The `workspace-tree` layout lists tabs beneath collapsible spaces. Click a session to select it; use the chevron to fold a space, its + to start a terminal or installed agent there, and the top + to create a space. Right-click spaces or sessions for Herdr's menus. Files and Changes stay in the bottom tools; Settings and the command palette are there too. The sidebar boundary can be dragged. Herdr stores fold state and the representative terminal for each tab locally; explicit tab names take precedence. The active tab still uses Herdr's ordinary pane controls and terminal menus.
+
+Install only the personal layout and mods, after checking for existing files of the same names:
+
+```sh
+mkdir -p "$HOME/.config/herdr-app/layouts" \
+  "$HOME/.config/herdr-app/mods/workspace-tree" "$HOME/.config/herdr-app/mods/workspace-new"
+chezmoi apply "$HOME/.config/herdr-app/layouts/workspace-tree.json" \
+  "$HOME/.config/herdr-app/layouts/workspace-tree.svg" \
+  "$HOME/.config/herdr-app/mods/workspace-tree/main.js" \
+  "$HOME/.config/herdr-app/mods/workspace-tree/mod.json" \
+  "$HOME/.config/herdr-app/mods/workspace-new/main.js" \
+  "$HOME/.config/herdr-app/mods/workspace-new/mod.json"
+herdr-app check "$HOME/.config/herdr-app/mods/workspace-tree"
+herdr-app check "$HOME/.config/herdr-app/mods/workspace-new"
+herdr-app do layout.switch '{"name":"workspace-tree"}'
+```
+
+The included templates deploy regular files because Herdr cannot load external mod assets. Switch back with `herdr-app do layout.switch '{"name":"main"}'`. The local behavior tests run with `node config/herdr-app/tests/workspace-ui.cjs`; they do not replace an in-app check. After a Herdr update, compare the shipped workspace and tab controls and capabilities, and add newly supported features without a dedicated home to the bottom tools as appropriate.
 
 ## Herdr compatibility mode
 
