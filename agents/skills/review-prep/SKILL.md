@@ -33,6 +33,13 @@ stated intent:
   5. The few hunks worth reading yourself, ranked, with why.
 
 Before presenting, note in the brief where a finding contradicts it. Present
-the brief first, then the findings by severity. End with the questions the
-operator still has to answer before signing off, and offer @skill:review-quiz
-for any part they want to understand themselves.
+it as HTML using @skill:lavish: the brief first, then the findings by severity,
+ending with the questions the operator still has to answer before signing off.
+Keep source references, quoted code, and draft review comments in the page.
+Write the artifact under `$HOME/.local/share/polytoken/artifacts/`, outside
+any checkout, so it neither changes the reviewed revision nor disappears with
+a temporary workspace. Use feedback to clarify or correct the report, not
+change reviewed code or post comments. Offer @skill:review-quiz for any part
+the operator wants to understand themselves. In-session, give the artifact
+path and review URL rather than repeating the report. If Lavish cannot open,
+say why and present the report in-session instead.
