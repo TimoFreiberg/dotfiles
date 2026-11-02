@@ -90,7 +90,9 @@ export default class WorkspaceTree extends View {
     const title = tab.named ? tab.name : (pane?.title || pane?.program?.name || tab.name || "Terminal");
     const agent = pane?.program?.agent && pane.program.icon
       ? pane
-      : all.find(p => p.tab === tab.id && p.program?.agent && p.program?.icon);
+      : all
+        .filter(p => p.tab === tab.id && p.terminal && p.program?.agent && p.program?.icon)
+        .sort((a, b) => a.terminal < b.terminal ? -1 : a.terminal > b.terminal ? 1 : 0)[0];
     const path = pane?.cwd;
     const cwd = cwdDisplay(space, path, path && space.machine == null ? home() : null);
     return h_flex().id(`session-${tab.id}`).h(29).flex_none().min_w(0).pl(27).pr(6).gap(6).items_center().rounded(6)
