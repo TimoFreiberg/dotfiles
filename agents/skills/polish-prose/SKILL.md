@@ -8,7 +8,7 @@ commit messages changed in the range, defaulting to the current change. It
 edits files in the working copy without committing, and rewrites commit
 messages with `jj describe -r <rev> -m`. Each piece must make sense to a
 reader who knows the product but not this work. It checks every claim it keeps
-against the code, and never uses em-dashes.
+against the code, and follows the `deslop` skill (including its voice file).
 
 Then a reviewer (`model_override: "mg:review_thorough"`) checks the result: is
 each piece self-contained, does it use the codebase's own terms, and is

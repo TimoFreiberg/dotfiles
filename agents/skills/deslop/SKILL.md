@@ -7,6 +7,8 @@ description: Remove AI writing patterns from prose. Use this skill when writing,
 
 Strip predictable AI patterns from writing. Make prose sound like a specific human wrote it, not like a language model generated it.
 
+Read [references/voice.md](references/voice.md) first. It describes the preferred voice, and where it conflicts with the rules below, it wins.
+
 ## When to Apply
 
 - Any request to "make it sound human" or "deslop" writing
