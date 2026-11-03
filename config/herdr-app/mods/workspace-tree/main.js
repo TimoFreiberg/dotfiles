@@ -1,6 +1,6 @@
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { spaces, panes, machines, theme, run, openOverlay, layout, window, props, home } from "herdr";
+import { spaces, panes, machines, theme, run, openOverlay, layout, window, props, home, nextCommand } from "herdr";
 
 function normalizePath(path) {
   return path.replace(/\/+$/, "") || "/";
@@ -47,10 +47,36 @@ function load(key) {
 }
 
 export default class WorkspaceTree extends View {
-  init() {
+  init(_props, cx) {
     this.folded = load("folded");
     this.representatives = load("representatives");
     this.panels = load("panels");
+    if (!props()?.header) cx.spawn(async cx => {
+      for (;;) {
+        const command = await nextCommand();
+        if (command === "next" || command === "prev") {
+          this.navigate(command === "next" ? 1 : -1);
+          cx.notify();
+        }
+      }
+    });
+  }
+
+  navigate(direction) {
+    const list = spaces(), groups = machines();
+    const tabs = groups.filter(m => m.layout === "ready").flatMap(m =>
+      list.filter(s => (s.machine ?? null) === m.name).flatMap(space =>
+        space.tabs.map(tab => ({ space, tab }))));
+    if (!tabs.length) return;
+    const current = tabs.findIndex(({ space, tab }) => space.active && tab.active);
+    const index = current < 0 ? (direction > 0 ? 0 : tabs.length - 1) : (current + direction + tabs.length) % tabs.length;
+    const target = tabs[index];
+    if (this.folded[target.space.id]) {
+      this.folded[target.space.id] = false;
+      localStorage.setItem("folded", JSON.stringify(this.folded));
+    }
+    if (!target.space.active) run("space.select", { id: target.space.id });
+    run("tab.select", { id: target.tab.id });
   }
 
   representative(tab, all) {

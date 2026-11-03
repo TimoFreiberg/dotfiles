@@ -58,6 +58,21 @@
     "ctrl-8": "space.select:8",
     "ctrl-9": "space.select:9"
   },
+  "layout:workspace-tree": {
+    "ctrl-tab": "workspace-tree.next",
+    "ctrl-shift-tab": "workspace-tree.prev",
+    "cmd-shift-]": "workspace-tree.next",
+    "cmd-shift-[": "workspace-tree.prev",
+    "cmd-1": "space.select:1",
+    "cmd-2": "space.select:2",
+    "cmd-3": "space.select:3",
+    "cmd-4": "space.select:4",
+    "cmd-5": "space.select:5",
+    "cmd-6": "space.select:6",
+    "cmd-7": "space.select:7",
+    "cmd-8": "space.select:8",
+    "cmd-9": "space.select:9"
+  },
   "terminal": {
     "shift-enter": "send:\u001b\r",
     "cmd-c": "terminal.copy",

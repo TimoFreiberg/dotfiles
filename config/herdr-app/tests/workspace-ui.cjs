@@ -43,7 +43,7 @@ function load(file) {
   return vm.runInNewContext(source, sandbox);
 }
 const TabTree = load("workspace-tree"), sidebar = new TabTree();
-sidebar.init();
+sidebar.init(undefined, { spawn() {} });
 const tab = { id: "t1", name: "1", named: false, active: true }, space = { id: "s1", name: "One", active: false, machine: null, tabs: [tab] };
 const first = { tab: "t1", terminal: "a", title: "First", cwd: "/one/long/path", program: { agent: true } };
 const second = { tab: "t1", terminal: "b", title: "Second", cwd: "/two", program: {} };
@@ -189,4 +189,64 @@ modelMachines = [{ name: null, layout: "unavailable" }];
 picker.start(); assert.equal(calls.length, 0);
 sidebar.togglePanel("files");
 assert.deepEqual(calls.splice(0), [["layout.select", { stack: "panel-body", child: "files" }], ["layout.show", { id: "panel" }]]);
-console.log("workspace UI tests passed");
+async function testNavigation() {
+  const keys = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "keys.json"), "utf8"));
+  const scoped = keys["layout:workspace-tree"];
+  for (const [key, command] of Object.entries({ "ctrl-tab": "next", "ctrl-shift-tab": "prev", "cmd-shift-]": "next", "cmd-shift-[": "prev" })) {
+    assert.equal(scoped[key], `workspace-tree.${command}`);
+    assert.equal(keys.global[key], command === "next" ? "tab.next" : "tab.prev");
+    assert.equal(keys.terminal[key], undefined);
+  }
+  for (let i = 1; i <= 9; i++) {
+    assert.equal(scoped[`cmd-${i}`], `space.select:${i}`);
+    assert.equal(keys.global[`cmd-${i}`], `tab.select:${i}`);
+    assert.equal(keys.global[`ctrl-${i}`], `space.select:${i}`);
+    assert.equal(keys.terminal[`cmd-${i}`], undefined);
+  }
+  assert.equal(keys.global["cmd-0"], "app.zoom_reset");
+  assert.equal(scoped["cmd-0"], undefined);
+
+  const mkSpace = (id, machine, ids) => ({ id, machine, active: false, tabs: ids.map(id => ({ id, active: false })) });
+  const a = mkSpace("a", null, ["z", "b"]), b = mkSpace("b", null, ["y", "a"]);
+  const off = mkSpace("off", "offline", ["off-tab"]), loading = mkSpace("loading", "loading", ["loading-tab"]);
+  const remote = mkSpace("remote", "remote", ["r2", "r1"]);
+  modelSpaces = [remote, a, off, b, loading];
+  modelMachines = [{ name: null, layout: "ready" }, { name: "offline", layout: "unavailable" }, { name: "loading", layout: "loading" }, { name: "remote", layout: "ready" }];
+  const select = (s, t) => { for (const x of modelSpaces) { x.active = x === s; for (const tab of x.tabs) tab.active = x === s && tab.id === t; } };
+  sandbox.run = (name, args) => {
+    calls.push([name, JSON.parse(JSON.stringify(args))]);
+    if (name === "space.select") { const target = modelSpaces.find(s => s.id === args.id); for (const s of modelSpaces) s.active = s === target; }
+    if (name === "tab.select") { const current = modelSpaces.find(s => s.active); for (const t of current.tabs) t.active = t.id === args.id; }
+  };
+  const stop = new Error("stop test listener");
+  let resolveCommand, rejectCommand;
+  sandbox.nextCommand = () => new Promise((resolve, reject) => { resolveCommand = resolve; rejectCommand = reject; });
+  let task, notifications = 0;
+  const cx = { notify() { notifications++; }, spawn(fn) { task = fn(this); } };
+  activeProps = { header: true };
+  const header = new TabTree(); header.init(undefined, cx);
+  assert.equal(task, undefined, "header must not consume commands");
+  data.set("folded", JSON.stringify({ b: true, remote: true }));
+  activeProps = {};
+  const body = new TabTree(); body.init(undefined, cx);
+  assert.ok(task, "body starts the command listener");
+  async function send(command) { resolveCommand(command); await new Promise(setImmediate); }
+
+  select(a, "z"); await send("next");
+  assert.deepEqual(calls.splice(0), [["tab.select", { id: "b" }]], "middle advances in native order");
+  await send("next");
+  assert.deepEqual(calls.splice(0), [["space.select", { id: "b" }], ["tab.select", { id: "y" }]], "boundary selects the next space's first tab");
+  assert.deepEqual(JSON.parse(data.get("folded")), { b: false, remote: true }, "only target fold is opened");
+  await send("prev");
+  assert.deepEqual(calls.splice(0), [["space.select", { id: "a" }], ["tab.select", { id: "b" }]], "reverse boundary selects previous last tab");
+  select(remote, "r1"); await send("next");
+  assert.deepEqual(calls.splice(0), [["space.select", { id: "a" }], ["tab.select", { id: "z" }]], "global forward wraps");
+  select(a, "z"); await send("prev");
+  assert.deepEqual(calls.splice(0), [["space.select", { id: "remote" }], ["tab.select", { id: "r1" }]], "global reverse wraps and skips unavailable machines");
+  select(b, "a"); remote.tabs[0].settled = true; await send("next");
+  assert.deepEqual(calls.splice(0), [["space.select", { id: "remote" }], ["tab.select", { id: "r2" }]], "settled tabs remain in order");
+  modelSpaces = []; await send("next"); assert.deepEqual(calls.splice(0), [], "empty list is a no-op");
+  await send("unknown"); assert.equal(notifications, 7, "only navigation commands notify");
+  rejectCommand(stop); await task.catch(error => { assert.equal(error, stop); });
+}
+testNavigation().then(() => console.log("workspace UI tests passed"), error => { console.error(error); process.exitCode = 1; });
