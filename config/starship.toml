@@ -6,7 +6,7 @@ error_symbol = "[\\$](bold red)"
 fish_style_pwd_dir_length = 2
 
 [git_status]
-use_git_executable = true
+disabled = true
 
 [package]
 disabled = true
@@ -33,14 +33,15 @@ disabled = true
 [gcloud]
 disabled = true
 
-# custom module for jj status
-[custom.jj]
-description = "current jj status"
-shell = ["sh", "--norc"]
-symbol = "🥋 "
-when = "jj --ignore-working-copy root"
+# Show jj status when available, otherwise render the Git modules once.
+[custom.vcs]
+description = "current version control status"
+shell = ["sh"]
+when = "true"
+unsafe_no_escape = true
+format = "$output"
 command = '''
-jj log --revisions @ --no-graph --ignore-working-copy --color always --limit 1 --template '
+if output=$(jj log --revisions @ --no-graph --ignore-working-copy --color always --limit 1 --template '
   separate(" ",
     change_id.shortest(4),
     bookmarks,
@@ -57,7 +58,14 @@ jj log --revisions @ --no-graph --ignore-working-copy --color always --limit 1 -
       "(no description set)",
     ) ++ raw_escape_sequence("\x1b[0m"),
   )
-'
+' 2>/dev/null); then
+  printf '\033[1;32m🥋 %s \033[0m' "$output"
+else
+  output=$(STARSHIP_CONFIG="$HOME/dotfiles/config/starship-git.toml" starship prompt)
+  if [ -n "$output" ]; then
+    printf '%s\033[0m' "$output"
+  fi
+fi
 '''
 
 # disable git modules
@@ -73,14 +81,3 @@ disabled = true
 [git_branch]
 disabled = true
 
-# re-enable git_branch as long as we're not in a jj repo
-[custom.git_status]
-when = "! jj --ignore-working-copy root"
-shell = ["sh", "--norc"]
-command = "starship module git_status"
-
-[custom.git_branch]
-when = "! jj --ignore-working-copy root"
-shell = ["sh", "--norc"]
-command = "starship module git_branch"
-description = "Only show git_branch if we're not in a jj repo"

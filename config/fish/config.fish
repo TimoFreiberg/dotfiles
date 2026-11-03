@@ -107,7 +107,7 @@ if status is-interactive
 
     # Primary prompt — fish_prompt.fish is the fallback on systems without starship
     if type starship >/dev/null 2>&1
-        eval (starship init fish)
+        starship init fish --print-full-init | source
     end
 
     type -q zoxide && zoxide init fish | source

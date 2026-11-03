@@ -10,6 +10,7 @@ fish/fishd*
 fish/fish_variables
 !tig
 !starship.toml
+!starship-git.toml
 !gtk-3.0
 !Code\ -\ OSS
 !Code/User

@@ -1,0 +1,5 @@
+add_newline = false
+format = "$git_branch$git_status"
+
+[git_status]
+use_git_executable = true
