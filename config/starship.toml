@@ -61,9 +61,9 @@ if output=$(jj log --revisions @ --no-graph --ignore-working-copy --color always
 ' 2>/dev/null); then
   printf '\033[1;32m🥋 %s \033[0m' "$output"
 else
-  output=$(STARSHIP_CONFIG="$HOME/dotfiles/config/starship-git.toml" starship prompt)
+  output=$(STARSHIP_SHELL= STARSHIP_CONFIG="$HOME/dotfiles/config/starship-git.toml" starship prompt)
   if [ -n "$output" ]; then
-    printf '%s\033[0m' "$output"
+    printf '\033[1;32m%s\033[0m' "$output"
   fi
 fi
 '''
