@@ -4,7 +4,7 @@ const vm = require("node:vm");
 const path = require("node:path");
 
 const data = new Map(), calls = [], overlays = [];
-let activeProps = {}, modelSpaces = [], modelPanes = [], modelMachines = [{ name: null, layout: "ready" }];
+let activeProps = {}, modelSpaces = [], modelPanes = [], modelMachines = [{ name: null, layout: "ready" }], modelWindow = {};
 let modelHome = "/home/tester", homeCalls = 0, cwdTestId = 0;
 let tree = { id: "root", children: [{ id: "panel", hidden: true }, { id: "panel-body", active: "files" }] };
 function el(kind = "element", source = null) {
@@ -32,7 +32,7 @@ const sandbox = {
   spaces: () => modelSpaces, panes: () => modelPanes, machines: () => modelMachines,
   home: () => { homeCalls++; return modelHome; },
   theme: () => ({ muted: "muted", dim: "dim", foreground: "foreground", selected: "selected", chrome: "chrome", hover: "hover", border: "border", working: "working", blocked: "blocked", done: "done" }),
-  layout: () => tree, window: () => ({}), props: () => activeProps,
+  layout: () => tree, window: () => modelWindow, props: () => activeProps,
   run: (name, args) => calls.push([name, args === undefined ? undefined : JSON.parse(JSON.stringify(args))]), openOverlay: args => overlays.push(args),
   closeOverlay: id => calls.push(["closeOverlay", id]), knownAgents: async () => [],
   localStorage: { getItem: k => data.get(k) ?? null, setItem: (k, v) => data.set(k, v) },
@@ -117,18 +117,18 @@ assert.equal(homeCalls, callsBeforeRemote, "remote spaces do not request local h
 assert.equal(sandbox.cwdDisplay({ machine: "builder" }, modelHome, null, null).text, modelHome, "a remote path that looks like local home stays full without a workspace path");
 const iconTheme = { muted: "muted", dim: "dim", foreground: "foreground", selected: "selected", chrome: "chrome", hover: "hover" };
 const agentTab = { id: "agent-tab", name: "Agent", named: false, active: false, status: "working" };
-const agentSpace = { ...space, id: "agent-space", folder: "/workspace", tabs: [agentTab] };
+const agentSpace = { ...space, id: "agent-space", index: 4, folder: "/workspace", tabs: [agentTab] };
 const ordinaryPane = { tab: agentTab.id, terminal: "shell-pane", title: "Shell", cwd: "/workspace", program: {} };
 const agentPane = { tab: agentTab.id, terminal: "agent-pane", title: "Agent session", cwd: "/workspace", program: { agent: true, name: "Codex", icon: "icons/codex.svg", tint: true } };
 const anotherAgentPane = { tab: agentTab.id, terminal: "other-agent", title: "Other agent", cwd: "/workspace", program: { agent: true, name: "Other", icon: "icons/other.svg", tint: true } };
 const agentRow = sidebar.row(agentSpace, agentTab, [ordinaryPane, agentPane, anotherAgentPane], iconTheme);
 assert.equal(agentRow.nodes[0].source, "mods/workspace-chrome/spinner.svg", "the working session spinner remains first");
 const workingHeader = lookup(sidebar.space({ ...agentSpace, status: "working" }, [], iconTheme, true), "workspace-agent-space");
-assert.equal(workingHeader.nodes.length, 3, "a working workspace has no status marker or spacer");
+assert.equal(workingHeader.nodes.length, 4, "a working workspace has no status marker or spacer");
 for (const status of ["blocked", "done"]) {
   const header = lookup(sidebar.space({ ...agentSpace, status }, [], { ...iconTheme, [status]: status }, true), "workspace-agent-space");
-  assert.equal(header.nodes.length, 4, `${status} workspace retains its status marker`);
-  assert.equal(header.nodes[2].calls.find(([name]) => name === "bg")[1], status);
+  assert.equal(header.nodes.length, 5, `${status} workspace retains its status marker`);
+  assert.equal(header.nodes[3].calls.find(([name]) => name === "bg")[1], status);
 }
 assert.equal(agentRow.nodes[1].kind, "svg");
 assert.equal(agentRow.nodes[1].source, "icons/codex.svg", "the chosen representative's agent icon is shown");
@@ -159,6 +159,42 @@ const splitRow = sidebar.row(space, { ...tab, panes: 3 }, modelPanes, iconTheme)
 assert.equal(splitRow.nodes[2].nodes[0], "3", "multiple panes show their count after the title");
 assert.equal(splitRow.nodes[2].tip, "3 panes");
 assert.equal(splitRow.nodes[2].calls.find(([name]) => name === "text_color")[1], "dim");
+modelWindow = { platform: "macos" };
+modelMachines = [{ name: null, layout: "ready" }, { name: "offline", layout: "unavailable" }, { name: "remote", layout: "ready" }];
+modelSpaces = [
+  { id: "remote-nine", name: "Remote", index: 9, machine: "remote", tabs: [], status: "working" },
+  { id: "local-one", name: "Local", index: 1, machine: null, tabs: [], status: "working" },
+  { id: "offline-four", name: "Offline", index: 4, machine: "offline", tabs: [], status: "working" },
+  { id: "local-ten", name: "Ten", index: 10, machine: null, tabs: [], status: "working" },
+];
+const grouped = sidebar.render();
+for (const [id, index, name] of [["remote-nine", 9, "Remote"], ["local-one", 1, "Local"], ["offline-four", 4, "Offline"]]) {
+  const header = lookup(grouped, `workspace-${id}`);
+  assert.equal(header.nodes[0].id, `fold-${id}`);
+  assert.equal(header.nodes[1].nodes[0], `${index}`, "badge uses the native index rather than group position");
+  assert.equal(header.nodes[1].tip, `Cmd+${index}`);
+  assert.equal(header.nodes[1].calls.find(([method]) => method === "text_color")[1], "dim");
+  assert.equal(header.nodes[1].calls.find(([method]) => method === "text_size")[1], 11);
+  assert.equal(header.nodes[2].nodes[0], name);
+  assert.equal(header.nodes[3].id, `new-${id}`);
+}
+const localHeader = lookup(grouped, "workspace-local-one");
+localHeader.nodes[2].events.on_click();
+assert.deepEqual(calls.splice(0), [["space.select", { id: "local-one" }]]);
+let stopped = false;
+localHeader.events["on_mouse_down:right"]({}, { stop_propagation() { stopped = true; } });
+assert.equal(stopped, true);
+assert.equal(overlays.pop().props.target.id, "local-one");
+lookup(grouped, "new-offline-four").events.on_click({}, { stop_propagation() {} });
+assert.equal(overlays.length, 0, "offline workspace cannot create a session");
+assert.equal(lookup(grouped, "workspace-local-ten").nodes[1].nodes[0], "Ten", "index 10 has no badge");
+for (const index of [0, -1, 1.5, "1", null, undefined]) {
+  const header = lookup(sidebar.space({ ...space, index, status: "working" }, [], iconTheme, true), "workspace-s1");
+  assert.equal(header.nodes[1].nodes[0], space.name, `invalid index ${index} has no badge`);
+}
+modelWindow = { platform: "linux" };
+assert.equal(lookup(sidebar.render(), "workspace-local-one").nodes[1].tip, "Workspace 1", "Linux does not advertise a Cmd binding");
+modelWindow = {}; modelMachines = [{ name: null, layout: "ready" }]; modelSpaces = [space];
 const renderedSidebar = sidebar.render();
 const filesTool = lookup(renderedSidebar, "files-tool"), changesTool = lookup(renderedSidebar, "changes-tool");
 const settingsTool = lookup(renderedSidebar, "settings-tool"), paletteTool = lookup(renderedSidebar, "palette-tool");

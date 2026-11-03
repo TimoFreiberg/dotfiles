@@ -146,6 +146,7 @@ export default class WorkspaceTree extends View {
         .child(div().id(`fold-${space.id}`).size(20).flex_none().flex().items_center().justify_center().cursor_pointer().tooltip(folded ? "Expand workspace" : "Collapse workspace")
           .on_click((_e, cx) => { cx.stop_propagation(); this.folded[space.id] = !folded; localStorage.setItem("folded", JSON.stringify(this.folded)); cx.notify(); })
           .child(folded ? "›" : "⌄"))
+        .when(Number.isInteger(space.index) && space.index >= 1 && space.index <= 9, el => el.child(div().flex_none().text_size(11).text_color(t.dim).tooltip(window()?.platform === "macos" ? `Cmd+${space.index}` : `Workspace ${space.index}`).child(`${space.index}`)))
         .child(div().flex_1().min_w(0).truncate().font_semibold().text_color(t.foreground).tooltip(space.name).cursor_pointer().on_click(() => run("space.select", { id: space.id })).child(space.name))
         .when(space.status !== "working", el => el.child(this.status(space.status, t)))
         .child(div().id(`new-${space.id}`).size(22).flex_none().flex().items_center().justify_center().rounded(5).text_color(t.muted).hover(s => s.bg(t.selected).text_color(t.foreground)).tooltip(available ? "New session in this workspace" : "Machine unavailable")
