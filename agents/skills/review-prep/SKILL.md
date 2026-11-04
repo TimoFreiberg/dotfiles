@@ -33,7 +33,7 @@ stated intent:
   5. The few hunks worth reading yourself, ranked, with why.
 
 Before presenting, note in the brief where a finding contradicts it. Present
-it as HTML using @skill:lavish: the brief first, then the findings by severity,
+it as HTML using @skill:lavish : the brief first, then the findings by severity,
 ending with the questions the operator still has to answer before signing off.
 Keep source references, quoted code, and draft review comments in the page.
 Write the artifact under `$HOME/.local/share/polytoken/artifacts/`, outside
