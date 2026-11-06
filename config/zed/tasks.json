@@ -1,0 +1,20 @@
+[
+  {
+    "label": "review: comment",
+    "command": "bash",
+    "args": ["-c", "exec \"$HOME/.local/bin/zed-review\" comment"],
+    "reveal": "always",
+    "hide": "on_success",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  },
+  {
+    "label": "review: send",
+    "command": "bash",
+    "args": ["-c", "exec \"$HOME/.local/bin/zed-review\" send"],
+    "reveal": "always",
+    "hide": "never",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false
+  }
+]

@@ -74,6 +74,7 @@ herdr-app/tests/*
 !herdr-app/tests/workspace-ui.cjs
 !herdr-app/tests/tasks.cjs
 !herdr-app/tests/jj-review.cjs
+!herdr-app/tests/zed-review.sh
 !herdr-app/tests/jj-diff-html-roundtrip.cjs
 !herdr-app/keys.json
 !herdr-app/programs.json

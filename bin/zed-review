@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+set -euo pipefail
+umask 077
+
+state_dir=${XDG_STATE_HOME:-$HOME/.local/state}/zed-review
+current=$state_dir/current.json
+drafts=$state_dir/drafts.jsonl
+
+need_review() {
+  if [[ ! -f $current ]]; then echo 'No current review. Run zed-review open from the agent terminal first.' >&2; exit 1; fi
+}
+
+show_drafts() {
+  if [[ ! -s $drafts ]]; then echo 'No drafts.'; return; fi
+  jq -rs --arg root "$root" --arg revset "$revset" '
+    "Review comments on `jj diff -r \($revset)` in \($root):\n\n" +
+    (map("- \(.path):\(.row)\(if .side == "old" then " (deleted line)" else "" end) (`\(.quote | gsub("^\\s+|\\s+$"; "") | .[0:120])`)\n  \(.comment)") | join("\n"))
+  ' "$drafts"
+}
+
+case ${1:-} in
+  open)
+    shift; revset=; terminal=${HC_TERMINAL_ID:-}
+    while (($#)); do
+      case $1 in
+        --to) [[ $# -ge 2 && -n $2 ]] || { echo '--to needs a terminal' >&2; exit 1; }; terminal=$2; shift 2 ;;
+        -*) echo "Unknown option: $1" >&2; exit 1 ;;
+        *) [[ -z $revset ]] || { echo 'Only one revset is supported' >&2; exit 1; }; revset=$1; shift ;;
+      esac
+    done
+    [[ -n $terminal ]] || { echo 'Specify --to or run inside a Herdr terminal' >&2; exit 1; }
+    root=$(jj root); revset=${revset:-@}
+    diff=$(jj diff --git --color=never -r "$revset")
+    if [[ $revset == '@' && -z $diff ]]; then revset='@-'; diff=$(jj diff --git --color=never -r "$revset"); fi
+    files=$(printf '%s\n' "$diff" | jq -Rs '
+      def initial_path:
+        .[13:] as $s | (($s | length) - 3) / 2 as $m |
+        if ($m == ($m | floor)) and $s[0:$m] == $s[($m+3):] and $s[$m:($m+3)] == " b/"
+        then $s[0:$m] else ($s | split(" b/") | last) end;
+      reduce (split("\n")[]) as $line
+        ({files: [], hunk: false};
+         if ($line | startswith("diff --git ")) then
+           ($line | initial_path) as $p | .files += [{path:$p, old:$p, next:$p, binary:false}] | .hunk = false
+         elif (.files | length) == 0 then .
+         elif ($line | startswith("@@ ")) then .hunk = true
+         elif .hunk then .
+         elif ($line | startswith("rename from ")) then .files[-1].old = $line[12:]
+         elif ($line | startswith("rename to ")) then .files[-1].path = $line[10:] | .files[-1].next = $line[10:]
+         elif $line == "--- /dev/null" or ($line | startswith("new file mode ")) then .files[-1].old = null
+         elif $line == "+++ /dev/null" or ($line | startswith("deleted file mode ")) then .files[-1].next = null
+         elif ($line | startswith("--- a/")) then .files[-1].old = $line[6:]
+         elif ($line | startswith("+++ b/")) then .files[-1].path = $line[6:] | .files[-1].next = $line[6:]
+         elif ($line | startswith("Binary files ")) or $line == "GIT binary patch" then .files[-1].binary = true
+         else . end) | [.files[] | select(.binary | not)]')
+    [[ $(printf '%s' "$files" | jq 'length') -gt 0 ]] || { echo 'No text files to review.' >&2; exit 1; }
+    helper=$HOME/.config/herdr-app/mods/jj-review/open-diff
+    [[ -x $helper ]] || { echo "Missing executable: $helper" >&2; exit 1; }
+    mkdir -p "$state_dir"
+    jq -n --arg root "$root" --arg revset "$revset" --arg terminal "$terminal" --arg created "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" '{root:$root,revset:$revset,terminal:$terminal,created:$created}' > "$current"
+    rm -f "$drafts"
+    echo "Opening $revset. In Zed: Ctrl-Alt-C to comment, Ctrl-Alt-Enter to send."
+    "$helper" "$root" "$revset" "$files"
+    ;;
+  comment)
+    need_review
+    root=$(jq -er '.root' "$current"); file=${ZED_FILE:-}; row=${ZED_ROW:-}
+    case $file in
+      */jj-review-diff.*/old/*) path=${file#*/jj-review-diff.*/old/}; side=old ;;
+      */jj-review-diff.*/new/*) path=${file#*/jj-review-diff.*/new/}; side=new ;;
+      "$root"/*) path=${file#"$root"/}; side=new ;;
+      *) printf 'Cannot map ZED_FILE=%q to review root %q.\n' "$file" "$root" >&2; exit 1 ;;
+    esac
+    if [[ -z $path || /$path/ == *'/../'* || ! $row =~ ^[1-9][0-9]*$ || ! -f $file ]]; then
+      printf 'Cannot use ZED_FILE=%q ZED_ROW=%q.\n' "$file" "$row" >&2; exit 1
+    fi
+    if [[ -n ${ZED_SELECTED_TEXT:-} ]]; then quote=$(printf '%s\n' "$ZED_SELECTED_TEXT" | awk 'NR <= 5'); else quote=$(sed -n "${row}p" "$file"); fi
+    printf 'Comment on %s:%s (%s)\n%s\n' "$path" "$row" "$side" "$quote"
+    printf '\033[2mZED_FILE=%q ZED_ROW=%q ZED_COLUMN=%q\033[0m\n' "$file" "$row" "${ZED_COLUMN:-}"
+    read -r -e -p '> ' comment || { echo 'Cancelled.'; exit 0; }
+    [[ -n $comment ]] || { echo 'Cancelled.'; exit 0; }
+    jq -cn --arg path "$path" --arg side "$side" --argjson row "$row" --arg quote "$quote" --arg comment "$comment" '{path:$path,side:$side,row:$row,quote:$quote,comment:$comment}' >> "$drafts"
+    count=$(jq -s 'length' "$drafts")
+    echo "Saved ($count drafts). Send with Ctrl-Alt-Enter."
+    ;;
+  drafts|send)
+    action=$1; need_review
+    root=$(jq -er '.root' "$current"); revset=$(jq -er '.revset' "$current")
+    show_drafts
+    if [[ $action == send && -s $drafts ]]; then
+      terminal=$(jq -er '.terminal' "$current"); count=$(jq -s 'length' "$drafts")
+      read -r -e -p "Send $count comments to $terminal? [Y/n] " answer || { echo 'Cancelled.'; exit 0; }
+      if [[ -n $answer && $answer != [Yy] ]]; then echo 'Cancelled.'; exit 0; fi
+      message=$(show_drafts)
+      if hc send "$terminal" "$message"; then rm -f "$drafts"; echo 'Sent.'; else echo 'Send failed; drafts kept. Check hc output and the target terminal.' >&2; exit 1; fi
+    fi
+    ;;
+  *) echo 'Usage: zed-review open [revset] [--to TERMINAL] | comment | drafts | send' >&2; exit 1 ;;
+esac
