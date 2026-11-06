@@ -16,9 +16,11 @@ building, read:
 - `lavish-axi design`: design direction and snippets
 - `lavish-axi playbook` lists ids; `lavish-axi playbook <id>` gives focused guidance
 
-Run each poll with `shell_exec` and `background: true`, using a descriptive
-job name. Its completion wakes this agent; don't block on it before handing
-the page to the operator. Quote artifact paths in shell commands. Don't
-`share` or publish unless the operator asks.
+Start or resume the session with `lavish-axi "<html-file>" --no-open` so
+it does not change the operator's browser focus. Run each poll with
+`shell_exec` and `background: true`, using a descriptive job name. Its
+completion wakes this agent; don't block on it. End the turn with the local
+URL returned by Lavish so the operator can open it when ready. Quote artifact
+paths in shell commands. Don't `share` or publish unless the operator asks.
 
 Build what you were asked for; otherwise infer it from the conversation.
