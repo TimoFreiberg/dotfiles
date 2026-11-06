@@ -17,7 +17,9 @@ building, read:
 - `lavish-axi playbook` lists ids; `lavish-axi playbook <id>` gives focused guidance
 
 Start or resume the session with `lavish-axi "<html-file>" --no-open` so
-it does not change the operator's browser focus. Run each poll with
+it does not change the operator's browser focus. Then run
+`herdr-artifact add "<html-file>"` to list the page under the current herdr
+task; it does nothing outside herdr. Run each poll with
 `shell_exec` and `background: true`, using a descriptive job name. Its
 completion wakes this agent; don't block on it. End the turn with the local
 URL returned by Lavish so the operator can open it when ready. Quote artifact

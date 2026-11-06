@@ -67,6 +67,40 @@ The chezmoi templates deploy regular files because Herdr cannot load external mo
 
 This layout doesn't pick up new Herdr features by itself. After a Herdr update, compare its shipped layouts' workspace and tab controls with this one, and add any newly supported feature that has no place here to the bottom tools.
 
+## Workspace tasks and diff review
+
+The `workspace-tasks` layout groups spaces as tasks under their project, with tabs across the top. `task-tree` manages the sidebar and project picker; `task-doc` opens and autosaves notes in `~/mydesk/tasks`, asks before overwriting external edits, and labels linked terminals with `task.doc`. New notes use `git config user.email` for their owner when available. `task-artifacts` lists HTML pages registered by `herdr-artifact add /path/to/page.html [--title "Title"]`; opening one uses Lavish. `task-tabs` is a copy of Herdr's tabs mod with an Artifacts button and count. After Herdr updates, compare it with the shipped tabs mod and reapply those additions when re-syncing.
+
+| Keys | Action |
+| --- | --- |
+| Ctrl-Tab / Ctrl-Shift-Tab | Next / previous task |
+| Ctrl-1 through Ctrl-9 | Select a task in the current project |
+| Cmd-Option-] / Cmd-Option-[ | Next / previous project |
+| Ctrl-Option-1 through Ctrl-Option-9 | Select a project |
+| Cmd-N / Cmd-O | New task / open project |
+| Cmd-Shift-N | Open or add task notes |
+| Cmd-1 through Cmd-9 | Select a tab in the current task |
+| Cmd-Shift-] / Cmd-Shift-[ | Next / previous tab |
+
+Install these targets after checking for existing files of the same names. The key bindings require the macOS key file.
+
+```sh
+chmod +x "$HOME/dotfiles/bin/jj-review" "$HOME/dotfiles/bin/herdr-artifact" "$HOME/dotfiles/bin/jj-diff-html"
+chezmoi apply "$HOME/.config/herdr-app/keys.json" \
+  "$HOME/.config/herdr-app/layouts/workspace-tasks.json" \
+  "$HOME/.config/herdr-app/mods/task-tree/main.js" "$HOME/.config/herdr-app/mods/task-tree/mod.json" \
+  "$HOME/.config/herdr-app/mods/task-tree/doc-logic.js" "$HOME/.config/herdr-app/mods/task-tree/artifact-logic.js" \
+  "$HOME/.config/herdr-app/mods/task-doc/main.js" "$HOME/.config/herdr-app/mods/task-doc/mod.json" "$HOME/.config/herdr-app/mods/task-doc/doc-logic.js" \
+  "$HOME/.config/herdr-app/mods/task-artifacts/main.js" "$HOME/.config/herdr-app/mods/task-artifacts/mod.json" "$HOME/.config/herdr-app/mods/task-artifacts/artifact-logic.js" \
+  "$HOME/.config/herdr-app/mods/task-tabs/main.js" "$HOME/.config/herdr-app/mods/task-tabs/mod.json" \
+  "$HOME/.config/herdr-app/mods/jj-review/main.js" "$HOME/.config/herdr-app/mods/jj-review/mod.json" "$HOME/.config/herdr-app/mods/jj-review/open-diff" \
+  "$HOME/.local/bin/jj-review" "$HOME/.local/bin/herdr-artifact" "$HOME/.local/bin/jj-diff-html"
+```
+
+Switch with `herdr-app do layout.switch '{"name":"workspace-tasks"}'`; return to `workspace-tree` or `main` by changing the name. To uninstall, switch away first, remove the targets above and their chezmoi source entries, and remove the `layout:workspace-tasks` key section if no longer needed. Notes and registered pages are not deleted.
+
+Run `jj-review [revset] [--to TERMINAL] [--focus]` in a jj repository to open a review tab and send drafted comments to a terminal. It needs `jj`, `jq`, `herdr-app`, and Zed for opening diffs in the editor. `jj-diff-html` creates an HTML review page, supports `--watch`, and registers it with the current task when possible. The page loads its diff renderer over the network. The three behavior tests are `node config/herdr-app/tests/tasks.cjs`, `node config/herdr-app/tests/jj-review.cjs`, and `node config/herdr-app/tests/jj-diff-html-roundtrip.cjs`.
+
 ## Herdr compatibility mode
 
 Polytoken's [orchestrator documentation](https://docs.polytoken.dev/using-polytoken/tui-orchestrators/) says that in Herdr mode it keeps the terminal in its default input mode to avoid duplicate keystrokes in Herdr panes and external editors. Modified keys such as Shift-Enter may arrive as their base key, and held-key repeats may not be distinguishable from fresh presses. The binding above sends ESC CR while keeping status reporting enabled.

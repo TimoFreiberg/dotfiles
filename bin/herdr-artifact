@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ -z ${HC_TERMINAL_ID:-} ]]; then echo 'Not in a Herdr terminal; artifact not registered.'; exit 0; fi
+if [[ ${1:-} != add || $# -lt 2 ]]; then echo 'Usage: herdr-artifact add <html-file> [--title T]' >&2; exit 2; fi
+file=$2; shift 2
+title=''
+if [[ $# -gt 0 ]]; then
+  [[ $# == 2 && $1 == --title ]] || { echo 'Usage: herdr-artifact add <html-file> [--title T]' >&2; exit 2; }
+  title=$2
+fi
+[[ -f $file ]] || { echo "Artifact not found: $file" >&2; exit 1; }
+file="$(cd "$(dirname "$file")" && pwd -P)/$(basename "$file")"
+if [[ -z $title ]]; then
+  title=$(perl -0777 -ne 'if (/<title\b[^>]*>(.*?)<\/title\s*>/is) { $s=$1; $s =~ s/\s+/ /g; $s =~ s/^\s+|\s+$//g; print $s }' "$file")
+  title=${title:-$(basename "$file")}
+fi
+payload=$(jq -cn --arg terminal "$HC_TERMINAL_ID" --arg path "$file" --arg title "$title" '{terminal:$terminal,path:$path,title:$title}')
+herdr-app do "task-tree.artifact:$payload"

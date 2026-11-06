@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+folder=$1 revset=$2 files=$3
+cd "$folder"
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/jj-review-diff.XXXXXXXX")
+# Keep successful snapshots: Zed reads them asynchronously.
+cleanup() { if [[ $1 -ne 0 ]]; then rm -rf -- "$tmp"; fi; }
+trap 'cleanup $?' EXIT
+entries=$(printf '%s' "$files" | jq -er '.[] | @base64')
+args=()
+while IFS= read -r entry; do
+  file=$(printf '%s' "$entry" | jq -Rr '@base64d')
+  old=$(printf '%s' "$file" | jq -r '.old // empty')
+  new=$(printf '%s' "$file" | jq -r '.next // empty')
+  path=$(printf '%s' "$file" | jq -r '.path')
+  oldfile="$tmp/old/$path"; newfile="$tmp/new/$path"
+  mkdir -p "$(dirname "$oldfile")" "$(dirname "$newfile")"
+  if [[ -n $old ]]; then jj file show -r "($revset)-" -- "file:$(printf '%s' "$old" | jq -Rs .)" > "$oldfile"; else : > "$oldfile"; fi
+  if [[ -n $new && $revset == '@' ]]; then
+    newfile="$folder/$new"
+  elif [[ -n $new ]]; then
+    jj file show -r "$revset" -- "file:$(printf '%s' "$new" | jq -Rs .)" > "$newfile"
+  else
+    : > "$newfile"
+  fi
+  args+=(--diff "$oldfile" "$newfile")
+done <<< "$entries"
+if ((${#args[@]})); then zed "$folder" "${args[@]}"; fi
