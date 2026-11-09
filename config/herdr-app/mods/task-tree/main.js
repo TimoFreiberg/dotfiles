@@ -85,7 +85,7 @@ export default class TaskTree extends View {
   init(_props, cx) {
     this.folded = load("folded"); this.last = load("last"); this.assignments = load("assignments"); this.docs = load(docsKey); this.roots = {}; this.pending = {}; this.labelled = {};
     if (props()?.projectPicker) {
-      this.filter = InputState.new({ placeholder: "Fuzzy filter or ~/ path (Tab to complete)" });
+      this.filter = InputState.new({ placeholder: "Project or ~/path" });
       this.handle = cx.focus_handle(); this.choiceScroll = VirtualListScrollHandle.new(); this.directoryCache = {}; this.directoryPending = {}; this.selectedChoice = null;
       this.filter.on("change", (_e, cx) => {
         if (this.completion?.value !== this.filter.value()) { this.completion = null; this.selectedChoice = null; this.choiceScroll.scroll_to_item(0); }
@@ -310,8 +310,11 @@ export default class TaskTree extends View {
   projectPicker() {
     const t = theme(), value = this.filter.value().trim();
     const button = (id, label, action) => div().id(id).px(8).py(7).rounded(5).cursor_pointer().when(this.selectedChoice === id, el => el.bg(t.selected)).hover(s => s.bg(t.hover)).when(Boolean(action), el => el.on_click(action)).child(label);
-    const query = pathQuery(value), choices = this.projectChoices();
-    const choice = row => button(row.id, row.path ? `${row.path}/` : `${row.project.machine ?? "local"}: ${row.project.root}`);
+    const query = pathQuery(value), choices = this.projectChoices(), base = home();
+    const displayPath = path => path === base ? "~" : path.startsWith(base + "/") ? "~" + path.slice(base.length) : path;
+    const choice = row => button(row.id, row.path ? `${displayPath(row.path)}/` : row.project.machine == null
+      ? displayPath(row.project.root) : `${row.project.machine}: ${row.project.root}`)
+      .whitespace_nowrap().text_ellipsis_middle().tooltip(row.path ?? (row.project.machine == null ? row.project.root : `${row.project.machine}: ${row.project.root}`));
     return v_flex().id("project-picker").track_focus(this.handle).key_context("TaskProjectPicker")
       .on_action("task-project-complete", (_e,cx) => this.pickerAction("task-project-complete",cx))
       .on_action("task-project-next", (_e,cx) => this.pickerAction("task-project-next",cx))
@@ -319,13 +322,9 @@ export default class TaskTree extends View {
       .on_action("task-project-close", (_e,cx) => this.pickerAction("task-project-close",cx))
       .size_full().min_h(0).p(14).gap(8).bg(t.popover).text_color(t.foreground).text_size(13)
       .child(h_flex().items_center().child(div().flex_1().font_semibold().child(props().task ? "Move to project" : "Open project"))
-        .child(button("project-close", "Close", (_e,cx) => this.pickerAction("task-project-close",cx))))
+        .child(button("project-close", "×", (_e,cx) => this.pickerAction("task-project-close",cx)).px(6).py(2).text_size(16).text_color(t.dim).tooltip("Close (Esc)")))
       .child(Input.new(this.filter).h(34).px(8).rounded(6).border_1().border_color(t.input).bg(t.background))
-      .when(Boolean(this.error), el => el.child(div().text_color(t.blocked).child(this.error)))
-      .when(Boolean(query), el => el.child(div().text_size(11).text_color(t.dim).child("Tab: cycle matches · ↑/↓ or Shift-Tab: select · Enter: open · Esc: close")))
-      .when(this.completion?.value === this.filter.value(), el => el.child(div().text_size(11).text_color(t.dim).child("Tab cycles these matches; type to start a new match")))
-      .when(Boolean(query && this.directoryPending?.[query.folder]), el => el.child(div().text_color(t.dim).child("Loading folders…")))
-      .when(Boolean(this.directoryError), el => el.child(div().text_color(t.dim).child(this.directoryError)))
+      .when(Boolean(this.error), el => el.child(div().text_color(t.blocked).whitespace_nowrap().text_ellipsis().tooltip(this.error).child(this.error)))
       .child(div().relative().flex_1().min_h(0)
         .child(v_virtual_list("project-choices", choices.length, 34, i => choices[i].id,
           range => choices.slice(range.start, range.end).map(row => choice(row).h(34).overflow_hidden())).size_full().track_scroll(this.choiceScroll)
@@ -333,10 +332,14 @@ export default class TaskTree extends View {
             const row = this.projectChoices().find(row => row.id === id); if (!row) return;
             if (row.path) this.fillPath(row.path,cx); else this.chooseProject(row.project,cx);
           }))
-        .child(Scrollbar.vertical("project-choices").absolute().inset_0()))
-      .when(value.startsWith("/") || value.startsWith("~"), el => el.child(h_flex().gap(8)
-        .when(Boolean(query), row => row.child(button("project-complete", "Complete (Tab)", (_e,cx) => this.pickerAction("task-project-complete",cx))))
-        .child(button("project-path", `Open folder: ${value}`, (_e,cx) => this.choosePath(value,cx)))));
+        .child(Scrollbar.vertical("project-choices").absolute().inset_0())
+        .when(choices.length === 0, el => el.child(v_flex().absolute().inset_0().p(8).items_center().justify_center().text_color(t.dim)
+          .child(this.directoryError || (query && this.directoryPending?.[query.folder] ? "Loading folders…" : value ? "No matches" : "")))))
+      .when(value.startsWith("/") || value.startsWith("~"), el => el.child(h_flex().gap(8).justify_end()
+        .when(Boolean(this.directoryError && choices.length), row => row.child(div().id("project-directory-error").flex_1().min_w(0).text_size(11).text_color(t.blocked)
+          .whitespace_nowrap().text_ellipsis().tooltip(this.directoryError).child(this.directoryError)))
+        .when(Boolean(query), row => row.child(button("project-complete", "⇥", (_e,cx) => this.pickerAction("task-project-complete",cx)).py(4).text_color(t.dim).tooltip("Complete / cycle matches (Tab)")))
+        .child(button("project-path", "Open", (_e,cx) => this.chooseFirst(cx)).py(4).font_semibold().text_color(t.accent).tooltip("Open (Enter)"))));
   }
   taskMenu() {
     const t = theme(); return v_flex().p(6).bg(t.popover).text_color(t.foreground).child(div().id("move-project").px(8).py(7).cursor_pointer().hover(s => s.bg(t.hover)).on_click(() => { closeOverlay(props().overlay); this.openProjects(props().task); }).child("Move to project…"))

@@ -23,9 +23,9 @@ const sandbox = {
   VirtualListScrollHandle: {new: () => ({last:null, scroll_to_item(index, strategy) { this.last = [index, strategy]; }})},
   localStorage: {getItem: key => key === 'project-history' ? JSON.stringify(saved) : null},
   exec: (...args) => { calls.push(args); return executor(...args); },
-  InputState: {new: () => {
+  InputState: {new: (options = {}) => {
     const callbacks = {};
-    return {text:'', focused:false, on: (event, fn) => { callbacks[event] = fn; }, focus() { this.focused = true; }, value() { return this.text; },
+    return {text:'', focused:false, placeholder:options.placeholder, on: (event, fn) => { callbacks[event] = fn; }, focus() { this.focused = true; }, value() { return this.text; },
       set_value(text) { this.text = text; if (delayChanges) changes.push(() => callbacks.change?.({}, cx)); else callbacks.change?.({}, cx); }, submit() { callbacks.submit({}, cx); }};
   }},
 };
@@ -173,6 +173,7 @@ async function main() {
 
   // Input owns native keys. The picker registers scoped actions on its ancestor instead.
   let inLayout = false, list;
+  const visibleText = [];
   const renderElement = () => {
     let proxy; const node = {events:{actions:{}}, children:[]};
     proxy = new Proxy(node, {get: (target, method) => method in target ? target[method] : (...args) => {
@@ -183,7 +184,10 @@ async function main() {
       if (method === 'key_context') target.context = args[0];
       if (method === 'on_action') target.events.actions[args[0]] = args[1];
       if (method === 'id') target.id = args[0];
-      if (method === 'child') target.children.push(args[0]);
+      if (method === 'child') { target.children.push(args[0]); if (typeof args[0] === 'string') visibleText.push(args[0]); }
+      if (method === 'tooltip') target.tooltip = args[0];
+      if (method === 'whitespace_nowrap') target.nowrap = true;
+      if (method === 'text_ellipsis_middle') target.ellipsisMiddle = true;
       if (method === 'on_click') target.events.press = args[0];
       if (method === 'on_item_click') target.events.click = args[0];
       return proxy;
@@ -192,14 +196,18 @@ async function main() {
   sandbox.div = sandbox.v_flex = sandbox.h_flex = renderElement; sandbox.theme = () => ({}); sandbox.Input = {new:renderElement};
   sandbox.v_virtual_list = (_id, count, _height, key, render) => {
     for (let i = 0; i < count; i++) assert.equal(typeof key(i), 'string');
-    inLayout = true;
-    try { render({start:0, end:count}, cx); } finally { inLayout = false; }
-    list = renderElement(); return list;
+    inLayout = true; let rows;
+    try { rows = render({start:0, end:count}, cx); } finally { inLayout = false; }
+    list = renderElement(); list.rows = rows; return list;
   };
   sandbox.Scrollbar = {vertical:renderElement};
   saved = [{machine:null, root:'/home/me/src/vendor/repo'}, {machine:null, root:'/home/me/src/vendor/other'}];
   picker = make(); const root = picker.projectPicker();
   assert.equal(root.handle, picker.handle); assert.equal(root.context, 'TaskProjectPicker');
+  assert.equal(picker.filter.placeholder, 'Project or ~/path');
+  assert.ok(visibleText.includes('~/src/vendor/repo'));
+  assert.equal(list.rows[0].nowrap, true); assert.equal(list.rows[0].ellipsisMiddle, true);
+  assert.equal(list.rows[0].tooltip, '/home/me/src/vendor/repo');
   assert.equal(typeof root.events.key, 'undefined'); // Completion must not depend on bubbling key delivery.
   assert.equal(bindings.length, 5);
   for (const binding of bindings) {
@@ -231,9 +239,26 @@ async function main() {
   picker.filter.text = '~/src/ven'; const withPath = picker.projectPicker();
   picker.filter.focused = false; find(withPath, 'project-complete').events.press({}, cx);
   assert.equal(picker.filter.value(), '~/src/vendor/'); assert.equal(picker.filter.focused, true); await drain();
+  let openedPath; picker.choosePath = value => { openedPath = value; };
+  find(withPath, 'project-path').events.press({}, cx); assert.equal(openedPath, '/home/me/src/vendor');
+  assert.equal(find(withPath, 'project-complete').tooltip, 'Complete / cycle matches (Tab)');
+  assert.equal(find(withPath, 'project-close').tooltip, 'Close (Esc)');
+  assert.ok(visibleText.includes('⇥')); assert.ok(visibleText.includes('×'));
+  assert.ok(visibleText.every(text => !text.startsWith('Tab:') && !text.startsWith('Tab cycles') && !text.startsWith('Open folder:') && !text.startsWith('local:')));
+  picker.directoryError = 'Cannot list this folder';
+  const failedListing = picker.projectPicker();
+  assert.equal(find(failedListing, 'project-directory-error').tooltip, picker.directoryError);
+  assert.ok(picker.projectChoices().length > 0); assert.ok(visibleText.includes(picker.directoryError));
+  picker.directoryError = null;
   closedOverlay = null; dispatch('escape'); assert.equal(closedOverlay, 'picker-test'); assert.equal(picker.closed, true);
   picker = make(); const reopened = picker.projectPicker();
   closedOverlay = null; find(reopened, 'project-close').events.press({}, cx); assert.equal(closedOverlay, 'picker-test');
+  saved = []; visibleText.length = 0; picker = make(); picker.projectPicker();
+  assert.ok(!visibleText.includes('No matches')); // The empty initial picker needs no extra instructions.
+  picker.filter.text = '/loading/'; picker.directoryPending['/loading/'] = true; picker.projectPicker();
+  assert.ok(visibleText.includes('Loading folders…'));
+  delete picker.directoryPending['/loading/']; picker.directoryError = 'Folder unavailable'; picker.projectPicker();
+  assert.ok(visibleText.includes('Folder unavailable'));
   if (process.argv.includes('--native')) {
     const mod = fs.mkdtempSync(path.join(os.tmpdir(), 'herdr-picker-check-'));
     try {
