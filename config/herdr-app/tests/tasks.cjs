@@ -80,6 +80,24 @@ const moved = {a:{machine:null,root:'/old'}}; movePin(moved, 'a', {machine:'remo
 const groups = groupSpaces(spaces, assignments);
 assert.equal(groups.length, 3); assert.equal(groups[0].tasks.map(x => x.id).join(','), 'a,c');
 assert.equal(groups[2].machine, 'remote');
+{
+  const rendered = [];
+  const element = () => {
+    const node = new Proxy({}, {get: (_target, method) => (...args) => {
+      if (method === 'child' && typeof args[0] === 'string') rendered.push(args[0]);
+      if (method === 'when' && args[0]) args[1](node);
+      return node;
+    }});
+    return node;
+  };
+  sandbox.div = sandbox.h_flex = sandbox.v_flex = element;
+  const tree = new TaskTree(); tree.folded = {}; tree.hoveredProject = null;
+  tree.project({...groups[0], tasks:[]}, [], {}, {});
+  assert.ok(rendered.includes('REPO'));
+  rendered.length = 0;
+  tree.project({...groups[2], machine:'build-host', tasks:[]}, [], {}, {});
+  assert.ok(rendered.includes('build-host: REPO'));
+}
 const ordered = groups.flatMap(g => g.tasks);
 assert.equal(step(ordered, 'c', 1).id, 'b'); assert.equal(step(ordered, 'a', -1).id, 'd');
 assert.equal(step([], null, 1), null); assert.equal(nth(groups[0].tasks, 2).id, 'c'); assert.equal(nth(groups, 0), null);

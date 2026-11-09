@@ -296,14 +296,15 @@ export default class TaskTree extends View {
   }
   project(group, all, t, cx) {
     const folded = Boolean(this.folded[group.id]);
-    const label = group.root.replace(/\/+$/, "").split("/").pop() || group.root || group.machine || "~";
+    const name = group.root.replace(/\/+$/, "").split("/").pop() || group.root || group.machine || "~";
+    const label = `${group.machine ? `${group.machine}: ` : ""}${name.toUpperCase()}`;
     const available = machines().find(m => m.name === group.machine)?.layout === "ready";
     return v_flex().min_w(0).flex_none().pt(8)
       .child(h_flex().id(`project-${group.id}`).h(25).min_w(0).gap(5).px(6).items_center().text_size(10.5).text_color(t.muted)
         .on_hover((hovered, cx) => { if (hovered) this.hoveredProject = group.id; else if (this.hoveredProject === group.id) this.hoveredProject = null; cx.notify(); })
         .child(div().id(`fold-${group.id}`).size(20).flex_none().flex().items_center().justify_center().cursor_pointer().tooltip(folded ? "Expand project" : "Collapse project")
           .on_click((_e, cx) => { cx.stop_propagation(); this.folded[group.id] = !folded; localStorage.setItem("folded", JSON.stringify(this.folded)); cx.notify(); }).child(folded ? "›" : "⌄"))
-        .child(div().flex_1().min_w(0).truncate().font_semibold().tooltip(group.machine ? `${group.machine}: ${group.root}` : group.root).child(label.toUpperCase()))
+        .child(div().flex_1().min_w(0).truncate().font_semibold().tooltip(group.machine ? `${group.machine}: ${group.root}` : group.root).child(label))
         .child(div().flex_none().text_color(t.dim).tooltip(`${group.tasks.length} tasks`).child(`${group.tasks.length}`))
         .child(div().id(`new-${group.id}`).size(22).flex_none().flex().items_center().justify_center().rounded(5).text_color(t.muted).hover(s => s.bg(t.selected).text_color(t.foreground)).tooltip(available ? "New task in this project" : "Machine unavailable")
           .on_click((_e, cx) => { cx.stop_propagation(); if (available) this.newTask(group, cx); }).child(this.hoveredProject === group.id ? "+" : "")))
