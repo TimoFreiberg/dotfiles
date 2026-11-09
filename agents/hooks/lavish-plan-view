@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -u
+
+cat >/dev/null
+session=${POLYTOKEN_SESSION_ID:-}
+[ -n "$session" ] || exit 0
+
+plan_dir="$HOME/.local/share/polytoken/sessions-v1/$session"
+plan=
+for candidate in "$plan_dir"/plan-[0-9][0-9][0-9].md; do
+  [ -f "$candidate" ] || continue
+  plan=$candidate
+done
+[ -n "$plan" ] || exit 0
+
+log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/lavish-view"
+mkdir -p "$log_dir" 2>/dev/null || exit 0
+log="$log_dir/plan-hook.log"
+out="$HOME/.local/share/polytoken/artifacts/plan/$session/index.html"
+(nohup lavish-view "$plan" --out "$out" </dev/null >>"$log" 2>&1 &)
+exit 0
