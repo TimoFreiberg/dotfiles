@@ -69,7 +69,6 @@ herdr-app/tests/*
 !herdr-app/tests/workspace-ui.cjs
 !herdr-app/tests/tasks.cjs
 !herdr-app/tests/project-picker.cjs
-!herdr-app/tests/jj-diff-html-roundtrip.cjs
 !herdr-app/keys.json
 !herdr-app/programs.json
 !herdr-app/polytoken-icons

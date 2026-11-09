@@ -67,7 +67,7 @@ The chezmoi templates deploy regular files because Herdr cannot load external mo
 
 This layout doesn't pick up new Herdr features by itself. After a Herdr update, compare its shipped layouts' workspace and tab controls with this one, and add any newly supported feature that has no place here to the bottom tools.
 
-## Workspace tasks and diff review
+## Workspace tasks
 
 The `workspace-tasks` layout groups spaces as tasks under their project, with tabs across the top. `task-tree` manages the sidebar and project picker; `task-doc` opens and autosaves notes in `~/mydesk/tasks`, asks before overwriting external edits, and labels linked terminals with `task.doc`. New notes use `git config user.email` for their owner when available. `task-artifacts` lists HTML pages registered by `herdr-artifact add /path/to/page.html [--title "Title"]`; opening one uses Lavish. `task-tabs` is a copy of Herdr's tabs mod with an Artifacts button and count. After Herdr updates, compare it with the shipped tabs mod and reapply those additions when re-syncing.
 
@@ -103,6 +103,20 @@ chezmoi apply "$HOME/.config/herdr-app/keys.json" \
 Switch with `herdr-app do layout.switch '{"name":"workspace-tasks"}'`; return to `workspace-tree` or `main` by changing the name. To uninstall, switch away first, remove the targets above and their chezmoi source entries, and remove the `layout:workspace-tasks` key section if no longer needed. Notes and registered pages are not deleted.
 
 Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node config/herdr-app/tests/project-picker.cjs`, and `node config/herdr-app/tests/workspace-ui.cjs`. With Herdr installed, `node config/herdr-app/tests/project-picker.cjs --native` also checks the picker branch's native initialization and render. It doesn't simulate keyboard dispatch or verify focus traversal.
+
+## Lavish review pages
+
+`lavish-view` opens an HTML file, a markdown file, or a jj/git diff (`lavish-view diff`) as a Lavish review page without opening a browser window (`--open` does). Inside a herdr terminal (`HC_TERMINAL_ID` set and `herdr-app` on `PATH`) it lists the page under the task's Artifacts; anywhere else, or when the `task-tree` mod isn't loaded, it prints the URL instead. `lavish-view --help` lists the diff range and output options.
+
+The first run, and the first run after its dependencies or browser sources change, installs pinned npm packages and builds the diff page bundle. This needs `npm` and network access. Both are cached under `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-view/`; deleting that directory forces a rebuild. Pages are written under `~/.local/share/polytoken/artifacts/` unless `--out` says otherwise, and never inside the reviewed repository.
+
+The `lavish-plan-view` hook in `config/polytoken/hooks.json` runs on each Polytoken `handoff_plan` call. It opens the session's newest `plan-NNN.md` the same way, in the background, so the handoff isn't delayed. Its output goes to `${XDG_STATE_HOME:-$HOME/.local/state}/lavish-view/plan-hook.log`. Install the command and the hook after checking that `chezmoi diff "$HOME/.config/polytoken/hooks.json"` shows only the new entry:
+
+```sh
+chezmoi apply "$HOME/.local/bin/lavish-view" "$HOME/.config/polytoken/hooks.json"
+```
+
+Run the tests with `just test-lavish-view`. It installs dev dependencies into `lib/lavish-view/node_modules` and runs the node, hook, and browser suites. The browser suite uses Playwright's cached Chromium and starts and ends its own Lavish session.
 
 ## Herdr compatibility mode
 

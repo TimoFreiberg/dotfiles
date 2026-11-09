@@ -16,13 +16,11 @@ building, read:
 - `lavish-axi design`: design direction and snippets
 - `lavish-axi playbook` lists ids; `lavish-axi playbook <id>` gives focused guidance
 
-Start or resume the session with `lavish-axi "<html-file>" --no-open` so
-it does not change the operator's browser focus. Then run
-`herdr-artifact add "<html-file>"` to list the page under the current herdr
-task; it does nothing outside herdr. Run each poll with
-`shell_exec` and `background: true`, using a descriptive job name. Its
-completion wakes this agent; don't block on it. End the turn with the local
-URL returned by Lavish so the operator can open it when ready. Quote artifact
-paths in shell commands. Don't `share` or publish unless the operator asks.
+Start or resume the session with `lavish-view "<file>"` (HTML or markdown)
+instead of `lavish-axi` directly. Its output line names the page file to pass
+to `lavish-axi poll`, `reply`, and `end`. Run each poll with `shell_exec` and
+`background: true`, using a descriptive job name. Its completion wakes this
+agent; don't block on it. Quote artifact paths in shell commands. Don't
+`share` or publish unless the operator asks.
 
 Build what you were asked for; otherwise infer it from the conversation.
