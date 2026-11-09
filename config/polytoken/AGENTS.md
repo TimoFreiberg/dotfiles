@@ -1,3 +1,7 @@
+## Links
+
+Whenever you mention a ticket, PR, issue, dashboard or other online resource in a reply, include its full URL (a markdown link is fine), not just the bare ID like `#1234` or `PROJ-56`.
+
 ## Version Control
 
 Prefer `jj` over `git`.
