@@ -78,8 +78,29 @@ assert.equal(hist.map(p => `${p.machine ?? 'local'}:${p.root}`).join(','), 'loca
 assert.equal(repoRoot('/dir/sub', '/jj\n', '/git'), '/jj'); assert.equal(repoRoot('/dir/sub', '', '/git\n'), '/git'); assert.equal(repoRoot('/standalone', '', ''), '/standalone');
 const moved = {a:{machine:null,root:'/old'}}; movePin(moved, 'a', {machine:'remote',root:'/new'}); assert.equal(moved.a.root, '/new'); assert.equal(moved.a.machine, 'remote');
 const groups = groupSpaces(spaces, assignments);
-assert.equal(groups.length, 3); assert.equal(groups[0].tasks.map(x => x.id).join(','), 'a,c');
-assert.equal(groups[2].machine, 'remote');
+assert.equal(groups.length, 3); assert.equal(groups[0].tasks.map(x => x.id).join(','), 'b');
+assert.equal(groups[1].tasks.map(x => x.id).join(','), 'a,c'); assert.equal(groups[2].machine, 'remote');
+const orderSpaces = [
+  {id:'A1'}, {id:'B1'}, {id:'A2'}, {id:'D1'}, {id:'C1'},
+];
+const orderAssignments = {
+  A1:{machine:'builder-z',root:'/work'}, B1:{machine:'builder-a',root:'/work'},
+  A2:{machine:'builder-z',root:'/work'}, D1:{machine:'builder-z',root:'/archive'}, C1:{machine:null,root:'/work'},
+};
+const groupKey = group => `${group.machine ?? 'local'}:${group.root}`;
+const interleavedGroups = groupSpaces(orderSpaces, orderAssignments);
+assert.deepEqual(Array.from(interleavedGroups, groupKey), ['local:/work','builder-a:/work','builder-z:/archive','builder-z:/work']);
+assert.deepEqual(Array.from(interleavedGroups[3].tasks, task => task.id), ['A1','A2'], 'same-group tasks keep live interleaved order');
+const shuffledGroups = groupSpaces([orderSpaces[4],orderSpaces[3],orderSpaces[2],orderSpaces[1],orderSpaces[0]], orderAssignments);
+assert.deepEqual(Array.from(shuffledGroups, groupKey), Array.from(interleavedGroups, groupKey), 'group order is deterministic when live spaces are shuffled');
+assert.deepEqual(Array.from(shuffledGroups[3].tasks, task => task.id), ['A2','A1'], 'task order still follows live-space order');
+const afterRemovingA1 = groupSpaces(orderSpaces.filter(space => space.id !== 'A1'), orderAssignments);
+assert.deepEqual(Array.from(afterRemovingA1, groupKey), Array.from(interleavedGroups, groupKey), 'closing a project\'s first task does not move its surviving group');
+assert.deepEqual(Array.from(afterRemovingA1.find(group => groupKey(group) === 'builder-z:/work').tasks, task => task.id), ['A2']);
+const survivingOrder = Array.from(interleavedGroups).filter(group => !group.tasks.some(task => task.id === 'B1')).map(groupKey);
+const afterRemovingB1 = groupSpaces(orderSpaces.filter(space => space.id !== 'B1'), orderAssignments);
+assert.deepEqual(Array.from(afterRemovingB1, groupKey), survivingOrder, 'removing interleaved B1 keeps the remaining group order stable');
+assert.deepEqual(Array.from(afterRemovingB1.find(group => groupKey(group) === 'builder-z:/work').tasks, task => task.id), ['A1','A2']);
 {
   const rendered = [];
   const element = () => {
@@ -99,8 +120,8 @@ assert.equal(groups[2].machine, 'remote');
   assert.ok(rendered.includes('build-host: MixedCase'));
 }
 const ordered = groups.flatMap(g => g.tasks);
-assert.equal(step(ordered, 'c', 1).id, 'b'); assert.equal(step(ordered, 'a', -1).id, 'd');
-assert.equal(step([], null, 1), null); assert.equal(nth(groups[0].tasks, 2).id, 'c'); assert.equal(nth(groups, 0), null);
+assert.equal(step(ordered, 'c', 1).id, 'd'); assert.equal(step(ordered, 'a', -1).id, 'b');
+assert.equal(step([], null, 1), null); assert.equal(nth(groups[1].tasks, 2).id, 'c'); assert.equal(nth(groups, 0), null);
 assert.equal(step(groups, groups[0].id, -1).id, groups[2].id);
 const reporting = {space:'a',title:'Agent session',program:{agent:false}};
 assert.equal(taskTitle(spaces[0], taskAgent(spaces[0], [reporting])), 'Agent session');
@@ -109,12 +130,47 @@ assert.equal(taskTitle({...spaces[0],name:'Fallback'}, null), 'Fallback');
 assert.equal(firstTerminal(spaces[0], [{tab:'one',terminal:'t1',cwd:'/live/sub'}]).cwd, '/live/sub');
 async function testArtifactsPanel() {
   const code = fs.readFileSync('config/herdr-app/mods/task-artifacts/main.js', 'utf8').replace(/^import .*;\n/gm, '').replace('export default class', 'class');
-  const saved = {s:[{path:'/test.html',title:'Test',added:1,seen:false}]}, calls = [], queue = [];
-  let fail = false, gate = null, release;
+  const saved = {s:[{path:'/test.html',title:'Test',added:1,seen:false}]}, calls = [], queue = [], closed = [], keyBindings = [], scrollCalls = [], rendered = [], renderedText = [];
+  let fail = false, gate = null, release, notifies = 0, stopped = 0, focusCalls = 0, inVirtualList = false, activeProps = {space:'s',overlay:'picker'};
+  class TestInputState {
+    constructor(options) { this.options = options; this.text = options.value ?? ''; this.handlers = {}; }
+    static new(options) { return new TestInputState(options); }
+    on(name, callback) { this.handlers[name] = callback; }
+    value() { return this.text; }
+    setValue(value, cx) { this.text = value; this.handlers.change?.(null, cx); }
+    submit(cx) { this.handlers.submit?.(null, cx); }
+    focus() { focusCalls++; }
+    release() { this.released = true; }
+  }
+  const element = (kind = 'element') => {
+    const target = {kind,elementId:null,nodes:[],events:{},calls:[]};
+    const node = new Proxy(target, {get(obj, method) {
+      if (method === 'child') return child => { obj.nodes.push(child); if (typeof child === 'string') renderedText.push(child); return node; };
+      if (method === 'children') return children => { obj.nodes.push(...children); return node; };
+      if (method === 'when') return (condition, fn) => { if (condition) fn(node); return node; };
+      if (method === 'id') return id => { obj.elementId = id; return node; };
+      if (method === 'tooltip') return text => { obj.tip = text; return node; };
+      if (method in obj) return obj[method];
+      if (method === 'on_action') return (name, fn) => { assert.equal(inVirtualList, false, 'handlers are forbidden inside a virtual-list renderer'); obj.events[`action:${name}`] = fn; return node; };
+      if (typeof method === 'string' && method.startsWith('on_')) return (...args) => { assert.equal(inVirtualList, false, 'handlers are forbidden inside a virtual-list renderer'); obj.events[method] = args.at(-1); return node; };
+      return (...args) => { obj.calls.push([method, ...args]); return node; };
+    }});
+    rendered.push(node); return node;
+  };
   const sandbox = {View:class {}, artifactKey, seeArtifact, removeArtifact, lavishUrl, openCommand, age,
-    shared: () => saved, setShared: (_key, value) => Object.assign(saved, value), home: () => '/home/me',
-    exec: async (cmd, args) => {
-      calls.push([cmd, args]);
+    InputState:TestInputState, Input:{new:() => element('input')}, VirtualListScrollHandle:{new:() => ({scroll_to_item:index => scrollCalls.push(index)})},
+    Scrollbar:{vertical:() => element('scrollbar')}, div:() => element('div'), h_flex:() => element('h_flex'), v_flex:() => element('v_flex'),
+    v_virtual_list:(name,count,_height,key,renderRows) => {
+      const list = element('virtual-list'); list.listName = name; list.count = count; list.keys = Array.from({length:count},(_,i) => key(i));
+      let rows; inVirtualList = true; try { rows = renderRows({start:0,end:count}); } finally { inVirtualList = false; }
+      list.children(rows); return list;
+    },
+    theme:() => ({popover:'popover',foreground:'foreground',muted:'muted',dim:'dim',selected:'selected',hover:'hover',accent:'accent',blocked:'blocked',input:'input',background:'background'}),
+    shared:() => saved, setShared:(_key,value) => Object.assign(saved,value), home:() => '/home/me', props:() => activeProps,
+    spaces:() => [{id:'s',active:true}],
+    closeOverlay:id => closed.push(id),
+    exec: async (cmd,args) => {
+      calls.push([cmd,args]);
       if (cmd === 'lavish-axi') {
         if (gate) await gate;
         if (fail) return {code:1,stderr:'failed'};
@@ -125,18 +181,148 @@ async function testArtifactsPanel() {
       return {code:cmd === 'test' ? 1 : 0};
     }};
   const {TaskArtifacts} = vm.runInNewContext(code + '\n({TaskArtifacts})', sandbox);
-  const cx = {spawn:fn => queue.push(fn), notify(){}};
-  const panel = new TaskArtifacts(); panel.open('s', saved.s[0], cx); await queue.shift()(cx);
+  const cx = {spawn:fn => queue.push(fn), notify(){notifies++;}, focus_handle:() => ({focus(){}}), bind_keys:keys => keyBindings.push(keys), stop_propagation(){stopped++;}};
+  const drainQueue = async (limit = 50) => {
+    let drained = 0;
+    while (queue.length) { assert.ok(drained < limit, 'queued render work must settle without an endless notify loop'); await queue.shift()(cx); drained++; }
+    return drained;
+  };
+  const renderAndDrain = async () => { panel.render(cx); await drainQueue(); };
+  const panel = new TaskArtifacts(); panel.init(null,cx);
+  assert.equal(panel.space, 's'); assert.equal(focusCalls, 1);
+  assert.equal(keyBindings[0].map(({keystroke,action}) => `${keystroke}:${action}`).join(','), 'tab:task-artifact-next,shift-tab:task-artifact-prev,down:task-artifact-next,up:task-artifact-prev,escape:task-artifact-close');
+  assert.equal(panel.selection(panel.items()).path, '/test.html', 'the first result is selected by default');
+
+  saved.s = [
+    {path:'/reports/overview.html',title:'Report Overview',added:400,seen:false},
+    {path:'/overview/report.html',title:'Overview Report',added:200,seen:false},
+    {path:'/archive/REPORT.html',title:'Quarterly Summary',added:300,seen:true},
+    {path:'/nested/data/alpha.html',title:'Alpha Guide',added:500,seen:false},
+  ];
+  panel.filter.setValue('over',cx);
+  assert.deepEqual(panel.items().map(item => item.path), ['/overview/report.html','/reports/overview.html'], 'prefix matches rank ahead of substring matches');
+  assert.equal(panel.selection(panel.items()).path, '/overview/report.html');
+  panel.filter.setValue('REPORT',cx);
+  assert.deepEqual(panel.items().map(item => item.path), ['/reports/overview.html','/archive/REPORT.html','/overview/report.html'], 'matching is case-insensitive and ranks title/path fuzzy matches');
+  panel.filter.setValue('nested/data',cx);
+  assert.deepEqual(panel.items().map(item => item.title), ['Alpha Guide'], 'the path participates in matching');
+  panel.filter.setValue('zz-not-found',cx);
+  assert.equal(panel.items().length, 0);
+  rendered.length = 0; renderedText.length = 0;
+  await renderAndDrain();
+  assert.ok(renderedText.includes('No matching artifacts'), 'the no-match render shows the empty-state message');
+  panel.filter.setValue('over',cx);
+  panel.action('task-artifact-next',cx);
+  assert.equal(panel.selected, '/reports/overview.html');
+  const scrollBeforeReset = scrollCalls.length;
+  panel.filter.setValue('REPORT',cx);
+  assert.equal(panel.selected, null, 'changing the query resets selection');
+  assert.equal(scrollCalls.length, scrollBeforeReset + 1); assert.equal(scrollCalls.at(-1), 0, 'changing the query resets scroll to the first result');
+  assert.equal(panel.selection(panel.items()).path, '/reports/overview.html', 'query reset returns selection to the new first result');
+
+  panel.filter.setValue('over',cx); panel.selected = null;
+  rendered.length = 0;
+  await renderAndDrain();
+  let root = rendered.find(node => node.elementId === 'artifact-picker');
+  const focusBeforeActions = focusCalls;
+  root.events['action:task-artifact-next'](null,cx);
+  assert.equal(panel.selected, '/reports/overview.html'); assert.equal(scrollCalls.at(-1), 1); assert.equal(focusCalls, focusBeforeActions + 1);
+  root.events['action:task-artifact-prev'](null,cx);
+  assert.equal(panel.selected, '/overview/report.html'); assert.equal(scrollCalls.at(-1), 0); assert.equal(focusCalls, focusBeforeActions + 2);
+  assert.ok(notifies >= 2); assert.ok(stopped >= 2, 'navigation actions stop propagation');
+
+  const reconcilePath = '/selected.html';
+  saved.s = [
+    {path:'/newest.html',title:'Newest',added:300,seen:false},
+    {path:reconcilePath,title:'Selected',added:200,seen:false},
+    {path:'/oldest.html',title:'Oldest',added:100,seen:false},
+  ];
+  panel.filter.setValue('',cx); panel.selected = reconcilePath; scrollCalls.length = 0;
+  let reconcileNotifies = notifies; rendered.length = 0; await renderAndDrain();
+  assert.deepEqual(scrollCalls, [1], 'render reconciliation scrolls to the selected artifact index');
+  assert.equal(notifies, reconcileNotifies + 1);
+  reconcileNotifies = notifies; rendered.length = 0; await renderAndDrain();
+  assert.equal(queue.length, 0); assert.equal(notifies, reconcileNotifies, 'a stable render does not schedule another notify');
+
+  saved.s = addArtifact(saved.s, reconcilePath, 'Selected moved to front', 400);
+  assert.equal(panel.items()[0].path, reconcilePath);
+  scrollCalls.length = 0; reconcileNotifies = notifies; rendered.length = 0; await renderAndDrain();
+  assert.deepEqual(scrollCalls, [0], 'external re-registration/reordering scrolls the selected artifact back into view');
+  assert.equal(notifies, reconcileNotifies + 1);
+
+  saved.s = removeArtifact(saved.s, reconcilePath);
+  const fallbackPath = panel.items()[0].path;
+  scrollCalls.length = 0; reconcileNotifies = notifies; rendered.length = 0; await renderAndDrain();
+  assert.equal(panel.selection(panel.items()).path, fallbackPath, 'removing the selected artifact falls back to the first remaining result');
+  assert.deepEqual(scrollCalls, [0], 'external removal reconciles scroll to the fallback selection');
+  assert.equal(notifies, reconcileNotifies + 1);
+
+  saved.s = addArtifact(saved.s, reconcilePath, 'Selected re-registered', 250);
+  saved.s = [saved.s[1], saved.s[0], ...saved.s.slice(2)];
+  assert.equal(panel.selection(panel.items()).path, reconcilePath); assert.equal(panel.items().indexOf(panel.selection(panel.items())), 1);
+  scrollCalls.length = 0; reconcileNotifies = notifies; rendered.length = 0; await renderAndDrain();
+  assert.deepEqual(scrollCalls, [1], 're-registration at a new index reconciles scroll');
+  assert.equal(notifies, reconcileNotifies + 1);
+
+  saved.s = removeArtifact(saved.s, reconcilePath);
+  rendered.length = 0; panel.render(cx); assert.equal(queue.length, 1, 'removal queues a fallback reconciliation');
+  saved.s = addArtifact(saved.s, reconcilePath, 'Selected restored before scroll', 250);
+  saved.s = [saved.s[1], saved.s[0], ...saved.s.slice(2)];
+  rendered.length = 0; panel.render(cx); assert.equal(queue.length, 2, 're-registration queues a newer reconciliation');
+  assert.equal(panel.selection(panel.items()).path, reconcilePath);
+  scrollCalls.length = 0; reconcileNotifies = notifies;
+  assert.equal(await drainQueue(), 2);
+  assert.deepEqual(scrollCalls, [1], 'a stale removal job cannot scroll away from the re-registered selection');
+  assert.equal(notifies, reconcileNotifies + 1, 'only the current reconciliation notifies');
+  reconcileNotifies = notifies; rendered.length = 0; await renderAndDrain();
+  assert.equal(queue.length, 0); assert.equal(notifies, reconcileNotifies, 'the post-notify render does not start an infinite reconciliation loop');
+
+  panel.filter.setValue('',cx); saved.s = [{path:'/test.html',title:'Test',added:1,seen:false}];
+  panel.open('s', saved.s[0], cx); await queue.shift()(cx);
   assert.equal(saved.s[0].seen, true); assert.equal(calls[0][0], 'lavish-axi'); assert.equal(calls[2][0], 'open');
   assert.equal(JSON.stringify(calls[0][1]), JSON.stringify(['/test.html','--reopen','--no-open']));
   assert.equal(JSON.stringify(calls[2][1]), JSON.stringify(['-na','Google Chrome','--args','--app=http://localhost/session/live']));
+  assert.deepEqual(closed, ['picker'], 'the overlay closes after a successful open');
   saved.s[0].seen = false; fail = true; panel.open('s', saved.s[0], cx); await queue.shift()(cx);
   assert.equal(saved.s[0].seen, false); assert.match(panel.error, /failed/); assert.equal(calls.length, 4);
+  assert.deepEqual(closed, ['picker'], 'a failed open leaves the overlay open');
   fail = false; gate = new Promise(resolve => { release = resolve; });
   const clicked = saved.s[0]; panel.open('s', clicked, cx); const opening = queue.shift()(cx);
+  panel.open('s', clicked, cx); assert.equal(queue.length, 0, 'duplicate opens are ignored while an artifact is opening');
   saved.s = addArtifact(saved.s, clicked.path, 'Re-registered', clicked.added);
   assert.ok(saved.s[0].added > clicked.added); release(); await opening;
   assert.equal(saved.s[0].title, 'Re-registered'); assert.equal(saved.s[0].seen, false);
+  assert.deepEqual(closed, ['picker','picker']);
+
+  saved.s = [
+    {path:'/reports/overview.html',title:'Report Overview',added:400,seen:false},
+    {path:'/overview/report.html',title:'Overview Report',added:200,seen:false},
+    {path:'/archive/REPORT.html',title:'Quarterly Summary',added:300,seen:true},
+  ];
+  panel.filter.setValue('over',cx); panel.selected = '/overview/report.html';
+  const selectedPath = panel.selection(panel.items()).path, opensBeforeSubmit = calls.filter(([cmd]) => cmd === 'lavish-axi').length;
+  panel.filter.submit(cx); assert.equal(panel.opening, selectedPath); await queue.shift()(cx);
+  assert.equal(calls.filter(([cmd]) => cmd === 'lavish-axi').at(-1)[1][0], selectedPath, 'Enter opens the selected result');
+  panel.selected = selectedPath; rendered.length = 0; await renderAndDrain();
+  const list = rendered.find(node => node.kind === 'virtual-list' && node.listName === 'artifact-choices');
+  list.events.on_item_click(selectedPath,cx); assert.equal(panel.opening, selectedPath); await queue.shift()(cx);
+  assert.equal(calls.filter(([cmd]) => cmd === 'lavish-axi').length, opensBeforeSubmit + 2);
+  assert.deepEqual(calls.filter(([cmd]) => cmd === 'lavish-axi').slice(-2).map(([,args]) => args[0]), [selectedPath,selectedPath], 'Enter and row click open the same selected result');
+
+  rendered.length = 0; await renderAndDrain();
+  const remove = rendered.find(node => node.elementId === 'artifact-remove'), opensBeforeRemove = calls.length, closesBeforeRemove = closed.length;
+  assert.ok(remove, 'the selected result has a footer remove button');
+  remove.events.on_click(null,cx);
+  assert.equal(saved.s.some(item => item.path === selectedPath), false); assert.equal(panel.selected, null); assert.equal(scrollCalls.at(-1), 0);
+  assert.equal(calls.length, opensBeforeRemove); assert.equal(queue.length, 0);
+  assert.equal(closed.length, closesBeforeRemove, 'removing an item does not open an artifact or close the dialog');
+  root = rendered.find(node => node.elementId === 'artifact-picker'); root.events['action:task-artifact-close'](null,cx);
+  assert.equal(closed.at(-1), 'picker', 'Escape action closes the overlay'); assert.ok(stopped >= 5);
+  panel.close(); assert.equal(panel.filter.released, true);
+  activeProps = null;
+  const fallback = new TaskArtifacts(); fallback.init(null,cx);
+  assert.equal(fallback.space, 's', 'standalone checks without props use the active space');
+  fallback.render(cx); await drainQueue(); fallback.close();
 }
 async function testEditor() {
   const code = fs.readFileSync('config/herdr-app/mods/task-doc/main.js', 'utf8').replace(/^import .*;\n/gm, '').replace('export default class', 'class');
@@ -281,5 +467,22 @@ async function testEditor() {
   assert.equal(mode.docsDir(), '/home/me/mydesk/tasks');
   assert.equal(mode.allowedDoc(''), false); assert.equal(mode.allowedDoc('/notes.md'), true);
   await testEditor(); await testArtifactsPanel();
+  if (process.argv.includes('--native')) {
+    const mod = fs.mkdtempSync(pathModule.join(os.tmpdir(), 'herdr-artifacts-check-'));
+    try {
+      const directory = 'config/herdr-app/mods/task-artifacts', logicDirectory = 'config/herdr-app/mods/task-tree';
+      let nativeSource = fs.readFileSync(pathModule.join(directory, 'main.js'), 'utf8');
+      nativeSource = nativeSource
+        .replaceAll('props()', '({space:"native-artifact-space",overlay:"native-artifact-picker"})')
+        .replaceAll('shared(artifactKey)', '({"native-artifact-space":[{path:"/tmp/native-artifact.html",title:"Native artifact",added:1,seen:false}]})');
+      assert.ok(nativeSource.includes('Native artifact'), 'native check includes representative artifact data');
+      fs.writeFileSync(pathModule.join(mod, 'main.js'), nativeSource);
+      fs.copyFileSync(pathModule.join(directory, 'mod.json'), pathModule.join(mod, 'mod.json'));
+      fs.copyFileSync(pathModule.join(logicDirectory, 'artifact-logic.js'), pathModule.join(mod, 'artifact-logic.js'));
+      const result = child.spawnSync('herdr-app', ['check', mod], {encoding:'utf8', timeout:30000});
+      assert.equal(result.status, 0, result.stderr || result.stdout || String(result.error));
+      console.log('native artifact modal check passed');
+    } finally { fs.rmSync(mod, {recursive:true, force:true}); }
+  }
   console.log('task-tree, task-doc and artifacts tests passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });

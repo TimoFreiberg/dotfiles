@@ -14,7 +14,9 @@ function groupSpaces(list, assignments) {
     if (!byKey[id]) { byKey[id] = { id, root, machine, tasks: [] }; groups.push(byKey[id]); }
     byKey[id].tasks.push(space);
   }
-  return groups;
+  const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
+  return groups.sort((a, b) => Number(a.machine != null) - Number(b.machine != null)
+    || compare(a.machine ?? "", b.machine ?? "") || compare(a.root, b.root));
 }
 function firstTerminal(space, all) {
   for (const tab of space.tabs) { const pane = all.find(p => p.tab === tab.id && p.terminal); if (pane) return pane; }

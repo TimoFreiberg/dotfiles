@@ -69,7 +69,7 @@ This layout doesn't pick up new Herdr features by itself. After a Herdr update, 
 
 ## Workspace tasks
 
-The `workspace-tasks` layout groups spaces as tasks under their project, with tabs across the top. `task-tree` manages the sidebar and project picker; `task-doc` opens and autosaves notes in `~/mydesk/tasks`, asks before overwriting external edits, and labels linked terminals with `task.doc`. New notes use `git config user.email` for their owner when available. `task-artifacts` lists HTML pages registered by `herdr-artifact add /path/to/page.html [--title "Title"]`; opening one uses Lavish. `task-tabs` is a copy of Herdr's tabs mod with an Artifacts button and count. After Herdr updates, compare it with the shipped tabs mod and reapply those additions when re-syncing.
+The `workspace-tasks` layout groups spaces as tasks under their project, with tabs across the top. Projects sort by machine name and full path, with local projects first; closing a task doesn't reorder the remaining projects. Tasks within each project retain Herdr's order. Cmd-B toggles the sidebar, and a right-arrow button with a Show sidebar tooltip appears in the tab bar when it's hidden. Task navigation resumes when the sidebar is shown. `task-tree` manages the sidebar and project picker; `task-doc` opens and autosaves notes in `~/mydesk/tasks`, asks before overwriting external edits, and labels linked terminals with `task.doc`. New notes use `git config user.email` for their owner when available. `task-artifacts` opens a modal listing HTML pages registered by `herdr-artifact add /path/to/page.html [--title "Title"]`; opening one uses Lavish and closes the modal on success. Its search field fuzzy-matches titles and paths, with newest pages first when empty. Enter opens the first match unless you've selected another with Up/Down or Tab/Shift-Tab; selection wraps and keeps the search field focused. Escape or × closes the modal. Failed opens leave the error visible so you can retry. `task-tabs` is a copy of Herdr's tabs mod with an Artifacts button and unread count; Files and Changes remain side panels. After Herdr updates, compare it with the shipped tabs mod and reapply those additions when re-syncing.
 
 | Keys | Action |
 | --- | --- |
@@ -104,7 +104,7 @@ chezmoi apply "$HOME/.config/herdr-app/keys.json" \
 
 Switch with `herdr-app do layout.switch '{"name":"workspace-tasks"}'`; return to `workspace-tree` or `main` by changing the name. To uninstall, switch away first, remove the targets above and their chezmoi source entries, and remove the `layout:workspace-tasks` key section if no longer needed. Notes and registered pages are not deleted.
 
-Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node config/herdr-app/tests/project-picker.cjs`, and `node config/herdr-app/tests/workspace-ui.cjs`. With Herdr installed, `node config/herdr-app/tests/project-picker.cjs --native` also checks the picker branch's native initialization and render. It doesn't simulate keyboard dispatch or verify focus traversal.
+Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node config/herdr-app/tests/project-picker.cjs`, and `node config/herdr-app/tests/workspace-ui.cjs`. With Herdr installed, `node config/herdr-app/tests/project-picker.cjs --native` and `node config/herdr-app/tests/tasks.cjs --native` also check native initialization and rendering of the project picker and populated artifacts modal. These checks don't simulate keyboard dispatch or verify focus traversal.
 
 ## Lavish review pages
 

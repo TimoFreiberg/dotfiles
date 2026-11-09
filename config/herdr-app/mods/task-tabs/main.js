@@ -22,6 +22,10 @@ export default class Tabs extends View {
   syncPanel(space, panel, body, enabled) {
     if (!space || !panel) return;
     const now = panel.hidden ? null : body?.active ?? null;
+    if (now && !enabled.includes(now)) {
+      run("layout.hide", { id: "panel" });
+      return;
+    }
     if (space.id !== this.space) {
       const first = this.space === undefined;
       this.space = space.id; this.pending = null;
@@ -77,7 +81,7 @@ export default class Tabs extends View {
       ? Math.max(10, (root.traffic_lights[0] + 64) / settings().zoom - (sidebar?.hidden ? 0 : sidebar?.size?.px ?? 0))
       : 10;
     const panel = find(root, "panel"), body = find(root, "panel-body");
-    const enabled = [...(shared("workspace.panels") ?? ["files", "changes"]), "artifacts"];
+    const enabled = (shared("workspace.panels") ?? ["files", "changes"]).filter(id => id !== "artifacts");
     const unseen = ((shared("task-artifacts") ?? {})[space?.id] ?? []).filter(item => !item.seen).length;
     this.syncPanel(space, panel, body, enabled);
     const panelButton = (id, label, icon) => {
@@ -93,11 +97,17 @@ export default class Tabs extends View {
     return h_flex().size_full().min_w(0).px(10).pl(lightsPadding).gap(3).items_center().bg(t.chrome).border_b(1).border_color(t.border)
       .on_mouse_up("left", () => { this.pressed = null; })
       .on_scroll_wheel(e => { if (Math.abs(e.delta.y) >= 1) run(e.delta.y > 0 ? "tab.prev" : "tab.next"); })
+      .when(Boolean(sidebar?.hidden), el => el.child(h_flex().id("sidebar-show").h(26).px(8).flex_none().items_center().rounded(6)
+        .text_size(12).text_color(t.muted).hover(s => s.bg(t.hover)).cursor_pointer().tooltip("Show sidebar")
+        .on_mouse_down("left", stop).on_click(() => run("layout.show", { id: "sidebar" })).child("→")))
       .child(h_flex().id("tab-scroll").flex_1().min_w(0).h_full().items_center().gap(3).overflow_x_scrollbar().children(shown.map(item)))
       .child(button("tab-new", "+", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))
       .when(enabled.includes("files"), el => el.child(panelButton("files", "Files", "mods/files/file.svg")))
       .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "mods/changes/changes.svg")))
-      .child(panelButton("artifacts", `Artifacts${unseen ? ` ${unseen}` : ""}`, "mods/files/file.svg"))
+      .child(h_flex().id("artifacts-open").h(26).px(8).gap(5).flex_none().items_center().rounded(6)
+        .text_size(12).bg(t.chrome).text_color(t.muted).hover(s => s.bg(t.hover)).on_mouse_down("left", stop)
+        .on_click(() => openOverlay({ mod: "task-artifacts", kind: "dialog", width: 600, height: 440, props: { space: space?.id } }))
+        .child(svg("mods/files/file.svg").size(14)).child(`Artifacts${unseen ? ` ${unseen}` : ""}`))
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/tabs/win-min.svg").size(16) : "−", () => run("window.minimize")))
         .child(button("maximize", w.platform === "windows" ? svg(`mods/tabs/${w.maximized ? "win-restore" : "win-max"}.svg`).size(16) : "□", () => run("window.maximize")))
         .child(button("close-window", w.platform === "windows" ? svg("mods/tabs/win-close.svg").size(16) : svg("mods/pane/close.svg").size(13), () => run("window.close"))));

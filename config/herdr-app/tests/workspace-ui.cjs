@@ -4,7 +4,7 @@ const vm = require("node:vm");
 const path = require("node:path");
 
 const data = new Map(), calls = [], overlays = [];
-let activeProps = {}, modelSpaces = [], modelPanes = [], modelMachines = [{ name: null, layout: "ready" }], modelWindow = {};
+let activeProps = {}, modelSpaces = [], modelPanes = [], modelMachines = [{ name: null, layout: "ready" }], modelWindow = {}, modelShared = {};
 let modelHome = "/home/tester", homeCalls = 0, cwdTestId = 0;
 let tree = { id: "root", children: [{ id: "panel", hidden: true }, { id: "panel-body", active: "files" }] };
 function el(kind = "element", source = null) {
@@ -32,14 +32,14 @@ const sandbox = {
   spaces: () => modelSpaces, panes: () => modelPanes, machines: () => modelMachines,
   home: () => { homeCalls++; return modelHome; },
   theme: () => ({ muted: "muted", dim: "dim", foreground: "foreground", selected: "selected", chrome: "chrome", hover: "hover", border: "border", working: "working", blocked: "blocked", done: "done" }),
-  layout: () => tree, window: () => modelWindow, props: () => activeProps,
+  layout: () => tree, window: () => modelWindow, props: () => activeProps, shared: key => modelShared[key],
   run: (name, args) => calls.push([name, args === undefined ? undefined : JSON.parse(JSON.stringify(args))]), openOverlay: args => overlays.push(args),
   closeOverlay: id => calls.push(["closeOverlay", id]), knownAgents: async () => [],
   localStorage: { getItem: k => data.get(k) ?? null, setItem: (k, v) => data.set(k, v) },
 };
 function load(file) {
   const source = fs.readFileSync(path.join(__dirname, "..", "mods", file, "main.js"), "utf8")
-    .replace(/^import .*;\n/gm, "").replace("export default class", "class") + `\nthis.Result = ${file === "workspace-tree" ? "WorkspaceTree" : "WorkspaceNew"};`;
+    .replace(/^import .*;\n/gm, "").replace("export default class", "class") + `\nthis.Result = ${file === "workspace-tree" ? "WorkspaceTree" : file === "task-tabs" ? "Tabs" : "WorkspaceNew"};`;
   return vm.runInNewContext(source, sandbox);
 }
 const TabTree = load("workspace-tree"), sidebar = new TabTree();
@@ -225,6 +225,70 @@ modelMachines = [{ name: null, layout: "unavailable" }];
 picker.start(); assert.equal(calls.length, 0);
 sidebar.togglePanel("files");
 assert.deepEqual(calls.splice(0), [["layout.select", { stack: "panel-body", child: "files" }], ["layout.show", { id: "panel" }]]);
+const workspaceLayout = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "layouts", "workspace-tasks.json"), "utf8"));
+const findLayout = (node,id) => node?.id === id ? node : (node?.children ?? []).map(child => findLayout(child,id)).find(Boolean) ?? null;
+const panelLayout = findLayout(workspaceLayout,"panel-body");
+assert.deepEqual(panelLayout.children.map(child => child.id), ["files","changes"], "the workspace side panel contains only Files and Changes");
+const Tabs = load("task-tabs"), artifactSpace = { id: "artifact-space", name: "Artifacts", active: true, tabs: [] };
+modelSpaces = [artifactSpace]; modelPanes = []; modelWindow = {};
+modelShared = { "workspace.panels": ["files","changes","artifacts"], "task-artifacts": { "artifact-space": [{path:"/one.html",title:"One",seen:false},{path:"/two.html",title:"Two",seen:true}] } };
+data.set("panels", JSON.stringify({ "artifact-space": "artifacts" }));
+tree = { id: "root", children: [{ id: "sidebar", hidden: false, size: { px: 320 } }, { id: "panel", hidden: true, children: [{ id: "panel-body", active: "files" }] }] };
+const tabs = new Tabs(); tabs.init(); calls.length = 0; overlays.length = 0;
+const tabsRender = tabs.render(), artifactButton = lookup(tabsRender,"artifacts-open");
+assert.ok(artifactButton); assert.ok(artifactButton.nodes.includes("Artifacts 1"), "the artifact button shows the unseen count");
+assert.equal(lookup(tabsRender,"panel-artifacts"), null, "Artifacts is not restored as a side-panel button");
+assert.equal(tree.children[1].hidden, true); assert.deepEqual(calls, [], "an obsolete saved Artifacts preference does not reopen the sidebar");
+assert.equal(JSON.parse(data.get("panels"))["artifact-space"], null, "the obsolete saved preference is cleared");
+artifactButton.events.on_click();
+const artifactDialog = overlays.pop();
+assert.equal(artifactDialog.mod, "task-artifacts"); assert.equal(artifactDialog.kind, "dialog");
+assert.equal(artifactDialog.width, 600); assert.equal(artifactDialog.height, 440); assert.equal(artifactDialog.props.space, "artifact-space", "the dialog captures the active space");
+assert.deepEqual(calls, [], "opening Artifacts does not toggle Files or Changes"); assert.equal(tree.children[1].hidden, true);
+lookup(tabsRender,"panel-files").events.on_click(); lookup(tabsRender,"panel-changes").events.on_click();
+assert.deepEqual(calls.splice(0), [["layout.select", {stack:"panel-body",child:"files"}], ["layout.show", {id:"panel"}], ["layout.select", {stack:"panel-body",child:"changes"}], ["layout.show", {id:"panel"}]], "Files and Changes remain independent panel controls");
+
+data.delete("panels");
+const legacySpace = { ...artifactSpace, id: "legacy-artifact-space" };
+modelSpaces = [legacySpace];
+tree = { id: "root", children: [{ id: "sidebar", hidden: false }, { id: "panel", hidden: false, children: [{ id: "panel-body", active: "artifacts" }] }] };
+const legacyTabs = new Tabs(); legacyTabs.init(); calls.length = 0; legacyTabs.render();
+assert.deepEqual(calls.splice(0), [["layout.hide", {id:"panel"}]], "a visible unsupported Artifacts panel is hidden before per-space restore");
+assert.equal(data.has("panels"), false, "hiding the old panel does not invent a saved preference");
+for (const active of ["files","changes"]) {
+  data.delete("panels"); modelSpaces = [{ ...legacySpace, id: `visible-${active}` }];
+  tree = { id: "root", children: [{ id: "sidebar", hidden: false }, { id: "panel", hidden: false, children: [{ id: "panel-body", active }] }] };
+  const supportedTabs = new Tabs(); supportedTabs.init(); calls.length = 0; supportedTabs.render();
+  assert.deepEqual(calls, [], `an already visible ${active} panel is left alone`);
+}
+for (const active of ["files", "changes"]) {
+  const sidebarSpace = { ...legacySpace, id: `sidebar-${active}`, active: true };
+  modelSpaces = [sidebarSpace]; data.delete("panels");
+  tree = { id: "root", children: [{ id: "sidebar", hidden: true }, { id: "panel", hidden: false, children: [{ id: "panel-body", active }] }] };
+  const sidebarTabs = new Tabs(); sidebarTabs.init(); calls.length = 0;
+  const hiddenSidebarRender = sidebarTabs.render(), showSidebar = lookup(hiddenSidebarRender, "sidebar-show");
+  assert.ok(showSidebar, `a hidden sidebar offers Show sidebar with ${active} selected`);
+  assert.deepEqual(showSidebar.nodes, ['→'], 'the reveal button uses a right-arrow icon without a text label');
+  assert.equal(showSidebar.tip, 'Show sidebar');
+  assert.ok(lookup(hiddenSidebarRender, "panel-files"), "Files remains available while the sidebar is hidden");
+  assert.ok(lookup(hiddenSidebarRender, "panel-changes"), "Changes remains available while the sidebar is hidden");
+  let stopped = false;
+  showSidebar.events["on_mouse_down:left"]({}, { stop_propagation() { stopped = true; } });
+  assert.equal(stopped, true, "Show sidebar mouse-down stops propagation");
+  showSidebar.events.on_click();
+  assert.deepEqual(calls.splice(0), [["layout.show", { id: "sidebar" }]], "Show sidebar only reveals the sidebar");
+  assert.equal(tree.children[1].hidden, false, "revealing the sidebar leaves the side panel shown");
+  assert.equal(tree.children[1].children[0].active, active, `revealing the sidebar leaves ${active} selected`);
+
+  tree.children[0].hidden = false;
+  const shownSidebarRender = sidebarTabs.render();
+  assert.equal(lookup(shownSidebarRender, "sidebar-show"), null, "a shown sidebar has no Show sidebar button");
+  assert.ok(lookup(shownSidebarRender, "panel-files"));
+  assert.ok(lookup(shownSidebarRender, "panel-changes"));
+  assert.deepEqual(calls, [], `rendering with the sidebar shown leaves ${active} unchanged`);
+  assert.equal(tree.children[1].hidden, false);
+  assert.equal(tree.children[1].children[0].active, active);
+}
 async function testNavigation() {
   const keys = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "keys.json"), "utf8"));
   const scoped = keys["layout:workspace-tree"];
