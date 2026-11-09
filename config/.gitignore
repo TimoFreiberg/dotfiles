@@ -49,7 +49,6 @@ herdr-app/mods/workspace-new/*
 !herdr-app/mods/task-doc
 !herdr-app/mods/task-artifacts
 !herdr-app/mods/task-tabs
-!herdr-app/mods/jj-review
 herdr-app/mods/task-tree/*
 !herdr-app/mods/task-tree/main.js
 !herdr-app/mods/task-tree/mod.json
@@ -65,17 +64,11 @@ herdr-app/mods/task-artifacts/*
 herdr-app/mods/task-tabs/*
 !herdr-app/mods/task-tabs/main.js
 !herdr-app/mods/task-tabs/mod.json
-herdr-app/mods/jj-review/*
-!herdr-app/mods/jj-review/main.js
-!herdr-app/mods/jj-review/mod.json
-!herdr-app/mods/jj-review/open-diff
 !herdr-app/tests
 herdr-app/tests/*
 !herdr-app/tests/workspace-ui.cjs
 !herdr-app/tests/tasks.cjs
 !herdr-app/tests/project-picker.cjs
-!herdr-app/tests/jj-review.cjs
-!herdr-app/tests/zed-review.sh
 !herdr-app/tests/jj-diff-html-roundtrip.cjs
 !herdr-app/keys.json
 !herdr-app/programs.json

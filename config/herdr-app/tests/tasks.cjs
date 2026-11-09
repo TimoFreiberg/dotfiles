@@ -227,7 +227,7 @@ async function testEditor() {
   finishLookup({code:0,stdout:'/stored-root\n'}); await pendingFallback;
   assert.equal(tree.assignments.fallback.root, '/stored-root');
   const modOnly = {id:'mod-only',folder:'/repo/sub',machine:null,tabs:[{id:'review',panes:2}]};
-  const modPanes = [{tab:'review',terminal:null,mod:'jj-review'}, {tab:'review',terminal:null,mod:'other'}];
+  const modPanes = [{tab:'review',terminal:null,mod:'task-doc'}, {tab:'review',terminal:null,mod:'other'}];
   ready = false; tree.resolve([modOnly], modPanes, cx); assert.equal(queue.length, 0);
   ready = true; tree.resolve([modOnly], modPanes.slice(0, 1), cx); assert.equal(queue.length, 0);
   tree.resolve([modOnly], modPanes, cx); const modLookup = queue.shift()(cx);

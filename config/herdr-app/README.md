@@ -105,19 +105,6 @@ Switch with `herdr-app do layout.switch '{"name":"workspace-tasks"}'`; return to
 
 Run `jj-review [revset] [--to TERMINAL] [--focus]` in a jj repository to open a review tab and send drafted comments to a terminal. It needs `jj`, `jq`, `herdr-app`, and Zed for opening diffs in the editor. `jj-diff-html` creates an HTML review page, supports `--watch`, and registers it with the current task when possible. The page loads its diff renderer over the network. Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node config/herdr-app/tests/project-picker.cjs`, `node config/herdr-app/tests/jj-review.cjs`, and `node config/herdr-app/tests/jj-diff-html-roundtrip.cjs`. With Herdr installed, `node config/herdr-app/tests/project-picker.cjs --native` also checks the picker branch's native initialization and render. It doesn't simulate keyboard dispatch or verify focus traversal.
 
-## Review in Zed
-
-From the agent's Herdr terminal, run `zed-review open [revset]` (or add `--to TERMINAL`). It opens the working-copy diff, or its parent if the working copy is empty. This replaces the current review and clears its drafts. In Zed's editor, press Ctrl-Alt-C to comment on the cursor or selection; enter one line in the terminal panel. Press Ctrl-Alt-Enter to review and send all drafts, or run `zed-review drafts` and `zed-review send` in a terminal. Sending asks for confirmation. These shortcuts have not been checked against Zed's default keymap.
-
-This is a prototype: Zed may not report the expected file or line in a diff view, especially for deleted lines. Check the displayed quote and dim raw `ZED_FILE`, `ZED_ROW`, and `ZED_COLUMN` before commenting. If they are wrong or unavailable, use `jj-diff-html` and open its page in Lavish instead. `jq`, `jj`, `hc`, Zed, and the installed `jj-review/open-diff` helper are required.
-
-Install the individual targets with chezmoi after checking for local differences in the Zed keymap:
-
-```sh
-chezmoi apply "$HOME/.local/bin/zed-review" \
-  "$HOME/.config/zed/keymap.json" "$HOME/.config/zed/tasks.json"
-```
-
 ## Herdr compatibility mode
 
 Polytoken's [orchestrator documentation](https://docs.polytoken.dev/using-polytoken/tui-orchestrators/) says that in Herdr mode it keeps the terminal in its default input mode to avoid duplicate keystrokes in Herdr panes and external editors. Modified keys such as Shift-Enter may arrive as their base key, and held-key repeats may not be distinguishable from fresh presses. The binding above sends ESC CR while keeping status reporting enabled.

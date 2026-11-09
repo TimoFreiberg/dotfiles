@@ -7,13 +7,6 @@
 // from the command palette.
 [
   {
-    "context": "Editor",
-    "bindings": {
-      "ctrl-alt-c": ["task::Spawn", { "task_name": "review: comment" }],
-      "ctrl-alt-enter": ["task::Spawn", { "task_name": "review: send" }]
-    }
-  },
-  {
     "context": "Workspace",
     "bindings": {
       // "shift shift": "file_finder::Toggle"
