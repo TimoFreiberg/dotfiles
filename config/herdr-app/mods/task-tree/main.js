@@ -93,7 +93,15 @@ export default class TaskTree extends View {
       this.filter = InputState.new({ placeholder: "Fuzzy filter or ~/ path (Tab to complete)" });
       this.handle = cx.focus_handle(); this.choiceScroll = VirtualListScrollHandle.new(); this.directoryCache = {}; this.directoryPending = {}; this.selectedChoice = null;
       this.filter.on("change", (_e, cx) => { this.selectedChoice = null; this.choiceScroll.scroll_to_item(0); this.error = null; this.completeRequested = null; this.loadDirectories(cx); cx.notify(); });
-      this.filter.on("submit", (_e, cx) => this.chooseFirst(cx)); this.filter.focus();
+      this.filter.on("submit", (_e, cx) => this.chooseFirst(cx));
+      cx.bind_keys([
+        {keystroke:"tab", action:"task-project-complete", context:"TaskProjectPicker"},
+        {keystroke:"shift-tab", action:"task-project-prev", context:"TaskProjectPicker"},
+        {keystroke:"down", action:"task-project-next", context:"TaskProjectPicker"},
+        {keystroke:"up", action:"task-project-prev", context:"TaskProjectPicker"},
+        {keystroke:"escape", action:"task-project-close", context:"TaskProjectPicker"},
+      ]);
+      this.filter.focus();
       return;
     }
     if (props()?.taskMenu) return;
@@ -241,14 +249,18 @@ export default class TaskTree extends View {
       if (projects.length === 1) this.fillPath(projects[0].root, cx);
     }
   }
-  pickerKey(event, cx) {
-    if (event.keystroke === "tab" && pathQuery(this.filter.value())) { cx.stop_propagation(); this.completePath(cx); }
-    else if (event.keystroke === "down" || event.keystroke === "up") {
-      const rows = this.projectChoices(), selected = step(rows, this.selectedChoice, event.keystroke === "down" ? 1 : -1);
+  pickerAction(action, cx) {
+    cx.stop_propagation();
+    if (action === "task-project-close") {
+      this.completeRequested = null; this.close(); closeOverlay(props().overlay); return;
+    }
+    if (action === "task-project-complete") this.completePath(cx);
+    else if (action === "task-project-next" || action === "task-project-prev") {
+      const rows = this.projectChoices(), selected = step(rows, this.selectedChoice, action === "task-project-next" ? 1 : -1);
       this.completeRequested = null; this.selectedChoice = selected?.id ?? null;
       if (selected) this.choiceScroll.scroll_to_item(rows.indexOf(selected), "center");
-      cx.stop_propagation(); cx.notify();
     }
+    this.filter.focus(); cx.notify();
   }
   chooseFirst(cx) {
     const selected = this.projectChoices().find(row => row.id === this.selectedChoice);
@@ -301,11 +313,17 @@ export default class TaskTree extends View {
     const button = (id, label, action) => div().id(id).px(8).py(7).rounded(5).cursor_pointer().when(this.selectedChoice === id, el => el.bg(t.selected)).hover(s => s.bg(t.hover)).when(Boolean(action), el => el.on_click(action)).child(label);
     const query = pathQuery(value), choices = this.projectChoices();
     const choice = row => button(row.id, row.path ? `${row.path}/` : `${row.project.machine ?? "local"}: ${row.project.root}`);
-    return v_flex().id("project-picker").track_focus(this.handle).on_key_down((e,cx) => this.pickerKey(e,cx)).size_full().min_h(0).p(14).gap(8).bg(t.popover).text_color(t.foreground).text_size(13)
-      .child(div().font_semibold().child(props().task ? "Move to project" : "Open project"))
+    return v_flex().id("project-picker").track_focus(this.handle).key_context("TaskProjectPicker")
+      .on_action("task-project-complete", (_e,cx) => this.pickerAction("task-project-complete",cx))
+      .on_action("task-project-next", (_e,cx) => this.pickerAction("task-project-next",cx))
+      .on_action("task-project-prev", (_e,cx) => this.pickerAction("task-project-prev",cx))
+      .on_action("task-project-close", (_e,cx) => this.pickerAction("task-project-close",cx))
+      .size_full().min_h(0).p(14).gap(8).bg(t.popover).text_color(t.foreground).text_size(13)
+      .child(h_flex().items_center().child(div().flex_1().font_semibold().child(props().task ? "Move to project" : "Open project"))
+        .child(button("project-close", "Close", (_e,cx) => this.pickerAction("task-project-close",cx))))
       .child(Input.new(this.filter).h(34).px(8).rounded(6).border_1().border_color(t.input).bg(t.background))
       .when(Boolean(this.error), el => el.child(div().text_color(t.blocked).child(this.error)))
-      .when(Boolean(query), el => el.child(div().text_size(11).text_color(t.dim).child("Tab: complete folder · ↑/↓: select · Enter: open · Click folder: browse")))
+      .when(Boolean(query), el => el.child(div().text_size(11).text_color(t.dim).child("Tab: complete · ↑/↓ or Shift-Tab: select · Enter: open · Esc: close")))
       .when(Boolean(query && this.directoryPending?.[query.folder]), el => el.child(div().text_color(t.dim).child("Loading folders…")))
       .when(Boolean(this.directoryError), el => el.child(div().text_color(t.dim).child(this.directoryError)))
       .child(div().relative().flex_1().min_h(0)
@@ -316,7 +334,9 @@ export default class TaskTree extends View {
             if (row.path) this.fillPath(row.path,cx); else this.chooseProject(row.project,cx);
           }))
         .child(Scrollbar.vertical("project-choices").absolute().inset_0()))
-      .when(value.startsWith("/") || value.startsWith("~"), el => el.child(button("project-path", `Open folder: ${value}`, (_e,cx) => this.choosePath(value,cx))));
+      .when(value.startsWith("/") || value.startsWith("~"), el => el.child(h_flex().gap(8)
+        .when(Boolean(query), row => row.child(button("project-complete", "Complete (Tab)", (_e,cx) => this.pickerAction("task-project-complete",cx))))
+        .child(button("project-path", `Open folder: ${value}`, (_e,cx) => this.choosePath(value,cx)))));
   }
   taskMenu() {
     const t = theme(); return v_flex().p(6).bg(t.popover).text_color(t.foreground).child(div().id("move-project").px(8).py(7).cursor_pointer().hover(s => s.bg(t.hover)).on_click(() => { closeOverlay(props().overlay); this.openProjects(props().task); }).child("Move to project…"))

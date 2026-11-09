@@ -82,7 +82,7 @@ The `workspace-tasks` layout groups spaces as tasks under their project, with ta
 | Cmd-1 through Cmd-9 | Select a tab in the current task |
 | Cmd-Shift-] / Cmd-Shift-[ | Next / previous tab |
 
-The project picker fuzzy-matches saved project paths and machine names. For a local `~/` or absolute path, it lists matching child directories of the typed parent, including directory symlinks and hidden folders. Tab completes a unique match or extends a shared prefix. Use Up/Down to select a match, then Tab to fill it or Enter to open it. Clicking a folder browses into it. Enter without a selection opens the typed path literally.
+The project picker fuzzy-matches saved project paths and machine names. For a local `~/` or absolute path, it lists matching child directories of the typed parent, including directory symlinks and hidden folders. Tab completes a unique match or extends a shared prefix. Use Up/Down to select a match (Shift-Tab also selects the previous match), then Tab to fill it or Enter to open it. Completion and navigation keep the input focused. Escape closes the picker. Clicking a folder browses into it, and the Complete and Close buttons offer the same actions without the keyboard. Enter without a selection opens the typed path literally.
 
 Complete abbreviated parents one at a time: `~/sr` + Tab, then `ven` + Tab, then the project name. A path with several abbreviated components can match a saved project, but the picker doesn't recursively search the filesystem. Select that saved match with Up/Down and Enter, or Tab if it's the only local match. Folder listings are cached until you close the picker.
 
@@ -103,7 +103,7 @@ chezmoi apply "$HOME/.config/herdr-app/keys.json" \
 
 Switch with `herdr-app do layout.switch '{"name":"workspace-tasks"}'`; return to `workspace-tree` or `main` by changing the name. To uninstall, switch away first, remove the targets above and their chezmoi source entries, and remove the `layout:workspace-tasks` key section if no longer needed. Notes and registered pages are not deleted.
 
-Run `jj-review [revset] [--to TERMINAL] [--focus]` in a jj repository to open a review tab and send drafted comments to a terminal. It needs `jj`, `jq`, `herdr-app`, and Zed for opening diffs in the editor. `jj-diff-html` creates an HTML review page, supports `--watch`, and registers it with the current task when possible. The page loads its diff renderer over the network. Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node config/herdr-app/tests/project-picker.cjs`, `node config/herdr-app/tests/jj-review.cjs`, and `node config/herdr-app/tests/jj-diff-html-roundtrip.cjs`.
+Run `jj-review [revset] [--to TERMINAL] [--focus]` in a jj repository to open a review tab and send drafted comments to a terminal. It needs `jj`, `jq`, `herdr-app`, and Zed for opening diffs in the editor. `jj-diff-html` creates an HTML review page, supports `--watch`, and registers it with the current task when possible. The page loads its diff renderer over the network. Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node config/herdr-app/tests/project-picker.cjs`, `node config/herdr-app/tests/jj-review.cjs`, and `node config/herdr-app/tests/jj-diff-html-roundtrip.cjs`. With Herdr installed, `node config/herdr-app/tests/project-picker.cjs --native` also checks the picker branch's native initialization and render. It doesn't simulate keyboard dispatch or verify focus traversal.
 
 ## Review in Zed
 
