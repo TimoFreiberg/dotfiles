@@ -1,5 +1,5 @@
 import { View, div, image, svg } from "gpui-kit";
-import { h_flex, v_flex, InputState, Input } from "gpui-base";
+import { h_flex, v_flex, InputState, Input, v_virtual_list, VirtualListScrollHandle, Scrollbar } from "gpui-base";
 import { spaces, panes, agents, terminals, machines, theme, run, openOverlay, closeOverlay, window, props, home, nextCommand, exec, notify, readTextFile, writeTextFile, shared, setShared } from "herdr";
 import { slugify, template } from "./doc-logic.js";
 import { artifactKey, addArtifact, artifactSpace } from "./artifact-logic.js";
@@ -41,14 +41,58 @@ function history(history, assignments) {
 }
 function repoRoot(folder, jj, git) { return jj?.trim() || git?.trim() || folder; }
 function movePin(assignments, id, assignment) { assignments[id] = assignment; }
+function fuzzyScore(value, query) {
+  value = value.toLowerCase(); query = query.toLowerCase();
+  if (!query) return 0;
+  if (value === query) return 0;
+  if (value.startsWith(query)) return 1;
+  const substring = value.indexOf(query); if (substring >= 0) return 2 + substring;
+  let at = 0, score = 100;
+  for (const char of query) {
+    const found = value.indexOf(char, at); if (found < 0) return Infinity;
+    score += found - at; at = found + 1;
+  }
+  return score;
+}
+function pathQuery(value) {
+  value = value.trim();
+  if (value === "~") value = "~/";
+  if (!value.startsWith("/") && !value.startsWith("~/")) return null;
+  const slash = value.lastIndexOf("/"), parent = value.slice(0, slash + 1);
+  return { parent, folder: parent.startsWith("~/") ? home() + parent.slice(1) : parent, query: value.slice(slash + 1) };
+}
+function projectScore(project, query) {
+  if (query.startsWith("/") || query.startsWith("~/") || query === "~") {
+    if (query.startsWith("~")) {
+      if (project.machine != null) return Infinity;
+      query = home() + query.slice(1);
+    }
+    const parts = query.split("/").filter(Boolean), path = project.root.split("/").filter(Boolean);
+    if (parts.length > path.length) return Infinity;
+    let score = 0;
+    for (let i = 0; i < parts.length; i++) score += fuzzyScore(path[i], parts[i]);
+    return score;
+  }
+  return fuzzyScore(`${project.machine ?? "local"} ${project.root}`, query);
+}
+function directoryRows(paths, query) {
+  return paths.map(path => ({path, score:fuzzyScore(path.slice(path.lastIndexOf("/") + 1), query)}))
+    .filter(row => Number.isFinite(row.score)).sort((a,b) => a.score - b.score || a.path.localeCompare(b.path)).map(row => row.path);
+}
+function commonPrefix(values) {
+  let prefix = values[0] ?? "";
+  for (const value of values.slice(1)) while (!value.startsWith(prefix)) prefix = prefix.slice(0, -1);
+  return prefix;
+}
 let docsKey = "docs", linkKey = "task-doc-link", docsDir = () => `${home()}/mydesk/tasks`, allowedDoc = path => Boolean(path), checkDoc = async () => {};
 
 export default class TaskTree extends View {
   init(_props, cx) {
     this.folded = load("folded"); this.last = load("last"); this.assignments = load("assignments"); this.docs = load(docsKey); this.roots = {}; this.pending = {}; this.labelled = {};
     if (props()?.projectPicker) {
-      this.filter = InputState.new({ placeholder: "Filter projects or enter a path" });
-      this.filter.on("change", (_e, cx) => cx.notify());
+      this.filter = InputState.new({ placeholder: "Fuzzy filter or ~/ path (Tab to complete)" });
+      this.handle = cx.focus_handle(); this.choiceScroll = VirtualListScrollHandle.new(); this.directoryCache = {}; this.directoryPending = {}; this.selectedChoice = null;
+      this.filter.on("change", (_e, cx) => { this.selectedChoice = null; this.choiceScroll.scroll_to_item(0); this.error = null; this.completeRequested = null; this.loadDirectories(cx); cx.notify(); });
       this.filter.on("submit", (_e, cx) => this.chooseFirst(cx)); this.filter.focus();
       return;
     }
@@ -132,10 +176,84 @@ export default class TaskTree extends View {
   openProjects(task = null) { openOverlay({mod:"task-tree", kind:"dialog", width:520, height:420, props:{projectPicker:true, task}}); }
   projectRows() {
     const saved = load("project-history"), all = history(Array.isArray(saved) ? saved : [], load("assignments"));
-    const filter = this.filter.value().trim().toLowerCase();
-    return all.filter(p => `${p.machine ?? "local"} ${p.root}`.toLowerCase().includes(filter));
+    const filter = this.filter.value().trim();
+    return all.map(project => ({project, score:projectScore(project, filter)})).filter(row => Number.isFinite(row.score))
+      .sort((a,b) => a.score - b.score).map(row => row.project);
+  }
+  folderRows() {
+    const query = pathQuery(this.filter.value());
+    return query ? directoryRows(this.directoryCache?.[query.folder] ?? [], query.query) : [];
+  }
+  projectChoices() {
+    const folders = this.folderRows();
+    return [...folders.map(path => ({id:`project:${key(null,path)}`, path})), ...this.projectRows()
+      .filter(p => p.machine != null || !folders.includes(p.root)).map(project => ({id:`project:${key(project.machine,project.root)}`, project}))];
+  }
+  loadDirectories(cx) {
+    const query = pathQuery(this.filter.value()); this.directoryError = null;
+    if (!query || this.directoryCache[query.folder] || this.directoryPending[query.folder]) return;
+    this.directoryPending[query.folder] = true;
+    cx.spawn(async cx => {
+      try {
+        const result = await exec("sh", ["-c", 'test -d "$1" || exit 1; for dir in "$1"/* "$1"/.[!.]* "$1"/..?*; do [ -d "$dir" ] && printf "%s\\0" "$dir"; done; exit 0', "directories", query.folder], {timeout:5000});
+        if (result.code) throw new Error(result.stderr || "Cannot list this folder; complete its parent first");
+        const paths = result.stdout.split("\0").filter(Boolean).map(path => path.replace(/\/+/g, "/").replace(/\/$/, ""));
+        if (this.closed) return;
+        this.directoryCache[query.folder] = paths;
+      } catch (e) {
+        if (!this.closed && pathQuery(this.filter.value())?.folder === query.folder) this.directoryError = String(e);
+      } finally {
+        delete this.directoryPending[query.folder];
+        if (!this.closed) {
+          if (this.completeRequested === this.filter.value() && pathQuery(this.filter.value())?.folder === query.folder) { this.completeRequested = null; this.completePath(cx); }
+          const index = this.projectChoices().findIndex(row => row.id === this.selectedChoice);
+          if (index >= 0) this.choiceScroll.scroll_to_item(index, "center");
+          cx.notify();
+        }
+      }
+    });
+  }
+  fillPath(path, cx) {
+    const value = this.filter.value().trim(), base = home();
+    this.filter.set_value((value.startsWith("~") && (path === base || path.startsWith(base + "/")) ? "~" + path.slice(base.length) : path) + "/");
+    this.selectedChoice = null; this.completeRequested = null; this.error = null;
+    this.loadDirectories(cx); this.filter.focus(); cx.notify();
+  }
+  completePath(cx) {
+    const selected = this.projectChoices().find(row => row.id === this.selectedChoice);
+    if (selected?.path) { this.fillPath(selected.path, cx); return; }
+    if (selected?.project) {
+      if (selected.project.machine == null) this.fillPath(selected.project.root, cx);
+      return;
+    }
+    const query = pathQuery(this.filter.value());
+    if (!query) return;
+    if (this.directoryPending[query.folder]) { this.completeRequested = this.filter.value(); return; }
+    const folders = this.folderRows();
+    if (folders.length === 1) this.fillPath(folders[0], cx);
+    else if (folders.length > 1) {
+      const prefix = commonPrefix(folders.map(path => path.slice(path.lastIndexOf("/") + 1)));
+      if (prefix.length > query.query.length && prefix.toLowerCase().startsWith(query.query.toLowerCase())) {
+        this.filter.set_value(query.parent + prefix); this.selectedChoice = null; cx.notify();
+      }
+    } else {
+      const projects = this.projectRows().filter(p => p.machine == null);
+      if (projects.length === 1) this.fillPath(projects[0].root, cx);
+    }
+  }
+  pickerKey(event, cx) {
+    if (event.keystroke === "tab" && pathQuery(this.filter.value())) { cx.stop_propagation(); this.completePath(cx); }
+    else if (event.keystroke === "down" || event.keystroke === "up") {
+      const rows = this.projectChoices(), selected = step(rows, this.selectedChoice, event.keystroke === "down" ? 1 : -1);
+      this.completeRequested = null; this.selectedChoice = selected?.id ?? null;
+      if (selected) this.choiceScroll.scroll_to_item(rows.indexOf(selected), "center");
+      cx.stop_propagation(); cx.notify();
+    }
   }
   chooseFirst(cx) {
+    const selected = this.projectChoices().find(row => row.id === this.selectedChoice);
+    if (selected?.path) { this.choosePath(selected.path, cx); return; }
+    if (selected?.project) { this.chooseProject(selected.project, cx); return; }
     const value = this.filter.value().trim();
     if (value.startsWith("/") || value.startsWith("~")) this.choosePath(value, cx);
     else { const first = this.projectRows()[0]; if (first) this.chooseProject(first, cx); }
@@ -180,12 +298,24 @@ export default class TaskTree extends View {
   }
   projectPicker() {
     const t = theme(), value = this.filter.value().trim();
-    const button = (id, label, action) => div().id(id).px(8).py(7).rounded(5).cursor_pointer().hover(s => s.bg(t.hover)).on_click(action).child(label);
-    return v_flex().size_full().min_h(0).p(14).gap(8).bg(t.popover).text_color(t.foreground).text_size(13)
+    const button = (id, label, action) => div().id(id).px(8).py(7).rounded(5).cursor_pointer().when(this.selectedChoice === id, el => el.bg(t.selected)).hover(s => s.bg(t.hover)).when(Boolean(action), el => el.on_click(action)).child(label);
+    const query = pathQuery(value), choices = this.projectChoices();
+    const choice = row => button(row.id, row.path ? `${row.path}/` : `${row.project.machine ?? "local"}: ${row.project.root}`);
+    return v_flex().id("project-picker").track_focus(this.handle).on_key_down((e,cx) => this.pickerKey(e,cx)).size_full().min_h(0).p(14).gap(8).bg(t.popover).text_color(t.foreground).text_size(13)
       .child(div().font_semibold().child(props().task ? "Move to project" : "Open project"))
       .child(Input.new(this.filter).h(34).px(8).rounded(6).border_1().border_color(t.input).bg(t.background))
       .when(Boolean(this.error), el => el.child(div().text_color(t.blocked).child(this.error)))
-      .child(v_flex().flex_1().min_h(0).overflow_y_scrollbar().children(this.projectRows().map(p => button(`project-choice-${key(p.machine,p.root)}`, `${p.machine ?? "local"}: ${p.root}`, (_e,cx) => this.chooseProject(p,cx)))))
+      .when(Boolean(query), el => el.child(div().text_size(11).text_color(t.dim).child("Tab: complete folder · ↑/↓: select · Enter: open · Click folder: browse")))
+      .when(Boolean(query && this.directoryPending?.[query.folder]), el => el.child(div().text_color(t.dim).child("Loading folders…")))
+      .when(Boolean(this.directoryError), el => el.child(div().text_color(t.dim).child(this.directoryError)))
+      .child(div().relative().flex_1().min_h(0)
+        .child(v_virtual_list("project-choices", choices.length, 34, i => choices[i].id,
+          range => choices.slice(range.start, range.end).map(row => choice(row).h(34).overflow_hidden())).size_full().track_scroll(this.choiceScroll)
+          .on_item_click((id,cx) => {
+            const row = this.projectChoices().find(row => row.id === id); if (!row) return;
+            if (row.path) this.fillPath(row.path,cx); else this.chooseProject(row.project,cx);
+          }))
+        .child(Scrollbar.vertical("project-choices").absolute().inset_0()))
       .when(value.startsWith("/") || value.startsWith("~"), el => el.child(button("project-path", `Open folder: ${value}`, (_e,cx) => this.choosePath(value,cx))));
   }
   taskMenu() {
