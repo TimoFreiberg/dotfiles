@@ -92,11 +92,11 @@ assert.equal(groups[2].machine, 'remote');
   };
   sandbox.div = sandbox.h_flex = sandbox.v_flex = element;
   const tree = new TaskTree(); tree.folded = {}; tree.hoveredProject = null;
-  tree.project({...groups[0], tasks:[]}, [], {}, {});
-  assert.ok(rendered.includes('REPO'));
+  tree.project({...groups[0], root:'/MixedCase', tasks:[]}, [], {}, {});
+  assert.ok(rendered.includes('MixedCase'));
   rendered.length = 0;
-  tree.project({...groups[2], machine:'build-host', tasks:[]}, [], {}, {});
-  assert.ok(rendered.includes('build-host: REPO'));
+  tree.project({...groups[2], root:'/MixedCase', machine:'build-host', tasks:[]}, [], {}, {});
+  assert.ok(rendered.includes('build-host: MixedCase'));
 }
 const ordered = groups.flatMap(g => g.tasks);
 assert.equal(step(ordered, 'c', 1).id, 'b'); assert.equal(step(ordered, 'a', -1).id, 'd');

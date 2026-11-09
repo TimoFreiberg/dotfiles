@@ -297,7 +297,7 @@ export default class TaskTree extends View {
   project(group, all, t, cx) {
     const folded = Boolean(this.folded[group.id]);
     const name = group.root.replace(/\/+$/, "").split("/").pop() || group.root || group.machine || "~";
-    const label = `${group.machine ? `${group.machine}: ` : ""}${name.toUpperCase()}`;
+    const label = `${group.machine ? `${group.machine}: ` : ""}${name}`;
     const available = machines().find(m => m.name === group.machine)?.layout === "ready";
     return v_flex().min_w(0).flex_none().pt(8)
       .child(h_flex().id(`project-${group.id}`).h(25).min_w(0).gap(5).px(6).items_center().text_size(10.5).text_color(t.muted)
