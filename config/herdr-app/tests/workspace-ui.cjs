@@ -227,14 +227,25 @@ sidebar.togglePanel("files");
 assert.deepEqual(calls.splice(0), [["layout.select", { stack: "panel-body", child: "files" }], ["layout.show", { id: "panel" }]]);
 const workspaceLayout = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "layouts", "workspace-tasks.json"), "utf8"));
 const findLayout = (node,id) => node?.id === id ? node : (node?.children ?? []).map(child => findLayout(child,id)).find(Boolean) ?? null;
-const panelLayout = findLayout(workspaceLayout,"panel-body");
+const panelLayout = findLayout(workspaceLayout,"panel-body"), tabsLayout = findLayout(workspaceLayout,"tabs"), sidebarLayout = findLayout(workspaceLayout,"sidebar");
 assert.deepEqual(panelLayout.children.map(child => child.id), ["files","changes"], "the workspace side panel contains only Files and Changes");
+assert.equal(tabsLayout.content.mod, "task-tabs", "the task tabs command listener is mounted in the always-visible work area");
+assert.equal(findLayout(sidebarLayout, "tabs"), null, "task tabs are not inside the hideable sidebar");
 const Tabs = load("task-tabs"), artifactSpace = { id: "artifact-space", name: "Artifacts", active: true, tabs: [] };
 modelSpaces = [artifactSpace]; modelPanes = []; modelWindow = {};
 modelShared = { "workspace.panels": ["files","changes","artifacts"], "task-artifacts": { "artifact-space": [{path:"/one.html",title:"One",seen:false},{path:"/two.html",title:"Two",seen:true}] } };
 data.set("panels", JSON.stringify({ "artifact-space": "artifacts" }));
 tree = { id: "root", children: [{ id: "sidebar", hidden: false, size: { px: 320 } }, { id: "panel", hidden: true, children: [{ id: "panel-body", active: "files" }] }] };
-const tabs = new Tabs(); tabs.init(); calls.length = 0; overlays.length = 0;
+let resolveTabsCommand, tabsListener, tabsNotifications = 0;
+sandbox.nextCommand = () => new Promise(resolve => { resolveTabsCommand = resolve; });
+const tabsCx = { notify() { tabsNotifications++; }, spawn(fn) { tabsListener = fn(this); } };
+const tabs = new Tabs(); tabs.init(undefined, tabsCx); calls.length = 0; overlays.length = 0;
+assert.ok(tabsListener, "task-tabs starts the command listener");
+async function sendTabsCommand(command) {
+  assert.equal(typeof resolveTabsCommand, "function", "task-tabs waits for its next command");
+  const resolve = resolveTabsCommand; resolveTabsCommand = null; resolve(command);
+  await new Promise(setImmediate);
+}
 const tabsRender = tabs.render(), artifactButton = lookup(tabsRender,"artifacts-open");
 assert.ok(artifactButton); assert.ok(artifactButton.nodes.includes("Artifacts 1"), "the artifact button shows the unseen count");
 assert.equal(lookup(tabsRender,"panel-artifacts"), null, "Artifacts is not restored as a side-panel button");
@@ -252,20 +263,20 @@ data.delete("panels");
 const legacySpace = { ...artifactSpace, id: "legacy-artifact-space" };
 modelSpaces = [legacySpace];
 tree = { id: "root", children: [{ id: "sidebar", hidden: false }, { id: "panel", hidden: false, children: [{ id: "panel-body", active: "artifacts" }] }] };
-const legacyTabs = new Tabs(); legacyTabs.init(); calls.length = 0; legacyTabs.render();
+const legacyTabs = new Tabs(); legacyTabs.init(undefined, { spawn() {} }); calls.length = 0; legacyTabs.render();
 assert.deepEqual(calls.splice(0), [["layout.hide", {id:"panel"}]], "a visible unsupported Artifacts panel is hidden before per-space restore");
 assert.equal(data.has("panels"), false, "hiding the old panel does not invent a saved preference");
 for (const active of ["files","changes"]) {
   data.delete("panels"); modelSpaces = [{ ...legacySpace, id: `visible-${active}` }];
   tree = { id: "root", children: [{ id: "sidebar", hidden: false }, { id: "panel", hidden: false, children: [{ id: "panel-body", active }] }] };
-  const supportedTabs = new Tabs(); supportedTabs.init(); calls.length = 0; supportedTabs.render();
+  const supportedTabs = new Tabs(); supportedTabs.init(undefined, { spawn() {} }); calls.length = 0; supportedTabs.render();
   assert.deepEqual(calls, [], `an already visible ${active} panel is left alone`);
 }
 for (const active of ["files", "changes"]) {
   const sidebarSpace = { ...legacySpace, id: `sidebar-${active}`, active: true };
   modelSpaces = [sidebarSpace]; data.delete("panels");
   tree = { id: "root", children: [{ id: "sidebar", hidden: true }, { id: "panel", hidden: false, children: [{ id: "panel-body", active }] }] };
-  const sidebarTabs = new Tabs(); sidebarTabs.init(); calls.length = 0;
+  const sidebarTabs = new Tabs(); sidebarTabs.init(undefined, { spawn() {} }); calls.length = 0;
   const hiddenSidebarRender = sidebarTabs.render(), showSidebar = lookup(hiddenSidebarRender, "sidebar-show");
   assert.ok(showSidebar, `a hidden sidebar offers Show sidebar with ${active} selected`);
   assert.deepEqual(showSidebar.nodes, ['→'], 'the reveal button uses a right-arrow icon without a text label');
@@ -289,6 +300,34 @@ for (const active of ["files", "changes"]) {
   assert.equal(tree.children[1].hidden, false);
   assert.equal(tree.children[1].children[0].active, active);
 }
+async function testTaskTabsCommands() {
+  const keys = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "keys.json"), "utf8"));
+  assert.equal(keys["layout:workspace-tasks"]["cmd-shift-a"], "task-tabs.artifacts", "Cmd-Shift-A routes only in workspace-tasks");
+  assert.equal(keys.global["cmd-shift-a"], undefined, "Cmd-Shift-A is not a global binding");
+  assert.equal(keys["layout:workspace-tree"]["cmd-shift-a"], undefined, "Cmd-Shift-A is not bound in workspace-tree");
+  assert.equal(keys.global["cmd-a"], undefined, "Cmd-A remains available to native select-all");
+
+  const invocationSpace = { ...artifactSpace, id: "invocation-space", active: true };
+  modelSpaces = [{ ...artifactSpace, active: false }, invocationSpace];
+  await sendTabsCommand("unknown");
+  assert.deepEqual(overlays, [], "unknown task-tabs commands are ignored");
+  assert.equal(tabsNotifications, 1, "the listener notifies after consuming a command");
+
+  await sendTabsCommand("artifacts");
+  const commandDialog = overlays.pop();
+  assert.equal(commandDialog.props.space, "invocation-space", "the shortcut resolves the live active space when invoked");
+  assert.equal(commandDialog.mod, "task-artifacts");
+  artifactButton.events.on_click();
+  const clickDialog = overlays.pop();
+  assert.deepEqual(clickDialog, commandDialog, "the Artifacts button and shortcut open the same modal via the shared helper");
+
+  tree = { id: "root", children: [{ id: "sidebar", hidden: true }, { id: "panel", hidden: true }] };
+  await sendTabsCommand("artifacts");
+  const hiddenSidebarDialog = overlays.pop();
+  assert.equal(hiddenSidebarDialog.props.space, "invocation-space", "the shortcut still opens Artifacts with the sidebar hidden");
+  assert.equal(tree.children[0].hidden, true, "opening Artifacts does not reveal the hidden sidebar");
+}
+
 async function testNavigation() {
   const keys = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "keys.json"), "utf8"));
   const scoped = keys["layout:workspace-tree"];
@@ -349,4 +388,9 @@ async function testNavigation() {
   await send("unknown"); assert.equal(notifications, 7, "only navigation commands notify");
   rejectCommand(stop); await task.catch(error => { assert.equal(error, stop); });
 }
-testNavigation().then(() => console.log("workspace UI tests passed"), error => { console.error(error); process.exitCode = 1; });
+async function runTests() {
+  await testTaskTabsCommands();
+  await testNavigation();
+  console.log("workspace UI tests passed");
+}
+runTests().catch(error => { console.error(error); process.exitCode = 1; });

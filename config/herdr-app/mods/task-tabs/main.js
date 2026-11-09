@@ -1,6 +1,6 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings } from "herdr";
+import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings, nextCommand } from "herdr";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -12,9 +12,21 @@ function find(node, id) {
 }
 
 export default class Tabs extends View {
-  init() {
+  init(_props, cx) {
     this.pressed = null;
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
+    cx.spawn(async cx => {
+      for (;;) {
+        const command = await nextCommand();
+        if (command === "artifacts") this.openArtifacts();
+        cx.notify();
+      }
+    });
+  }
+
+  openArtifacts() {
+    const space = spaces().find(p => p.active);
+    openOverlay({ mod: "task-artifacts", kind: "dialog", width: 600, height: 440, props: { space: space?.id } });
   }
 
   // The side panel is remembered per space: switching shows that space's choice
@@ -106,7 +118,7 @@ export default class Tabs extends View {
       .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "mods/changes/changes.svg")))
       .child(h_flex().id("artifacts-open").h(26).px(8).gap(5).flex_none().items_center().rounded(6)
         .text_size(12).bg(t.chrome).text_color(t.muted).hover(s => s.bg(t.hover)).on_mouse_down("left", stop)
-        .on_click(() => openOverlay({ mod: "task-artifacts", kind: "dialog", width: 600, height: 440, props: { space: space?.id } }))
+        .on_click(() => this.openArtifacts())
         .child(svg("mods/files/file.svg").size(14)).child(`Artifacts${unseen ? ` ${unseen}` : ""}`))
       .when(w?.buttons, el => el.child(button("minimize", w.platform === "windows" ? svg("mods/tabs/win-min.svg").size(16) : "−", () => run("window.minimize")))
         .child(button("maximize", w.platform === "windows" ? svg(`mods/tabs/${w.maximized ? "win-restore" : "win-max"}.svg`).size(16) : "□", () => run("window.maximize")))
