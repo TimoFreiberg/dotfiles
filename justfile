@@ -10,3 +10,6 @@ lint-sh:
 # Check fish formatting
 lint-fish:
     fish_indent --check config/fish/config.fish config/fish/functions/*.fish
+
+test-lavish-view:
+    cd lib/lavish-view && npm ci && node --test test/

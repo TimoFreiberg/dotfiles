@@ -1,0 +1,2 @@
+#!/usr/bin/env node
+import('../lib/lavish-view/src/cli.mjs').then(async ({ main }) => { process.exitCode = await main(); });
