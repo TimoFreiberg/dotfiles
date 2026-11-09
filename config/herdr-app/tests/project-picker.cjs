@@ -6,7 +6,8 @@ const path = require('node:path');
 const child = require('node:child_process');
 const source = fs.readFileSync('config/herdr-app/mods/task-tree/main.js', 'utf8')
   .replace(/^import .*;\n/gm, '').replace('export default class', 'class');
-let home = '/home/me', saved = [], calls = [], executor;
+let home = '/home/me', saved = [], calls = [], executor, delayChanges = false;
+const changes = [];
 const tasks = [];
 let bindings = [], closedOverlay;
 const cx = {spawn: fn => tasks.push(fn), notify() {}, focus_handle: () => ({}), stop_propagation() { this.stopped = true; },
@@ -25,7 +26,7 @@ const sandbox = {
   InputState: {new: () => {
     const callbacks = {};
     return {text:'', focused:false, on: (event, fn) => { callbacks[event] = fn; }, focus() { this.focused = true; }, value() { return this.text; },
-      set_value(text) { this.text = text; callbacks.change?.({}, cx); }, submit() { callbacks.submit({}, cx); }};
+      set_value(text) { this.text = text; if (delayChanges) changes.push(() => callbacks.change?.({}, cx)); else callbacks.change?.({}, cx); }, submit() { callbacks.submit({}, cx); }};
   }},
 };
 const {TaskTree, fuzzyScore, pathQuery, projectScore, directoryRows} = vm.runInNewContext(source + '\n({TaskTree, fuzzyScore, pathQuery, projectScore, directoryRows})', sandbox);
@@ -59,7 +60,7 @@ async function main() {
   const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'project-picker-'));
   try {
     home = fixture;
-    for (const dir of ['src/vendor/repo', 'src/vendor/other', 'src/farm', 'src/fasten', '.hidden', 'src/with spaces', "src/quote'$(touch injected)", 'src/line\nbreak']) fs.mkdirSync(path.join(home, dir), {recursive:true});
+    for (const dir of ['src/vendor/repo', 'src/vendor/other', 'src/vendor-def', 'src/farm', 'src/fasten', '.hidden', 'src/with spaces', "src/quote'$(touch injected)", 'src/line\nbreak']) fs.mkdirSync(path.join(home, dir), {recursive:true});
     fs.writeFileSync(path.join(home, 'src/not-a-folder'), '');
     fs.symlinkSync(path.join(home, 'src/vendor'), path.join(home, 'src/link'), 'dir');
     executor = async (command, args, options) => {
@@ -71,20 +72,36 @@ async function main() {
     press(picker, 'tab'); // Tab while the listing is still pending.
     await drain(); assert.equal(picker.filter.value(), '~/src/');
     picker.filter.set_value('~/src/ven'); await drain();
-    picker.completePath(cx); await drain(); assert.equal(picker.filter.value(), '~/src/vendor/');
-    picker.filter.set_value('~/src/vendor/rp'); await drain();
+    delayChanges = true;
+    press(picker, 'tab'); assert.equal(picker.filter.value(), '~/src/vendor/');
+    assert.equal(picker.projectChoices().length, 2);
+    press(picker, 'tab'); assert.equal(picker.filter.value(), '~/src/vendor-def/');
+    while (changes.length) changes.shift()(); delayChanges = false; await drain();
+    assert.equal(picker.projectChoices().length, 2);
+    press(picker, 'tab'); await drain(); assert.equal(picker.filter.value(), '~/src/vendor/');
+    picker.filter.set_value(picker.filter.value() + 'rp'); assert.equal(picker.completion, null); await drain();
     picker.completePath(cx); await drain(); assert.equal(picker.filter.value(), '~/src/vendor/repo/');
     let opened;
     picker.choosePath = value => { opened = value; };
-    picker.filter.submit(); assert.equal(opened, '~/src/vendor/repo/');
+    picker.filter.submit(); assert.equal(opened, path.join(home, 'src/vendor/repo'));
     picker.directoryCache[home + '/prefix/'] = [home + '/prefix/source', home + '/prefix/sources'];
-    picker.filter.set_value('~/prefix/so'); picker.completePath(cx);
-    assert.equal(picker.filter.value(), '~/prefix/source'); assert.equal(picker.folderRows().length, 2);
+    picker.filter.set_value('~/prefix/so'); press(picker, 'tab');
+    assert.equal(picker.filter.value(), '~/prefix/source/');
+    press(picker, 'tab'); assert.equal(picker.filter.value(), '~/prefix/sources/');
+    press(picker, 'tab'); assert.equal(picker.filter.value(), '~/prefix/source/'); await drain();
     picker.filter.set_value('~/src/fa'); await drain();
     assert.equal(picker.folderRows().length, 2);
-    const previous = picker.filter.value(); picker.completePath(cx); assert.equal(picker.filter.value(), previous);
-    press(picker, 'down'); assert.equal(cx.stopped, true);
-    picker.completePath(cx); await drain(); assert.equal(picker.filter.value(), '~/src/farm/');
+    press(picker, 'tab'); await drain(); assert.equal(picker.filter.value(), '~/src/farm/');
+    press(picker, 'tab'); await drain(); assert.equal(picker.filter.value(), '~/src/fasten/');
+    press(picker, 'tab'); await drain(); assert.equal(picker.filter.value(), '~/src/farm/');
+    press(picker, 'up'); press(picker, 'tab'); await drain(); assert.equal(picker.filter.value(), '~/src/fasten/');
+    press(picker, 'tab'); await drain(); assert.equal(picker.filter.value(), '~/src/farm/');
+    picker.fillPath(path.join(home, 'src/vendor'), cx); assert.equal(picker.completion, null); await drain();
+    // Editing resets the snapshot. Selecting a row starts cycling at that row instead of the first.
+    picker.filter.set_value('~/src/fa'); press(picker, 'down'); press(picker, 'down');
+    assert.equal(cx.stopped, true); press(picker, 'tab'); await drain();
+    assert.equal(picker.filter.value(), '~/src/fasten/');
+    press(picker, 'tab'); await drain(); assert.equal(picker.filter.value(), '~/src/farm/');
     picker.filter.set_value('~/src/'); await drain();
     assert.ok(!picker.folderRows().some(p => p.endsWith('not-a-folder')));
     for (const name of ['link', 'with spaces', "quote'$(touch injected)", 'line\nbreak']) assert.ok(picker.folderRows().includes(path.join(home, 'src', name)));
@@ -139,6 +156,21 @@ async function main() {
   late.resolve({code:0, stdout:'/late/late\0'}); await closingTask;
   assert.equal(picker.directoryCache['/late/'], undefined);
 
+  saved = [{machine:null, root:'/home/me/project-one'}, {machine:'build', root:'/home/me/project-one'}, {machine:null, root:'/home/me/project-two'}];
+  executor = async () => ({code:0, stdout:''});
+  picker = make(); picker.filter.set_value('project'); press(picker, 'tab'); await drain();
+  assert.equal(picker.filter.value(), '/home/me/project-one/'); assert.equal(picker.projectChoices().length, 3);
+  press(picker, 'down'); assert.equal(picker.projectChoices().find(row => row.id === picker.selectedChoice).project.machine, 'build');
+  press(picker, 'tab'); assert.equal(picker.filter.value(), '/home/me/project-one/');
+  press(picker, 'down'); press(picker, 'tab'); await drain();
+  assert.equal(picker.filter.value(), '/home/me/project-two/'); assert.equal(picker.projectChoices().length, 3);
+  assert.deepEqual(picker.choiceScroll.last, [2, 'center']);
+  executor = async () => ({code:1, stdout:'', stderr:'could not open'});
+  picker.chooseProject(saved[2], cx); assert.equal(picker.completion, null); await drain();
+  assert.match(picker.error, /could not open/); assert.equal(picker.picking, false);
+  press(picker, 'tab'); assert.equal(picker.filter.value(), '/home/me/project-two/'); assert.equal(picker.projectChoices().length, 1);
+  await drain();
+
   // Input owns native keys. The picker registers scoped actions on its ancestor instead.
   let inLayout = false, list;
   const renderElement = () => {
@@ -179,9 +211,10 @@ async function main() {
     root.events.actions[binding.action]({action:binding.action}, cx); assert.equal(cx.stopped, true);
   };
   picker.filter.focused = false; dispatch('tab'); assert.equal(picker.filter.focused, true);
-  dispatch('down'); assert.equal(picker.selectedChoice, picker.projectChoices()[0].id);
+  assert.equal(picker.selectedChoice, picker.projectChoices()[0].id);
+  dispatch('down'); assert.equal(picker.selectedChoice, picker.projectChoices()[1].id);
   picker.filter.focused = false; dispatch('shift-tab');
-  assert.equal(picker.selectedChoice, picker.projectChoices()[1].id); assert.equal(picker.filter.focused, true);
+  assert.equal(picker.selectedChoice, picker.projectChoices()[0].id); assert.equal(picker.filter.focused, true);
   let clicked; picker.chooseProject = project => { clicked = project.root; };
   list.events.click(picker.projectChoices()[0].id, cx); assert.equal(clicked, saved[0].root);
   picker.filter.text = '~/src/'; picker.directoryCache['/home/me/src/'] = ['/home/me/src/vendor'];

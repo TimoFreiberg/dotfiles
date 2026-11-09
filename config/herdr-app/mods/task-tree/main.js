@@ -79,11 +79,6 @@ function directoryRows(paths, query) {
   return paths.map(path => ({path, score:fuzzyScore(path.slice(path.lastIndexOf("/") + 1), query)}))
     .filter(row => Number.isFinite(row.score)).sort((a,b) => a.score - b.score || a.path.localeCompare(b.path)).map(row => row.path);
 }
-function commonPrefix(values) {
-  let prefix = values[0] ?? "";
-  for (const value of values.slice(1)) while (!value.startsWith(prefix)) prefix = prefix.slice(0, -1);
-  return prefix;
-}
 let docsKey = "docs", linkKey = "task-doc-link", docsDir = () => `${home()}/mydesk/tasks`, allowedDoc = path => Boolean(path), checkDoc = async () => {};
 
 export default class TaskTree extends View {
@@ -92,7 +87,10 @@ export default class TaskTree extends View {
     if (props()?.projectPicker) {
       this.filter = InputState.new({ placeholder: "Fuzzy filter or ~/ path (Tab to complete)" });
       this.handle = cx.focus_handle(); this.choiceScroll = VirtualListScrollHandle.new(); this.directoryCache = {}; this.directoryPending = {}; this.selectedChoice = null;
-      this.filter.on("change", (_e, cx) => { this.selectedChoice = null; this.choiceScroll.scroll_to_item(0); this.error = null; this.completeRequested = null; this.loadDirectories(cx); cx.notify(); });
+      this.filter.on("change", (_e, cx) => {
+        if (this.completion?.value !== this.filter.value()) { this.completion = null; this.selectedChoice = null; this.choiceScroll.scroll_to_item(0); }
+        this.error = null; this.completeRequested = null; this.loadDirectories(cx); cx.notify();
+      });
       this.filter.on("submit", (_e, cx) => this.chooseFirst(cx));
       cx.bind_keys([
         {keystroke:"tab", action:"task-project-complete", context:"TaskProjectPicker"},
@@ -193,6 +191,7 @@ export default class TaskTree extends View {
     return query ? directoryRows(this.directoryCache?.[query.folder] ?? [], query.query) : [];
   }
   projectChoices() {
+    if (this.completion?.value === this.filter.value()) return this.completion.rows;
     const folders = this.folderRows();
     return [...folders.map(path => ({id:`project:${key(null,path)}`, path})), ...this.projectRows()
       .filter(p => p.machine != null || !folders.includes(p.root)).map(project => ({id:`project:${key(project.machine,project.root)}`, project}))];
@@ -221,44 +220,44 @@ export default class TaskTree extends View {
       }
     });
   }
-  fillPath(path, cx) {
+  fillPath(path, cx, completion = null) {
     const value = this.filter.value().trim(), base = home();
-    this.filter.set_value((value.startsWith("~") && (path === base || path.startsWith(base + "/")) ? "~" + path.slice(base.length) : path) + "/");
-    this.selectedChoice = null; this.completeRequested = null; this.error = null;
+    const next = (value.startsWith("~") && (path === base || path.startsWith(base + "/")) ? "~" + path.slice(base.length) : path) + "/";
+    // Set the expected value before set_value: change events must not discard our candidate snapshot.
+    this.completion = completion ? {...completion, value:next} : null;
+    this.selectedChoice = completion ? completion.choices[completion.index].id : null;
+    this.completeRequested = null; this.error = null; this.filter.set_value(next);
+    if (completion) this.choiceScroll.scroll_to_item(completion.rows.findIndex(row => row.id === this.selectedChoice), "center");
     this.loadDirectories(cx); this.filter.focus(); cx.notify();
   }
   completePath(cx) {
-    const selected = this.projectChoices().find(row => row.id === this.selectedChoice);
-    if (selected?.path) { this.fillPath(selected.path, cx); return; }
-    if (selected?.project) {
-      if (selected.project.machine == null) this.fillPath(selected.project.root, cx);
-      return;
+    const rows = this.projectChoices(), selected = rows.find(row => row.id === this.selectedChoice);
+    if (selected?.project?.machine != null) return;
+    let completion = this.completion;
+    if (completion?.value === this.filter.value()) completion = {...completion, index:completion.restart ? completion.index : (completion.index + 1) % completion.choices.length, restart:false};
+    else {
+      const query = pathQuery(this.filter.value());
+      if (!selected && query && this.directoryPending[query.folder]) { this.completeRequested = this.filter.value(); return; }
+      const choices = rows.filter(row => row.path || row.project.machine == null);
+      if (!choices.length) return;
+      completion = {rows, choices, index:Math.max(0, choices.findIndex(row => row.id === this.selectedChoice))};
     }
-    const query = pathQuery(this.filter.value());
-    if (!query) return;
-    if (this.directoryPending[query.folder]) { this.completeRequested = this.filter.value(); return; }
-    const folders = this.folderRows();
-    if (folders.length === 1) this.fillPath(folders[0], cx);
-    else if (folders.length > 1) {
-      const prefix = commonPrefix(folders.map(path => path.slice(path.lastIndexOf("/") + 1)));
-      if (prefix.length > query.query.length && prefix.toLowerCase().startsWith(query.query.toLowerCase())) {
-        this.filter.set_value(query.parent + prefix); this.selectedChoice = null; cx.notify();
-      }
-    } else {
-      const projects = this.projectRows().filter(p => p.machine == null);
-      if (projects.length === 1) this.fillPath(projects[0].root, cx);
-    }
+    const row = completion.choices[completion.index];
+    this.fillPath(row.path ?? row.project.root, cx, completion);
   }
   pickerAction(action, cx) {
     cx.stop_propagation();
     if (action === "task-project-close") {
-      this.completeRequested = null; this.close(); closeOverlay(props().overlay); return;
+      this.completeRequested = null; this.completion = null; this.close(); closeOverlay(props().overlay); return;
     }
     if (action === "task-project-complete") this.completePath(cx);
     else if (action === "task-project-next" || action === "task-project-prev") {
       const rows = this.projectChoices(), selected = step(rows, this.selectedChoice, action === "task-project-next" ? 1 : -1);
       this.completeRequested = null; this.selectedChoice = selected?.id ?? null;
-      if (selected) this.choiceScroll.scroll_to_item(rows.indexOf(selected), "center");
+      if (selected) {
+        if (this.completion) this.completion = {...this.completion, index:this.completion.choices.findIndex(row => row.id === selected.id), restart:true};
+        this.choiceScroll.scroll_to_item(rows.indexOf(selected), "center");
+      }
     }
     this.filter.focus(); cx.notify();
   }
@@ -288,7 +287,7 @@ export default class TaskTree extends View {
     });
   }
   chooseProject(project, cx) {
-    if (this.picking) return; this.picking = true;
+    if (this.picking) return; this.completion = null; this.completeRequested = null; this.picking = true;
     cx.spawn(async cx => {
       try {
         if (this.closed) return;
@@ -323,7 +322,8 @@ export default class TaskTree extends View {
         .child(button("project-close", "Close", (_e,cx) => this.pickerAction("task-project-close",cx))))
       .child(Input.new(this.filter).h(34).px(8).rounded(6).border_1().border_color(t.input).bg(t.background))
       .when(Boolean(this.error), el => el.child(div().text_color(t.blocked).child(this.error)))
-      .when(Boolean(query), el => el.child(div().text_size(11).text_color(t.dim).child("Tab: complete · ↑/↓ or Shift-Tab: select · Enter: open · Esc: close")))
+      .when(Boolean(query), el => el.child(div().text_size(11).text_color(t.dim).child("Tab: cycle matches · ↑/↓ or Shift-Tab: select · Enter: open · Esc: close")))
+      .when(this.completion?.value === this.filter.value(), el => el.child(div().text_size(11).text_color(t.dim).child("Tab cycles these matches; type to start a new match")))
       .when(Boolean(query && this.directoryPending?.[query.folder]), el => el.child(div().text_color(t.dim).child("Loading folders…")))
       .when(Boolean(this.directoryError), el => el.child(div().text_color(t.dim).child(this.directoryError)))
       .child(div().relative().flex_1().min_h(0)
