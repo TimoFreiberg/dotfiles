@@ -27,7 +27,7 @@ bash -n bin/herdr-polytoken bin/hpt
 shellcheck bin/herdr-polytoken bin/hpt
 ```
 
-Status reporting is advisory; it doesn't prove that a task succeeded. The wrapper reports Polytoken's state and clears it when an agent exits, but doesn't include model, facet, or blocked-reason details. Terminals started by subagents aren't configured by this bridge.
+Status reporting is advisory; it doesn't prove that a task succeeded. Polytoken's status reporter sends a clear state when the TUI detaches or the agent exits, but doesn't include model, facet, or blocked-reason details. Terminals started by subagents aren't configured by this bridge.
 
 To restore a session in the same Herdr terminal, explicitly run `herdr-polytoken restore` with no additional arguments. For each `working`, `idle`, or `blocked` status update with a valid session ID, the wrapper makes a best-effort write of the session ID and any explicit `--sessions-dir` to terminal labels. If a write fails, a later status update tries again for the same session. If every label write for a new session fails, or you start Polytoken without `herdr-polytoken`, the terminal may still have labels for an earlier session. Stopping or detaching doesn't clear the labels. Restore requires `hc` and `jq` on `PATH` and uses the same data-root environment as the original session, including any `POLYTOKEN_DATA_PATH` or XDG overrides; it doesn't save those settings. If the label or session is unavailable, use `polytoken continue` instead.
 
