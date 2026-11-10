@@ -1,5 +1,5 @@
 ---
-name: polytoken-session-data
+name: polytoken-logs
 description: "Where Polytoken keeps session transcripts, tool output, and daemon logs on disk. Invoked by the operator only."
 polytoken:
   disable_model_invocation: true
