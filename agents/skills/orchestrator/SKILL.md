@@ -12,11 +12,10 @@ report a follow-up session can act on without this transcript.
 ## Inputs
 
 Read the approved plan once and extract the review level (from its opening
-"Execute with …" line), acceptance criteria, stated priorities, non-goals, and
-approved deferrals. Pass the acceptance criteria, stated priorities, non-goals,
-and approved deferrals into relevant implementer and reviewer handoffs. If no
-level is recorded, choose one and state it with a one-line reason in your first
-message.
+"Execute with …" line). Also extract the acceptance criteria, stated
+priorities, non-goals, and approved deferrals, and pass them into relevant
+implementer and reviewer handoffs. If no level is recorded, choose one and
+state it with a one-line reason in your first message.
 
 Record the base commit ID (not the jj change ID) before any implementation.
 
@@ -60,12 +59,12 @@ Dispatch in parallel:
   existing facilities can replace, and tests that add no lasting confidence.
   Name what can be deleted or simplified.
 
-Repair implementers follow the same rule: a finding that asks for scope the
-plan lacks (a feature, workaround, or test coverage beyond the acceptance
+Repair implementers hold findings to the plan: a finding that asks for scope
+the plan lacks (a feature, workaround, or test coverage beyond the acceptance
 criteria) is rejected unless it fixes a real defect. If removing something
 explicitly approved would materially change scope, useful behavior, or the
 operational contract, take that tradeoff to the operator rather than silently
-undoing the plan; routine simplification that leaves those intact does not need
+undoing the plan. Routine simplification that leaves those intact does not need
 approval.
 
 ## 3. Repair and verify
@@ -89,11 +88,10 @@ against the cap).
 ## 4. Cleanup
 
 After the review loop, if implementation is complete and no critical/high
-finding remains open, delegate removal of only temporary tests or artifacts
-designated by the plan. Preserve lasting tests, then verify the final deliverable
-with the retained checks and report what was removed. If work is blocked or
-incomplete, or any critical/high finding remains open, defer cleanup and report
-why.
+finding remains open, delegate removal of the temporary tests or artifacts the
+plan designates, and nothing else. The implementer preserves lasting tests,
+verifies the final deliverable with the retained checks, and reports what it
+removed. Otherwise, defer cleanup and report why.
 
 ## 5. Prose
 
