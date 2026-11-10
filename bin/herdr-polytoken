@@ -82,7 +82,7 @@ if [[ ${1:-} == restore ]]; then
         echo 'herdr-polytoken: missing or invalid Polytoken session label' >&2
         exit 1
     fi
-    # The sentinel preserves trailing newlines in a path through command substitution.
+    # Appending a dot prevents command substitution from trimming trailing newlines.
     if ! sessions_dir=$(printf '%s' "$terminal_json" | jq -je '
         if (.labels | has("polytoken.sessions_dir") | not) then ""
         elif (.labels["polytoken.sessions_dir"] | type) == "string" and
@@ -106,7 +106,7 @@ if [[ -z ${HC_TERMINAL_ID:-} ]]; then
     exec polytoken "$@"
 fi
 
-# Only the current invocation's override belongs to the reported session.
+# Save only this Polytoken command's --sessions-dir for restoration.
 unset HPT_SESSIONS_DIR
 args=("$@")
 for ((i=0; i<${#args[@]}; i++)); do
