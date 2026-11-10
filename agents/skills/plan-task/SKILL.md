@@ -12,16 +12,31 @@ Choose a review level per @skill:review-levels, and open the plan with exactly
 "Execute with AT-skill:orchestrator(review level: <level>).", replacing `AT-`
 with `@`.
 
-Plan the smallest implementation that meets the requirements. Guards,
-fallbacks, config options, abstractions, validation layers, compatibility
-shims, bookkeeping artifacts, and extra tests must earn their complexity:
-name the requirement they serve, the concrete risk they address, or the
-existing complexity they remove. Cut those without a grounded reason.
-Respect real trust boundaries and secret handling; hypothetical misuse
-alone does not justify new machinery.
+Plan the simplest correct design that serves the task's goals, including the
+operator's stated ambition, operational constraints, and reviewability needs.
+Carry any stated priorities into the plan so implementers and reviewers
+preserve them. Ask when competing priorities would materially change the
+approach.
+
+Complexity must earn its place through a requirement, a concrete risk, or a
+simplification. Prefer what the codebase and its dependencies already provide.
+Respect real trust boundaries and secret handling. Surface safeguards that
+materially restrict useful behavior or introduce operational prerequisites in
+the plan's summary, with their tradeoffs, before approval. Clarify whether the
+tool or its operator is responsible for them.
+
+Distinguish lasting regression coverage from one-off verification that the
+change was carried out. Name how each acceptance criterion will be checked.
+Commit tests that protect meaningful behavior. Prefer standalone commands or
+temporary scripts outside the committed deliverable for change-specific
+verification. If temporary tests are added to the repository, identify them in
+the plan and remove them after review, then verify the final deliverable with
+the retained checks.
 
 Run `plan-reviewer` with `model_override: "mg:review_thorough"`, and ask it
-to flag unnecessary machinery already in the plan, not just missing pieces.
+to flag unnecessary machinery already in the plan, not just missing pieces,
+while respecting the distinction between lasting regression coverage and
+one-off verification.
 Findings that add scope pass the same test: accept those that close a real
 requirements or verification gap, address a concrete risk, or simplify the
 implementation; rebut the rest briefly with evidence. Do not add machinery
