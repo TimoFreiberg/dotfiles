@@ -27,7 +27,9 @@ bash -n bin/herdr-polytoken bin/hpt
 shellcheck bin/herdr-polytoken bin/hpt
 ```
 
-Status is advisory, not proof of task success. The bridge reports state and clears it, but does not report model or facet metadata, blocked-reason text, or implement legacy restore commands. Normal `polytoken continue` and retained session history are unchanged. The bridge does not arrange terminals started by subagents.
+Status is advisory, not proof of task success. The bridge reports state and clears it, but does not report model or facet metadata or blocked-reason text. The bridge does not arrange terminals started by subagents.
+
+To restore the last reported Polytoken session in the same Herdr terminal, run `herdr-polytoken restore` (no additional arguments). The wrapper records the session ID and any explicit `--sessions-dir` in terminal labels, and resumes only when asked; stopping or detaching does not clear them. This requires `hc` and `jq` on `PATH`. Restore needs the same data-root environment as the original session, including any `POLYTOKEN_DATA_PATH` or XDG overrides; those environment settings are not saved. If the label or session is unavailable, use normal `polytoken continue` instead.
 
 ## Default shell
 

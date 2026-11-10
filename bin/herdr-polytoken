@@ -1,27 +1,46 @@
 #!/bin/bash
 # Bridge Polytoken's built-in Herdr status reporter to herdr-core with OSC 7501.
-# All normal arguments and session storage remain Polytoken's responsibility.
+
+valid_session_id() {
+    local LC_ALL=C
+    [[ -n $1 && $1 != -* && $1 != *[!A-Za-z0-9._-]* ]]
+}
 
 # Keep this marker for callbacks from sessions started with the old hpt command.
 if [[ ${HPT_REPORTER:-} == 1 && ${1:-} == pane ]]; then
     case ${2:-} in
         report-agent)
             shift 2
-            state=
+            state='' session_id='' seen_state='' seen_id=''
             while (($#)); do
-                if [[ $1 == --state ]]; then
-                    # Reject missing or repeated states rather than reporting stale data.
-                    [[ $# -ge 2 && -z $state ]] || exit 2
-                    state=$2
-                    shift 2
-                else
-                    shift
-                fi
+                case $1 in
+                    --) break ;;
+                    --source|--agent|--state|--message|--seq|--agent-session-id)
+                        flag=$1
+                        [[ $# -ge 2 && $2 != -- ]] || exit 2
+                        # Message text may itself look like an option.
+                        if [[ $flag != --message && $2 == --* ]]; then exit 2; fi
+                        case $flag in
+                            --state)
+                                [[ -z $seen_state && -n $2 ]] || exit 2
+                                seen_state=1; state=$2 ;;
+                            --agent-session-id)
+                                [[ -z $seen_id && -n $2 ]] || exit 2
+                                seen_id=1; session_id=$2 ;;
+                        esac
+                        shift 2 ;;
+                    *) shift ;;
+                esac
             done
             case $state in
                 working|idle|blocked)
                     printf '\033]7501;state=%s:app=polytoken\033\134' "$state" > /dev/tty
-                    ;;
+                    status=$?
+                    if [[ -n ${HC_TERMINAL_ID:-} && -n $seen_id ]] && valid_session_id "$session_id"; then
+                        ( hc label "$HC_TERMINAL_ID" "polytoken.session=$session_id" \
+                            "polytoken.sessions_dir=${HPT_SESSIONS_DIR:-}" >/dev/null 2>&1 </dev/null & )
+                    fi
+                    exit "$status" ;;
                 *) exit 2 ;;
             esac
             ;;
@@ -36,9 +55,78 @@ if [[ ${HPT_REPORTER:-} == 1 && ${1:-} == pane ]]; then
     exit $?
 fi
 
+if [[ ${1:-} == restore ]]; then
+    if [[ $# != 1 ]]; then
+        echo 'Usage: herdr-polytoken restore' >&2
+        exit 2
+    fi
+    if [[ -z ${HC_TERMINAL_ID:-} ]]; then
+        echo 'herdr-polytoken: restore requires a Herdr terminal' >&2
+        exit 1
+    fi
+    for tool in hc jq; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "herdr-polytoken: restore requires $tool" >&2
+            exit 1
+        fi
+    done
+    if ! terminal_json=$(hc get --json "$HC_TERMINAL_ID"); then
+        echo 'herdr-polytoken: could not read terminal labels' >&2
+        exit 1
+    fi
+    if ! session_id=$(printf '%s' "$terminal_json" | jq -er '
+        .labels["polytoken.session"] as $id |
+        if ($id | type) == "string" and ($id | test("\\A[A-Za-z0-9._-]+\\z")) and
+           ($id | startswith("-") | not)
+        then $id else error("missing or malformed session label") end' 2>/dev/null) || ! valid_session_id "$session_id"; then
+        echo 'herdr-polytoken: missing or invalid Polytoken session label' >&2
+        exit 1
+    fi
+    # The sentinel preserves trailing newlines in a path through command substitution.
+    if ! sessions_dir=$(printf '%s' "$terminal_json" | jq -je '
+        if (.labels | has("polytoken.sessions_dir") | not) then ""
+        elif (.labels["polytoken.sessions_dir"] | type) == "string" and
+             (.labels["polytoken.sessions_dir"] | startswith("/")) and
+             (.labels["polytoken.sessions_dir"] | contains("\u0000") | not)
+        then .labels["polytoken.sessions_dir"] else error("invalid sessions directory label") end' 2>/dev/null && printf '.'); then
+        echo 'herdr-polytoken: invalid Polytoken sessions directory label' >&2
+        exit 1
+    fi
+    sessions_dir=${sessions_dir%.}
+    echo "herdr-polytoken: restoring session $session_id" >&2
+    if [[ -n $sessions_dir ]]; then
+        set -- continue "$session_id" --sessions-dir "$sessions_dir"
+    else
+        set -- continue "$session_id"
+    fi
+fi
+
 # Preserve standalone Polytoken and the legacy Herdr TUI environment.
 if [[ -z ${HC_TERMINAL_ID:-} ]]; then
     exec polytoken "$@"
+fi
+
+# Only the current invocation's override belongs to the reported session.
+unset HPT_SESSIONS_DIR
+args=("$@")
+for ((i=0; i<${#args[@]}; i++)); do
+    case ${args[i]} in
+        --) break ;;
+        --sessions-dir)
+            ((i++))
+            if ((i < ${#args[@]})) && [[ -n ${args[i]} && ${args[i]} != --* ]]; then
+                HPT_SESSIONS_DIR=${args[i]}
+            fi ;;
+        --sessions-dir=*) HPT_SESSIONS_DIR=${args[i]#--sessions-dir=} ;;
+        --log-dir|--global-config-dir|--skills-dir|--facets-dir|--subagents-dir|--prompt|--model|--facet)
+            ((i++)) ;;
+    esac
+done
+if [[ -n ${HPT_SESSIONS_DIR:-} ]]; then
+    [[ $HPT_SESSIONS_DIR == /* ]] || HPT_SESSIONS_DIR=$PWD/$HPT_SESSIONS_DIR
+    export HPT_SESSIONS_DIR
+else
+    unset HPT_SESSIONS_DIR
 fi
 
 # Reporter subprocesses have null standard streams; they reopen /dev/tty.
