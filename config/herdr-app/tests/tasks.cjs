@@ -131,7 +131,7 @@ assert.equal(firstTerminal(spaces[0], [{tab:'one',terminal:'t1',cwd:'/live/sub'}
 async function testArtifactsPanel() {
   const code = fs.readFileSync('config/herdr-app/mods/task-artifacts/main.js', 'utf8').replace(/^import .*;\n/gm, '').replace('export default class', 'class');
   const saved = {s:[{path:'/test.html',title:'Test',added:1,seen:false}]}, calls = [], queue = [], closed = [], keyBindings = [], scrollCalls = [], rendered = [], renderedText = [];
-  let fail = false, gate = null, release, notifies = 0, stopped = 0, focusCalls = 0, inVirtualList = false, activeProps = {space:'s',overlay:'picker'};
+  let fail = false, webFail = false, webAvailable = false, platform = 'macos', gate = null, release, notifies = 0, stopped = 0, focusCalls = 0, inVirtualList = false, activeProps = {space:'s',overlay:'picker'};
   class TestInputState {
     constructor(options) { this.options = options; this.text = options.value ?? ''; this.handlers = {}; }
     static new(options) { return new TestInputState(options); }
@@ -168,6 +168,7 @@ async function testArtifactsPanel() {
     theme:() => ({popover:'popover',foreground:'foreground',muted:'muted',dim:'dim',selected:'selected',hover:'hover',accent:'accent',blocked:'blocked',input:'input',background:'background'}),
     shared:() => saved, setShared:(_key,value) => Object.assign(saved,value), home:() => '/home/me', props:() => activeProps,
     spaces:() => [{id:'s',active:true}],
+    window:() => ({platform}), commands:() => webAvailable ? [{name:'web.open'}] : [{name:'tab.new'}],
     closeOverlay:id => closed.push(id),
     exec: async (cmd,args) => {
       calls.push([cmd,args]);
@@ -178,6 +179,7 @@ async function testArtifactsPanel() {
           ? {code:0,stdout:'session:\n  url: "http://localhost/session/live"\n  status: opened\n'}
           : {code:0,stdout:'session:\n  url: "http://localhost/session/dead"\n  status: user-ended\n'};
       }
+      if (cmd === 'herdr-app' && webFail) return {code:1,stderr:'web tab failed'};
       return {code:cmd === 'test' ? 1 : 0};
     }};
   const {TaskArtifacts} = vm.runInNewContext(code + '\n({TaskArtifacts})', sandbox);
@@ -293,6 +295,35 @@ async function testArtifactsPanel() {
   assert.ok(saved.s[0].added > clicked.added); release(); await opening;
   assert.equal(saved.s[0].title, 'Re-registered'); assert.equal(saved.s[0].seen, false);
   assert.deepEqual(closed, ['picker','picker']);
+
+  webAvailable = true; gate = null;
+  saved.s = [{path:'/report with spaces.html',title:'Report "quoted"',added:10,seen:false}];
+  const webCallsStart = calls.length, webClosesStart = closed.length;
+  panel.open('s', saved.s[0], cx); await queue.shift()(cx);
+  const webCalls = calls.slice(webCallsStart);
+  assert.deepEqual(webCalls.map(([cmd]) => cmd), ['lavish-axi','herdr-app'], 'the native web tab skips external browser detection and opening');
+  assert.deepEqual(Array.from(webCalls[1][1]).slice(0,2), ['do','web.open']);
+  assert.deepEqual(JSON.parse(webCalls[1][1][2]), {url:'http://localhost/session/live',space:'s',title:'Report "quoted"'}, 'the web tab opens the Lavish session in the picker space with the artifact title');
+  assert.equal(saved.s[0].seen, true); assert.equal(closed.length, webClosesStart + 1);
+
+  saved.s[0].seen = false; webFail = true;
+  const failureCallsStart = calls.length, failureClosesStart = closed.length;
+  panel.open('s', saved.s[0], cx); await queue.shift()(cx);
+  assert.equal(saved.s[0].seen, false); assert.match(panel.error, /web tab failed/);
+  assert.equal(panel.opening, null); assert.equal(closed.length, failureClosesStart, 'a web-tab failure keeps the picker open');
+  assert.deepEqual(calls.slice(failureCallsStart).map(([cmd]) => cmd), ['lavish-axi','herdr-app'], 'a web-tab failure does not silently open an external browser');
+  webFail = false;
+  panel.open('s', saved.s[0], cx); await queue.shift()(cx);
+  assert.equal(panel.error, null); assert.equal(saved.s[0].seen, true); assert.equal(closed.length, failureClosesStart + 1, 'a failed web open can be retried');
+
+  for (platform of ['linux','windows']) {
+    saved.s[0].seen = false;
+    const fallbackCallsStart = calls.length;
+    panel.open('s', saved.s[0], cx); await queue.shift()(cx);
+    assert.deepEqual(calls.slice(fallbackCallsStart).map(([cmd]) => cmd), ['lavish-axi','test','open'], 'non-macOS platforms keep the existing browser path even when web.open is listed');
+    assert.equal(saved.s[0].seen, true);
+  }
+  platform = 'macos'; webAvailable = false;
 
   saved.s = [
     {path:'/reports/overview.html',title:'Report Overview',added:400,seen:false},
