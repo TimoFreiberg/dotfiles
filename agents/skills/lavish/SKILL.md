@@ -18,9 +18,12 @@ building, read:
 
 Start or resume the session with `lavish-view "<file>"` (HTML or markdown)
 instead of `lavish-axi` directly. Its output line names the page file to pass
-to `lavish-axi poll`, `reply`, and `end`. Run each poll with `shell_exec` and
-`background: true`, using a descriptive job name. Its completion wakes this
-agent; don't block on it. Quote artifact paths in shell commands. Don't
-`share` or publish unless the operator asks.
+to `lavish-axi poll`, `reply`, and `end`. Run every poll with `shell_exec`,
+`background: true`, a descriptive job name, and an explicit `timeout_seconds`
+set to the longest timeout supported by the current harness. Never use a
+shorter or default timeout, or pass Lavish's `--timeout-ms`. If a poll times
+out before feedback arrives, restart it with the longest supported timeout.
+Its completion wakes this agent; don't block on it. Quote artifact paths in
+shell commands. Don't `share` or publish unless the operator asks.
 
 Build what you were asked for; otherwise infer it from the conversation.
