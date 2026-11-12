@@ -29,7 +29,7 @@ const { slugify, template } = vm.runInNewContext(logicSource + '\n({slugify, tem
   } finally { fs.rmSync(dir, {recursive:true, force:true}); }
 }
 const artifactLogic = fs.readFileSync('config/herdr-app/mods/task-tree/artifact-logic.js', 'utf8').replace(/^export /gm, '');
-const { artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, hasArtifactWebView, openArtifact, age } = vm.runInNewContext(artifactLogic + '\n({artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, hasArtifactWebView, openArtifact, age})');
+const { artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, hasArtifactWebView, hasArtifactBackgroundWebView, openArtifact, age } = vm.runInNewContext(artifactLogic + '\n({artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, hasArtifactWebView, hasArtifactBackgroundWebView, openArtifact, age})');
 let artifacts = addArtifact([], '/one.html', 'One', 100);
 artifacts = addArtifact(artifacts, '/two.html', 'Two', 200);
 artifacts = seeArtifact(artifacts, '/one.html', 100); assert.equal(artifacts[1].seen, true);
@@ -47,6 +47,12 @@ assert.equal(lavishUrl('no url'), null);
 assert.equal(JSON.stringify(openCommand('http://localhost/x', true)), JSON.stringify(['open',['-a','Lavish','http://localhost/x']]));
 assert.equal(JSON.stringify(openCommand('http://localhost/x', false)), JSON.stringify(['open',['-na','Google Chrome','--args','--app=http://localhost/x']]));
 assert.equal(age(0, 120000), '2m ago');
+const backgroundCommands = [{name:'web.open',args:[{name:'url',required:true},{name:'background',required:false}]}];
+assert.equal(hasArtifactBackgroundWebView('macos', backgroundCommands), true);
+for (const metadata of [undefined, null, {}, 'web.open', [], [null], [{name:'web.open'}], [{name:'web.open',args:null}], [{name:'web.open',args:{background:true}}], [{name:'web.open',args:['background',null,{}]}], [{name:'web.open',args:[{name:'url'}]}], [{name:'other',args:[{name:'background'}]}]]) {
+  assert.equal(hasArtifactBackgroundWebView('macos', metadata), false, 'missing or malformed argument metadata cannot authorize background opening');
+}
+for (const platform of ['linux','windows',undefined]) assert.equal(hasArtifactBackgroundWebView(platform, backgroundCommands), false);
 const docLogic = fs.readFileSync('config/herdr-app/mods/task-doc/doc-logic.js', 'utf8').replace(/^export /gm, '');
 const { links, decision } = vm.runInNewContext(docLogic + '\n({links, decision})');
 assert.equal(slugify('  Héllo, World! '), 'hello-world'); assert.equal(slugify('!!!'), 'task');
@@ -359,7 +365,7 @@ async function testArtifactRegistration() {
   let platform = 'macos', available = true, ackFailure = false, storeFailure = false;
   const saved = {}, tasks = [], calls = [], errors = [], notices = [], writes = [];
   const context = {
-    View: class {}, artifactKey, addArtifact, artifactSpace, seeArtifact, hasArtifactWebView, openArtifact,
+    View: class {}, artifactKey, addArtifact, artifactSpace, seeArtifact, hasArtifactWebView, hasArtifactBackgroundWebView, openArtifact,
     window: () => ({platform}), commands: () => available ? [{name:'web.open'}] : [],
     panes: () => [{terminal:'t1',tab:'tab1'}], spaces: () => [{id:'owner',tabs:[{id:'tab1'}],active:false}, {id:'other',tabs:[],active:true}], terminals: () => [],
     shared: key => saved[key], setShared: (key,value) => { if (storeFailure) throw new Error('storage failed'); saved[key] = value; },
@@ -425,6 +431,93 @@ async function testArtifactRegistration() {
   assert.equal(saved[artifactKey].owner[0].seen, false, 'ack failure leaves the stored artifact unseen');
   assert.deepEqual(notices.at(-1), {title:'Artifact ready',body:'Acknowledged'}, 'stored artifacts notify even if acknowledgement fails');
   assert.equal(calls.length, 0); assert.equal(tasks.length, 0);
+}
+async function testArtifactBackgroundRegistration() {
+  let platform = 'macos', metadata = backgroundCommands, lavishResult = {code:0,stdout:'url: "http://localhost/session/background"\n',stderr:''};
+  let webResult = {code:0,stdout:'',stderr:''}, execFailure = false, ackFailure = false;
+  const saved = {}, tasks = [], calls = [], notices = [], writes = [], errors = [], events = [];
+  const context = {
+    View: class {}, artifactKey, addArtifact, artifactSpace, hasArtifactBackgroundWebView, openArtifact,
+    window: () => ({platform}), commands: () => metadata,
+    panes: () => [{terminal:'t1',tab:'tab1'}], spaces: () => [{id:'owner',tabs:[{id:'tab1'}],active:false},{id:'other',tabs:[],active:true}], terminals: () => [],
+    shared: key => saved[key], setShared: (key,value) => { saved[key] = value; events.push('stored'); },
+    writeTextFile: async (path,text,expected) => {
+      assert.equal(saved[artifactKey].owner[0].seen, false);
+      writes.push({path,text,expected}); events.push('ack');
+      if (ackFailure) throw new Error('ack failed');
+    },
+    notify: notice => { notices.push({...notice}); events.push('notice'); }, console: {log: message => errors.push(message)},
+    exec: async (command,args) => {
+      calls.push([command,Array.from(args)]); events.push(command);
+      assert.ok(saved[artifactKey].owner.length, 'opening follows storage');
+      if (execFailure) throw new Error('exec failed');
+      if (command === 'lavish-axi') return lavishResult;
+      assert.equal(command, 'herdr-app', 'auto-open never falls back to a browser or restores focus');
+      return webResult;
+    },
+    run: () => assert.fail('registration must not change focus'),
+  };
+  const {TaskTree} = vm.runInNewContext(source + '\n({TaskTree})', context);
+  const tree = new TaskTree(), cx = {spawn: fn => tasks.push(fn), notify(){}};
+  const ack = '/tmp/lavish-artifact-aB123Z/ack.json';
+  const register = (withAck = false) => tree.command('artifact:' + JSON.stringify({terminal:'t1',path:'/report with spaces.html',title:'Report "quoted"',...(withAck ? {ack} : {})}), cx);
+  for (const unsupported of [undefined,null,{},[],[null],[{name:'web.open'}],[{name:'web.open',args:null}],[{name:'web.open',args:['background']}],[{name:'web.open',args:[{name:'url'}]}]]) {
+    metadata = unsupported; register(); assert.equal(tasks.length, 0);
+  }
+  metadata = backgroundCommands;
+  for (const otherPlatform of ['linux','windows']) {
+    platform = otherPlatform; register(); assert.equal(tasks.length, 0);
+  }
+  assert.equal(calls.length, 0, 'unsupported registration only stores and notifies');
+  platform = 'macos'; events.length = 0;
+  register();
+  assert.equal(tasks.length, 1); assert.equal(writes.length, 0, 'legacy no-ack registration still auto-opens');
+  assert.equal(saved[artifactKey].other, undefined, 'storage uses the terminal owner instead of the active task');
+  assert.deepEqual(events, ['stored','notice'], 'the ready notification precedes opening');
+  await tasks.shift()(cx);
+  assert.deepEqual(calls[0], ['lavish-axi',['/report with spaces.html','--no-open']], 'automatic opens never reopen user-ended sessions');
+  assert.deepEqual(calls[1].slice(0,1), ['herdr-app']); assert.deepEqual(calls[1][1].slice(0,2), ['do','web.open']);
+  assert.deepEqual(JSON.parse(calls[1][1][2]), {url:'http://localhost/session/background',space:'owner',title:'Report "quoted"',background:true});
+  assert.equal(saved[artifactKey].owner[0].seen, false, 'a lazy background tab is not a viewed artifact');
+
+  calls.length = 0; events.length = 0; register(true);
+  assert.equal(tasks.length, 2, 'acknowledgement and opening are independent jobs');
+  const acknowledge = tasks.shift(), open = tasks.shift();
+  await acknowledge(cx);
+  assert.deepEqual(writes.at(-1), {path:ack,text:'{"ok":true}',expected:'{"pending":true}'});
+  assert.equal(calls.length, 0, 'acknowledgement does not wait for Lavish or web.open');
+  await open(cx); assert.deepEqual(events, ['stored','notice','ack','lavish-axi','herdr-app']);
+  assert.equal(saved[artifactKey].owner[0].seen, false);
+
+  calls.length = 0; lavishResult = {code:0,stdout:'status: user-ended\nurl: "http://localhost/session/ended"\n',stderr:''};
+  const beforeEndedNotices = notices.length; register(true);
+  await tasks.shift()(cx); await tasks.shift()(cx);
+  assert.equal(calls.length, 1, 'user-ended sessions never create a web tab');
+  assert.deepEqual(calls[0][1], ['/report with spaces.html','--no-open']);
+  assert.equal(notices.length, beforeEndedNotices + 1, 'user-ended sessions still notify readiness');
+  assert.equal(saved[artifactKey].owner[0].seen, false);
+
+  for (const failure of ['lavish','missing-url','web','exec']) {
+    calls.length = 0; execFailure = failure === 'exec';
+    lavishResult = failure === 'lavish' ? {code:1,stdout:'',stderr:'Lavish failed'} : {code:0,stdout:failure === 'missing-url' ? 'no URL' : 'url: http://localhost/session/background',stderr:''};
+    webResult = {code:failure === 'web' ? 1 : 0,stdout:'',stderr:'web failed'};
+    const beforeWrites = writes.length, beforeNotices = notices.length;
+    register(true); const acknowledge = tasks.shift(), open = tasks.shift();
+    await open(cx); await acknowledge(cx);
+    assert.equal(writes.length, beforeWrites + 1, 'opening failure cannot prevent acknowledgement');
+    assert.deepEqual(notices[beforeNotices], {title:'Artifact ready',body:'Report "quoted"'});
+    assert.equal(notices.at(-1).title, 'Could not open artifact');
+    assert.match(notices.at(-1).body, /failed|did not return a URL/);
+    assert.equal(saved[artifactKey].owner[0].seen, false, 'failed auto-opens retain unread registration');
+    assert.equal(saved[artifactKey].owner.length, 1);
+    assert.deepEqual(calls.map(([command]) => command), failure === 'web' ? ['lavish-axi','herdr-app'] : ['lavish-axi']);
+  }
+  execFailure = false; ackFailure = true; calls.length = 0;
+  lavishResult = {code:0,stdout:'url: http://localhost/session/background',stderr:''}; webResult = {code:0,stdout:'',stderr:''};
+  register(true); await tasks.shift()(cx); await tasks.shift()(cx);
+  assert.match(errors.at(-1), /Could not acknowledge artifact:.*ack failed/);
+  assert.equal(calls.length, 2, 'ack failure cannot prevent background opening');
+  assert.equal(saved[artifactKey].owner[0].seen, false); assert.equal(tasks.length, 0);
 }
 async function testEditor() {
   const code = fs.readFileSync('config/herdr-app/mods/task-doc/main.js', 'utf8').replace(/^import .*;\n/gm, '').replace('export default class', 'class');
@@ -568,7 +661,7 @@ async function testEditor() {
   assert.equal(mode.docsKey, 'docs'); assert.equal(mode.linkKey, 'task-doc-link');
   assert.equal(mode.docsDir(), '/home/me/mydesk/tasks');
   assert.equal(mode.allowedDoc(''), false); assert.equal(mode.allowedDoc('/notes.md'), true);
-  await testEditor(); await testArtifactsPanel(); await testArtifactRegistration();
+  await testEditor(); await testArtifactsPanel(); await testArtifactRegistration(); await testArtifactBackgroundRegistration();
   if (process.argv.includes('--native')) {
     const mod = fs.mkdtempSync(pathModule.join(os.tmpdir(), 'herdr-artifacts-check-'));
     try {

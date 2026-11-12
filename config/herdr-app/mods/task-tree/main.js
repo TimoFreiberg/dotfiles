@@ -1,8 +1,8 @@
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input, v_virtual_list, VirtualListScrollHandle, Scrollbar } from "gpui-base";
-import { spaces, panes, agents, terminals, machines, theme, run, openOverlay, closeOverlay, window, props, home, nextCommand, exec, notify, readTextFile, writeTextFile, shared, setShared } from "herdr";
+import { spaces, panes, agents, terminals, machines, theme, run, openOverlay, closeOverlay, window, props, home, nextCommand, commands, exec, notify, readTextFile, writeTextFile, shared, setShared } from "herdr";
 import { slugify, template } from "./doc-logic.js";
-import { artifactKey, addArtifact, artifactSpace } from "./artifact-logic.js";
+import { artifactKey, addArtifact, artifactSpace, hasArtifactBackgroundWebView, openArtifact } from "./artifact-logic.js";
 
 function artifactAckPath(path) {
   // os.tmpdir() may use a per-user or configured root; only accept the CLI's
@@ -237,6 +237,13 @@ export default class TaskTree extends View {
           });
         }
         notify({title: "Artifact ready", body: title});
+        if (hasArtifactBackgroundWebView(window()?.platform, commands())) {
+          cx.spawn(async () => {
+            // A background tab has not been viewed, so leave the artifact unread.
+            try { await openArtifact(exec, list[0], space, {web:true, background:true}); }
+            catch (e) { notify({title: "Could not open artifact", body: String(e), level: "error"}); }
+          });
+        }
       } catch (e) { console.log(`Could not register artifact: ${e}`); }
       return;
     }
