@@ -5,14 +5,24 @@ import { slugify, template } from "./doc-logic.js";
 import { artifactKey, addArtifact, artifactSpace } from "./artifact-logic.js";
 
 function key(machine, folder) { return JSON.stringify([machine ?? null, folder]); }
-function groupSpaces(list, assignments) {
+function groupSpaces(list, assignments, projects = [], configuredMachines = []) {
   const groups = [], byKey = {};
+  const add = ({machine, root}) => {
+    machine = machine ?? null;
+    const id = key(machine, root);
+    if (!byKey[id]) { byKey[id] = { id, root, machine, tasks: [] }; groups.push(byKey[id]); }
+    return byKey[id];
+  };
+  for (const project of projects) add(project);
   for (const space of list) {
     const assignment = assignments[space.id];
-    if (!assignment) continue;
-    const { machine, root } = assignment, id = key(machine, root);
-    if (!byKey[id]) { byKey[id] = { id, root, machine, tasks: [] }; groups.push(byKey[id]); }
-    byKey[id].tasks.push(space);
+    if (assignment) add(assignment).tasks.push(space);
+  }
+  for (const machine of configuredMachines) {
+    const name = machine.name ?? null;
+    if (!groups.some(group => group.machine === name)) {
+      groups.push({id:key(name, null), machine:name, root:"", tasks:[], fallback:true});
+    }
   }
   const compare = (a, b) => a < b ? -1 : a > b ? 1 : 0;
   return groups.sort((a, b) => Number(a.machine != null) - Number(b.machine != null)
@@ -40,6 +50,18 @@ function history(history, assignments) {
     seen.add(id); result.push({machine: item.machine ?? null, root: item.root});
   }
   return result;
+}
+function savedGroups(assignments) {
+  const saved = load("project-groups");
+  if (Array.isArray(saved.projects) && Array.isArray(saved.removed)) return saved;
+  const previous = load("project-history");
+  return {projects:history(Array.isArray(previous) ? previous : [], assignments), removed:[]};
+}
+function storeGroups(state) {
+  const value = JSON.stringify(state);
+  if (localStorage.getItem("project-groups") === value) return;
+  localStorage.setItem("project-groups", value);
+  setShared("task-project-update", Math.random());
 }
 function repoRoot(folder, jj, git) { return jj?.trim() || git?.trim() || folder; }
 function movePin(assignments, id, assignment) { assignments[id] = assignment; }
@@ -86,6 +108,7 @@ let docsKey = "docs", linkKey = "task-doc-link", docsDir = () => `${home()}/myde
 export default class TaskTree extends View {
   init(_props, cx) {
     this.folded = load("folded"); this.last = load("last"); this.assignments = load("assignments"); this.docs = load(docsKey); this.roots = {}; this.pending = {}; this.labelled = {};
+    this.persistGroups = true; this.selectedGroup = null;
     if (props()?.projectPicker) {
       this.filter = InputState.new({ placeholder: "Project or ~/path" });
       this.handle = cx.focus_handle(); this.choiceScroll = VirtualListScrollHandle.new(); this.directoryCache = {}; this.directoryPending = {}; this.selectedChoice = null;
@@ -104,7 +127,7 @@ export default class TaskTree extends View {
       this.filter.focus();
       return;
     }
-    if (props()?.taskMenu) return;
+    if (props()?.taskMenu || props()?.projectMenu) return;
     if (props()?.chooser) {
       this.title = InputState.new({ value: props().title }); this.filter = InputState.new({ placeholder: "Filter existing documents" });
       this.title.on("change", (_e, cx) => cx.notify()); this.filter.on("change", (_e, cx) => cx.notify());
@@ -115,15 +138,47 @@ export default class TaskTree extends View {
       for (;;) { const command = await nextCommand(); this.command(command, cx); cx.notify(); }
     });
   }
-  groups() { return groupSpaces(spaces(), this.assignments); }
+  groups() {
+    if (!this.persistGroups) return groupSpaces(spaces(), this.assignments);
+    const update = shared("task-project-update");
+    if (update && update !== this.projectUpdate) { this.projectUpdate = update; this.assignments = load("assignments"); }
+    const state = savedGroups(this.assignments), live = spaces().map(space => this.assignments[space.id]).filter(Boolean);
+    const reopened = new Set(live.map(project => key(project.machine, project.root)));
+    state.removed = state.removed.filter(id => !reopened.has(id));
+    state.projects = history([...state.projects, ...live], {});
+    storeGroups(state);
+    return groupSpaces(spaces(), this.assignments, state.projects, machines());
+  }
+  currentGroup(groups) {
+    const current = spaces().find(space => space.active), active = groups.find(group => group.tasks.some(task => task.id === current?.id));
+    if (this.activeSpace !== current?.id) { this.activeSpace = current?.id; this.selectedGroup = active?.id ?? null; this.followActive = true; }
+    if (this.followActive && active) this.selectedGroup = active.id;
+    const selected = groups.find(group => group.id === this.selectedGroup) ?? active ?? groups[0];
+    this.selectedGroup = selected?.id ?? null;
+    return selected;
+  }
   remember(assignment, previous = null) {
-    const saved = load("project-history");
+    const state = savedGroups(this.assignments), saved = load("project-history");
     const list = history([assignment, previous, ...(Array.isArray(saved) ? saved : [])], this.assignments);
     localStorage.setItem("project-history", JSON.stringify(list));
+    const added = history([assignment, previous], {}).filter(project => !state.removed.includes(key(project.machine, project.root)));
+    state.projects = history([...state.projects, ...added], {}); storeGroups(state);
+  }
+  removeGroup(id) {
+    const group = this.groups().find(group => group.id === id);
+    if (!group || group.fallback || group.tasks.length) return false;
+    const state = savedGroups(this.assignments);
+    state.projects = state.projects.filter(project => key(project.machine, project.root) !== id);
+    if (!state.removed.includes(id)) state.removed.push(id);
+    storeGroups(state); if (this.selectedGroup === id) this.selectedGroup = null;
+    return true;
   }
   savePin(id, assignment) {
     this.assignments = load("assignments");
-    if (pin(this.assignments, id, assignment)) { localStorage.setItem("assignments", JSON.stringify(this.assignments)); this.remember(assignment); }
+    if (pin(this.assignments, id, assignment)) {
+      localStorage.setItem("assignments", JSON.stringify(this.assignments)); this.remember(assignment);
+      setShared("task-project-update", Math.random());
+    }
   }
   close() { this.closed = true; }
   resolve(list, all, cx) {
@@ -148,7 +203,9 @@ export default class TaskTree extends View {
     }
   }
   select(group, task) {
-    if (!group || !task) return;
+    if (!group) return;
+    this.currentGroup(this.groups()); this.selectedGroup = group.id; this.followActive = false;
+    if (!task) return;
     this.folded[group.id] = false; this.last[group.id] = task.id;
     localStorage.setItem("folded", JSON.stringify(this.folded)); localStorage.setItem("last", JSON.stringify(this.last));
     if (!task.active) run("space.select", { id: task.id });
@@ -166,7 +223,7 @@ export default class TaskTree extends View {
       return;
     }
     const groups = this.groups(), current = spaces().find(s => s.active);
-    const group = groups.find(g => g.tasks.some(s => s.id === current?.id));
+    const group = this.currentGroup(groups);
     if (command === "new") { if (group) this.newTask(group, cx); return; }
     if (command === "open-project") { this.openProjects(); return; }
     if (command === "notes") { if (current) this.notes(current, docsDir()); return; }
@@ -343,6 +400,15 @@ export default class TaskTree extends View {
         .when(Boolean(query), row => row.child(button("project-complete", "⇥", (_e,cx) => this.pickerAction("task-project-complete",cx)).py(4).text_color(t.dim).tooltip("Complete / cycle matches (Tab)")))
         .child(button("project-path", "Open", (_e,cx) => this.chooseFirst(cx)).py(4).font_semibold().text_color(t.accent).tooltip("Open (Enter)"))));
   }
+  projectMenu() {
+    const t = theme(), group = this.groups().find(group => group.id === props().group);
+    const removable = Boolean(group && !group.fallback && !group.tasks.length);
+    return v_flex().p(6).bg(t.popover).text_color(t.foreground)
+      .child(div().id("remove-group").px(8).py(7).text_color(removable ? t.foreground : t.dim)
+        .tooltip(removable ? "Remove this empty group from the sidebar" : "Close or move its tasks before removing the group")
+        .when(removable, el => el.cursor_pointer().hover(s => s.bg(t.hover)))
+        .on_click((_e, cx) => { if (this.removeGroup(props().group)) { closeOverlay(props().overlay); cx.notify(); } }).child("Remove group"));
+  }
   taskMenu() {
     const t = theme(); return v_flex().p(6).bg(t.popover).text_color(t.foreground).child(div().id("move-project").px(8).py(7).cursor_pointer().hover(s => s.bg(t.hover)).on_click(() => { closeOverlay(props().overlay); this.openProjects(props().task); }).child("Move to project…"))
       .child(div().id("space-menu").px(8).py(7).cursor_pointer().hover(s => s.bg(t.hover)).on_click(() => { closeOverlay(props().overlay); openOverlay({mod:"menu", kind:"popup", width:200, props:{tab:"space", target:{id:props().task}}}); }).child("More actions…"));
@@ -421,10 +487,10 @@ export default class TaskTree extends View {
     this.creating = true;
     cx.spawn(async cx => {
       try {
-        const result = await exec("herdr-app", ["do", "space.new", JSON.stringify({ folder: group.root, machine: group.machine ?? "" })]);
+        const result = await exec("herdr-app", ["do", "space.new", JSON.stringify({ ...(group.fallback ? {} : {folder:group.root}), machine: group.machine ?? "" })]);
         if (result.code !== 0) throw new Error(result.stderr || result.stdout);
         const made = JSON.parse(result.stdout); if (!made.space) throw new Error("space.new did not return a space");
-        this.savePin(made.space, { machine: group.machine ?? null, root: group.root });
+        if (!group.fallback) this.savePin(made.space, { machine: group.machine ?? null, root: group.root });
         this.select(group, { id: made.space });
       } catch (error) { notify({ title: "Could not create task", body: String(error), level: "error" }); }
       finally { this.creating = false; cx.notify(); }
@@ -451,15 +517,18 @@ export default class TaskTree extends View {
   }
   project(group, all, t, cx) {
     const folded = Boolean(this.folded[group.id]);
-    const name = group.root.replace(/\/+$/, "").split("/").pop() || group.root || group.machine || "~";
-    const label = `${group.machine ? `${group.machine}: ` : ""}${name}`;
+    const name = group.root.replace(/\/+$/, "").split("/").pop() || group.root || "~";
+    const label = group.fallback ? group.machine ?? "Local" : `${group.machine ? `${group.machine}: ` : ""}${name}`;
     const available = machines().find(m => m.name === group.machine)?.layout === "ready";
     return v_flex().min_w(0).flex_none().pt(8)
       .child(h_flex().id(`project-${group.id}`).h(25).min_w(0).gap(5).px(6).items_center().text_size(10.5).text_color(t.muted)
+        .when(this.selectedGroup === group.id, el => el.bg(t.selected)).cursor_pointer()
+        .on_click((_e, cx) => { this.select(group, group.tasks.find(task => task.id === this.last[group.id]) ?? group.tasks[0]); cx.notify(); })
+        .when(!group.fallback, el => el.on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({mod:"task-tree", kind:"popup", width:200, height:50, props:{projectMenu:true, group:group.id}}); }))
         .on_hover((hovered, cx) => { if (hovered) this.hoveredProject = group.id; else if (this.hoveredProject === group.id) this.hoveredProject = null; cx.notify(); })
         .child(div().id(`fold-${group.id}`).size(20).flex_none().flex().items_center().justify_center().cursor_pointer().tooltip(folded ? "Expand project" : "Collapse project")
           .on_click((_e, cx) => { cx.stop_propagation(); this.folded[group.id] = !folded; localStorage.setItem("folded", JSON.stringify(this.folded)); cx.notify(); }).child(folded ? "›" : "⌄"))
-        .child(div().flex_1().min_w(0).truncate().font_semibold().tooltip(group.machine ? `${group.machine}: ${group.root}` : group.root).child(label))
+        .child(div().flex_1().min_w(0).truncate().font_semibold().tooltip(group.fallback ? "New task at this machine's default directory" : group.machine ? `${group.machine}: ${group.root}` : group.root).child(label))
         .child(div().flex_none().text_color(t.dim).tooltip(`${group.tasks.length} tasks`).child(`${group.tasks.length}`))
         .child(div().id(`new-${group.id}`).size(22).flex_none().flex().items_center().justify_center().rounded(5).text_color(t.muted).hover(s => s.bg(t.selected).text_color(t.foreground)).tooltip(available ? "New task in this project" : "Machine unavailable")
           .on_click((_e, cx) => { cx.stop_propagation(); if (available) this.newTask(group, cx); }).child(this.hoveredProject === group.id ? "+" : "")))
@@ -468,6 +537,7 @@ export default class TaskTree extends View {
   render(cx) {
     if (props()?.projectPicker) return this.projectPicker();
     if (props()?.taskMenu) return this.taskMenu();
+    if (props()?.projectMenu) return this.projectMenu();
     if (props()?.chooser) return this.chooser();
     const update = shared("task-project-update"); if (update && update !== this.projectUpdate) { this.projectUpdate = update; this.assignments = load("assignments"); }
     if (props()?.header) { const t = theme(); return h_flex().size_full().items_center().pl(window()?.platform === "macos" && !window()?.fullscreen ? 76 : 14).text_color(t.foreground).font_semibold().child("Herdr"); }
@@ -476,6 +546,7 @@ export default class TaskTree extends View {
     if (link?.space && allowedDoc(link.path) && this.docs[link.space] !== link.path) { this.docs[link.space] = link.path; localStorage.setItem(docsKey, JSON.stringify(this.docs)); }
     const allPanes = panes(); this.resolve(list, allPanes, cx); this.labelDocs(list, allPanes, cx);
     const groups = this.groups(), group = groups.find(g => g.tasks.some(s => s.active));
+    this.currentGroup(groups);
     if (group && this.last[group.id] !== current.id) { this.last[group.id] = current.id; localStorage.setItem("last", JSON.stringify(this.last)); }
     const tool = (id, label, action, icon = null) => h_flex().id(id).h(27).px(8).items_center().rounded(6).cursor_pointer()
       .when(Boolean(icon), el => el.gap(6).child(svg(icon).size(14).flex_none().text_color(t.muted)))
