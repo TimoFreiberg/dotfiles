@@ -267,7 +267,7 @@ async function main() {
       assert.equal(nativeSource.split('props()?.projectPicker').length - 1, 2);
       // Force check's otherwise empty props through picker init/render, without modifying the real mod.
       fs.writeFileSync(path.join(mod, 'main.js'), nativeSource.replaceAll('props()', '({projectPicker:true})'));
-      for (const file of ['mod.json', 'doc-logic.js', 'artifact-logic.js']) fs.copyFileSync(path.join(directory,file), path.join(mod,file));
+      for (const file of ['mod.json', 'artifact-logic.js']) fs.copyFileSync(path.join(directory,file), path.join(mod,file));
       const result = child.spawnSync('herdr-app', ['check', mod], {encoding:'utf8', timeout:30000});
       assert.equal(result.status, 0, result.stderr || result.stdout || String(result.error));
       console.log('native project picker check passed');

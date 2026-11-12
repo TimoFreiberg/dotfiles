@@ -112,7 +112,6 @@
     "ctrl-alt-9": "task-tree.project:9",
     "cmd-n": "task-tree.new",
     "cmd-o": "task-tree.open-project",
-    "cmd-shift-n": "task-tree.notes",
     "cmd-shift-a": "task-tabs.artifacts",
     "cmd-1": "tab.select:1",
     "cmd-2": "tab.select:2",

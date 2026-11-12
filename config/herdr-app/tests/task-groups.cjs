@@ -33,7 +33,7 @@ function harness(initial = {}) {
     View:class {}, localStorage:{getItem:key => currentStore[key] ?? null, setItem:(key, value) => { currentStore[key] = value; }},
     spaces:() => state.spaces, machines:() => state.machines, props:() => state.props,
     shared:key => state.shared[key], setShared:(key, value) => { state.shared[key] = value; state.updates++; },
-    home:() => '/home/local', agents:() => [], panes:() => state.panes ?? [], window:() => ({platform:'linux'}),
+    home:() => '/home/local', agents:() => state.agents ?? [], panes:() => state.panes ?? [], window:() => ({platform:'linux'}),
     theme:() => ({selected:'selected', dim:'dim', foreground:'foreground'}),
     div:element, h_flex:element, v_flex:element, image:element, svg:element,
     run:(command, args) => state.actions.push({command, args:plain(args)}),
@@ -62,6 +62,42 @@ const project = (root, machine = null) => ({root, machine});
 const task = (id, active = false, machine = null, folder = '/work') => ({id, active, machine, folder, tabs:[{id:`tab-${id}`, panes:1}], name:id});
 
 async function tests() {
+  {
+    const notes = {live:'/existing/task.md'};
+    const h = harness({assignments:{live:project('/work')}, docs:notes});
+    const tree = h.make(), live = {...task('live', true), name:'A long task title', named:true, tabs:[{id:'one'},{id:'two'},{id:'three'},{id:'four'}]};
+    h.state.spaces = [live];
+    h.state.panes = [{tab:'one',terminal:'shell'}, {tab:'one',terminal:'another-shell'}];
+    const agents = ['idle','working','blocked'].map((status, i) => ({space:'live',tab:'one',terminal:`agent-${i}`,status,program:{agent:false}}));
+    const style = (node, method) => node.styles.find(([name]) => name === method)?.[1];
+    for (const count of [0,1,2,3]) {
+      h.state.agents = [...agents.slice(0,count), {space:'other',status:'working'}];
+      h.render(tree);
+      const row = h.find('task-live'), titleGroup = row.nodes.at(-1), title = titleGroup.nodes[0];
+      assert.equal(title.nodes[0], live.name);
+      assert.equal(style(titleGroup,'gap'), 6, 'counter has a modest gap immediately after the title');
+      assert.ok(titleGroup.styles.some(([name]) => name === 'flex_1'), 'the title group takes the available row width');
+      assert.ok(title.styles.some(([name]) => name === 'truncate'));
+      assert.equal(style(title,'min_w'), 0, 'long titles may shrink');
+      assert.ok(!title.styles.some(([name]) => name === 'flex_1'), 'short titles do not push the counter to the right edge');
+      assert.equal(titleGroup.nodes.length, count > 1 ? 2 : 1, 'zero or one coding agent has no counter, regardless of tab/pane count');
+      if (count > 1) {
+        const counter = titleGroup.nodes[1];
+        assert.equal(counter.nodes[0], `${count}`, 'all states and program.agent=false entries count, but other spaces do not');
+        assert.equal(counter.tip, `${count} coding agents`);
+        assert.equal(style(counter,'text_size'), 10.5);
+        assert.equal(style(counter,'text_color'), 'dim');
+        assert.ok(counter.styles.some(([name]) => name === 'flex_none'), 'counter remains visible when title truncates');
+      }
+      assert.ok(!h.state.nodes.some(node => node.id === 'notes-live'), 'notes affordance is removed');
+      assert.ok(!h.state.nodes.some(node => node.tip === '1 tasks'), 'project task count is removed');
+      assert.equal(h.state.calls.length, 0, 'rendering never labels terminals or reads/writes notes');
+      assert.deepEqual(JSON.parse(h.store.docs), notes, 'saved note links are preserved untouched');
+    }
+    for (const method of ['notes','listDocs','link','createDoc','chooser','labelDocs']) assert.equal(tree[method], undefined);
+    const keys = JSON.parse(fs.readFileSync('config/herdr-app/keys.json','utf8'));
+    assert.ok(!JSON.stringify(keys).includes('task-tree.notes'), 'notes shortcut is removed');
+  }
   {
     const h = harness({assignments:{old:project('/zeta'), remote:project('/work', 'build-z')}, 'project-history':[project('/alpha'), project('/work', 'build-a')]});
     h.state.machines.push({name:'build-z', layout:'offline'}, {name:'build-a', layout:'ready'});
@@ -188,15 +224,17 @@ async function tests() {
 
 function nativeChecks() {
   if (!process.argv.includes('--native')) return;
-  for (const mode of ['groups', 'menu']) {
+  for (const mode of ['groups', 'menu', 'row-short', 'row-long']) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'herdr-groups-check-'));
     try {
-      for (const file of ['mod.json', 'doc-logic.js', 'artifact-logic.js']) fs.copyFileSync(`${modPath}/${file}`, `${dir}/${file}`);
+      for (const file of ['mod.json', 'artifact-logic.js']) fs.copyFileSync(`${modPath}/${file}`, `${dir}/${file}`);
       const seed = `localStorage.setItem("project-groups", JSON.stringify({projects:[{machine:null,root:"/empty"},{machine:"native-remote",root:"/remote/project"}],removed:[]}));`;
       const code = original.replace('  init(_props, cx) {', `  init(_props, cx) {\n    ${seed}`)
         .replace('    if (props()?.projectPicker) return this.projectPicker();', mode === 'menu'
           ? '    return this.projectMenu();'
-          : '    if (props()?.projectPicker) return this.projectPicker();')
+          : mode.startsWith('row-')
+            ? `    return this.row({id:"native-group"}, {id:"native-task",name:${JSON.stringify(mode === 'row-long' ? 'A long task title that must truncate while its coding agent count stays visible'.repeat(3) : 'Task')},named:true,tabs:[],status:"idle"}, [{space:"native-task",status:"idle"},{space:"native-task",status:"working"},{space:"native-task",status:"blocked"}], theme());`
+            : '    if (props()?.projectPicker) return this.projectPicker();')
         .replace('props().removable === true', 'true');
       fs.writeFileSync(`${dir}/main.js`, code);
       const result = child.spawnSync('herdr-app', ['check', dir], {encoding:'utf8', timeout:30000});

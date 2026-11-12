@@ -1,7 +1,6 @@
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input, v_virtual_list, VirtualListScrollHandle, Scrollbar } from "gpui-base";
-import { spaces, panes, agents, terminals, machines, theme, run, openOverlay, closeOverlay, window, props, home, nextCommand, commands, exec, notify, readTextFile, writeTextFile, shared, setShared } from "herdr";
-import { slugify, template } from "./doc-logic.js";
+import { spaces, panes, agents, terminals, machines, theme, run, openOverlay, closeOverlay, window, props, home, nextCommand, commands, exec, notify, writeTextFile, shared, setShared } from "herdr";
 import { artifactKey, addArtifact, artifactSpace, hasArtifactBackgroundWebView, openArtifact } from "./artifact-logic.js";
 
 function artifactAckPath(path) {
@@ -110,11 +109,9 @@ function directoryRows(paths, query) {
   return paths.map(path => ({path, score:fuzzyScore(path.slice(path.lastIndexOf("/") + 1), query)}))
     .filter(row => Number.isFinite(row.score)).sort((a,b) => a.score - b.score || a.path.localeCompare(b.path)).map(row => row.path);
 }
-let docsKey = "docs", linkKey = "task-doc-link", docsDir = () => `${home()}/mydesk/tasks`, allowedDoc = path => Boolean(path), checkDoc = async () => {};
-
 export default class TaskTree extends View {
   init(_props, cx) {
-    this.folded = load("folded"); this.last = load("last"); this.assignments = load("assignments"); this.docs = load(docsKey); this.roots = {}; this.pending = {}; this.labelled = {};
+    this.folded = load("folded"); this.last = load("last"); this.assignments = load("assignments"); this.roots = {}; this.pending = {};
     this.persistGroups = true; this.selectedGroup = null; this.groupOwner = Math.random();
     if (props()?.projectPicker) {
       this.filter = InputState.new({ placeholder: "Project or ~/path" });
@@ -135,12 +132,6 @@ export default class TaskTree extends View {
       return;
     }
     if (props()?.taskMenu || props()?.projectMenu) return;
-    if (props()?.chooser) {
-      this.title = InputState.new({ value: props().title }); this.filter = InputState.new({ placeholder: "Filter existing documents" });
-      this.title.on("change", (_e, cx) => cx.notify()); this.filter.on("change", (_e, cx) => cx.notify());
-      this.listDocs(cx);
-      return;
-    }
     if (!props()?.header) cx.spawn(async cx => {
       for (;;) { const command = await nextCommand(); this.command(command, cx); cx.notify(); }
     });
@@ -251,7 +242,6 @@ export default class TaskTree extends View {
     const group = this.currentGroup(groups);
     if (command === "new") { if (group) this.newTask(group, cx); return; }
     if (command === "open-project") { this.openProjects(); return; }
-    if (command === "notes") { if (current) this.notes(current, docsDir()); return; }
     if (command === "next" || command === "prev") {
       const target = step(groups.flatMap(g => g.tasks), current?.id, command === "next" ? 1 : -1);
       this.select(groups.find(g => g.tasks.includes(target)), target); return;
@@ -441,75 +431,6 @@ export default class TaskTree extends View {
     const t = theme(); return v_flex().p(6).bg(t.popover).text_color(t.foreground).child(div().id("move-project").px(8).py(7).cursor_pointer().hover(s => s.bg(t.hover)).on_click(() => { closeOverlay(props().overlay); this.openProjects(props().task); }).child("Move to project…"))
       .child(div().id("space-menu").px(8).py(7).cursor_pointer().hover(s => s.bg(t.hover)).on_click(() => { closeOverlay(props().overlay); openOverlay({mod:"menu", kind:"popup", width:200, props:{tab:"space", target:{id:props().task}}}); }).child("More actions…"));
   }
-  notes(space, dir) {
-    if (dir !== docsDir()) { notify({ title: "Invalid task notes directory", body: dir, level: "error" }); return; }
-    const path = this.docs[space.id];
-    if (path && !allowedDoc(path)) { notify({ title: "Invalid task notes path", body: path, level: "error" }); return; }
-    if (path) {
-      let existing = panes().find(p => p.mod === "task-doc" && space.tabs.some(t => t.id === p.tab));
-      if (!space.active) run("space.select", { id: space.id });
-      if (existing) run("tab.select", { id: existing.tab });
-      else run("tab.new", { space: space.id, name: "notes", mod: "task-doc", props: { path } });
-    } else openOverlay({ mod: "task-tree", kind: "dialog", width: 460, height: 480, props: { chooser: true, space: space.id, title: taskTitle(space, taskAgent(space, agents())), dir } });
-  }
-  listDocs(cx) {
-    if (props().dir !== docsDir()) { this.error = "Invalid document directory"; return; }
-    cx.spawn(async cx => {
-      try {
-        await checkDoc(null);
-        const script = 'test -d "$1" || exit 1; find "$1" -maxdepth 1 -type f -name "*.md" -print0 | xargs -0 stat -f "%m %N" 2>/dev/null | sort -rn';
-        const result = await exec("sh", ["-c", script, "task-docs", props().dir]);
-        if (result.code) throw new Error(result.stderr || "Cannot list documents");
-        this.files = result.stdout.split("\n").filter(Boolean).map(line => line.slice(line.indexOf(" ") + 1)); this.error = null;
-      } catch (e) { this.error = String(e); }
-      cx.notify();
-    });
-  }
-  link(path) {
-    if (!allowedDoc(path)) { this.error = "Invalid document path"; return; }
-    setShared(linkKey, { space: props().space, path });
-    closeOverlay(props().overlay);
-    run("tab.new", { space: props().space, name: "notes", mod: "task-doc", props: { path } });
-  }
-  createDoc(cx) {
-    const title = this.title.value().trim(); if (!title || this.creatingDoc) return;
-    const path = `${props().dir}/${slugify(title)}.md`;
-    if (props().dir !== docsDir() || !allowedDoc(path)) { this.error = "Invalid document path"; return; }
-    this.creatingDoc = true;
-    cx.spawn(async cx => {
-      try {
-        await checkDoc(path); const current = await readTextFile(path);
-        if (current !== null) { this.existing = path; this.error = "File already exists; link it instead."; return; }
-        const date = new Date(), local = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-        let owner = "";
-        try { const result = await exec("git", ["config", "user.email"]); if (result.code === 0) owner = result.stdout.trim(); } catch { /* Leave the owner empty when Git is unavailable. */ }
-        await checkDoc(path); await writeTextFile(path, template(title, local, owner), null); this.link(path);
-      } catch (e) { this.error = String(e); try { await checkDoc(path); this.existing = (await readTextFile(path)) !== null ? path : null; } catch { this.existing = null; } }
-      finally { this.creatingDoc = false; cx.notify(); }
-    });
-  }
-  chooser() {
-    const t = theme(), button = (id, text, action) => div().id(id).px(8).py(6).rounded(5).cursor_pointer().bg(t.raised).hover(s => s.bg(t.hover)).on_click(action).child(text);
-    const input = state => Input.new(state).h(34).px(8).rounded(6).border_1().border_color(t.input).bg(t.background);
-    return v_flex().size_full().min_h(0).p(16).gap(8).bg(t.popover).text_color(t.foreground).text_size(13)
-      .child(div().font_semibold().child("Task notes"))
-      .child(input(this.title)).child(button("new-doc", "New doc", (_e, cx) => this.createDoc(cx)))
-      .when(Boolean(this.error), el => el.child(div().text_color(t.blocked).child(this.error)))
-      .when(Boolean(this.existing), el => el.child(button("link-collision", `Link ${this.existing.split("/").pop()}`, () => this.link(this.existing))))
-      .child(div().pt(8).child("Link existing")) .child(input(this.filter))
-      .child(v_flex().flex_1().min_h(0).overflow_y_scrollbar().gap(2).children((this.files ?? []).filter(p => p.toLowerCase().includes(this.filter.value().toLowerCase())).map(p => button(`file-${p}`, p.split("/").pop(), () => this.link(p)))))
-      .child(button("cancel", "Cancel", () => closeOverlay(props().overlay)));
-  }
-  labelDocs(list, all, cx) {
-    for (const space of list) {
-      const path = this.docs[space.id]; if (!path || !allowedDoc(path)) continue;
-      for (const pane of all.filter(p => p.terminal && space.tabs.some(t => t.id === p.tab))) {
-        if (this.labelled[pane.terminal] === path) continue;
-        this.labelled[pane.terminal] = path;
-        cx.spawn(async cx => { try { const r = await exec("hc", ["label", pane.terminal, `task.doc=${path}`]); if (r.code) throw new Error(r.stderr || r.stdout); } catch (e) { delete this.labelled[pane.terminal]; notify({ title: "Could not label terminal", body: String(e), level: "error" }); } });
-      }
-    }
-  }
   newTask(group, cx) {
     if (this.creating || machines().find(m => m.name === (group.machine ?? null))?.layout !== "ready") return;
     this.creating = true;
@@ -532,6 +453,7 @@ export default class TaskTree extends View {
   row(group, space, all, t) {
     const firstAgent = taskAgent(space, all);
     const title = taskTitle(space, firstAgent);
+    const agentCount = all.filter(agent => agent.space === space.id).length;
     const agent = firstAgent?.program?.icon ? firstAgent : null;
     return h_flex().id(`task-${space.id}`).h(29).flex_none().min_w(0).pl(27).pr(6).gap(6).items_center().rounded(6)
       .bg(space.active ? t.selected : t.chrome).hover(s => s.bg(t.hover)).cursor_pointer()
@@ -539,9 +461,9 @@ export default class TaskTree extends View {
       .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "task-tree", kind: "popup", width: 200, height: 90, props: { taskMenu: true, task: space.id } }); })
       .child(this.status(space.status, t))
       .when(Boolean(agent), el => el.child(agent.program.tint ? svg(agent.program.icon).size(14).flex_none().text_color(t.muted) : image(agent.program.icon).size(14).flex_none()))
-      .child(div().flex_1().min_w(0).truncate().text_color(t.foreground).tooltip(title).child(title))
-      .child(div().id(`notes-${space.id}`).px(4).text_color(t.dim).tooltip(this.docs[space.id] ? "Open task notes" : "Add task notes").on_click((_e, cx) => { cx.stop_propagation(); this.notes(space, docsDir()); }).child(this.docs[space.id] ? "📄" : "+"))
-      .when(space.tabs.length > 1, el => el.child(div().flex_none().text_color(t.dim).tooltip(`${space.tabs.length} tabs`).child(`${space.tabs.length}`)));
+      .child(h_flex().flex_1().min_w(0).gap(6).items_center()
+        .child(div().min_w(0).truncate().text_color(t.foreground).tooltip(title).child(title))
+        .when(agentCount > 1, el => el.child(div().flex_none().text_size(10.5).text_color(t.dim).tooltip(`${agentCount} coding agents`).child(`${agentCount}`))));
   }
   project(group, all, t, cx) {
     const folded = Boolean(this.folded[group.id]);
@@ -557,7 +479,6 @@ export default class TaskTree extends View {
         .child(div().id(`fold-${group.id}`).size(20).flex_none().flex().items_center().justify_center().cursor_pointer().tooltip(folded ? "Expand project" : "Collapse project")
           .on_click((_e, cx) => { cx.stop_propagation(); this.folded[group.id] = !folded; localStorage.setItem("folded", JSON.stringify(this.folded)); cx.notify(); }).child(folded ? "›" : "⌄"))
         .child(div().flex_1().min_w(0).truncate().font_semibold().tooltip(group.fallback ? "New task at this machine's default directory" : group.machine ? `${group.machine}: ${group.root}` : group.root).child(label))
-        .child(div().flex_none().text_color(t.dim).tooltip(`${group.tasks.length} tasks`).child(`${group.tasks.length}`))
         .child(div().id(`new-${group.id}`).size(22).flex_none().flex().items_center().justify_center().rounded(5).text_color(t.muted).hover(s => s.bg(t.selected).text_color(t.foreground)).tooltip(available ? "New task in this project" : "Machine unavailable")
           .on_click((_e, cx) => { cx.stop_propagation(); if (available) this.newTask(group, cx); }).child(this.hoveredProject === group.id ? "+" : "")))
       .when(!folded, el => el.children(group.tasks.map(s => this.row(group, s, all, t))));
@@ -566,13 +487,10 @@ export default class TaskTree extends View {
     if (props()?.projectPicker) return this.projectPicker();
     if (props()?.taskMenu) return this.taskMenu();
     if (props()?.projectMenu) return this.projectMenu();
-    if (props()?.chooser) return this.chooser();
     const update = shared("task-project-update"); if (update && update !== this.projectUpdate) { this.projectUpdate = update; this.assignments = load("assignments"); }
     if (props()?.header) { const t = theme(); return h_flex().size_full().items_center().pl(window()?.platform === "macos" && !window()?.fullscreen ? 76 : 14).text_color(t.foreground).font_semibold().child("Herdr"); }
     const t = theme(), all = agents(), list = spaces(), current = list.find(s => s.active);
-    const link = shared(linkKey);
-    if (link?.space && allowedDoc(link.path) && this.docs[link.space] !== link.path) { this.docs[link.space] = link.path; localStorage.setItem(docsKey, JSON.stringify(this.docs)); }
-    const allPanes = panes(); this.resolve(list, allPanes, cx); this.labelDocs(list, allPanes, cx);
+    this.resolve(list, panes(), cx);
     // Popup copies have separate localStorage; only the owning sidebar may remove its saved group.
     const removal = shared("task-project-remove");
     if (removal?.owner === this.groupOwner && removal.request !== this.groupRemoval) {

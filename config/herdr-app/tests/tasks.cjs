@@ -5,8 +5,6 @@ const child = require('node:child_process');
 const os = require('node:os');
 const pathModule = require('node:path');
 const source = fs.readFileSync('config/herdr-app/mods/task-tree/main.js', 'utf8').replace(/^import .*;\n/gm, '').replace('export default class', 'class');
-const logicSource = fs.readFileSync('config/herdr-app/mods/task-tree/doc-logic.js', 'utf8').replace(/^export /gm, '');
-const { slugify, template } = vm.runInNewContext(logicSource + '\n({slugify, template})');
 {
   const dir = fs.mkdtempSync(pathModule.join(os.tmpdir(), 'artifact-test-'));
   try {
@@ -53,16 +51,6 @@ for (const metadata of [undefined, null, {}, 'web.open', [], [null], [{name:'web
   assert.equal(hasArtifactBackgroundWebView('macos', metadata), false, 'missing or malformed argument metadata cannot authorize background opening');
 }
 for (const platform of ['linux','windows',undefined]) assert.equal(hasArtifactBackgroundWebView(platform, backgroundCommands), false);
-const docLogic = fs.readFileSync('config/herdr-app/mods/task-doc/doc-logic.js', 'utf8').replace(/^export /gm, '');
-const { links, decision } = vm.runInNewContext(docLogic + '\n({links, decision})');
-assert.equal(slugify('  Héllo, World! '), 'hello-world'); assert.equal(slugify('!!!'), 'task');
-const doc = template('Example', '2026-01-02');
-assert.match(doc, /\nowner: \n/);
-assert.match(template('Example', '2026-01-02', 'example owner'), /\nowner: "example owner"\n/);
-assert.match(doc, /status: Open\npriority:\nlabels: \[\]/); assert.match(doc, /created: 2026-01-02\nticket:\npr:/); assert.match(doc, /\n# Example\n/);
-assert.equal(links('---\nticket: https://example.com/a\npr: "https://example.com/b"\n---\n').pr, 'https://example.com/b');
-assert.equal(links('# Heading\nticket: https://example.com').ticket, undefined); assert.equal(links('---\nticket: javascript:bad\n---\n').ticket, undefined);
-assert.equal(decision('a','a','a'), 'clean'); assert.equal(decision('a','a','b'), 'save'); assert.equal(decision('b','a','a'), 'reload'); assert.equal(decision('b','a','b'), 'reload'); assert.equal(decision('b','a','c'), 'banner'); assert.equal(decision(null,'a','b'), 'banner');
 const store = {}, calls = [], queue = [], actions = [], notices = [], logs = [];
 let visibleSpaces = [];
 let ready = false, finishLookup;
@@ -519,71 +507,6 @@ async function testArtifactBackgroundRegistration() {
   assert.equal(calls.length, 2, 'ack failure cannot prevent background opening');
   assert.equal(saved[artifactKey].owner[0].seen, false); assert.equal(tasks.length, 0);
 }
-async function testEditor() {
-  const code = fs.readFileSync('config/herdr-app/mods/task-doc/main.js', 'utf8').replace(/^import .*;\n/gm, '').replace('export default class', 'class');
-  const storage = {}, writes = [], tasks = [];
-  const localStorage = { getItem: key => storage[key] ?? null, setItem: (key, value) => { storage[key] = value; }, removeItem: key => { delete storage[key]; }, flush: async () => {} };
-  const deferred = () => { let resolve; const promise = new Promise(r => { resolve=r; }); return {promise, resolve}; };
-  const cx = {notify(){}, spawn: fn => tasks.push(fn), timer:{every(){}}};
-  let path = '/notes/test.md', disk = 'A', writeGate = null, readGate = null;
-  const sandbox = { View: class {}, props: () => ({path}), settings: () => ({}), localStorage, links, decision,
-    readTextFile: async () => { if (readGate) await readGate.promise; return disk; },
-    writeTextFile: async (p,text,expected) => { writes.push({p,text,expected}); if (writeGate) await writeGate.promise; if (disk !== expected) throw new Error('stale'); disk = text; },
-    EditorState: {new: () => ({text:'', on(_event, fn) { this.change=fn; }, value() { return this.text; }, set_value(text) { this.text=text; this.change(null,cx); }, release() { this.released=true; }})},
-    notify(){}, watchFolder(){}, nextCommand(){} };
-  const {TaskDoc} = vm.runInNewContext(code + '\ncheckPath = async () => {}; ({TaskDoc})', sandbox);
-  const tick = async () => { for (let i=0; i<8; i++) await Promise.resolve(); };
-  const recovered = () => JSON.parse(storage['recovery2:'+path]);
-  const run = async () => { const task = tasks.shift(); assert.ok(task); await task(cx); };
-  const make = async () => { const mod = new TaskDoc(); mod.init(null,cx); await run(); tasks.length=0; return mod; };
-  const setRecovery = (text, base) => { storage['recovery2:'+path] = JSON.stringify({v:2,text,base}); };
-  let mod = await make();
-  mod.editor.set_value('C'); assert.equal(recovered().base, 'A'); mod.save(cx); await run();
-  assert.equal(disk, 'C'); assert.equal(mod.base, 'C'); assert.equal(storage['recovery2:'+path], undefined);
-  disk = 'B'; mod.refresh(cx); await run(); assert.equal(mod.editor.value(), 'B'); assert.equal(mod.base, 'B');
-  mod.editor.set_value('C'); disk = 'external'; mod.save(cx); await run(); assert.equal(disk, 'external'); assert.equal(mod.conflict, true);
-  mod.reload(cx); await run(); assert.equal(mod.editor.value(), 'external'); assert.equal(mod.base, 'external'); assert.equal(storage['recovery2:'+path], undefined);
-  mod.editor.set_value('mine'); disk = 'new external'; mod.save(cx); await run(); assert.equal(mod.conflict, true);
-  mod.save(cx, true); await run(); assert.equal(writes.at(-1).expected, 'new external'); assert.equal(disk, 'mine'); assert.equal(mod.base, 'mine');
-  mod.editor.set_value('new mine'); disk = 'first external'; writeGate = deferred(); mod.save(cx, true); const racingKeep = tasks.shift()(cx); await tick();
-  assert.equal(writes.at(-1).expected, 'first external'); disk = 'second external'; writeGate.resolve(); writeGate = null; await racingKeep;
-  assert.equal(disk, 'second external'); assert.equal(mod.conflict, true); assert.equal(recovered().base, 'mine');
-  mod.reload(cx); await run();
-  // Recovered edits retain their original base through close, later typing, and another restore.
-  disk = 'B'; setRecovery('C', 'A'); mod = await make(); mod.restore(cx); await mod.close();
-  assert.equal(disk, 'B'); assert.equal(mod.conflict, true); assert.equal(writes.at(-1).expected, 'A'); assert.equal(recovered().base, 'A');
-  disk = 'B'; setRecovery('C', 'A'); mod = await make(); mod.restore(cx); mod.editor.set_value('D'); assert.equal(recovered().base, 'A');
-  mod = await make(); mod.restore(cx); mod.save(cx); await run(); assert.equal(disk, 'B'); assert.equal(mod.conflict, true); assert.equal(writes.at(-1).expected, 'A');
-  mod.save(cx, true); await run(); assert.equal(disk, 'D'); assert.equal(storage['recovery2:'+path], undefined);
-  disk = 'B'; storage['recovery:'+path] = 'legacy text'; mod = await make(); mod.restore(cx); await mod.close();
-  assert.equal(disk, 'B'); assert.equal(mod.conflict, true); assert.equal(recovered().text, 'legacy text');
-  mod = await make(); mod.restore(cx); mod.save(cx, true); await run(); assert.equal(disk, 'legacy text');
-  // Old values are always opaque, even when they resemble the structured format.
-  const legacyJson = '{"text":"C","base":"B"}', oldKey = 'recovery:'+path, newKey = 'recovery2:'+path;
-  disk = 'B'; storage[oldKey] = legacyJson; mod = await make(); assert.equal(mod.recovery.text, legacyJson);
-  const setItem = localStorage.setItem; localStorage.setItem = () => { throw new Error('storage failed'); };
-  assert.throws(() => mod.restore(cx), /storage failed/); assert.equal(storage[oldKey], legacyJson); assert.equal(mod.recovery.text, legacyJson);
-  localStorage.setItem = setItem; mod.restore(cx); assert.equal(mod.editor.value(), legacyJson); assert.equal(storage[oldKey], undefined);
-  assert.equal(recovered().v, 2); assert.equal(recovered().text, legacyJson); assert.equal(recovered().base.unknown, true);
-  const beforeLegacyWrite = writes.length; mod.save(cx); await run(); assert.equal(writes.length, beforeLegacyWrite); assert.equal(disk, 'B'); assert.equal(mod.conflict, true);
-  await mod.close(); assert.equal(writes.length, beforeLegacyWrite); assert.equal(disk, 'B');
-  mod = await make(); mod.restore(cx); assert.equal(mod.editor.value(), legacyJson); mod.save(cx, true); await run(); assert.equal(disk, legacyJson);
-  // If both keys exist, the new entry wins; discarding removes both.
-  storage[oldKey] = 'older'; setRecovery('newer', 'A'); mod = await make(); assert.equal(mod.recovery.text, 'newer'); mod.discard(cx);
-  assert.equal(storage[oldKey], undefined); assert.equal(storage[newKey], undefined);
-  // Close waits for the older save, then writes the latest buffer against its new base.
-  disk = 'A'; mod = await make(); mod.editor.set_value('C'); writeGate = deferred(); mod.save(cx); const saving = tasks.shift()(cx); await tick();
-  mod.editor.set_value('D'); const closing = mod.close(); await tick(); assert.equal(writes.at(-1).text, 'C');
-  writeGate.resolve(); writeGate = null; await saving; await closing; assert.equal(disk, 'D'); assert.equal(writes.at(-1).expected, 'C'); assert.equal(storage['recovery2:'+path], undefined);
-  // An asynchronous reload must not discard edits made while it reads.
-  disk = 'A'; mod = await make(); mod.editor.set_value('C'); readGate = deferred(); mod.reload(cx); const loading = tasks.shift()(cx); await tick();
-  mod.editor.set_value('D'); readGate.resolve(); readGate = null; await loading; assert.equal(mod.editor.value(), 'D'); assert.equal(recovered().base, 'A'); assert.equal(mod.conflict, true);
-  await mod.close(); assert.equal(disk, 'D');
-  disk = 'A'; mod = await make(); mod.editor.set_value('C'); readGate = deferred(); mod.refresh(cx); const refreshing = tasks.shift()(cx); await tick();
-  await mod.close(); assert.equal(disk, 'C'); readGate.resolve(); readGate = null; await refreshing; assert.equal(mod.editor.value(), 'C');
-  disk = 'A'; setRecovery('C', 'A'); mod = await make(); mod.restore(cx); mod.save(cx); await run(); assert.equal(disk, 'C'); assert.equal(storage['recovery2:'+path], undefined);
-  path = ''; const invalid = new TaskDoc(); invalid.init(null,cx); assert.equal(invalid.error, 'Invalid document path'); assert.equal(tasks.length, 0);
-}
 (async () => {
   const tree = new TaskTree(); Object.assign(tree, {assignments:{},roots:{},pending:{},folded:{},last:{}});
   const cx = {spawn: fn => queue.push(fn), notify(){}};
@@ -608,7 +531,7 @@ async function testEditor() {
   finishLookup({code:0,stdout:'/stored-root\n'}); await pendingFallback;
   assert.equal(tree.assignments.fallback.root, '/stored-root');
   const modOnly = {id:'mod-only',folder:'/repo/sub',machine:null,tabs:[{id:'review',panes:2}]};
-  const modPanes = [{tab:'review',terminal:null,mod:'task-doc'}, {tab:'review',terminal:null,mod:'other'}];
+  const modPanes = [{tab:'review',terminal:null,mod:'web'}, {tab:'review',terminal:null,mod:'other'}];
   ready = false; tree.resolve([modOnly], modPanes, cx); assert.equal(queue.length, 0);
   ready = true; tree.resolve([modOnly], modPanes.slice(0, 1), cx); assert.equal(queue.length, 0);
   tree.resolve([modOnly], modPanes, cx); const modLookup = queue.shift()(cx);
@@ -657,11 +580,7 @@ async function testEditor() {
   assert.deepEqual(JSON.parse(calls.at(-1).args[2]), {folder:'/chosen',machine:''});
   finishLookup({code:0,stdout:'{"space":"opened"}'}); await opening;
   assert.equal(JSON.parse(store.assignments).opened.root, '/chosen'); assert.equal(actions.at(-1).args.id, 'opened');
-  const mode = vm.runInNewContext(source + '\n({docsKey, linkKey, docsDir, allowedDoc})', {...sandbox});
-  assert.equal(mode.docsKey, 'docs'); assert.equal(mode.linkKey, 'task-doc-link');
-  assert.equal(mode.docsDir(), '/home/me/mydesk/tasks');
-  assert.equal(mode.allowedDoc(''), false); assert.equal(mode.allowedDoc('/notes.md'), true);
-  await testEditor(); await testArtifactsPanel(); await testArtifactRegistration(); await testArtifactBackgroundRegistration();
+  await testArtifactsPanel(); await testArtifactRegistration(); await testArtifactBackgroundRegistration();
   if (process.argv.includes('--native')) {
     const mod = fs.mkdtempSync(pathModule.join(os.tmpdir(), 'herdr-artifacts-check-'));
     try {
@@ -679,5 +598,5 @@ async function testEditor() {
       console.log('native artifact modal check passed');
     } finally { fs.rmSync(mod, {recursive:true, force:true}); }
   }
-  console.log('task-tree, task-doc and artifacts tests passed');
+  console.log('task-tree and artifacts tests passed');
 })().catch(error => { console.error(error); process.exitCode = 1; });
