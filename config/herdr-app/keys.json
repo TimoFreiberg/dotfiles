@@ -86,8 +86,10 @@
     "cmd-backspace": "send:\u0015"
   },
   "layout:workspace-tasks": {
-    "ctrl-tab": "task-tree.next",
-    "ctrl-shift-tab": "task-tree.prev",
+    "ctrl-tab": "tab.next",
+    "ctrl-shift-tab": "tab.prev",
+    "cmd-down": "task-tree.next",
+    "cmd-up": "task-tree.prev",
     "ctrl-1": "task-tree.task:1",
     "ctrl-2": "task-tree.task:2",
     "ctrl-3": "task-tree.task:3",

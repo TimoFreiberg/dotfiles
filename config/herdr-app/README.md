@@ -75,7 +75,7 @@ The `workspace-tasks` layout groups spaces as tasks under their project, with ta
 
 | Keys | Action |
 | --- | --- |
-| Ctrl-Tab / Ctrl-Shift-Tab | Next / previous task |
+| Cmd-Down / Cmd-Up | Next / previous task |
 | Ctrl-1 through Ctrl-9 | Select a task in the current project |
 | Cmd-Option-] / Cmd-Option-[ | Next / previous project |
 | Ctrl-Option-1 through Ctrl-Option-9 | Select a project |
@@ -83,7 +83,7 @@ The `workspace-tasks` layout groups spaces as tasks under their project, with ta
 | Cmd-Shift-N | Open or add task notes |
 | Cmd-Shift-A | Open Artifacts |
 | Cmd-1 through Cmd-9 | Select a tab in the current task |
-| Cmd-Shift-] / Cmd-Shift-[ | Next / previous tab |
+| Ctrl-Tab / Ctrl-Shift-Tab, Cmd-Shift-] / Cmd-Shift-[ | Next / previous tab |
 
 Click an empty project to select it, then use its + or Cmd-N to start a task there. The selection stays through sidebar refreshes until you select another group or Herdr's active task changes. Project navigation also selects empty groups. Each configured machine has a selectable row even before it has a project. Its + or Cmd-N starts a task in that machine's default directory, then groups it by the resolved project path. Unavailable machines stay visible but cannot create tasks.
 
