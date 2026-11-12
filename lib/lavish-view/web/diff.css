@@ -57,11 +57,14 @@ h1 { font-size: 16px; margin: 0; flex: none; }
 
 .raw { white-space: pre-wrap; overflow-wrap: anywhere; }
 .raw-dialog { width: min(900px, 90vw); max-height: 80vh; overflow: auto; border: 1px solid #8c959f; border-radius: 8px; }
-.draft-host { position: fixed; z-index: 20; }
-.draft { display: grid; gap: 8px; padding: 14px; background: white; border: 1px solid #8c959f; border-radius: 8px; box-shadow: 0 4px 20px #0002; width: min(400px, calc(100vw - 16px)); overflow: auto; }
-.draft strong { overflow-wrap: anywhere; }
-.draft.anchor-offscreen { border-style: dashed; }
-textarea { min-height: 100px; width: 100%; }
+.draft button:focus-visible { outline: 2px solid #0969da; outline-offset: 2px; }
+.draft { display: grid; gap: 10px; margin: 8px; padding: 14px; background: #f6f8fa; color: #24292f; border: 1px solid #d0d7de; border-radius: 6px; min-width: 0; font: 14px/1.5 system-ui, sans-serif; white-space: normal; }
+.draft strong { font-size: 12px; overflow-wrap: anywhere; }
+.draft-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.draft-actions button:first-child { background: #1f883d; border-color: #1a7f37; color: white; }
+.draft-actions button:first-child:hover { background: #1a7f37; }
+.draft textarea { min-height: 110px; width: 100%; resize: vertical; padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; background: white; color: inherit; }
+.draft textarea:focus { outline: 2px solid #0969da; outline-offset: -1px; }
 .help { position: fixed; top: 15%; left: 50%; transform: translateX(-50%); width: min(420px, 90vw); padding: 20px 24px; background: #fff; border: 1px solid #8c959f; border-radius: 8px; z-index: 30; box-shadow: 0 4px 20px #0003; }
 .help dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0 16px; }
 .help dt { font-family: ui-monospace, monospace; font-weight: 600; }
