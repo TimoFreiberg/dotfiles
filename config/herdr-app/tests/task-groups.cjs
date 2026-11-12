@@ -11,6 +11,8 @@ const plain = value => JSON.parse(JSON.stringify(value));
 
 function harness(initial = {}) {
   const store = Object.fromEntries(Object.entries(initial).map(([key, value]) => [key, JSON.stringify(value)]));
+  let currentStore = store;
+  const withStore = (storage, fn) => { const previous = currentStore; currentStore = storage; try { return fn(); } finally { currentStore = previous; } };
   const state = {spaces:[], machines:[{name:null, layout:'ready'}], props:{header:true}, calls:[], actions:[], overlays:[], closed:[], shared:{}, updates:0, nodes:[], queue:[], notices:[], stopped:0};
   function element() {
     const obj = {nodes:[], events:{}, styles:[]};
@@ -28,7 +30,7 @@ function harness(initial = {}) {
     state.nodes.push(node); return node;
   }
   const sandbox = {
-    View:class {}, localStorage:{getItem:key => store[key] ?? null, setItem:(key, value) => { store[key] = value; }},
+    View:class {}, localStorage:{getItem:key => currentStore[key] ?? null, setItem:(key, value) => { currentStore[key] = value; }},
     spaces:() => state.spaces, machines:() => state.machines, props:() => state.props,
     shared:key => state.shared[key], setShared:(key, value) => { state.shared[key] = value; state.updates++; },
     home:() => '/home/local', agents:() => [], panes:() => state.panes ?? [], window:() => ({platform:'linux'}),
@@ -54,7 +56,7 @@ function harness(initial = {}) {
   const render = tree => { state.props = {}; state.nodes = []; tree.render(cx); };
   const find = id => { const node = state.nodes.find(node => node.id === id); assert.ok(node, `rendered ${id}`); return node; };
   const click = id => find(id).events.on_click(null, cx);
-  return {state, store, TaskTree, key, cx, make, drain, render, find, click};
+  return {state, store, withStore, TaskTree, key, cx, make, drain, render, find, click};
 }
 const project = (root, machine = null) => ({root, machine});
 const task = (id, active = false, machine = null, folder = '/work') => ({id, active, machine, folder, tabs:[{id:`tab-${id}`, panes:1}], name:id});
@@ -151,19 +153,34 @@ async function tests() {
     const h = harness({assignments:{live:project('/live')}, 'project-history':[project('/empty')]});
     h.state.spaces = [task('live', true)]; const tree = h.make(), otherView = h.make(), emptyId = h.key(null, '/empty');
     h.render(tree); h.find(`project-${emptyId}`).events['mouse:right'](null, h.cx);
-    assert.equal(h.state.stopped, 1); assert.deepEqual(h.state.overlays[0], {mod:'task-tree', kind:'popup', width:200, height:50, props:{projectMenu:true, group:emptyId}});
+    assert.equal(h.state.stopped, 1); assert.equal(h.state.overlays[0].props.group, emptyId);
     h.state.props = {...h.state.overlays[0].props, overlay:'popup'};
-    const popup = new h.TaskTree(); popup.init(null, h.cx); assert.equal(h.state.queue.length, 0, 'popup does not consume task commands');
-    h.state.nodes = []; popup.render(h.cx); h.click('remove-group');
-    assert.deepEqual(h.state.closed, ['popup']); assert.ok(!otherView.groups().some(g => g.id === emptyId), 'popup removes empty group across views');
+    const popupStore = {}, popup = new h.TaskTree();
+    h.withStore(popupStore, () => {
+      popup.init(null, h.cx); assert.equal(h.state.queue.length, 0, 'popup does not consume task commands');
+      h.state.nodes = []; popup.render(h.cx);
+      assert.ok(h.find('remove-group').styles.some(([method]) => method === 'cursor_pointer'), 'empty group removal is enabled with independent popup storage');
+      h.click('remove-group');
+    });
+    assert.deepEqual(popupStore, {}, 'popup does not read or write a private group registry');
+    assert.ok(tree.groups().some(g => g.id === emptyId), 'removal is handled by the owning sidebar, not popup storage');
+    h.render(otherView); assert.ok(tree.groups().some(g => g.id === emptyId), 'other sidebar copies do not consume the removal request');
+    h.render(tree);
+    assert.deepEqual(h.state.closed, ['popup']); assert.ok(!tree.groups().some(g => g.id === emptyId), 'owning sidebar removes empty group');
+    const updates = h.state.updates; h.render(tree); assert.equal(h.state.updates, updates, 'removal request is handled once');
     assert.equal(h.state.actions.length, 0); assert.equal(h.state.calls.length, 0, 'remove group has no filesystem or live task side effects');
     h.render(tree); const liveId = h.key(null, '/live'); h.find(`project-${liveId}`).events['mouse:right'](null, h.cx);
-    h.state.props = {projectMenu:true, group:liveId, overlay:'live-popup'}; const livePopup = h.make();
-    h.state.nodes = []; livePopup.render(h.cx); assert.match(h.find('remove-group').tip, /Close or move/); h.click('remove-group');
-    assert.ok(tree.groups().some(g => g.id === liveId)); assert.deepEqual(h.state.closed, ['popup'], 'live removal is disabled');
-    // Recheck live tasks when clicking a menu opened while the group was empty.
-    h.state.spaces = []; h.state.nodes = []; livePopup.render(h.cx);
-    h.state.spaces = [task('live', true)]; h.click('remove-group'); assert.ok(tree.groups().some(g => g.id === liveId));
+    h.state.props = {...h.state.overlays.at(-1).props, overlay:'live-popup'}; const livePopup = new h.TaskTree();
+    h.withStore({}, () => {
+      livePopup.init(null, h.cx); h.state.nodes = []; livePopup.render(h.cx);
+      assert.match(h.find('remove-group').tip, /Close or move/); h.click('remove-group');
+    });
+    h.render(tree); assert.ok(tree.groups().some(g => g.id === liveId)); assert.deepEqual(h.state.closed, ['popup'], 'live removal is disabled');
+    // A task can appear after opening an empty group's popup but before the sidebar handles removal.
+    h.state.spaces = []; h.render(tree); h.find(`project-${liveId}`).events['mouse:right'](null, h.cx);
+    h.state.props = {...h.state.overlays.at(-1).props, overlay:'race-popup'};
+    h.withStore({}, () => { const menu = new h.TaskTree(); menu.init(null, h.cx); h.state.nodes = []; menu.render(h.cx); h.click('remove-group'); });
+    h.state.spaces = [task('live', true)]; h.render(tree); assert.ok(tree.groups().some(g => g.id === liveId), 'sidebar revalidates live tasks before removal');
     assert.equal(tree.removeGroup(h.key('missing', null)), false);
   }
   console.log('task group behavior tests passed');
@@ -180,7 +197,7 @@ function nativeChecks() {
         .replace('    if (props()?.projectPicker) return this.projectPicker();', mode === 'menu'
           ? '    return this.projectMenu();'
           : '    if (props()?.projectPicker) return this.projectPicker();')
-        .replace('props().group', 'key(null, "/empty")').replace('props().group', 'key(null, "/empty")');
+        .replace('props().removable === true', 'true');
       fs.writeFileSync(`${dir}/main.js`, code);
       const result = child.spawnSync('herdr-app', ['check', dir], {encoding:'utf8', timeout:30000});
       assert.equal(result.status, 0, result.stderr || result.stdout || result.error?.message);

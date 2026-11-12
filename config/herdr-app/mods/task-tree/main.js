@@ -108,7 +108,7 @@ let docsKey = "docs", linkKey = "task-doc-link", docsDir = () => `${home()}/myde
 export default class TaskTree extends View {
   init(_props, cx) {
     this.folded = load("folded"); this.last = load("last"); this.assignments = load("assignments"); this.docs = load(docsKey); this.roots = {}; this.pending = {}; this.labelled = {};
-    this.persistGroups = true; this.selectedGroup = null;
+    this.persistGroups = true; this.selectedGroup = null; this.groupOwner = Math.random();
     if (props()?.projectPicker) {
       this.filter = InputState.new({ placeholder: "Project or ~/path" });
       this.handle = cx.focus_handle(); this.choiceScroll = VirtualListScrollHandle.new(); this.directoryCache = {}; this.directoryPending = {}; this.selectedChoice = null;
@@ -401,13 +401,16 @@ export default class TaskTree extends View {
         .child(button("project-path", "Open", (_e,cx) => this.chooseFirst(cx)).py(4).font_semibold().text_color(t.accent).tooltip("Open (Enter)"))));
   }
   projectMenu() {
-    const t = theme(), group = this.groups().find(group => group.id === props().group);
-    const removable = Boolean(group && !group.fallback && !group.tasks.length);
+    const t = theme(), removable = props().removable === true;
     return v_flex().p(6).bg(t.popover).text_color(t.foreground)
       .child(div().id("remove-group").px(8).py(7).text_color(removable ? t.foreground : t.dim)
         .tooltip(removable ? "Remove this empty group from the sidebar" : "Close or move its tasks before removing the group")
         .when(removable, el => el.cursor_pointer().hover(s => s.bg(t.hover)))
-        .on_click((_e, cx) => { if (this.removeGroup(props().group)) { closeOverlay(props().overlay); cx.notify(); } }).child("Remove group"));
+        .on_click(() => {
+          if (!removable) return;
+          setShared("task-project-remove", {group:props().group, owner:props().owner, request:Math.random()});
+          closeOverlay(props().overlay);
+        }).child("Remove group"));
   }
   taskMenu() {
     const t = theme(); return v_flex().p(6).bg(t.popover).text_color(t.foreground).child(div().id("move-project").px(8).py(7).cursor_pointer().hover(s => s.bg(t.hover)).on_click(() => { closeOverlay(props().overlay); this.openProjects(props().task); }).child("Move to project…"))
@@ -524,7 +527,7 @@ export default class TaskTree extends View {
       .child(h_flex().id(`project-${group.id}`).h(25).min_w(0).gap(5).px(6).items_center().text_size(10.5).text_color(t.muted)
         .when(this.selectedGroup === group.id, el => el.bg(t.selected)).cursor_pointer()
         .on_click((_e, cx) => { this.select(group, group.tasks.find(task => task.id === this.last[group.id]) ?? group.tasks[0]); cx.notify(); })
-        .when(!group.fallback, el => el.on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({mod:"task-tree", kind:"popup", width:200, height:50, props:{projectMenu:true, group:group.id}}); }))
+        .when(!group.fallback, el => el.on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({mod:"task-tree", kind:"popup", width:200, height:50, props:{projectMenu:true, group:group.id, owner:this.groupOwner, removable:!group.tasks.length}}); }))
         .on_hover((hovered, cx) => { if (hovered) this.hoveredProject = group.id; else if (this.hoveredProject === group.id) this.hoveredProject = null; cx.notify(); })
         .child(div().id(`fold-${group.id}`).size(20).flex_none().flex().items_center().justify_center().cursor_pointer().tooltip(folded ? "Expand project" : "Collapse project")
           .on_click((_e, cx) => { cx.stop_propagation(); this.folded[group.id] = !folded; localStorage.setItem("folded", JSON.stringify(this.folded)); cx.notify(); }).child(folded ? "›" : "⌄"))
@@ -545,6 +548,11 @@ export default class TaskTree extends View {
     const link = shared(linkKey);
     if (link?.space && allowedDoc(link.path) && this.docs[link.space] !== link.path) { this.docs[link.space] = link.path; localStorage.setItem(docsKey, JSON.stringify(this.docs)); }
     const allPanes = panes(); this.resolve(list, allPanes, cx); this.labelDocs(list, allPanes, cx);
+    // Popup copies have separate localStorage; only the owning sidebar may remove its saved group.
+    const removal = shared("task-project-remove");
+    if (removal?.owner === this.groupOwner && removal.request !== this.groupRemoval) {
+      this.groupRemoval = removal.request; this.removeGroup(removal.group);
+    }
     const groups = this.groups(), group = groups.find(g => g.tasks.some(s => s.active));
     this.currentGroup(groups);
     if (group && this.last[group.id] !== current.id) { this.last[group.id] = current.id; localStorage.setItem("last", JSON.stringify(this.last)); }
