@@ -57,8 +57,10 @@ h1 { font-size: 16px; margin: 0; flex: none; }
 
 .raw { white-space: pre-wrap; overflow-wrap: anywhere; }
 .raw-dialog { width: min(900px, 90vw); max-height: 80vh; overflow: auto; border: 1px solid #8c959f; border-radius: 8px; }
-.draft-host { position: fixed; right: 20px; bottom: 20px; z-index: 20; }
-.draft { display: grid; gap: 8px; padding: 14px; background: white; border: 1px solid #8c959f; border-radius: 8px; box-shadow: 0 4px 20px #0002; width: min(440px, 90vw); }
+.draft-host { position: fixed; z-index: 20; }
+.draft { display: grid; gap: 8px; padding: 14px; background: white; border: 1px solid #8c959f; border-radius: 8px; box-shadow: 0 4px 20px #0002; width: min(400px, calc(100vw - 16px)); overflow: auto; }
+.draft strong { overflow-wrap: anywhere; }
+.draft.anchor-offscreen { border-style: dashed; }
 textarea { min-height: 100px; width: 100%; }
 .help { position: fixed; top: 15%; left: 50%; transform: translateX(-50%); width: min(420px, 90vw); padding: 20px 24px; background: #fff; border: 1px solid #8c959f; border-radius: 8px; z-index: 30; box-shadow: 0 4px 20px #0003; }
 .help dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0 16px; }

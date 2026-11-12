@@ -29,7 +29,7 @@ const { slugify, template } = vm.runInNewContext(logicSource + '\n({slugify, tem
   } finally { fs.rmSync(dir, {recursive:true, force:true}); }
 }
 const artifactLogic = fs.readFileSync('config/herdr-app/mods/task-tree/artifact-logic.js', 'utf8').replace(/^export /gm, '');
-const { artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, age } = vm.runInNewContext(artifactLogic + '\n({artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, age})');
+const { artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, hasArtifactWebView, openArtifact, age } = vm.runInNewContext(artifactLogic + '\n({artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, hasArtifactWebView, openArtifact, age})');
 let artifacts = addArtifact([], '/one.html', 'One', 100);
 artifacts = addArtifact(artifacts, '/two.html', 'Two', 200);
 artifacts = seeArtifact(artifacts, '/one.html', 100); assert.equal(artifacts[1].seen, true);
@@ -157,7 +157,7 @@ async function testArtifactsPanel() {
     }});
     rendered.push(node); return node;
   };
-  const sandbox = {View:class {}, artifactKey, seeArtifact, removeArtifact, lavishUrl, openCommand, age,
+  const sandbox = {View:class {}, artifactKey, seeArtifact, removeArtifact, hasArtifactWebView, openArtifact, age,
     InputState:TestInputState, Input:{new:() => element('input')}, VirtualListScrollHandle:{new:() => ({scroll_to_item:index => scrollCalls.push(index)})},
     Scrollbar:{vertical:() => element('scrollbar')}, div:() => element('div'), h_flex:() => element('h_flex'), v_flex:() => element('v_flex'),
     v_virtual_list:(name,count,_height,key,renderRows) => {
@@ -355,6 +355,77 @@ async function testArtifactsPanel() {
   assert.equal(fallback.space, 's', 'standalone checks without props use the active space');
   fallback.render(cx); await drainQueue(); fallback.close();
 }
+async function testArtifactRegistration() {
+  let platform = 'macos', available = true, ackFailure = false, storeFailure = false;
+  const saved = {}, tasks = [], calls = [], errors = [], notices = [], writes = [];
+  const context = {
+    View: class {}, artifactKey, addArtifact, artifactSpace, seeArtifact, hasArtifactWebView, openArtifact,
+    window: () => ({platform}), commands: () => available ? [{name:'web.open'}] : [],
+    panes: () => [{terminal:'t1',tab:'tab1'}], spaces: () => [{id:'owner',tabs:[{id:'tab1'}],active:false}, {id:'other',tabs:[],active:true}], terminals: () => [],
+    shared: key => saved[key], setShared: (key,value) => { if (storeFailure) throw new Error('storage failed'); saved[key] = value; },
+    writeTextFile: async (path,text,expected) => {
+      assert.ok(saved[artifactKey].owner.length, 'acknowledgement follows storage');
+      assert.equal(saved[artifactKey].owner[0].seen, false, 'acknowledgement does not require opening');
+      writes.push({path,text,expected});
+      if (ackFailure) throw new Error('ack failed');
+    },
+    notify: notice => notices.push({...notice}), console: {log: message => errors.push(message)},
+    exec: async (command,args) => { calls.push([command,Array.from(args)]); throw new Error('Registration must not execute programs'); },
+    run: (command,args) => { calls.push([command,args]); throw new Error('Registration must not change focus'); },
+  };
+  const {TaskTree} = vm.runInNewContext(source + '\n({TaskTree})', context);
+  const tree = new TaskTree(), cx = {spawn: fn => tasks.push(fn), notify(){}};
+  const register = (title = 'Report "quoted"') => tree.command('artifact:' + JSON.stringify({terminal:'t1',path:'/report with spaces.html',title}), cx);
+  register();
+  assert.equal(saved[artifactKey].owner[0].seen, false); assert.equal(tasks.length, 0);
+  assert.equal(saved[artifactKey].owner[0].path, '/report with spaces.html');
+  assert.equal(saved[artifactKey].other, undefined, 'registration belongs to the terminal task, not the focused task');
+  assert.deepEqual(notices, [{title:'Artifact ready',body:'Report "quoted"'}]);
+  assert.equal(calls.length, 0, 'even when web.open is available, registration does not execute programs or change focus');
+  for (const mode of ['missing-command','linux','windows']) {
+    available = mode !== 'missing-command'; platform = mode === 'missing-command' ? 'macos' : mode;
+    const beforeNotices = notices.length; register();
+    assert.equal(tasks.length, 0); assert.equal(calls.length, 0); assert.equal(saved[artifactKey].owner[0].seen, false);
+    assert.equal(notices.length, beforeNotices + 1);
+  }
+  available = true; platform = 'macos';
+  register('Older'); register('Newer');
+  assert.equal(saved[artifactKey].owner.length, 1); assert.equal(saved[artifactKey].owner[0].title, 'Newer');
+  assert.equal(saved[artifactKey].owner[0].seen, false); assert.equal(tasks.length, 0);
+  assert.equal(writes.length, 0, 'registration without ack remains immediate and never writes an ack');
+  const request = (ack, terminal = 't1') => tree.command('artifact:' + JSON.stringify({terminal,path:'/ack report.html',title:'Acknowledged',ack}), cx);
+  for (const root of ['/tmp', '/private/tmp', '/var/folders/ab/user_123/T', '/custom temp root']) {
+    const ack = root + '/lavish-artifact-aB123Z/ack.json', beforeNotices = notices.length;
+    request(ack); assert.equal(tasks.length, 1); assert.equal(saved[artifactKey].owner[0].seen, false);
+    assert.equal(notices.length, beforeNotices + 1); assert.deepEqual(notices.at(-1), {title:'Artifact ready',body:'Acknowledged'});
+    await tasks.shift()(cx);
+    assert.deepEqual(writes.at(-1), {path:ack,text:'{"ok":true}',expected:'{"pending":true}'}, 'ack only replaces the pending request file through the native API');
+    assert.equal(calls.length, 0, 'acknowledged registration never opens a view or browser');
+    assert.equal(saved[artifactKey].owner[0].seen, false); assert.equal(tasks.length, 0);
+  }
+  const beforeWrites = writes.length, beforeSaved = saved[artifactKey], beforeNotices = notices.length;
+  for (const ack of [null, 42, '/tmp/arbitrary.json', '/tmp/lavish-artifact-aB123Z/other.json', '/tmp/lavish-artifact-short/ack.json', '/tmp/lavish-artifact-aB123Z/../ack.json', '/tmp/../lavish-artifact-aB123Z/ack.json', '/tmp/./lavish-artifact-aB123Z/ack.json', 'tmp/lavish-artifact-aB123Z/ack.json', '/tmp//lavish-artifact-aB123Z/ack.json', '/tmp/lavish-artifact-aB123Z/sub/ack.json', '/tmp/back\\slash/lavish-artifact-aB123Z/ack.json', '/tmp/\u0000/lavish-artifact-aB123Z/ack.json']) {
+    request(ack); assert.equal(tasks.length, 0); assert.equal(saved[artifactKey], beforeSaved);
+    assert.match(errors.at(-1), /Invalid artifact acknowledgement path/);
+  }
+  for (const terminal of ['unknown', 'remote/t1']) {
+    request('/tmp/lavish-artifact-aB123Z/ack.json', terminal);
+    assert.equal(tasks.length, 0); assert.equal(saved[artifactKey], beforeSaved);
+  }
+  storeFailure = true; request('/tmp/lavish-artifact-aB123Z/ack.json'); storeFailure = false;
+  assert.equal(tasks.length, 0); assert.equal(writes.length, beforeWrites); assert.match(errors.at(-1), /storage failed/);
+  assert.equal(notices.length, beforeNotices, 'rejected paths, terminals, and storage never notify success');
+  tree.command('artifact:not-json', cx); assert.equal(notices.length, beforeNotices); assert.equal(tasks.length, 0);
+  available = false;
+  request('/tmp/lavish-artifact-aB123Z/ack.json'); assert.equal(tasks.length, 1);
+  await tasks.shift()(cx); assert.equal(saved[artifactKey].owner[0].seen, false, 'ack succeeds even without a web view');
+  ackFailure = true;
+  request('/tmp/lavish-artifact-aB123Z/ack.json'); await tasks.shift()(cx);
+  assert.match(errors.at(-1), /Could not acknowledge artifact:.*ack failed/);
+  assert.equal(saved[artifactKey].owner[0].seen, false, 'ack failure leaves the stored artifact unseen');
+  assert.deepEqual(notices.at(-1), {title:'Artifact ready',body:'Acknowledged'}, 'stored artifacts notify even if acknowledgement fails');
+  assert.equal(calls.length, 0); assert.equal(tasks.length, 0);
+}
 async function testEditor() {
   const code = fs.readFileSync('config/herdr-app/mods/task-doc/main.js', 'utf8').replace(/^import .*;\n/gm, '').replace('export default class', 'class');
   const storage = {}, writes = [], tasks = [];
@@ -497,7 +568,7 @@ async function testEditor() {
   assert.equal(mode.docsKey, 'docs'); assert.equal(mode.linkKey, 'task-doc-link');
   assert.equal(mode.docsDir(), '/home/me/mydesk/tasks');
   assert.equal(mode.allowedDoc(''), false); assert.equal(mode.allowedDoc('/notes.md'), true);
-  await testEditor(); await testArtifactsPanel();
+  await testEditor(); await testArtifactsPanel(); await testArtifactRegistration();
   if (process.argv.includes('--native')) {
     const mod = fs.mkdtempSync(pathModule.join(os.tmpdir(), 'herdr-artifacts-check-'));
     try {

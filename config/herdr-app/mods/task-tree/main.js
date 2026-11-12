@@ -4,6 +4,13 @@ import { spaces, panes, agents, terminals, machines, theme, run, openOverlay, cl
 import { slugify, template } from "./doc-logic.js";
 import { artifactKey, addArtifact, artifactSpace } from "./artifact-logic.js";
 
+function artifactAckPath(path) {
+  // os.tmpdir() may use a per-user or configured root; only accept the CLI's
+  // fixed filename inside its random request directory, with no traversal.
+  return typeof path === "string"
+    && /^(?:\/[^/\\\u0000]+)*\/lavish-artifact-[A-Za-z0-9]{6}\/ack\.json$/.test(path)
+    && !path.split("/").some(part => part === "." || part === "..");
+}
 function key(machine, folder) { return JSON.stringify([machine ?? null, folder]); }
 function groupSpaces(list, assignments, projects = [], configuredMachines = []) {
   const groups = [], byKey = {};
@@ -213,12 +220,23 @@ export default class TaskTree extends View {
   command(command, cx) {
     if (command.startsWith("artifact:")) {
       try {
-        const {terminal, path, title} = JSON.parse(command.slice(9));
+        const {terminal, path, title, ack} = JSON.parse(command.slice(9));
+        if (ack !== undefined && !artifactAckPath(ack)) throw new Error("Invalid artifact acknowledgement path");
         if (typeof terminal === "string" && terminal.includes("/")) { console.log("Cannot register artifacts from remote terminals"); return; }
         const space = artifactSpace(terminal, panes(), spaces(), terminals());
         if (!space || typeof path !== "string" || !path.startsWith("/") || typeof title !== "string") throw new Error("Invalid terminal or artifact");
         const all = shared(artifactKey) ?? {};
-        setShared(artifactKey, {...all, [space]: addArtifact(all[space] ?? [], path, title)});
+        const list = addArtifact(all[space] ?? [], path, title);
+        setShared(artifactKey, {...all, [space]: list});
+        if (ack !== undefined) {
+          cx.spawn(async () => {
+            // Require the pending file so a delayed command cannot recreate a
+            // request directory the CLI already removed, or replace other data.
+            try { await writeTextFile(ack, JSON.stringify({ok:true}), JSON.stringify({pending:true})); }
+            catch (e) { console.log(`Could not acknowledge artifact: ${e}`); }
+          });
+        }
+        notify({title: "Artifact ready", body: title});
       } catch (e) { console.log(`Could not register artifact: ${e}`); }
       return;
     }

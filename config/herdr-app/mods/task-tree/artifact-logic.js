@@ -23,6 +23,26 @@ export function artifactSpace(terminal, allPanes, allSpaces, allTerminals) {
 export function lavishUrl(output) {
   return /^\s*url:\s*["']?(https?:\/\/[^\s"']+)["']?\s*$/m.exec(output)?.[1] ?? null;
 }
+export function hasArtifactWebView(platform, availableCommands) {
+  return platform === "macos" && availableCommands.some(command => command.name === "web.open");
+}
+export async function openArtifact(exec, item, space, {web = false, home = "", reopen = false} = {}) {
+  const result = await exec("lavish-axi", [item.path, ...(reopen ? ["--reopen"] : []), "--no-open"]);
+  if (result.code) throw new Error(result.stderr || result.stdout || "Lavish failed");
+  if (/^\s*status:\s*user-ended\s*$/m.test(result.stdout)) return false;
+  const url = lavishUrl(result.stdout);
+  if (!url) throw new Error("Lavish did not return a URL");
+  if (web) {
+    const opened = await exec("herdr-app", ["do", "web.open", JSON.stringify({url, space, title: item.title})]);
+    if (opened.code) throw new Error(opened.stderr || opened.stdout || "Could not open web tab");
+  } else {
+    const app = await exec("test", ["-d", `${home}/Applications/Lavish.app`]);
+    const [command, args] = openCommand(url, app.code === 0);
+    const opened = await exec(command, args);
+    if (opened.code) throw new Error(opened.stderr || opened.stdout || "Could not open browser");
+  }
+  return true;
+}
 export function openCommand(url, hasSafariApp) {
   return hasSafariApp ? ["open", ["-a", "Lavish", url]] : ["open", ["-na", "Google Chrome", "--args", `--app=${url}`]];
 }

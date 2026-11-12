@@ -1,7 +1,7 @@
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input, v_virtual_list, VirtualListScrollHandle, Scrollbar } from "gpui-base";
 import { spaces, theme, shared, setShared, exec, home, props, closeOverlay, commands, window } from "herdr";
-import { artifactKey, seeArtifact, removeArtifact, lavishUrl, openCommand, age } from "./artifact-logic.js";
+import { artifactKey, seeArtifact, removeArtifact, hasArtifactWebView, openArtifact, age } from "./artifact-logic.js";
 
 function fuzzyScore(value, query) {
   value = value.toLowerCase(); query = query.toLowerCase();
@@ -65,19 +65,10 @@ export default class TaskArtifacts extends View {
     this.error = null; this.opening = item.path; cx.notify();
     cx.spawn(async cx => {
       try {
-        const result = await exec("lavish-axi", [item.path, "--reopen", "--no-open"]);
-        if (result.code) throw new Error(result.stderr || result.stdout || "Lavish failed");
-        const url = lavishUrl(result.stdout);
-        if (!url) throw new Error("Lavish did not return a URL");
-        if (window()?.platform === "macos" && commands().some(command => command.name === "web.open")) {
-          const opened = await exec("herdr-app", ["do", "web.open", JSON.stringify({url, space, title: item.title})]);
-          if (opened.code) throw new Error(opened.stderr || opened.stdout || "Could not open web tab");
-        } else {
-          const app = await exec("test", ["-d", `${home()}/Applications/Lavish.app`]);
-          const [command, args] = openCommand(url, app.code === 0);
-          const opened = await exec(command, args);
-          if (opened.code) throw new Error(opened.stderr || opened.stdout || "Could not open browser");
-        }
+        const opened = await openArtifact(exec, item, space, {
+          web: hasArtifactWebView(window()?.platform, commands()), home: home(), reopen: true,
+        });
+        if (!opened) throw new Error("The user ended this Lavish review");
         this.update(space, item.path, (list, path) => seeArtifact(list, path, item.added));
         closeOverlay(overlay);
       } catch (e) { this.error = String(e); }
