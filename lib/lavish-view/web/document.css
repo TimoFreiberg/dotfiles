@@ -21,3 +21,12 @@ button[aria-pressed="true"] { outline: 2px solid light-dark(#0969da, #58a6ff); }
 .document pre { overflow-x: auto; padding: 1em; border-radius: .5em; background: light-dark(#f6f8fa, #22272e); }
 .document blockquote { border-left: .25em solid light-dark(#d0d7de, #444c56); padding-left: 1em; }
 .document img { max-width: 100%; } .document .task-list-item { list-style: none; }
+.pr { max-width: 980px; margin: auto; }
+.pr-form { padding: 1.5rem 2rem; }
+.pr-form > label { display: block; font-weight: 600; margin-bottom: .5rem; }
+#pr-title { box-sizing: border-box; width: 100%; padding: .65rem; margin-bottom: 1.5rem; font: 1.35rem/1.4 system-ui, sans-serif; color: inherit; background: inherit; border: 1px solid light-dark(#d0d7de, #444c56); border-radius: .4rem; }
+.pr #editor { width: 100%; min-height: 45vh; margin: 1rem 0; }
+.pr #preview { border: 1px solid light-dark(#d0d7de, #444c56); border-radius: .4rem; margin: 1rem 0; }
+.pr footer > span { font-size: .85rem; margin: 0 .7rem; }
+#create-pr { background: light-dark(#1f883d, #347d39); color: white; font-weight: 600; }
+#head, #commits { font: .85rem/1.5 ui-monospace, monospace; overflow-wrap: anywhere; }

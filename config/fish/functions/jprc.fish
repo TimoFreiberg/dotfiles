@@ -1,16 +1,22 @@
 function jprc --description "Create a GitHub PR from a jj revision"
     # Parse arguments
-    argparse 'r/revision=' 'b/base=' 'h/help' -- $argv
+    argparse 'r/revision=' 'b/base=' 'body-file=' 'h/help' -- $argv
     or return 1
 
     if set -q _flag_help
-        echo "Usage: jprc [-r revision] [-b base]"
+        echo "Usage: jprc [-r revision] [-b base] [--body-file FILE]"
         echo ""
         echo "Create a GitHub PR from a jj revision using an LLM-generated branch name."
         echo ""
         echo "Options:"
         echo "  -r, --revision REV  Revision to use as PR tip (default: @-)"
         echo "  -b, --base BASE     Base branch for PR (default: auto-detect)"
+        echo "  --body-file FILE    UTF-8 draft: first line # <title>, then the body"
+        echo "                      Uses --title and --body with gh pr create --web."
+        echo "                      Existing PRs open unchanged; without this flag, use"
+        echo "                      commit descriptions and the base revision's PR template."
+        echo "                      Missing/unreadable files or invalid first lines fail"
+        echo "                      new PR creation (the branch may already be pushed)."
         return 0
     end
 
@@ -95,7 +101,7 @@ function jprc --description "Create a GitHub PR from a jj revision"
                 echo "Pushing $branch_name..."
                 jj git push --bookmark $branch_name
                 or return 1
-                __jprc_open_or_create_pr $branch_name $base $rev
+                __jprc_open_or_create_pr $branch_name $base $rev "$_flag_body_file"
                 return $status
             end
         else
@@ -107,7 +113,7 @@ function jprc --description "Create a GitHub PR from a jj revision"
                 echo "Pushing $branch_name..."
                 jj git push --bookmark $branch_name
                 or return 1
-                __jprc_open_or_create_pr $branch_name $base $rev
+                __jprc_open_or_create_pr $branch_name $base $rev "$_flag_body_file"
                 return $status
             end
         end
@@ -148,14 +154,36 @@ $diff_context"
     jj git push --named "$branch_name=$rev"
     or return 1
 
-    __jprc_open_or_create_pr $branch_name $base $rev
+    __jprc_open_or_create_pr $branch_name $base $rev "$_flag_body_file"
 end
 
-function __jprc_open_or_create_pr --argument-names branch_name base rev
+function __jprc_open_or_create_pr --argument-names branch_name base rev body_file
     set -l existing_pr (gh pr list --head $branch_name --base $base --state open --json url --jq '.[0].url' 2>/dev/null)
     if test -n "$existing_pr"
         echo "Opening existing PR: $existing_pr"
         gh pr view $existing_pr --web
+        return $status
+    end
+
+    if test -n "$body_file"
+        if not test -f "$body_file"; or not test -r "$body_file"
+            echo "Error: PR draft '$body_file' is missing or unreadable" >&2
+            return 1
+        end
+        set -l draft (string collect --allow-empty --no-trim-newlines < "$body_file")
+        set -l parts (string split --max 1 \n -- "$draft")
+        set -l first_line (string replace -r '\r$' '' -- "$parts[1]")
+        set -l pr_title (string sub -s 3 -- "$first_line" | string collect --allow-empty)
+        if not string match -qr '^# .+' -- "$first_line"; or string match -qr '^[[:space:]]*$' -- "$pr_title"
+            echo "Error: PR draft must start with # <title> on the first line" >&2
+            return 1
+        end
+        set -l pr_body ''
+        if test (count $parts) -gt 1
+            set pr_body "$parts[2]"
+        end
+        echo "Creating PR from draft '$body_file'..."
+        gh pr create --head $branch_name --base $base --title "$pr_title" --body "$pr_body" --web
         return $status
     end
 
