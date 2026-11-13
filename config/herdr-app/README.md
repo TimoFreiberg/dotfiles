@@ -115,6 +115,34 @@ Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node confi
 
 `lavish-view` prepares an HTML file, a markdown file, or a jj/git diff (`lavish-view diff`) as a Lavish review page. Inside a herdr terminal (`HC_TERMINAL_ID` set and `herdr-app` on `PATH`) it attempts to register the page under the task's Artifacts without changing focus. If registration is not acknowledged, it prints the URL and `--open` also launches an external browser. An acknowledged registration does not open a browser. `lavish-view --help` lists the diff range and output options.
 
+Inside herdr, `lavish-view` also starts one relay per canonical page, whether or not Artifacts registration succeeds. It polls exclusively with an owner label and sends each feedback batch as one `hc send` message to the opening Polytoken session. Session labels let delivery follow a resumed session to a new terminal. Without a session label, it uses the original terminal only. When `hc ls` provides only summary rows, it fetches labels and creation times with `hc get`. The message includes the page title/path, prompt text and quoted context, and a `lavish-axi reply` command. The relay then replies “Delivered to …” so the page stops showing Working. The agent must not poll these pages itself. Outside herdr, no relay or sidecar is created and the agent polls as before.
+
+The relay is a detached Node process with a per-page PID lock and an acknowledged startup, rather than an untracked shell background poll. This keeps it alive after the opening shell or agent exits without adding a task tab. Repeated opens and `--watch` share the same lock. Dead-PID locks are reclaimed on the next open. The relay retries crashed/timed-out polls, browser disconnects, and `LISTENER_ACTIVE` with capped exponential backoff. It never takes over another listener. If someone explicitly takes over its poll, the displaced relay stops. Fatal `artifact_failures` stop the relay after delivering their details. End the review with `lavish-axi end "<page>"` or the browser's Send & End; final feedback is delivered before exit. Open an ended page again only when the user requests it (`--reopen` for a user-ended review).
+
+Files beside the canonical HTML page:
+
+| File | Contents |
+| --- | --- |
+| `<page>.relay.json` | Version, terminal address, `polytoken.session` if present, `herdr.space`, page path/title, and optional `sourceFile` for future editable pages |
+| `<page>.outbox.json` | Durable feedback batches with IDs and receipt times; created on first feedback and emptied after an accepted send |
+| `<page>.relay.lock/pid` | Live relay PID |
+| `<page>.relay-state.lock/pid` | Short-lived lock serializing delivery, target changes, and outbox updates |
+
+Keep these files local; the outbox can contain review text and attachment paths. Logs are `${XDG_STATE_HOME:-$HOME/.local/state}/lavish-view/relay-<page-hash>.log` (the hash is the first 16 hex characters of SHA-256 of the canonical page path). They contain lifecycle/error reports, not a copy of every prompt. To stop only the relay without ending the review, send `kill -TERM` to the PID recorded in `<page>.relay.lock/pid`. Opening the page through lavish-view again restarts it. A crashed relay is likewise restarted by reopening through lavish-view; there is no OS service that restarts it automatically.
+
+If the session is gone, its label matches multiple live terminals, or `hc send` fails, the relay retains feedback in the outbox and posts recovery instructions on the page. It does not fall back to a different session in the old terminal. Run:
+
+```sh
+lavish-view retarget "<page.html>"              # newest live Polytoken terminal in the recorded space
+lavish-view retarget "<page.html>" --terminal T # explicit live terminal address or unique name
+```
+
+Retarget updates the target and flushes the outbox, even if the previous target is still alive. Without `--terminal`, no matching terminal, a missing space/creation timestamp, or a tie for newest fails clearly. Explicit targets may be in another space or have no session label. Retarget requires an existing relay sidecar and does not reopen a review or restart an ended relay. A failed flush leaves the new target recorded and the outbox intact; the command exits nonzero. A state lock busy for 120 seconds fails rather than interrupting a send held by herdr's draft wait; retry after delivery finishes.
+
+Feedback is saved before sending. If the relay crashes after `hc` accepts a send but before clearing the outbox, the next open or retarget can deliver that batch again (at-least-once delivery). There is also a small unavoidable window between Lavish consuming poll feedback and the relay receiving/persisting it; Lavish's CLI does not offer a transactional acknowledgement. Failed page replies are logged, so an accepted delivery can leave the page showing Working until a later reply. Metadata or relay-startup errors fail lavish-view rather than silently dropping automatic delivery; the Lavish page may already be open. Startup errors point to the log. A missing relay sidecar makes retarget fail without starting anything. If poll output cannot be decoded, the relay retains/forwards that raw output for inspection and logs the error before retrying. If Lavish reports `NOT_FOUND` (no active session), the relay stops without reopening the page. Do not delete a lock whose PID is still running.
+
+The relay reserves `lavish-view-save` and `lavish-view-action` prompt tags. This version replies that they are unsupported and does not forward their payloads or change files/run actions. Future page kinds can install `dispatchPrompts` handlers returning a page reply and an optional short agent notice. Lavish 0.1.96 supports `window.lavish.queuePrompt(text, options)` followed by `window.lavish.sendQueuedPrompts()` for an immediate send. `options.data` is JSON appended to prompt text after `Context data:`, not a separate poll field.
+
 Generated diff pages start with native Annotate off; you can still enable it from Lavish's toolbar. Diff line comments use the page's own controls and enter Lavish's feedback queue with the path, old/new side, revision, and quoted source. Lavish's native annotations see the diff renderer's shadow host rather than the clicked line. Click a code line or select a range in its line-number gutter to open a comment beside it.
 
 The first run installs pinned npm packages, which needs `npm` and network access, and builds the diff page bundle. Later runs reinstall the packages when `package-lock.json` changes and rebuild the bundle when its sources change. Both are cached under `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-view/`, and deleting that directory forces a rebuild. Markdown and diff pages are written under `~/.local/share/polytoken/artifacts/` unless `--out` says otherwise, and never inside the reviewed repository. An HTML file is opened where it is, or copied to `--out`.
@@ -125,7 +153,7 @@ The `lavish-plan-view` hook in `config/polytoken/hooks.json` runs on each Polyto
 chezmoi apply "$HOME/.local/bin/lavish-view" "$HOME/.config/polytoken/hooks.json"
 ```
 
-Run the tests with `just test-lavish-view`. It installs dev dependencies into `lib/lavish-view/node_modules` and runs the node, hook, and browser suites. The browser suite uses Playwright's cached Chromium and starts and ends its own Lavish session.
+Run the tests with `just test-lavish-view`. It installs dev dependencies into `lib/lavish-view/node_modules` and runs the node, hook, and browser suites. The browser suite uses Playwright's cached Chromium and starts and ends its own Lavish session. To check real relay delivery inside herdr, run `node lib/lavish-view/test/relay-e2e.mjs`; it creates two scratch `cat` terminals, labels them with a fake session, queues/sends browser feedback, verifies delivery follows the label, ends its page, and kills/removes only its own terminals. It never sends to the caller's terminal.
 
 ## Herdr compatibility mode
 
