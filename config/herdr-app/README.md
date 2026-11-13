@@ -71,7 +71,23 @@ This layout doesn't pick up new Herdr features by itself. After a Herdr update, 
 
 ## Workspace tasks
 
-The `workspace-tasks` layout groups spaces as tasks under their project, with tabs across the top. Projects sort by machine name and full path, with local projects first. Previously opened project groups stay in the sidebar after their last task closes, including after the view restarts. Closing a task doesn't reorder projects. Tasks within each project retain Herdr's order. Cmd-B toggles the sidebar, and a right-arrow button with a Show sidebar tooltip appears in the tab bar when it's hidden. Task navigation resumes when the sidebar is shown. `task-tree` manages the sidebar and project picker. Task rows show a small, dim count immediately after the title when more than one coding agent session is open in that task. The count includes idle, working, and blocked agents across its tabs, excludes ordinary terminal panes, and stays visible when a long title truncates. Project rows have no task count. Task notes are no longer part of this layout. Existing notes in `~/mydesk/tasks` remain untouched. `task-artifacts` opens a modal listing HTML pages registered by `herdr-artifact add /path/to/page.html [--title "Title"]`; opening one uses Lavish and closes the modal on success. Registration stores the artifact unread and shows a notification. On macOS builds whose `web.open` command advertises a `background` argument, it also adds a tab to the terminal's owning task without selecting the tab or changing focus. The tab loads when selected, so automatic opening leaves the artifact unread. Older builds without that argument, and non-macOS builds, only store and notify. Automatic opening respects user-ended Lavish sessions and reports errors without launching an external browser. Choosing an artifact from the picker opens it in the foreground and marks it read on success. It uses a web-view tab on macOS builds with `web.open`, labeled with the artifact title; other builds retain the external-browser path. Its search field fuzzy-matches titles and paths, with newest pages first when empty. Enter opens the first match unless you've selected another with Up/Down or Tab/Shift-Tab; selection wraps and keeps the search field focused. Escape or × closes the modal. Failed opens leave the error visible so you can retry. `task-tabs` is a copy of Herdr's tabs mod with an Artifacts button and unread count; Cmd-Shift-A opens the same Artifacts modal, including when the sidebar is hidden. Files and Changes remain side panels. After Herdr updates, compare it with the shipped tabs mod and reapply those additions when re-syncing.
+The `workspace-tasks` layout groups spaces as tasks under their project, with tabs across the top. Three mods make it up: `task-tree` draws the sidebar and the project picker, `task-artifacts` lists a task's HTML pages, and `task-tabs` is the tab bar. Files and Changes remain side panels.
+
+### Sidebar
+
+Projects sort by machine name and full path, with local projects first. A project group stays in the sidebar after its last task closes, including after the view restarts, and closing a task doesn't reorder projects. Tasks within each project keep Herdr's order. Cmd-B toggles the sidebar; while it's hidden, a right-arrow button with a Show sidebar tooltip appears in the tab bar, and task navigation resumes once it's shown again.
+
+A task row shows a small, dim count right after its title when more than one coding agent session is open in that task. The count covers idle, working, and blocked agents across the task's tabs, leaves out ordinary terminal panes, and stays visible when a long title is truncated. Project rows have no count.
+
+### Artifacts
+
+`herdr-artifact add /path/to/page.html [--title "Title"]` registers an HTML page with the task that owns the calling terminal; lavish-kit (below) registers its pages through the same `task-tree` command. The page is stored as unread and Herdr shows a notification. On macOS builds whose `web.open` command takes a `background` argument, registration also adds a web-view tab to the task without selecting it or changing focus. The tab loads only when you select it, so the artifact stays unread until then. Other builds only store and notify. Automatic opening respects Lavish reviews the user has ended, and it reports errors instead of falling back to an external browser.
+
+Cmd-Shift-A, or the Artifacts button with its unread count in the tab bar, opens a modal listing the task's pages, newest first. The search field fuzzy-matches titles and paths. Enter opens the first match unless you've picked another with Up/Down or Tab/Shift-Tab; the selection wraps and the search field keeps focus. Opening a page runs it through Lavish, marks it read, and closes the modal. On macOS builds with `web.open` the page opens in a web-view tab labeled with its title; other builds use an external browser. If opening fails, the error stays in the modal so you can retry. Escape or × closes it. The shortcut works while the sidebar is hidden.
+
+`task-tabs` is a copy of Herdr's tabs mod with the Artifacts button added. After a Herdr update, compare it with the shipped tabs mod and reapply the button when re-syncing.
+
+### Keys and projects
 
 | Keys | Action |
 | --- | --- |
@@ -92,7 +108,9 @@ The project picker fuzzy-matches saved project paths and machine names. For a lo
 
 Complete abbreviated parents one at a time: `~/sr` + Tab, then `ven` + Tab, then the project name. A path with several abbreviated components can match a saved project, but the picker doesn't recursively search the filesystem. Select that saved match with Up/Down and Enter, or cycle to it with Tab. Folder listings are cached until you close the picker.
 
-Word deletion uses Herdr's native binding: Option-Backspace on macOS or Ctrl-Backspace on Linux/Windows. Ctrl-A/Ctrl-E move to the start/end on macOS. Herdr 0.1.14 doesn't expose native input editing operations to mods, so Ctrl-W and additional readline remaps can't be added safely here.
+Word deletion uses Herdr's native binding: Option-Backspace on macOS or Ctrl-Backspace on Linux/Windows. Ctrl-A/Ctrl-E move to the start/end on macOS. As of Herdr 0.1.14, mods can't call native input editing operations, so Ctrl-W and other readline bindings aren't added here.
+
+### Install and test
 
 Install these targets after checking for existing files of the same names. The key bindings require the macOS key file.
 
@@ -107,26 +125,23 @@ chezmoi apply "$HOME/.config/herdr-app/keys.json" \
   "$HOME/.local/bin/herdr-artifact"
 ```
 
-Switch with `herdr-app do layout.switch '{"name":"workspace-tasks"}'`; return to `workspace-tree` or `main` by changing the name. To uninstall, switch away first, remove the targets above and their chezmoi source entries, and remove the `layout:workspace-tasks` key section if no longer needed. Notes and registered pages are not deleted.
+Switch with `herdr-app do layout.switch '{"name":"workspace-tasks"}'`; return to `workspace-tree` or `main` by changing the name. To uninstall, switch away first, remove the targets above and their chezmoi source entries, and remove the `layout:workspace-tasks` key section if no longer needed. Registered pages are not deleted.
 
-Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node config/herdr-app/tests/task-groups.cjs`, `node config/herdr-app/tests/project-picker.cjs`, and `node config/herdr-app/tests/workspace-ui.cjs`. With Herdr installed, `node config/herdr-app/tests/task-groups.cjs --native`, `node config/herdr-app/tests/project-picker.cjs --native`, and `node config/herdr-app/tests/tasks.cjs --native` also check native initialization and rendering of saved groups, the removal popup, task rows with short and long titles and multiple agents, the project picker, and the populated artifacts modal. These checks don't simulate keyboard dispatch or verify focus traversal.
+Run each behavior test file separately; `node` runs only the first file it's given:
+
+```sh
+for t in tasks task-groups project-picker workspace-ui; do node "config/herdr-app/tests/$t.cjs"; done
+```
+
+With Herdr installed, `tasks.cjs`, `task-groups.cjs`, and `project-picker.cjs` also accept `--native`. That checks native initialization and rendering of saved groups, the removal popup, task rows with short and long titles and several agents, the project picker, and the populated Artifacts modal. These checks don't simulate keyboard dispatch or verify focus traversal.
 
 ## Lavish review pages
 
-[lavish-kit](https://github.com/TimoFreiberg/lavish-kit) is an unofficial add-on
-for [Lavish](https://github.com/kunchenguid/lavish-axi). It opens HTML,
-Markdown, and jj/git diffs as review pages, and adds editable task and PR draft
-pages. Inside herdr it lists pages under the task's Artifacts (through the
-`task-tree` mod) and delivers feedback to the opening agent session, so agents
-don't poll those pages. A worker newly started outside herdr only watches, and
-the agent polls. Reopening outside herdr keeps a worker that's already
-delivering, so agents follow the feedback line lavish-kit prints. Every command
-returns once the page's worker has started, and the worker keeps the page up to
-date until the Lavish session ends. See the project's README and `lavish-kit --help` for
-requirements, commands, recovery, and tests.
+[lavish-kit](https://github.com/TimoFreiberg/lavish-kit) is an unofficial add-on for [Lavish](https://github.com/kunchenguid/lavish-axi). It opens HTML, Markdown, and jj/git diffs as review pages, and adds editable task and PR draft pages. Every command returns once the page's background worker has started, and the worker keeps the page up to date until the Lavish session ends.
 
-Clone the checkout expected by the chezmoi symlink (Node.js 22+, npm, and
-`lavish-axi` must be on `PATH`):
+Inside herdr, lavish-kit lists pages under the task's Artifacts and delivers feedback to the agent session that opened the page, so agents don't poll those pages. A worker started outside herdr only watches, and the agent polls. Reopening a page outside herdr keeps a worker that's already delivering, so agents follow the feedback line lavish-kit prints rather than assuming. The project's README and `lavish-kit --help` cover requirements, commands, recovery, and tests.
+
+Clone the checkout that the chezmoi symlink points at. lavish-kit needs Node.js 22 or newer, npm, and `lavish-axi` on `PATH`.
 
 ```sh
 mkdir -p "$HOME/src"
@@ -136,26 +151,12 @@ chezmoi apply "$HOME/.local/bin/lavish-kit" "$HOME/.config/lavish-kit/config.jso
   "$HOME/.config/polytoken/hooks.json" "$HOME/.config/fish/functions"
 ```
 
-The managed `lavish-kit/config.json` sets `createPr` to
-`["fish", "-c", "jprc $argv", "--"]`. lavish-kit appends
-`-r REV --body-file FILE`, so the deployed fish `jprc` function
-(`config/fish/functions/jprc.fish`) must keep its `--body-file` option. Create
-PR saves the draft, then runs that command in a new herdr tab in the recorded
-repository. Generated pages default to
-`${XDG_DATA_HOME:-$HOME/.local/share}/lavish-kit/pages/`.
+The managed `lavish-kit/config.json` sets `createPr` to `["fish", "-c", "jprc $argv", "--"]`. lavish-kit appends `-r REV --body-file FILE`, so the fish `jprc` function (`config/fish/functions/jprc.fish`) must keep its `--body-file` option. A PR page's Create PR button saves the draft, then runs that command in a new herdr tab in the recorded repository. Generated pages default to `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-kit/pages/`.
 
-The `lavish-plan-view` hook in `config/polytoken/hooks.json` runs before
-`handoff_plan` and opens the session's newest `plan-NNN.md`. It starts
-lavish-kit in the background, so a first run that installs dependencies doesn't
-hold up the handoff. It passes `--out` to keep the page at
-`$HOME/.local/share/polytoken/artifacts/plan/<session>/index.html`. Command
-output and failures go to
-`${XDG_STATE_HOME:-$HOME/.local/state}/lavish-kit/plan-hook.log`. Run
-`just test-lavish-plan-view` for the hook test. It uses a stub `lavish-kit`
-and opens no real Lavish session. lavish-kit's own tests live in its checkout.
+The `lavish-plan-view` hook in `config/polytoken/hooks.json` runs before `handoff_plan` and opens the session's newest `plan-NNN.md`. It starts lavish-kit in the background, so a first run that installs dependencies doesn't hold up the handoff, and passes `--out` to keep the page at `$HOME/.local/share/polytoken/artifacts/plan/<session>/index.html`. Output and failures go to `${XDG_STATE_HOME:-$HOME/.local/state}/lavish-kit/plan-hook.log`. `just test-lavish-plan-view` tests the hook against a stub `lavish-kit` without opening a Lavish session; lavish-kit's own tests live in its checkout.
 
 ## Herdr compatibility mode
 
 Polytoken's [orchestrator documentation](https://docs.polytoken.dev/using-polytoken/tui-orchestrators/) says that in Herdr mode it keeps the terminal in its default input mode to avoid duplicate keystrokes in Herdr panes and external editors. Modified keys such as Shift-Enter may arrive as their base key, and held-key repeats may not be distinguishable from fresh presses. The binding above sends ESC CR while keeping status reporting enabled.
 
-The wrapper sets `HERDR_ENV=1`. Polytoken's documentation says a session started with this variable includes the shipped `herdr` skill, which helps the model inspect panes, coordinate sibling agents, and prompt them. This section follows the official documentation and does not verify that the local 0.9.2 source matches the installed 0.9.6 binary.
+The wrapper sets `HERDR_ENV=1`. Polytoken's documentation says a session started with this variable includes the shipped `herdr` skill, which helps the model inspect panes, coordinate sibling agents, and prompt them. Both statements come from Polytoken's documentation and weren't checked against the installed binary.
