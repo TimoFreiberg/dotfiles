@@ -11,12 +11,12 @@ function jprc --description "Create a GitHub PR from a jj revision"
         echo "Options:"
         echo "  -r, --revision REV  Revision to use as PR tip (default: @-)"
         echo "  -b, --base BASE     Base branch for PR (default: auto-detect)"
-        echo "  --body-file FILE    UTF-8 draft: first line # <title>, then the body"
-        echo "                      Uses --title and --body with gh pr create --web."
-        echo "                      Existing PRs open unchanged; without this flag, use"
-        echo "                      commit descriptions and the base revision's PR template."
-        echo "                      Missing/unreadable files or invalid first lines fail"
-        echo "                      new PR creation (the branch may already be pushed)."
+        echo "  --body-file FILE    Take the PR title and body from FILE (UTF-8, first line"
+        echo "                      '# <title>', the rest is the body) instead of the commit"
+        echo "                      descriptions and the base revision's PR template."
+        echo "                      An existing PR opens as usual and FILE is ignored."
+        echo "                      A missing or unreadable FILE, or a bad first line, fails"
+        echo "                      PR creation, possibly after the branch was pushed."
         return 0
     end
 
