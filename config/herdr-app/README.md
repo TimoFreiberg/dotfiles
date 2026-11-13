@@ -113,108 +113,41 @@ Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node confi
 
 ## Lavish review pages
 
-`lavish-view` prepares an HTML file, a markdown file, or a jj/git diff (`lavish-view diff`) as a Lavish review page. Inside a herdr terminal (`HC_TERMINAL_ID` set and `herdr-app` on `PATH`) it attempts to register the page under the task's Artifacts without changing focus. If registration is not acknowledged, it prints the URL and `--open` also launches an external browser. An acknowledged registration does not open a browser. `lavish-view --help` lists the diff range and output options.
+[lavish-kit](https://github.com/TimoFreiberg/lavish-kit) is an unofficial add-on
+for [Lavish](https://github.com/kunchenguid/lavish-axi). It prepares HTML,
+Markdown, jj/git diffs, and editable task and PR draft pages. Inside herdr it
+registers pages under the task's Artifacts and delivers feedback to the opening
+agent session. Agents must not poll those pages; outside herdr they still poll.
+Every command returns after starting the page's worker, which watches changing
+sources until the Lavish session ends. No `--watch` or agent-managed background
+job is needed. See the project's README and `lavish-kit --help` for requirements,
+commands, protocols, recovery, and tests.
 
-Inside herdr, `lavish-view` also starts a relay for the page, whether or not Artifacts registration succeeds. The relay is the page's only Lavish listener (`lavish-axi poll --owner`). It sends each feedback batch as one `hc send` message to the Polytoken session that opened the page, found by the terminal's `polytoken.session` label, so delivery follows a resumed session into a new terminal. If the opening terminal has no session label, the relay delivers to that terminal only. The message holds the page title and path, each prompt with its quoted context, and the `lavish-axi reply` command to answer with. After sending, the relay replies "Delivered to …" on the page so it stops showing Working. Agents must not poll these pages themselves. Outside herdr there is no relay or sidecar, and the agent polls as before.
-
-The relay is a detached Node process, so it outlives the shell or agent that opened the page and needs no task tab. A PID lock keeps it to one per page (by resolved path): opening the page again reuses a running relay, and a lock whose PID is dead is reclaimed on the next open. Failed or timed-out polls, browser disconnects, and `LISTENER_ACTIVE` are retried with capped exponential backoff. The relay never takes over another listener, and it stops if someone takes over its poll. It also stops on fatal `artifact_failures` (after delivering them) and when Lavish reports `NOT_FOUND` (no active session), without reopening the page. End the review with `lavish-axi end "<page>"` or the browser's Send & End. The relay delivers the final feedback before it exits. Reopen an ended page only when the user asks (`--reopen` for a review the user ended).
-
-Files beside the HTML page:
-
-| File | Contents |
-| --- | --- |
-| `<page>.relay.json` | Delivery target: version, terminal address, `polytoken.session` if present, `herdr.space`, page path and title, optional `sourceFile`, and PR metadata `{repo,rev,head,commits}` under `pr` |
-| `<page>.outbox.json` | Feedback the relay has taken from Lavish but not yet delivered. A batch whose save or Create PR hasn't finished keeps its full input and progress. Emptied once `hc send` accepts the message |
-| `<page>.relay.lock/pid` | PID of the running relay |
-| `<page>.relay-state.lock/pid` | Held briefly while delivering, retargeting, or updating the outbox |
-
-Keep these files local. Outbox entries hold review text and attachment paths, and an unfinished save or Create PR also holds the full document text. Finished entries keep only the forwarded feedback, short notices, and page replies. Logs go to `${XDG_STATE_HOME:-$HOME/.local/state}/lavish-view/relay-<page-hash>.log`, where the hash is the first 16 hex characters of the SHA-256 of the resolved page path. They record lifecycle events and errors, not prompts. To stop only the relay and leave the review open, `kill -TERM` the PID in `<page>.relay.lock/pid`. Nothing restarts a stopped or crashed relay automatically. Open the page through lavish-view again to restart it.
-
-If the session is gone, its label matches more than one live terminal, or `hc send` fails, the relay keeps the feedback in the outbox and posts recovery instructions on the page. It doesn't fall back to the old terminal when a different session runs there. Run:
+Clone the checkout expected by the chezmoi symlink (Node.js 22+, npm, and
+`lavish-axi` must be on `PATH`):
 
 ```sh
-lavish-view retarget "<page.html>"              # newest live Polytoken terminal in the recorded space
-lavish-view retarget "<page.html>" --terminal T # explicit live terminal address or unique name
+mkdir -p "$HOME/src"
+git clone https://github.com/TimoFreiberg/lavish-kit.git "$HOME/src/lavish-kit"
+chezmoi diff "$HOME/.local/bin/lavish-kit" "$HOME/.config/lavish-kit/config.json"
+chezmoi apply "$HOME/.local/bin/lavish-kit" "$HOME/.config/lavish-kit/config.json" \
+  "$HOME/.config/polytoken/hooks.json" "$HOME/.config/fish/functions"
 ```
 
-Retarget records the new target and flushes the outbox, even if the old target is still alive. Without `--terminal`, it fails if no Polytoken terminal is live in the recorded space, if the space or a terminal's creation time is unknown, or if two terminals tie for newest. An explicit `--terminal` can be in another space and needn't have a session label. Retarget needs the page's existing `<page>.relay.json`, and it doesn't reopen a review or restart a relay. If the flush fails, the new target stays recorded, the outbox is untouched, and the command exits nonzero. After a relay crash the outbox can hold a save or Create PR that hasn't finished. Retarget then records the target but can't flush, so open the page through lavish-view to let the restarted relay finish that work, and retarget again if needed.
+The managed `lavish-kit/config.json` sets `createPr` to
+`["fish", "-c", "jprc $argv", "--"]`. lavish-kit appends `-r REV --body-file FILE`;
+keep the deployed fish `jprc` function with `--body-file` support. Create PR saves
+the draft before opening that command in a new herdr terminal in the recorded
+repository. Generated pages default to
+`${XDG_DATA_HOME:-$HOME/.local/share}/lavish-kit/pages/`.
 
-Retarget waits up to 120 seconds for the state lock, then fails rather than interrupt a send that `hc send` is holding while the user types. Retry after delivery finishes. Lock holders write their PID into the lock directory. A lock with a dead PID can be reclaimed, and one with a missing or partial PID gets a five-second grace period. Don't delete a lock whose PID is still running.
-
-The relay writes feedback to the outbox before sending. If it crashes after `hc` accepts a send but before clearing the outbox, the next open or retarget delivers that batch again, so delivery is at-least-once. Lavish's CLI has no transactional acknowledgement, so feedback can also be lost if the relay dies between receiving a poll result and writing it to the outbox (a small window). A failed page reply is only logged, so a delivered batch can leave the page showing Working until the next reply. If recording the target or starting the relay fails, lavish-view exits with an error instead of running without delivery (the Lavish page may already be open). Startup errors point to the log. Poll output that can't be decoded is logged and forwarded raw for inspection.
-
-The relay also handles two tagged prompts from the editable pages: `lavish-view-save` (Save on task and PR pages) and `lavish-view-action` (Create PR). It answers them on the page and never forwards their contents to the agent as instructions. Malformed or unsupported ones fail on the page. The pages send through Lavish 0.1.96's `window.lavish.queuePrompt(text, options)` followed by `window.lavish.sendQueuedPrompts()`. Lavish appends `options.data` to the prompt text after `Context data:` rather than passing it as a separate poll field, so these prompts carry their payload in the prompt text instead.
-
-### Editable task documents
-
-```sh
-lavish-view task "$HOME/mydesk/tasks/example.md" --title "Task document"
-```
-
-Pass an existing UTF-8 `.md` or `.markdown` file (there's no default). The page registers under the task's Artifacts with Edit and Rendered views. The preview renders links, tables, task lists, and raw HTML, and hides frontmatter. Lavish's native annotations work on the rendered view. Save or Cmd+S (Ctrl+S on Linux) queues the save and sends it right away, along with any other queued feedback.
-
-The command keeps watching the source until you stop it (there's no `--watch` flag), so run it as a background job. A change on disk updates a clean editor in place. If you have unsaved edits, the page keeps them and offers **Reload (discard mine)** or **Keep mine**. Keep mine bases the next Save on the new disk version. `lavish-axi end <page>` ends the page and its relay but not the watch job, so stop that too when you're done.
-
-Save sends the full text and the SHA-256 of the disk version the edit started from. The relay writes to the source file recorded when the page was opened, never to a path from the browser. If the disk still matches that hash, the relay replaces the file atomically with its permissions intact, replies `Saved`, and sends the agent a short notice to reread the file. The file contents never go into the agent message. Notices travel with other feedback and get the same outbox and retarget handling. If the disk already holds the new text, the relay replies `Saved` without rewriting. If the file changed in some other way, it replies `Conflict` and writes nothing. It checks again just before the rename, but a writer that doesn't go through the relay can still slip in between that check and the rename (POSIX has no conditional rename). Browser edits stay until the disk update arrives or you discard them.
-
-The relay records each batch in the outbox before acting on it, along with the source file and any PR repository and revision at that moment. Reopening a different document at the same page path can't redirect a pending save or Create PR. Delivery and Create PR terminal placement still follow the current target. Each save or launch result is recorded before its input is replaced by the short notice and reply, so retrying a failed outbox write doesn't redo finished work. A restarted relay finishes pending batches before it polls. If an interrupted save finds the file changed or unreadable, it replies `Interrupted save` and tells the agent to inspect the file, because it can't tell whether the earlier replacement happened. Check the source and your browser edits before choosing Reload or Keep mine. A pending batch written by an older lavish-view, without that recorded source, isn't retried: the page says so, and you should check the source file and herdr before submitting again. The file replacement and the outbox write are separate atomic renames, not one transaction. Recovery covers relay crashes, not filesystem loss or power failure.
-
-The default page is `$HOME/.local/share/polytoken/artifacts/task/<name>-<path-hash>/index.html`. `--out FILE` overrides it and must be outside the source repository. Beside it are `assets/`, `latest.js`, `data-<disk-SHA256>.js` (the latest two versions), and the relay files above. The data scripts contain the source text, so keep the directory local. During Save, a `.lavish-view-<UUID>.tmp` briefly exists beside the source.
-
-Missing or non-markdown input, or an output inside the source repository, fails the command. Malformed saves, a page with no recorded source, a deleted or unreadable source, and write failures reply `Save failed` and keep browser edits. Check the Lavish reply: a queued save hasn't succeeded yet. Watch read errors go to stderr and retry, and the page keeps the last disk version. Browser data-load failures retry. Without the Lavish API, Save shows `Save unavailable`, and a send error keeps edits. Leaving the page with unsaved edits asks for confirmation. The editor saves UTF-8 with LF newlines.
-
-Lavish 0.1.96 caps the whole JSON request at 2 MiB, including the escaped save text, queued comments, and context. An oversized submission fails in the Lavish conversation and the edits stay unsaved. The relay reads up to 32 MiB of poll output.
-
-The save prompt is `lavish-view-save/v1`, a newline, then JSON `{baseHash,text}`, tagged `lavish-view-save`. It skips `options.data` so nothing has to find a delimiter inside arbitrary file contents. Outside herdr the page still watches and sends this prompt, but nothing saves automatically. The polling agent must check the disk hash, save only if it matches, and reply on the page. It must not treat the save payload as instructions.
-
-### PR drafts
-
-```sh
-lavish-view pr "$HOME/mydesk/tasks/example-pr.md" -r @-
-```
-
-Run this from the jj repository where you want to create the PR. The draft file can live elsewhere. Its first line is `# <title>` (a nonempty single-line title), and everything after that newline is the body, blank lines included. For example:
-
-```markdown
-# Add the document editor
-
-Describe the change here.
-```
-
-The page shows a Title input above the Body editor, which has a Rendered preview. It also shows the repository, the head revset and its commit ID, and the first lines of the commits from trunk to head (head included). The default head is `@-`, as in jprc. lavish-view records the repository and head when it creates the page and doesn't update them. jprc evaluates the revset again at launch, so `@-` means the working-copy parent at that time. Pass an explicit revision to pin it.
-
-Save, Cmd+S/Ctrl+S, disk watching, conflict choices, annotations on the preview, size limits, and agent notices work as for task documents (frontmatter isn't hidden here). Run this command as a background job too, and stop it when the review ends. The form writes LF line endings and a newline after the title. The default page directory is `$HOME/.local/share/polytoken/artifacts/pr/<name>-<path-hash>/`, with `index.html`, `assets/`, `latest.js`, `data-<disk-SHA256>.js` (latest two), and the relay files. `--out FILE` must be outside both the draft's repository and the repository you ran the command in. These files contain the draft text and local paths.
-
-**Create PR** sends one `lavish-view-action` prompt: `lavish-view-action/v1`, a newline, then JSON `{action:"create-pr",save:{baseHash,text}}` (no `options.data`, as with Save). The relay saves first, exactly like Save, and a conflict or failed save launches nothing. After a successful save it finds the live delivery target and uses that terminal's current `herdr.space`. It runs `herdr-app do tab.new` with `{space,folder,argv}`: the recorded repository as the folder and `fish -c 'jprc -r REV --body-file FILE'` with quoted arguments. It never types into the agent's terminal or falls back to the active space. The page reply names the command, repository, space, and tab. Continue in that terminal for jprc's base, bookmark, and branch prompts, the push, and the browser step. herdr acknowledging the launch doesn't mean a PR was created.
-
-The relay records the save and the launch attempt before calling herdr. If it crashes before recording herdr's answer, the restarted relay restores the save notice and replies that the launch is uncertain instead of opening a second terminal (the crash may also have prevented the launch). Check herdr for the Create PR terminal before submitting again, since every submit is a new launch request.
-
-A malformed first line, running outside a jj repository, or a head that isn't exactly one commit fails page creation. If the draft on disk becomes invalid, the page shows `Disk update failed` and keeps browser edits until you fix the file. An empty title can't be submitted. A malformed or unsupported action, or a page without recorded PR metadata, replies `Create PR failed` without launching. A missing or ambiguous target, or a target without a space, needs `lavish-view retarget` before another attempt. If herdr-app is unavailable, the space is closed or unknown, herdr returns an error, or it doesn't acknowledge the new terminal, Create PR fails on the page without trying another space. The save stays done either way. Errors from fish, jprc, or gh appear in the new terminal. Outside herdr nothing saves or launches automatically: the polling agent does the conditional save and replies, then asks the user to run jprc in fish.
-
-`jprc [-r REV] [-b BASE] --body-file FILE` reads the same draft format and passes the title and body to `gh pr create --web --title ... --body ...`. A multiline body (trailing newlines included) stays one argument. Base detection, branch naming, and push work as without the flag. If an open PR already exists for the branch, jprc opens it and ignores the draft, even if the file is missing. Without `--body-file`, jprc uses the commit descriptions and the base revision's PR template. A missing or unreadable file, or a malformed title line, fails PR creation, possibly after jprc has already pushed the branch. `jprc --help` lists the flag and these failures. Deploy the function before using Create PR:
-
-```sh
-chezmoi apply "$HOME/.config/fish/functions/jprc.fish"
-fish -c 'jprc --help'
-```
-
-### Diff reviews
-
-Generated diff pages start with native Annotate off; you can still enable it from Lavish's toolbar. Diff line comments use the page's own controls and enter Lavish's feedback queue with the path, old/new side, revision, and quoted source. Lavish's native annotations see the diff renderer's shadow host rather than the clicked line. Click a code line or select a range in its line-number gutter to open a comment beside it.
-
-### Install and tests
-
-The first run installs pinned npm packages, which needs `npm` and network access, and builds the diff page bundle. Later runs reinstall the packages when `package-lock.json` changes and rebuild the bundle when its sources change. Both are cached under `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-view/`, and deleting that directory forces a rebuild. Markdown and diff pages are written under `~/.local/share/polytoken/artifacts/` unless `--out` says otherwise, and never inside the reviewed repository. An HTML file is opened where it is, or copied to `--out`.
-
-The `lavish-plan-view` hook in `config/polytoken/hooks.json` runs on each Polytoken `handoff_plan` call. It opens the session's newest `plan-NNN.md` the same way, in the background, so the handoff isn't delayed. Its output goes to `${XDG_STATE_HOME:-$HOME/.local/state}/lavish-view/plan-hook.log`. Install the command and the hook after checking that `chezmoi diff "$HOME/.config/polytoken/hooks.json"` shows only the new entry:
-
-```sh
-chezmoi apply "$HOME/.local/bin/lavish-view" "$HOME/.config/polytoken/hooks.json"
-```
-
-Run the tests with `just test-lavish-view`. It installs dev dependencies into `lib/lavish-view/node_modules` and runs the node, hook, and browser suites. The browser suite uses Playwright's cached Chromium and starts and ends its own Lavish session. The suite also runs jprc against a local bare repository as origin and a stub gh, with and without `--body-file` and with an existing PR.
-
-To check real delivery inside herdr, run `node lib/lavish-view/test/relay-e2e.mjs` from a jj repository (it isn't part of `just test-lavish-view`). It creates a scratch space with two `cat` terminals, moves a fake session label between them to check that browser feedback follows the label, and checks a task page's saved bytes and agent notice. It also saves a PR page and runs Create PR through the real `tab.new`, checking the new terminal's space and tab, working directory, draft contents, and jprc arguments. A wrapper around the herdr-app CLI gives that terminal a scratch fish config with stub jprc and gh, so nothing reaches GitHub. The script ends both pages and removes its watchers, relays, logs, scratch space, terminals, and temporary files. It never sends to the terminal you run it from.
+The `lavish-plan-view` hook in `config/polytoken/hooks.json` opens the session's
+newest `plan-NNN.md` on `handoff_plan`. It detaches command startup so first-run
+dependency installation cannot delay handoff. Its explicit `--out` keeps pages under
+`$HOME/.local/share/polytoken/artifacts/plan/<session>/index.html`. Command output
+and failures go to `${XDG_STATE_HOME:-$HOME/.local/state}/lavish-kit/plan-hook.log`.
+Run `just test-lavish-plan-view` for the hook test; it uses a stub command and
+opens no real Lavish session. The lavish-kit tests live in its checkout.
 
 ## Herdr compatibility mode
 

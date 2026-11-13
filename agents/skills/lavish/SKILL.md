@@ -16,14 +16,20 @@ building, read:
 - `lavish-axi design`: design direction and snippets
 - `lavish-axi playbook` lists ids; `lavish-axi playbook <id>` gives focused guidance
 
-Start or resume the session with `lavish-view "<file>"` (HTML or markdown)
-instead of `lavish-axi` directly. Its output names the page file for `reply`
-and `end`. Inside herdr (`HC_TERMINAL_ID` set), lavish-view delivers feedback
-to your session automatically, even when Artifacts registration fails. Do not
-poll those pages. Answer with `lavish-axi reply "<page>" --agent-reply "..."`.
+Start or resume the session with `lavish-kit "<file>"` (HTML or markdown)
+instead of `lavish-axi` directly; `lavish-kit --help` lists its commands.
+Its output names the page file for `reply` and `end`. Every command returns;
+the page's worker watches changing sources until the Lavish session ends.
+There is no `--watch` option, and opening a page needs no background job.
+Generated pages default to `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-kit/pages/`;
+`--out` overrides this and must be outside the reviewed repository.
+
+Inside herdr (`HC_TERMINAL_ID` set), lavish-kit delivers feedback to your
+session automatically, even when Artifacts registration fails. Do not poll
+those pages. Answer with `lavish-axi reply "<page>" --agent-reply "..."`.
 After a user save notice, reread the source file before making edits. If the
 session is gone, feedback stays in the page's outbox until the operator runs
-`lavish-view retarget "<page>" [--terminal T]`.
+`lavish-kit retarget "<page>" [--terminal T]`.
 
 Outside herdr, run `lavish-axi poll "<page>"` with `shell_exec`,
 `background: true`, a descriptive job name, and the longest supported explicit
