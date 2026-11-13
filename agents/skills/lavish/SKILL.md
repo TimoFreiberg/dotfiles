@@ -16,23 +16,24 @@ building, read:
 - `lavish-axi design`: design direction and snippets
 - `lavish-axi playbook` lists ids; `lavish-axi playbook <id>` gives focused guidance
 
-Start or resume the session with `lavish-kit "<file>"` (HTML or markdown)
-instead of `lavish-axi` directly; `lavish-kit --help` lists its commands.
-Its output names the page file for `reply` and `end`. Every command returns;
-the page's worker watches changing sources until the Lavish session ends.
-There is no `--watch` option, and opening a page needs no background job.
-Generated pages default to `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-kit/pages/`;
-`--out` overrides this and must be outside the reviewed repository.
+Open or resume a session with `lavish-kit "<file>"` (HTML or Markdown) instead
+of calling `lavish-axi` directly. `lavish-kit --help` lists its commands. The
+command returns right away and names the page file to use with `reply` and
+`end`. The page's worker keeps it up to date until the Lavish session ends, so
+there's no `--watch` option or background job to run. Generated pages are
+written under `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-kit/pages/`, and an
+HTML file opens where it is. `--out` overrides both and must be outside the
+reviewed repository.
 
-Inside herdr (`HC_TERMINAL_ID` set), lavish-kit delivers feedback to your
-session automatically, even when Artifacts registration fails. Do not poll
-those pages. Answer with `lavish-axi reply "<page>" --agent-reply "..."`.
-After a user save notice, reread the source file before making edits. If the
-session is gone, feedback stays in the page's outbox until the operator runs
+lavish-kit then prints whether feedback is delivered automatically or needs
+polling. Follow that line. With automatic delivery (inside herdr), feedback
+arrives as a message in your session. Don't poll the page, and answer with
+`lavish-axi reply "<page>" --agent-reply "..."`. After a notice that the user
+saved a file, reread it before editing. If delivery fails, the page says so
+and keeps the feedback until someone runs
 `lavish-kit retarget "<page>" [--terminal T]`.
 
-Follow lavish-kit's feedback line: a running delivering worker keeps automatic delivery on outside-herdr reopen; otherwise it says to poll.
-When it says to poll, run `lavish-axi poll "<page>"` with `shell_exec`,
+When the line says to poll, run `lavish-axi poll "<page>"` with `shell_exec`,
 `background: true`, a descriptive job name, and the longest supported explicit
 `timeout_seconds`. Its completion wakes this agent; don't block on it. If it
 times out, restart it. Don't pass Lavish's `--timeout-ms`. Quote artifact paths

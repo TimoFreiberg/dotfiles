@@ -114,14 +114,16 @@ Run the behavior tests with `node config/herdr-app/tests/tasks.cjs`, `node confi
 ## Lavish review pages
 
 [lavish-kit](https://github.com/TimoFreiberg/lavish-kit) is an unofficial add-on
-for [Lavish](https://github.com/kunchenguid/lavish-axi). It prepares HTML,
-Markdown, jj/git diffs, and editable task and PR draft pages. Inside herdr it
-registers pages under the task's Artifacts and delivers feedback to the opening
-agent session. Agents must not poll those pages; outside herdr they still poll.
-Every command returns after starting the page's worker, which watches changing
-sources until the Lavish session ends. No `--watch` or agent-managed background
-job is needed. See the project's README and `lavish-kit --help` for requirements,
-commands, protocols, recovery, and tests.
+for [Lavish](https://github.com/kunchenguid/lavish-axi). It opens HTML,
+Markdown, and jj/git diffs as review pages, and adds editable task and PR draft
+pages. Inside herdr it lists pages under the task's Artifacts (through the
+`task-tree` mod) and delivers feedback to the opening agent session, so agents
+don't poll those pages. A worker newly started outside herdr only watches, and
+the agent polls. Reopening outside herdr keeps a worker that's already
+delivering, so agents follow the feedback line lavish-kit prints. Every command
+returns once the page's worker has started, and the worker keeps the page up to
+date until the Lavish session ends. See the project's README and `lavish-kit --help` for
+requirements, commands, recovery, and tests.
 
 Clone the checkout expected by the chezmoi symlink (Node.js 22+, npm, and
 `lavish-axi` must be on `PATH`):
@@ -135,19 +137,22 @@ chezmoi apply "$HOME/.local/bin/lavish-kit" "$HOME/.config/lavish-kit/config.jso
 ```
 
 The managed `lavish-kit/config.json` sets `createPr` to
-`["fish", "-c", "jprc $argv", "--"]`. lavish-kit appends `-r REV --body-file FILE`;
-keep the deployed fish `jprc` function with `--body-file` support. Create PR saves
-the draft before opening that command in a new herdr terminal in the recorded
+`["fish", "-c", "jprc $argv", "--"]`. lavish-kit appends
+`-r REV --body-file FILE`, so the deployed fish `jprc` function
+(`config/fish/functions/jprc.fish`) must keep its `--body-file` option. Create
+PR saves the draft, then runs that command in a new herdr tab in the recorded
 repository. Generated pages default to
 `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-kit/pages/`.
 
-The `lavish-plan-view` hook in `config/polytoken/hooks.json` opens the session's
-newest `plan-NNN.md` on `handoff_plan`. It detaches command startup so first-run
-dependency installation cannot delay handoff. Its explicit `--out` keeps pages under
-`$HOME/.local/share/polytoken/artifacts/plan/<session>/index.html`. Command output
-and failures go to `${XDG_STATE_HOME:-$HOME/.local/state}/lavish-kit/plan-hook.log`.
-Run `just test-lavish-plan-view` for the hook test; it uses a stub command and
-opens no real Lavish session. The lavish-kit tests live in its checkout.
+The `lavish-plan-view` hook in `config/polytoken/hooks.json` runs before
+`handoff_plan` and opens the session's newest `plan-NNN.md`. It starts
+lavish-kit in the background, so a first run that installs dependencies doesn't
+hold up the handoff. It passes `--out` to keep the page at
+`$HOME/.local/share/polytoken/artifacts/plan/<session>/index.html`. Command
+output and failures go to
+`${XDG_STATE_HOME:-$HOME/.local/state}/lavish-kit/plan-hook.log`. Run
+`just test-lavish-plan-view` for the hook test. It uses a stub `lavish-kit`
+and opens no real Lavish session. lavish-kit's own tests live in its checkout.
 
 ## Herdr compatibility mode
 
