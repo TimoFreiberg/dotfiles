@@ -31,7 +31,8 @@ After a user save notice, reread the source file before making edits. If the
 session is gone, feedback stays in the page's outbox until the operator runs
 `lavish-kit retarget "<page>" [--terminal T]`.
 
-Outside herdr, run `lavish-axi poll "<page>"` with `shell_exec`,
+Follow lavish-kit's feedback line: a running delivering worker keeps automatic delivery on outside-herdr reopen; otherwise it says to poll.
+When it says to poll, run `lavish-axi poll "<page>"` with `shell_exec`,
 `background: true`, a descriptive job name, and the longest supported explicit
 `timeout_seconds`. Its completion wakes this agent; don't block on it. If it
 times out, restart it. Don't pass Lavish's `--timeout-ms`. Quote artifact paths
