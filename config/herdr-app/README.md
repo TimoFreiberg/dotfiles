@@ -141,7 +141,29 @@ Retarget updates the target and flushes the outbox, even if the previous target 
 
 Feedback is saved before sending. If the relay crashes after `hc` accepts a send but before clearing the outbox, the next open or retarget can deliver that batch again (at-least-once delivery). There is also a small unavoidable window between Lavish consuming poll feedback and the relay receiving/persisting it; Lavish's CLI does not offer a transactional acknowledgement. Failed page replies are logged, so an accepted delivery can leave the page showing Working until a later reply. Metadata or relay-startup errors fail lavish-view rather than silently dropping automatic delivery; the Lavish page may already be open. Startup errors point to the log. A missing relay sidecar makes retarget fail without starting anything. If poll output cannot be decoded, the relay retains/forwards that raw output for inspection and logs the error before retrying. If Lavish reports `NOT_FOUND` (no active session), the relay stops without reopening the page. Do not delete a lock whose PID is still running.
 
-The relay reserves `lavish-view-save` and `lavish-view-action` prompt tags. This version replies that they are unsupported and does not forward their payloads or change files/run actions. Future page kinds can install `dispatchPrompts` handlers returning a page reply and an optional short agent notice. Lavish 0.1.96 supports `window.lavish.queuePrompt(text, options)` followed by `window.lavish.sendQueuedPrompts()` for an immediate send. `options.data` is JSON appended to prompt text after `Context data:`, not a separate poll field.
+The relay handles `lavish-view-save` for task documents. `lavish-view-action` remains unsupported and never forwards its payload or runs an action. Other page kinds can reuse `dispatchPrompts` handlers returning a page reply and an optional short agent notice. Lavish 0.1.96 supports `window.lavish.queuePrompt(text, options)` followed by `window.lavish.sendQueuedPrompts()` for an immediate send. `options.data` is JSON appended to prompt text after `Context data:`, not a separate poll field.
+
+### Editable task documents
+
+```sh
+lavish-view task "$HOME/mydesk/tasks/example.md" --title "Task document"
+```
+
+Pass an existing UTF-8 `.md` or `.markdown` file. There is no default source path. The page registers under the task's Artifacts and offers Edit and Rendered views. The preview uses the existing markdown typography, links, tables, and task lists. Frontmatter is hidden there and raw HTML renders as it does in ordinary markdown pages. Native Lavish annotations work on the rendered document. Save and Cmd+S (Ctrl+S on Linux) queue and send immediately, including any other queued feedback.
+
+Keep the command running as a background job for the review: task pages always watch the source, without a `--watch` flag. Disk changes update a clean editor without reloading. With unsaved edits, the page keeps them and offers **Reload (discard mine)** or **Keep mine**. Keep mine bases the next Save on the new disk hash. Stop the watch job when done, and use `lavish-axi end <page>` to end the page and relay. Ending the page does not stop the watch job.
+
+The relay saves to the canonical `sourceFile` in `<page>.relay.json`, never to a browser-supplied path. Save sends full text and the original disk SHA-256. If the hash matches, the relay preserves permissions and atomically replaces the file, replies `Saved`, and sends the agent a short notice to read it. The full contents never enter the agent message or outbox. Notices batch with comments and use the existing outbox/retarget behavior. A changed disk hash replies `Conflict` without writing. Browser edits stay until the disk update arrives or you discard them. The relay rechecks after preparing the replacement, but an unrelated writer can race the final check and rename (POSIX has no conditional rename).
+
+The default page is `$HOME/.local/share/polytoken/artifacts/task/<name>-<path-hash>/index.html`. `--out FILE` overrides it and must be outside the source repository. Beside it are `assets/`, `latest.js`, and `data-<disk-SHA256>.js` (the latest two versions), plus the relay files above. These scripts contain source text; keep the directory local. A `.lavish-view-<UUID>.tmp` beside the source exists briefly during Save and is removed afterward.
+
+Missing/non-markdown input and an output inside the source repository fail the command. Malformed saves, missing sidecar source, deleted/unreadable source, or write failures reply `Save failed` and keep browser edits. Check the Lavish reply for the result: queuing is not a successful save. Watch read errors go to stderr and retry, keeping the last disk version. Browser data-load failures retry. Save without the Lavish API shows `Save unavailable`; a send error keeps edits. Leaving the page warns about unsaved edits. The textarea saves UTF-8 with LF newlines.
+
+Lavish 0.1.96 caps the complete JSON request at 2 MiB, including escaped save text, queued comments, and context. Oversized submissions fail in the Lavish conversation; browser edits stay unsaved. The relay's poll output buffer is 32 MiB. Browser/relay checks cover an 880,024-byte document with Unicode and delimiter-like text.
+
+The save prompt is `lavish-view-save/v1`, a newline, then JSON `{baseHash,text}`, tagged `lavish-view-save`. It does not use `options.data`, avoiding delimiter parsing inside arbitrary file contents. Outside herdr, the page watches and sends this envelope to the polling agent, but no relay saves automatically. The agent must check the disk hash, save conditionally, and reply on the page. Invalid save payloads must not become agent instructions.
+
+### Diff reviews
 
 Generated diff pages start with native Annotate off; you can still enable it from Lavish's toolbar. Diff line comments use the page's own controls and enter Lavish's feedback queue with the path, old/new side, revision, and quoted source. Lavish's native annotations see the diff renderer's shadow host rather than the clicked line. Click a code line or select a range in its line-number gutter to open a comment beside it.
 
@@ -153,7 +175,7 @@ The `lavish-plan-view` hook in `config/polytoken/hooks.json` runs on each Polyto
 chezmoi apply "$HOME/.local/bin/lavish-view" "$HOME/.config/polytoken/hooks.json"
 ```
 
-Run the tests with `just test-lavish-view`. It installs dev dependencies into `lib/lavish-view/node_modules` and runs the node, hook, and browser suites. The browser suite uses Playwright's cached Chromium and starts and ends its own Lavish session. To check real relay delivery inside herdr, run `node lib/lavish-view/test/relay-e2e.mjs`; it creates two scratch `cat` terminals, labels them with a fake session, queues/sends browser feedback, verifies delivery follows the label, ends its page, and kills/removes only its own terminals. It never sends to the caller's terminal.
+Run the tests with `just test-lavish-view`. It installs dev dependencies into `lib/lavish-view/node_modules` and runs the node, hook, and browser suites. The browser suite uses Playwright's cached Chromium and starts and ends its own Lavish session. To check real relay delivery inside herdr, run `node lib/lavish-view/test/relay-e2e.mjs`; it creates two scratch `cat` terminals, labels them with a fake session, queues/sends browser feedback, verifies delivery follows the label, saves from the task page and checks the exact file contents and short agent notice, ends its page, and kills/removes only its own terminals. Its watcher is stopped and its relay files and source live in a cleaned-up temporary directory. It also removes its own relay log. It never sends to the caller's terminal.
 
 ## Herdr compatibility mode
 
