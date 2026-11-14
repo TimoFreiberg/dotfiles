@@ -2,6 +2,7 @@ import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input, v_virtual_list, VirtualListScrollHandle, Scrollbar } from "gpui-base";
 import { spaces, panes, agents, terminals, machines, theme, run, openOverlay, closeOverlay, window, props, home, nextCommand, commands, exec, notify, writeTextFile, shared, setShared } from "herdr";
 import { artifactKey, addArtifact, artifactSpace, hasArtifactBackgroundWebView, openArtifact } from "./artifact-logic.js";
+import { taskAgents, taskAgentStatus } from "./agent-logic.js";
 
 function artifactAckPath(path) {
   // os.tmpdir() may use a per-user or configured root; only accept the CLI's
@@ -448,6 +449,7 @@ export default class TaskTree extends View {
   status(status, t) {
     if (status === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900);
     if (status === "blocked" || status === "done") return div().size(7).flex_none().rounded_full().bg(t[status]);
+    if (status === "idle") return div().size(7).flex_none().rounded_full().border(1).border_color(t.idle ?? t.dim);
     return div().w(7).flex_none();
   }
   row(group, space, all, t) {
@@ -459,7 +461,7 @@ export default class TaskTree extends View {
       .bg(space.active ? t.selected : t.chrome).hover(s => s.bg(t.hover)).cursor_pointer()
       .on_click(() => this.select(group, space))
       .on_mouse_down("right", (_e, cx) => { cx.stop_propagation(); openOverlay({ mod: "task-tree", kind: "popup", width: 200, height: 90, props: { taskMenu: true, task: space.id } }); })
-      .child(this.status(space.status, t))
+      .child(this.status(taskAgentStatus(taskAgents(space, all, panes(), spaces(), terminals())), t))
       .when(Boolean(agent), el => el.child(agent.program.tint ? svg(agent.program.icon).size(14).flex_none().text_color(t.muted) : image(agent.program.icon).size(14).flex_none()))
       .child(h_flex().flex_1().min_w(0).gap(6).items_center()
         .child(div().min_w(0).truncate().text_color(t.foreground).tooltip(title).child(title))

@@ -1,6 +1,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, panes, run, openOverlay, theme, window, shared, layout, settings, nextCommand } from "herdr";
+import { spaces, panes, agents, terminals, run, openOverlay, theme, window, shared, layout, settings, nextCommand } from "herdr";
+import { taskAgents, taskAgentStatus } from "./agent-logic.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -27,6 +28,11 @@ export default class Tabs extends View {
   openArtifacts() {
     const space = spaces().find(p => p.active);
     openOverlay({ mod: "task-artifacts", kind: "dialog", width: 600, height: 440, props: { space: space?.id } });
+  }
+
+  openAgents() {
+    const space = spaces().find(p => p.active);
+    if (space) openOverlay({ mod: "task-agents", kind: "dialog", width: 600, height: 440, props: { space: space.id } });
   }
 
   // The side panel is remembered per space: switching shows that space's choice
@@ -95,6 +101,7 @@ export default class Tabs extends View {
     const panel = find(root, "panel"), body = find(root, "panel-body");
     const enabled = (shared("workspace.panels") ?? ["files", "changes"]).filter(id => id !== "artifacts");
     const unseen = ((shared("task-artifacts") ?? {})[space?.id] ?? []).filter(item => !item.seen).length;
+    const agentStatus = taskAgentStatus(taskAgents(space, agents(), panes(), spaces(), terminals()));
     this.syncPanel(space, panel, body, enabled);
     const panelButton = (id, label, icon) => {
       const on = panel && !panel.hidden && body?.active === id;
@@ -116,6 +123,13 @@ export default class Tabs extends View {
       .child(button("tab-new", "+", () => openOverlay({ mod: "new-menu", kind: "popup", width: 250, height: 512 })))
       .when(enabled.includes("files"), el => el.child(panelButton("files", "Files", "mods/files/file.svg")))
       .when(enabled.includes("changes"), el => el.child(panelButton("changes", "Changes", "mods/changes/changes.svg")))
+      .child(h_flex().id("agents-open").h(26).px(8).gap(5).flex_none().items_center().rounded(6)
+        .text_size(12).bg(t.chrome).text_color(t.muted).hover(s => s.bg(t.hover)).on_mouse_down("left", stop)
+        .on_click(() => this.openAgents())
+        .when(agentStatus === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
+        .when(agentStatus === "blocked" || agentStatus === "done", el => el.child(div().size(7).rounded_full().bg(t[agentStatus])))
+        .when(agentStatus === "idle", el => el.child(div().size(7).rounded_full().border(1).border_color(t.idle ?? t.dim)))
+        .child("Agents"))
       .child(h_flex().id("artifacts-open").h(26).px(8).gap(5).flex_none().items_center().rounded(6)
         .text_size(12).bg(t.chrome).text_color(t.muted).hover(s => s.bg(t.hover)).on_mouse_down("left", stop)
         .on_click(() => this.openArtifacts())

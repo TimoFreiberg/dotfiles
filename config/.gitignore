@@ -48,11 +48,13 @@ herdr-app/mods/workspace-new/*
 !herdr-app/mods/task-tree
 !herdr-app/mods/task-doc
 !herdr-app/mods/task-artifacts
+!herdr-app/mods/task-agents
 !herdr-app/mods/task-tabs
 herdr-app/mods/task-tree/*
 !herdr-app/mods/task-tree/main.js
 !herdr-app/mods/task-tree/mod.json
 !herdr-app/mods/task-tree/artifact-logic.js
+!herdr-app/mods/task-tree/agent-logic.js
 !herdr-app/mods/task-tree/doc-logic.js
 herdr-app/mods/task-doc/*
 !herdr-app/mods/task-doc/main.js
@@ -61,6 +63,9 @@ herdr-app/mods/task-doc/*
 herdr-app/mods/task-artifacts/*
 !herdr-app/mods/task-artifacts/main.js
 !herdr-app/mods/task-artifacts/mod.json
+herdr-app/mods/task-agents/*
+!herdr-app/mods/task-agents/main.js
+!herdr-app/mods/task-agents/mod.json
 herdr-app/mods/task-tabs/*
 !herdr-app/mods/task-tabs/main.js
 !herdr-app/mods/task-tabs/mod.json
@@ -68,6 +73,7 @@ herdr-app/mods/task-tabs/*
 herdr-app/tests/*
 !herdr-app/tests/workspace-ui.cjs
 !herdr-app/tests/tasks.cjs
+!herdr-app/tests/task-agents.cjs
 !herdr-app/tests/project-picker.cjs
 !herdr-app/keys.json
 !herdr-app/programs.json

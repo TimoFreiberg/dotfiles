@@ -71,7 +71,7 @@ This layout doesn't pick up new Herdr features by itself. After a Herdr update, 
 
 ## Workspace tasks
 
-The `workspace-tasks` layout groups spaces as tasks under their project, with tabs across the top. Three mods make it up: `task-tree` draws the sidebar and the project picker, `task-artifacts` lists a task's HTML pages, and `task-tabs` is the tab bar. Files and Changes remain side panels.
+The `workspace-tasks` layout groups spaces as tasks under their project, with tabs across the top. `task-tree` draws the sidebar and project picker, `task-artifacts` lists HTML pages, `task-agents` lists hidden agents, and `task-tabs` is the tab bar. Files and Changes remain side panels.
 
 ### Sidebar
 
@@ -79,13 +79,19 @@ Projects sort by machine name and full path, with local projects first. A projec
 
 A task row shows a small, dim count right after its title when more than one coding agent session is open in that task. The count covers idle, working, and blocked agents across the task's tabs, leaves out ordinary terminal panes, and stays visible when a long title is truncated. Project rows have no count.
 
+### Agents
+
+The Agents button opens the current task's live coding agents that don't have a pane. Search by name, address, or status; use Up/Down or Tab/Shift-Tab to select, Enter to open, and Escape to close. Opening keeps the existing terminal in a new tab. If it acquired a pane in the meantime, Herdr focuses that pane instead. Keep runs in the background; Herdr reports failures in a toast. The task must still be selected when you open the agent.
+
+The task icon and Agents button use the same priority: blocked, done, working, idle, then no status. This includes hidden agents found through a pane-backed ancestor or a task label on the same machine. Herdr must recognize the program as an agent; unrecognized processes, disconnected or completed terminals, and children without a traceable task are not listed. As in Herdr's agent tree, a hidden child's raw error means blocked and its raw done means idle. For pane-backed agents, done means an unseen finished turn, not that the process has exited; viewing it changes done to idle.
+
 ### Artifacts
 
 `herdr-artifact add /path/to/page.html [--title "Title"]` registers an HTML page with the task that owns the calling terminal; lavish-kit (below) registers its pages through the same `task-tree` command. The page is stored as unread and Herdr shows a notification. On macOS builds whose `web.open` command takes a `background` argument, registration also adds a web-view tab to the task without selecting it or changing focus. The tab loads only when you select it, so the artifact stays unread until then. Other builds only store and notify. Automatic opening respects Lavish reviews the user has ended, and it reports errors instead of falling back to an external browser.
 
 Cmd-Shift-A, or the Artifacts button with its unread count in the tab bar, opens a modal listing the task's pages, newest first. The search field fuzzy-matches titles and paths. Enter opens the first match unless you've picked another with Up/Down or Tab/Shift-Tab; the selection wraps and the search field keeps focus. Opening a page runs it through Lavish, marks it read, and closes the modal. On macOS builds with `web.open` the page opens in a web-view tab labeled with its title; other builds use an external browser. If opening fails, the error stays in the modal so you can retry. Escape or × closes it. The shortcut works while the sidebar is hidden.
 
-`task-tabs` is a copy of Herdr's tabs mod with the Artifacts button added. After a Herdr update, compare it with the shipped tabs mod and reapply the button when re-syncing.
+`task-tabs` is a copy of Herdr's tabs mod with the Agents and Artifacts buttons added. After a Herdr update, compare it with the shipped tabs mod and reapply the buttons when re-syncing.
 
 ### Keys and projects
 
@@ -119,9 +125,10 @@ chmod +x "$HOME/dotfiles/bin/herdr-artifact"
 chezmoi apply "$HOME/.config/herdr-app/keys.json" \
   "$HOME/.config/herdr-app/layouts/workspace-tasks.json" \
   "$HOME/.config/herdr-app/mods/task-tree/main.js" "$HOME/.config/herdr-app/mods/task-tree/mod.json" \
-  "$HOME/.config/herdr-app/mods/task-tree/artifact-logic.js" \
+  "$HOME/.config/herdr-app/mods/task-tree/artifact-logic.js" "$HOME/.config/herdr-app/mods/task-tree/agent-logic.js" \
   "$HOME/.config/herdr-app/mods/task-artifacts/main.js" "$HOME/.config/herdr-app/mods/task-artifacts/mod.json" "$HOME/.config/herdr-app/mods/task-artifacts/artifact-logic.js" \
-  "$HOME/.config/herdr-app/mods/task-tabs/main.js" "$HOME/.config/herdr-app/mods/task-tabs/mod.json" \
+  "$HOME/.config/herdr-app/mods/task-agents/main.js" "$HOME/.config/herdr-app/mods/task-agents/mod.json" "$HOME/.config/herdr-app/mods/task-agents/agent-logic.js" \
+  "$HOME/.config/herdr-app/mods/task-tabs/main.js" "$HOME/.config/herdr-app/mods/task-tabs/mod.json" "$HOME/.config/herdr-app/mods/task-tabs/agent-logic.js" \
   "$HOME/.local/bin/herdr-artifact"
 ```
 
@@ -130,10 +137,10 @@ Switch with `herdr-app do layout.switch '{"name":"workspace-tasks"}'`; return to
 Run each behavior test file separately; `node` runs only the first file it's given:
 
 ```sh
-for t in tasks task-groups project-picker workspace-ui; do node "config/herdr-app/tests/$t.cjs"; done
+for t in tasks task-groups project-picker workspace-ui task-agents; do node "config/herdr-app/tests/$t.cjs"; done
 ```
 
-With Herdr installed, `tasks.cjs`, `task-groups.cjs`, and `project-picker.cjs` also accept `--native`. That checks native initialization and rendering of saved groups, the removal popup, task rows with short and long titles and several agents, the project picker, and the populated Artifacts modal. These checks don't simulate keyboard dispatch or verify focus traversal.
+With Herdr installed, `tasks.cjs`, `task-groups.cjs`, `project-picker.cjs`, and `task-agents.cjs` also accept `--native`. That checks native initialization and rendering of saved groups, the removal popup, task rows with short and long titles and several agents, the project picker, and the populated Artifacts modal. These checks don't simulate keyboard dispatch or verify focus traversal.
 
 ## Lavish review pages
 

@@ -26,6 +26,8 @@ const source = fs.readFileSync('config/herdr-app/mods/task-tree/main.js', 'utf8'
     assert.equal(noTerminal.status, 0); assert.match(noTerminal.stdout, /not registered/);
   } finally { fs.rmSync(dir, {recursive:true, force:true}); }
 }
+const agentLogic = fs.readFileSync('config/herdr-app/mods/task-tree/agent-logic.js', 'utf8').replace(/^export /gm, '');
+const {taskAgents, taskAgentStatus} = vm.runInNewContext(agentLogic + '\n({taskAgents, taskAgentStatus})');
 const artifactLogic = fs.readFileSync('config/herdr-app/mods/task-tree/artifact-logic.js', 'utf8').replace(/^export /gm, '');
 const { artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, hasArtifactWebView, hasArtifactBackgroundWebView, openArtifact, age } = vm.runInNewContext(artifactLogic + '\n({artifactKey, addArtifact, seeArtifact, removeArtifact, artifactSpace, lavishUrl, openCommand, hasArtifactWebView, hasArtifactBackgroundWebView, openArtifact, age})');
 let artifacts = addArtifact([], '/one.html', 'One', 100);
@@ -60,7 +62,7 @@ const sandbox = {
   spaces: () => visibleSpaces, run: (command, args) => actions.push({command, args}),
   exec: (command,args,options) => { calls.push({command,args,options}); return new Promise(resolve => { finishLookup = resolve; }); },
   notify: notice => notices.push(notice), console: {log: text => logs.push(text)},
-  panes: () => [], terminals: () => [], shared: () => ({}), artifactKey, addArtifact, artifactSpace,
+  panes: () => [], terminals: () => [], shared: () => ({}), artifactKey, addArtifact, artifactSpace, taskAgents, taskAgentStatus,
   props: () => currentProps, closeOverlay: id => closedOverlays.push(id), setShared: (key, value) => sharedUpdates.push({key, value}),
 };
 let currentProps = {}, closedOverlays = [], sharedUpdates = [];
