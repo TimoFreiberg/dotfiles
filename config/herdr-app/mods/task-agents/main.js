@@ -1,6 +1,6 @@
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input, v_virtual_list, VirtualListScrollHandle, Scrollbar } from "gpui-base";
-import { spaces, panes, agents, terminals, theme, run, props, closeOverlay } from "herdr";
+import { spaces, panes, agents, terminals, theme, run, props, closeOverlay, shared } from "herdr";
 import { taskAgents } from "./agent-logic.js";
 
 const nameOf = a => a.name || a.template || a.program?.name || a.address;
@@ -25,7 +25,7 @@ export default class TaskAgents extends View {
   close() { this.closed = true; this.filter?.release(); }
   items() {
     const list = spaces(), space = list.find(s => s.id === this.space), query = this.filter.value().trim().toLowerCase();
-    return taskAgents(space, agents(), panes(), list, terminals()).filter(a => a.hidden &&
+    return taskAgents(space, agents(), panes(), list, terminals(), shared("task-agent-programs") ?? {}, shared("task-agent-observation") ?? {}).filter(a => a.hidden &&
       `${nameOf(a)} ${a.address} ${a.status ?? ""}`.toLowerCase().includes(query));
   }
   selection(list) { return list.find(a => a.address === this.selected) ?? list[0]; }
@@ -46,9 +46,9 @@ export default class TaskAgents extends View {
     const pane = allPanes.find(p => p.terminal === address);
     if (pane) {
       if (!space.tabs.some(t => t.id === pane.tab)) { this.error = "Agent moved to another task"; cx.notify(); return; }
-      run("pane.focus", {terminal:address});
+      run("pane.focus", {pane:pane.pane});
     } else {
-      const item = taskAgents(space, agents(), allPanes, list, terminals()).find(a => a.hidden && a.address === address);
+      const item = taskAgents(space, agents(), allPanes, list, terminals(), shared("task-agent-programs") ?? {}, shared("task-agent-observation") ?? {}).find(a => a.hidden && a.address === address);
       if (!item) { this.error = "Agent is no longer available in this task"; cx.notify(); return; }
       run("terminal.keep", {terminal:address, place:"tab"});
     }

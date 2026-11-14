@@ -8,7 +8,7 @@ const modPath = 'config/herdr-app/mods/task-tree';
 const original = fs.readFileSync(`${modPath}/main.js`, 'utf8');
 const source = original.replace(/^import .*;\n/gm, '').replace('export default class', 'class');
 const agentLogic = fs.readFileSync(`${modPath}/agent-logic.js`, 'utf8').replace(/^export /gm, '');
-const {taskAgents, taskAgentStatus} = vm.runInNewContext(agentLogic + '\n({taskAgents, taskAgentStatus})');
+const {taskAgents, taskAgentStatus, observeTaskAgents} = vm.runInNewContext(agentLogic + '\n({taskAgents, taskAgentStatus, observeTaskAgents})');
 const plain = value => JSON.parse(JSON.stringify(value));
 
 function harness(initial = {}) {
@@ -35,7 +35,7 @@ function harness(initial = {}) {
     View:class {}, localStorage:{getItem:key => currentStore[key] ?? null, setItem:(key, value) => { currentStore[key] = value; }},
     spaces:() => state.spaces, machines:() => state.machines, props:() => state.props,
     shared:key => state.shared[key], setShared:(key, value) => { state.shared[key] = value; state.updates++; },
-    home:() => '/home/local', agents:() => state.agents ?? [], panes:() => state.panes ?? [], terminals:() => state.terminals ?? [], taskAgents, taskAgentStatus, window:() => ({platform:'linux'}),
+    home:() => '/home/local', agents:() => state.agents ?? [], panes:() => state.panes ?? [], terminals:() => state.terminals ?? [], taskAgents, taskAgentStatus, observeTaskAgents, window:() => ({platform:'linux'}),
     theme:() => ({selected:'selected', dim:'dim', foreground:'foreground'}),
     div:element, h_flex:element, v_flex:element, image:element, svg:element,
     run:(command, args) => state.actions.push({command, args:plain(args)}),

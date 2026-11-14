@@ -101,7 +101,7 @@ export default class Tabs extends View {
     const panel = find(root, "panel"), body = find(root, "panel-body");
     const enabled = (shared("workspace.panels") ?? ["files", "changes"]).filter(id => id !== "artifacts");
     const unseen = ((shared("task-artifacts") ?? {})[space?.id] ?? []).filter(item => !item.seen).length;
-    const agentStatus = taskAgentStatus(taskAgents(space, agents(), panes(), spaces(), terminals()));
+    const agentStatus = taskAgentStatus(taskAgents(space, agents(), panes(), spaces(), terminals(), shared("task-agent-programs") ?? {}, shared("task-agent-observation") ?? {}));
     this.syncPanel(space, panel, body, enabled);
     const panelButton = (id, label, icon) => {
       const on = panel && !panel.hidden && body?.active === id;

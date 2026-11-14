@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const base = 'config/herdr-app/mods/';
 const logic = fs.readFileSync(base + 'task-tree/agent-logic.js', 'utf8').replace(/^export /gm, '');
-const {taskAgents, taskAgentStatus} = vm.runInNewContext(logic + '\n({taskAgents, taskAgentStatus})');
+const {taskAgents, taskAgentStatus, observeTaskAgents} = vm.runInNewContext(logic + '\n({taskAgents, taskAgentStatus, observeTaskAgents})');
 const local = {id:'s', machine:null, active:true, tabs:[{id:'t'}]};
 const remote = {id:'box/s', machine:'box', active:false, tabs:[{id:'box/t'}]};
 let spaces = [local, remote], panes = [{tab:'t',terminal:'root'}, {tab:'box/t',terminal:'box/root'}];
@@ -24,6 +24,47 @@ assert.equal(get(local).find(a => a.address === 'done').status, 'idle');
 for (const [statuses, expected] of [[[],null],[['idle'], 'idle'],[['working','idle'],'working'],[['working','done'],'done'],[['done','blocked'],'blocked']])
   assert.equal(taskAgentStatus(statuses.map(status => ({status}))), expected);
 assert.equal(taskAgentStatus(get(local)), 'blocked');
+const shapes = [
+  {address:'root',state:'live'},
+  {address:'claude-child',parent:'root',state:'live',status:null,report:null,program:{key:'claude',name:'Claude',agent:false,shell:false}},
+  {address:'report-child',parent:'root',state:'live',status:'blocked',report:{state:'blocked'},program:{key:'program',agent:false,shell:false}},
+  {address:'string-report',parent:'root',state:'live',status:'working',report:'working',program:{key:'program',agent:false,shell:false}},
+  {address:'shell-child',parent:'root',state:'live',status:'working',report:{state:'working'},program:{key:'shell',agent:false,shell:true}},
+  {address:'other-child',parent:'root',state:'live',status:null,report:null,program:{key:'program',agent:false,shell:false}},
+];
+const classified = taskAgents(local, [], panes, spaces, shapes, {'':['claude']});
+assert.equal(classified.map(a => a.address).join(','), 'claude-child,report-child,string-report');
+assert.equal(taskAgentStatus(classified), 'blocked');
+const root = agent('root',null,'idle'), work = agent('work','root','working');
+let snapshots = [root,work], state = observeTaskAgents(spaces, panes, snapshots);
+assert.equal(state.work.space,'s'); assert.equal(state.work.unseen,false);
+snapshots = [root,{...work,status:'idle'}]; state = observeTaskAgents(spaces, panes, snapshots,state);
+assert.equal(state.work.unseen,true);
+assert.equal(taskAgents(local, [], panes, spaces, snapshots, {}, state)[0].status,'done');
+let doneState = observeTaskAgents(spaces, panes, [root,{...work,status:'done'}]);
+assert.equal(doneState.work.unseen,true, 'first observed raw done is unseen');
+const workState = observeTaskAgents(spaces, panes, [root,work]);
+doneState = observeTaskAgents(spaces, panes, [root,{...work,status:'done'}],workState);
+assert.equal(doneState.work.unseen,true, 'working to done is unseen');
+const seenTurn = observeTaskAgents(spaces, panes, [root,{...work,status:'done',turn:4,labels:{'herdr.seen':'4'}}]);
+assert.equal(seenTurn.work.unseen,false,'core seen turn takes precedence');
+state = observeTaskAgents(spaces,[...panes,{pane:'p',tab:'t',terminal:'work',focused:true}],snapshots,state,true);
+assert.equal(state.work.unseen,false,'viewing clears unseen');
+state = observeTaskAgents(spaces,panes,[snapshots[1]],state);
+assert.equal(state.work.space,'s','live child retains observed task after parent exits');
+assert.equal(taskAgents(local, [], panes, spaces, [snapshots[1]], {}, state)[0].address,'work');
+const other = {id:'other',machine:null,tabs:[{id:'other-tab'}]};
+state = observeTaskAgents([...spaces,other],[{tab:'other-tab',terminal:'work'}],[snapshots[1]],state);
+assert.equal(state.work.space,'other','pane move replaces cached owner');
+state = observeTaskAgents(spaces,[],[snapshots[1]],state);
+assert.equal(state.work.space,null,'deleted task cannot retain its association');
+const parked = agent('parked',null,'idle',{labels:{'herdr.space':'s'}});
+state = observeTaskAgents(spaces,[],[parked]);
+state = observeTaskAgents(spaces,[],[{...parked,labels:{'herdr.space':''}}],state);
+assert.equal(state.parked.space,'s','parking clears the label but retains observed owner');
+state = observeTaskAgents(spaces,[],[{...parked,parent:'unknown',labels:{}}],state);
+assert.equal(state.parked.space,null,'a changed parent invalidates an unverified owner');
+assert.equal(observeTaskAgents(spaces,[],[agent('unknown','missing','idle')]).unknown.space,null);
 
 function el(kind = 'div') {
   const o = {kind,nodes:[],events:{},calls:[]};
@@ -39,15 +80,17 @@ function el(kind = 'div') {
 }
 function find(e,id) { if (!e || typeof e !== 'object') return null; if (e.id === id) return e; for (const n of e.nodes ?? []) {const r=find(n,id);if(r)return r;} return null; }
 const actions = [], overlays = [], events = {}, binds = [], scrolled = [];
-let props = {space:'s',overlay:'overlay'}, value = '';
+let props = {space:'s',overlay:'overlay'}, value = '', sharedData = {};
 const filter = {on:(name,fn) => {events[name]=fn;}, value:()=>value, focus(){}, release(){this.released=true;}};
 const cx = {focus_handle:()=>({}), bind_keys:x=>binds.push(...x), notify(){}, stop_propagation(){}, spawn(){}};
 const sandbox = {View:class {}, div:()=>el(), svg:()=>el('svg'), image:()=>el('image'), h_flex:()=>el(), v_flex:()=>el(),
   InputState:{new:()=>filter}, Input:{new:()=>el()}, VirtualListScrollHandle:{new:()=>({scroll_to_item:i=>scrolled.push(i)})},
   Scrollbar:{vertical:()=>el()}, v_virtual_list:(_id,_n,_h,_key,render)=>{const x=el();x.id=_id;x.children(render({start:0,end:_n}));return x;},
-  spaces:()=>spaces, panes:()=>panes, agents:()=>listed, terminals:()=>terminals, taskAgents, taskAgentStatus,
+  spaces:()=>spaces, panes:()=>panes, agents:()=>listed, terminals:()=>terminals, taskAgents, taskAgentStatus, observeTaskAgents,
   props:()=>props, theme:()=>({blocked:'blocked',done:'done',working:'working',dim:'dim'}), run:(...args)=>actions.push(args), closeOverlay:id=>actions.push(['close',id]),
-  openOverlay:x=>overlays.push(x), shared:()=>null, layout:()=>({}), window:()=>({}), settings:()=>({zoom:1}), localStorage:{getItem:()=>null,setItem(){}},
+  openOverlay:x=>overlays.push(x), shared:key=>sharedData[key], setShared:(key,value)=>{sharedData[key]=value;},
+  machines:()=>[{name:null,layout:'ready'}], knownAgents:async()=>[{key:'claude'}],
+  layout:()=>({}), window:()=>({active:true}), settings:()=>({zoom:1}), localStorage:{getItem:()=>null,setItem(){}},
 };
 function load(file, name) {return vm.runInNewContext(fs.readFileSync(base+file+'/main.js','utf8').replace(/^import .*;\n/gm,'').replace('export default class','class')+`\n${name}`,sandbox);}
 const Picker = load('task-agents','TaskAgents');
@@ -58,8 +101,10 @@ value='grand'; events.change(null,cx); assert.equal(picker.items()[0].address,'g
 assert.equal(JSON.stringify(actions.splice(0)),JSON.stringify([['terminal.keep',{terminal:'grand',place:'tab'}],['close','overlay']]));
 value=''; picker = new Picker(); picker.init({},cx); picker.action('task-agent-next',cx); assert.equal(picker.selected,'grand'); picker.action('task-agent-prev',cx); assert.equal(picker.selected,'child');
 find(picker.render(cx),'agent-choices').events.on_item_click('child',cx); assert.equal(actions[0][0],'terminal.keep'); actions.length=0;
-picker = new Picker(); picker.init({},cx); panes.push({tab:'t',terminal:'child'}); picker.open('child',cx);
-assert.equal(JSON.stringify(actions.splice(0)),JSON.stringify([['pane.focus',{terminal:'child'}],['close','overlay']])); panes.pop();
+// A visible layout terminal block may compete with the model pane for terminal-based focus.
+sandbox.layout = () => ({id:'root',children:[{id:'visible-block',type:'terminal',terminal:'child'}]});
+picker = new Picker(); picker.init({},cx); panes.push({pane:'model-pane',tab:'t',terminal:'child'}); picker.open('child',cx);
+assert.equal(JSON.stringify(actions.splice(0)),JSON.stringify([['pane.focus',{pane:'model-pane'}],['close','overlay']])); panes.pop();
 picker = new Picker(); picker.init({},cx); local.active=false; picker.open('child',cx); assert.equal(actions.length,0); assert.match(picker.error,/Select/); local.active=true;
 picker = new Picker(); picker.init({},cx); picker.action('task-agent-close',cx); picker.open('child',cx); assert.equal(actions.length,1); actions.length=0;
 picker = new Picker(); picker.init({},cx); panes.push({tab:'box/t',terminal:'child'}); picker.open('child',cx); assert.equal(actions.length,0); assert.match(picker.error,/another task/); panes.pop();
@@ -107,4 +152,29 @@ if (process.argv.includes('--native')) {
     } finally {fs.rmSync(dir,{recursive:true,force:true});}
   }
 }
-console.log('task agents tests passed');
+async function verifySharedUpdates() {
+  const pending = [], owner = new Tree(), updates = {spawn:fn=>pending.push(fn),notify(){}};
+  spaces = [local]; panes = [{tab:'t',terminal:'root'}]; terminals = shapes.slice(0,2); listed = [];
+  owner.loadAgentPrograms(terminals,updates); assert.equal(pending.length,1);
+  await pending.shift()(updates);
+  assert.equal(sharedData['task-agent-programs'][''][0],'claude');
+  const retry = new Tree(); sandbox.knownAgents = async () => {throw new Error('offline');};
+  retry.loadAgentPrograms(terminals,updates); await pending.shift()(updates);
+  retry.loadAgentPrograms(terminals,updates); assert.equal(pending.length,0,'failed lookup waits before retrying');
+  retry.agentProgramRetry[''] = 0; sandbox.knownAgents = async () => [{key:'claude'}];
+  retry.loadAgentPrograms(terminals,updates); assert.equal(pending.length,1); await pending.shift()(updates);
+  picker = new Picker(); picker.init({},cx); assert.equal(picker.items()[0].address,'claude-child');
+  owner.syncAgentObservation(updates); assert.equal(pending.length,1); await pending.shift()(updates);
+  assert.equal(sharedData['task-agent-observation']['claude-child'].space,'s');
+  owner.syncAgentObservation(updates); assert.equal(pending.length,0,'unchanged snapshots do not republish');
+  terminals[1] = {...terminals[1], status:'working'}; owner.syncAgentObservation(updates);
+  terminals[1] = {...terminals[1], status:'idle'}; owner.syncAgentObservation(updates);
+  assert.equal(pending.length,1,'pending writes coalesce while retaining both transitions');
+  await pending.shift()(updates);
+  assert.equal(sharedData['task-agent-observation']['claude-child'].unseen,true);
+  assert.equal(taskAgentStatus(picker.items()),'done');
+  sidebar.row({},local,[],{}); assert.equal(rowStatus,'done');
+  const button = find(tabs.render(),'agents-open');
+  assert.ok(button.nodes.some(n=>n?.calls?.some(c=>c[0]==='bg' && c[1]==='done')));
+}
+verifySharedUpdates().then(()=>console.log('task agents tests passed')).catch(error=>{console.error(error);process.exitCode=1;});
