@@ -16,7 +16,6 @@ export default class Tabs extends View {
   init(_props, cx) {
     this.pressed = null;
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
-    cx.timer?.every(60000, cx => cx.notify());
     cx.spawn(async cx => {
       for (;;) {
         const command = await nextCommand();
@@ -64,6 +63,7 @@ export default class Tabs extends View {
           console.log(`Could not load agent programs: ${error}`);
         } finally {
           this.agentProgramRequests.delete(name); this.agentProgramRetry[name] = Date.now() + 60000;
+          if (!this.closed) cx.timer.after(60000, cx => cx.notify());
         }
         cx.notify();
       });

@@ -178,13 +178,13 @@ if (process.argv.includes('--native')) {
 }
 async function verifySharedUpdates() {
   const pending = []; let tick;
-  const updates = {spawn:fn=>pending.push(fn),notify(){},timer:{every:(ms,fn)=>{assert.equal(ms,60000); tick=fn;}}};
+  const updates = {spawn:fn=>pending.push(fn),notify(){},timer:{after:(ms,fn)=>{assert.equal(ms,60000); tick=fn;}}};
   const owner = new Tabs(); sharedData = {}; sandbox.layout = () => ({id:'root',children:[{id:'sidebar',hidden:true}]});
   spaces = [local]; panes = [{tab:'t',terminal:'root'}]; terminals = shapes.slice(0,2); listed = [];
   owner.init({},updates); pending.shift(); // command listener is not run by this harness
-  assert.ok(tick); owner.render(updates);
+  owner.render(updates);
   while (pending.length) await pending.shift()(updates);
-  assert.equal(sharedData['task-agent-programs'][''][0],'claude');
+  assert.ok(tick); assert.equal(sharedData['task-agent-programs'][''][0],'claude');
   assert.equal(sharedData['task-agent-observation']['claude-child'].space,'s');
   picker = new Picker(); picker.init({},cx); assert.equal(picker.items()[0].address,'claude-child');
   owner.render(updates); assert.equal(pending.length,0,'unchanged snapshots do not republish');
@@ -206,9 +206,30 @@ async function verifySharedUpdates() {
   while (pending.length) await pending.shift()(updates);
   assert.equal(picker.items().some(a=>a.address==='new-child'),true,'registered program is refreshed after the first lookup');
   const retry = new Tabs(); sandbox.knownAgents = async () => {throw new Error('offline');};
-  retry.loadAgentPrograms(terminals,updates); await pending.shift()(updates);
+  tick = null; retry.loadAgentPrograms(terminals,updates); await pending.shift()(updates);
+  assert.ok(tick,'a failed lookup schedules a retry wake');
   retry.loadAgentPrograms(terminals,updates); assert.equal(pending.length,0,'failed lookup waits before retrying');
   now += 60001; sandbox.knownAgents = async () => [{key:'claude'}];
   retry.loadAgentPrograms(terminals,updates); assert.equal(pending.length,1); await pending.shift()(updates);
 }
-verifySharedUpdates().then(()=>console.log('task agents tests passed')).catch(error=>{console.error(error);process.exitCode=1;});
+async function verifyDelayedLookupWake() {
+  const pending = [], wakes = []; let finish, calls = 0, invalidated = false;
+  const updates = {spawn:fn=>pending.push(fn), notify(){invalidated=true;}, timer:{
+    after:(ms,fn)=>wakes.push({at:now+ms,fn}),
+  }};
+  const owner = new Tabs(); owner.panels = {}; sharedData = {}; now = 1000000;
+  spaces = [local]; panes = [{tab:'t',terminal:'root'}]; terminals = shapes.slice(0,2); listed = [];
+  sandbox.knownAgents = () => { calls++; return calls === 1 ? new Promise(resolve=>{finish=resolve;}) : Promise.resolve([{key:'claude'}]); };
+  owner.loadAgentPrograms(terminals,updates); const lookup = pending.shift()(updates);
+  now += 2000; finish([{key:'claude'}]); await lookup;
+  const completed = now;
+  assert.ok(wakes.some(wake=>wake.at === completed+60000),'lookup completion schedules a wake at its deadline');
+  // The completion itself invalidates the view; no other events occur before the deadline.
+  invalidated=false; owner.render(updates); while (pending.length) await pending.shift()(updates);
+  invalidated=false;
+  now = completed+59999; assert.equal(wakes.filter(wake=>wake.at<=now).length,0); assert.equal(calls,1);
+  now++; wakes.shift().fn(updates); assert.equal(invalidated,true,'the deadline invalidates the view');
+  invalidated=false; owner.render(updates); while (pending.length) await pending.shift()(updates);
+  assert.equal(calls,2,'the quiet app refreshes at the deadline');
+}
+verifySharedUpdates().then(verifyDelayedLookupWake).then(()=>console.log('task agents tests passed')).catch(error=>{console.error(error);process.exitCode=1;});
