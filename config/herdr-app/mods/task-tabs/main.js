@@ -1,7 +1,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
-import { spaces, panes, agents, terminals, run, openOverlay, theme, window, shared, layout, settings, nextCommand } from "herdr";
-import { taskAgents, taskAgentStatus } from "./agent-logic.js";
+import { spaces, panes, agents, terminals, machines, knownAgents, focused, run, openOverlay, theme, window, shared, setShared, layout, settings, nextCommand } from "herdr";
+import { taskAgents, taskAgentStatus, observeTaskAgents } from "./agent-logic.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -16,6 +16,7 @@ export default class Tabs extends View {
   init(_props, cx) {
     this.pressed = null;
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
+    cx.timer?.every(60000, cx => cx.notify());
     cx.spawn(async cx => {
       for (;;) {
         const command = await nextCommand();
@@ -23,6 +24,50 @@ export default class Tabs extends View {
         cx.notify();
       }
     });
+  }
+
+  close() { this.closed = true; }
+
+  syncAgentObservation(cx) {
+    this.agentObservation ??= shared("task-agent-observation") ?? {};
+    const list = spaces(), live = terminals();
+    // The initial snapshots can arrive separately; don't erase saved observations while loading.
+    if (!list.length || !live.length) return;
+    const next = observeTaskAgents(list, panes(), live, this.agentObservation, Boolean(window()?.active), focused());
+    if (JSON.stringify(next) === JSON.stringify(this.agentObservation)) return;
+    this.agentObservation = next;
+    if (this.agentObservationPending) return;
+    this.agentObservationPending = true;
+    cx.spawn(async cx => {
+      this.agentObservationPending = false;
+      if (this.closed) return;
+      if (JSON.stringify(shared("task-agent-observation") ?? {}) !== JSON.stringify(this.agentObservation))
+        setShared("task-agent-observation", this.agentObservation);
+      cx.notify();
+    });
+  }
+  loadAgentPrograms(all, cx) {
+    this.agentProgramRequests ??= new Set(); this.agentProgramRetry ??= {};
+    const candidates = new Set(all.filter(t => t.state === "live" && t.program && !t.program.agent && !t.program.shell)
+      .map(t => t.address.includes("/") ? t.address.split("/")[0] : ""));
+    for (const machine of machines()) {
+      const name = machine.name ?? "";
+      if (machine.layout !== "ready" || !candidates.has(name) || this.agentProgramRequests.has(name) || Date.now() < (this.agentProgramRetry[name] ?? 0)) continue;
+      this.agentProgramRequests.add(name);
+      cx.spawn(async cx => {
+        try {
+          const keys = (await knownAgents({on:machine.name})).map(agent => agent.key).filter(Boolean);
+          if (this.closed) return;
+          const old = shared("task-agent-programs") ?? {};
+          if (JSON.stringify(old[name]) !== JSON.stringify(keys)) setShared("task-agent-programs", {...old, [name]:keys});
+        } catch (error) {
+          console.log(`Could not load agent programs: ${error}`);
+        } finally {
+          this.agentProgramRequests.delete(name); this.agentProgramRetry[name] = Date.now() + 60000;
+        }
+        cx.notify();
+      });
+    }
   }
 
   openArtifacts() {
@@ -67,7 +112,9 @@ export default class Tabs extends View {
     localStorage.setItem("panels", JSON.stringify(this.panels));
   }
 
-  render() {
+  render(cx) {
+    this.loadAgentPrograms(terminals(), cx);
+    this.syncAgentObservation(cx);
     const t = theme();
     const space = spaces().find(p => p.active);
     const shown = space?.tabs ?? [];

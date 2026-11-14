@@ -48,7 +48,24 @@ doneState = observeTaskAgents(spaces, panes, [root,{...work,status:'done'}],work
 assert.equal(doneState.work.unseen,true, 'working to done is unseen');
 const seenTurn = observeTaskAgents(spaces, panes, [root,{...work,status:'done',turn:4,labels:{'herdr.seen':'4'}}]);
 assert.equal(seenTurn.work.unseen,false,'core seen turn takes precedence');
-state = observeTaskAgents(spaces,[...panes,{pane:'p',tab:'t',terminal:'work',focused:true}],snapshots,state,true);
+let idleState = observeTaskAgents(spaces, panes, [root,{...work,status:'idle'}]);
+idleState = observeTaskAgents(spaces, panes, [root,{...work,status:'done'}],idleState);
+assert.equal(idleState.work.unseen,true,'observed idle to done is unseen');
+const viewedDone = observeTaskAgents(spaces,[...panes,{pane:'p',tab:'t',terminal:'work',focused:true}],
+  [root,{...work,status:'done'}],idleState,true,{pane:'p',terminal:'work',shown:null});
+assert.equal(viewedDone.work.unseen,false);
+assert.equal(observeTaskAgents(spaces,panes,[root,{...work,status:'done'}],viewedDone).work.unseen,false,'repeated done stays seen');
+const seenOverride = observeTaskAgents(spaces,panes,[root,{...work,status:'done',turn:4,labels:{'herdr.seen':'4'}}],
+  observeTaskAgents(spaces,panes,[root,{...work,status:'idle'}]));
+assert.equal(seenOverride.work.unseen,false,'seen turn overrides idle to done');
+const covered = {...work,status:'done',turn:4}, replacement = agent('replacement','root','done',{turn:7});
+const shownState = observeTaskAgents(spaces,[...panes,{pane:'p',tab:'t',terminal:'work',focused:true}],
+  [root,covered,replacement],{},true,{pane:'p',terminal:'work',shown:'replacement'});
+assert.equal(shownState.work.unseen,true,'covered terminal is not seen');
+assert.equal(shownState.work.seenTurn,null);
+assert.equal(shownState.replacement.unseen,false,'the replacement is seen');
+assert.equal(shownState.replacement.seenTurn,7);
+state = observeTaskAgents(spaces,[...panes,{pane:'p',tab:'t',terminal:'work',focused:true}],snapshots,state,true,{pane:'p',terminal:'work',shown:null});
 assert.equal(state.work.unseen,false,'viewing clears unseen');
 state = observeTaskAgents(spaces,panes,[snapshots[1]],state);
 assert.equal(state.work.space,'s','live child retains observed task after parent exits');
@@ -65,6 +82,12 @@ assert.equal(state.parked.space,'s','parking clears the label but retains observ
 state = observeTaskAgents(spaces,[],[{...parked,parent:'unknown',labels:{}}],state);
 assert.equal(state.parked.space,null,'a changed parent invalidates an unverified owner');
 assert.equal(observeTaskAgents(spaces,[],[agent('unknown','missing','idle')]).unknown.space,null);
+const staleOwner = {work:{space:'s',parent:'root',word:'idle',unseen:false}};
+const explicitElsewhere = {...work,labels:{'herdr.space':'removed'}};
+assert.equal(taskAgents(local,[],[],spaces,[explicitElsewhere],{},staleOwner).length,0,'an explicit label must not use a cached owner');
+assert.equal(observeTaskAgents(spaces,[],[explicitElsewhere],staleOwner).work.space,null);
+assert.equal(taskAgents(local,[],[],spaces,[work],{},staleOwner).length,1,'an unresolved parent can use a matching cache');
+assert.equal(taskAgents(local,[],[],spaces,[{...work,parent:'other'}],{},staleOwner).length,0,'a changed parent cannot use a cache');
 
 function el(kind = 'div') {
   const o = {kind,nodes:[],events:{},calls:[]};
@@ -80,16 +103,17 @@ function el(kind = 'div') {
 }
 function find(e,id) { if (!e || typeof e !== 'object') return null; if (e.id === id) return e; for (const n of e.nodes ?? []) {const r=find(n,id);if(r)return r;} return null; }
 const actions = [], overlays = [], events = {}, binds = [], scrolled = [];
-let props = {space:'s',overlay:'overlay'}, value = '', sharedData = {};
+let props = {space:'s',overlay:'overlay'}, value = '', sharedData = {}, now = 1000000;
+const TestDate = class extends Date { static now() { return now; } };
 const filter = {on:(name,fn) => {events[name]=fn;}, value:()=>value, focus(){}, release(){this.released=true;}};
 const cx = {focus_handle:()=>({}), bind_keys:x=>binds.push(...x), notify(){}, stop_propagation(){}, spawn(){}};
-const sandbox = {View:class {}, div:()=>el(), svg:()=>el('svg'), image:()=>el('image'), h_flex:()=>el(), v_flex:()=>el(),
+const sandbox = {Date:TestDate, View:class {}, div:()=>el(), svg:()=>el('svg'), image:()=>el('image'), h_flex:()=>el(), v_flex:()=>el(),
   InputState:{new:()=>filter}, Input:{new:()=>el()}, VirtualListScrollHandle:{new:()=>({scroll_to_item:i=>scrolled.push(i)})},
   Scrollbar:{vertical:()=>el()}, v_virtual_list:(_id,_n,_h,_key,render)=>{const x=el();x.id=_id;x.children(render({start:0,end:_n}));return x;},
   spaces:()=>spaces, panes:()=>panes, agents:()=>listed, terminals:()=>terminals, taskAgents, taskAgentStatus, observeTaskAgents,
   props:()=>props, theme:()=>({blocked:'blocked',done:'done',working:'working',dim:'dim'}), run:(...args)=>actions.push(args), closeOverlay:id=>actions.push(['close',id]),
   openOverlay:x=>overlays.push(x), shared:key=>sharedData[key], setShared:(key,value)=>{sharedData[key]=value;},
-  machines:()=>[{name:null,layout:'ready'}], knownAgents:async()=>[{key:'claude'}],
+  machines:()=>[{name:null,layout:'ready'}], knownAgents:async()=>[{key:'claude'}], focused:()=>null,
   layout:()=>({}), window:()=>({active:true}), settings:()=>({zoom:1}), localStorage:{getItem:()=>null,setItem(){}},
 };
 function load(file, name) {return vm.runInNewContext(fs.readFileSync(base+file+'/main.js','utf8').replace(/^import .*;\n/gm,'').replace('export default class','class')+`\n${name}`,sandbox);}
@@ -116,7 +140,7 @@ remote.active=false; local.active=true; props = {space:'s',overlay:'overlay'};
 // The task row and the top button render the same shared status result.
 terminals.push(agent('child','root','error'));
 const Tabs = load('task-tabs','Tabs'); const tabs = new Tabs(); tabs.panels={};
-const tabRoot = tabs.render(), button=find(tabRoot,'agents-open'); assert.ok(button); assert.ok(button.nodes.some(n => n?.calls?.some(c => c[0]==='bg' && c[1] === 'blocked')));
+const tabRoot = tabs.render(cx), button=find(tabRoot,'agents-open'); assert.ok(button); assert.ok(button.nodes.some(n => n?.calls?.some(c => c[0]==='bg' && c[1] === 'blocked')));
 button.events.on_click(); assert.equal(overlays[0].mod,'task-agents'); assert.equal(overlays[0].props.space,'s');
 const Tree = load('task-tree','TaskTree'); const sidebar = new Tree(); let rowStatus; sidebar.status = status => {rowStatus=status;return el();};
 sidebar.row({},local,listed,{}); assert.equal(rowStatus,taskAgentStatus(get(local))); assert.equal(rowStatus,'blocked');
@@ -124,7 +148,7 @@ for (const status of ['blocked','done','working','idle',null]) {
   listed = status ? [{address:'root',space:'s',status}] : [];
   terminals = []; panes = []; sidebar.row({},local,listed,{});
   assert.equal(rowStatus,status);
-  const b = find(tabs.render(),'agents-open');
+  const b = find(tabs.render(cx),'agents-open');
   if (status === 'working') assert.ok(b.nodes.some(n => n?.kind === 'svg'));
   else if (status === 'blocked' || status === 'done') assert.ok(b.nodes.some(n => n?.calls?.some(c => c[0] === 'bg' && c[1] === status)));
   else if (status === 'idle') assert.ok(b.nodes.some(n => n?.calls?.some(c => c[0] === 'border_color' && c[1] === 'dim')));
@@ -153,28 +177,38 @@ if (process.argv.includes('--native')) {
   }
 }
 async function verifySharedUpdates() {
-  const pending = [], owner = new Tree(), updates = {spawn:fn=>pending.push(fn),notify(){}};
+  const pending = []; let tick;
+  const updates = {spawn:fn=>pending.push(fn),notify(){},timer:{every:(ms,fn)=>{assert.equal(ms,60000); tick=fn;}}};
+  const owner = new Tabs(); sharedData = {}; sandbox.layout = () => ({id:'root',children:[{id:'sidebar',hidden:true}]});
   spaces = [local]; panes = [{tab:'t',terminal:'root'}]; terminals = shapes.slice(0,2); listed = [];
-  owner.loadAgentPrograms(terminals,updates); assert.equal(pending.length,1);
-  await pending.shift()(updates);
+  owner.init({},updates); pending.shift(); // command listener is not run by this harness
+  assert.ok(tick); owner.render(updates);
+  while (pending.length) await pending.shift()(updates);
   assert.equal(sharedData['task-agent-programs'][''][0],'claude');
-  const retry = new Tree(); sandbox.knownAgents = async () => {throw new Error('offline');};
-  retry.loadAgentPrograms(terminals,updates); await pending.shift()(updates);
-  retry.loadAgentPrograms(terminals,updates); assert.equal(pending.length,0,'failed lookup waits before retrying');
-  retry.agentProgramRetry[''] = 0; sandbox.knownAgents = async () => [{key:'claude'}];
-  retry.loadAgentPrograms(terminals,updates); assert.equal(pending.length,1); await pending.shift()(updates);
-  picker = new Picker(); picker.init({},cx); assert.equal(picker.items()[0].address,'claude-child');
-  owner.syncAgentObservation(updates); assert.equal(pending.length,1); await pending.shift()(updates);
   assert.equal(sharedData['task-agent-observation']['claude-child'].space,'s');
-  owner.syncAgentObservation(updates); assert.equal(pending.length,0,'unchanged snapshots do not republish');
-  terminals[1] = {...terminals[1], status:'working'}; owner.syncAgentObservation(updates);
-  terminals[1] = {...terminals[1], status:'idle'}; owner.syncAgentObservation(updates);
+  picker = new Picker(); picker.init({},cx); assert.equal(picker.items()[0].address,'claude-child');
+  owner.render(updates); assert.equal(pending.length,0,'unchanged snapshots do not republish');
+  terminals[1] = {...terminals[1], status:'working'}; owner.render(updates);
+  terminals[1] = {...terminals[1], status:'idle'}; owner.render(updates);
   assert.equal(pending.length,1,'pending writes coalesce while retaining both transitions');
   await pending.shift()(updates);
   assert.equal(sharedData['task-agent-observation']['claude-child'].unseen,true);
+  terminals = [terminals[1]]; panes = []; owner.render(updates);
+  while (pending.length) await pending.shift()(updates);
+  assert.equal(sharedData['task-agent-observation']['claude-child'].space,'s','ownership survives parent loss while sidebar stays hidden');
   assert.equal(taskAgentStatus(picker.items()),'done');
   sidebar.row({},local,[],{}); assert.equal(rowStatus,'done');
-  const button = find(tabs.render(),'agents-open');
-  assert.ok(button.nodes.some(n=>n?.calls?.some(c=>c[0]==='bg' && c[1]==='done')));
+  assert.ok(find(owner.render(updates),'agents-open').nodes.some(n=>n?.calls?.some(c=>c[0]==='bg' && c[1]==='done')));
+  terminals.push({address:'new-child',state:'live',status:null,labels:{'herdr.space':'s'},program:{key:'new-agent',agent:false,shell:false}});
+  assert.equal(picker.items().some(a=>a.address==='new-child'),false);
+  sandbox.knownAgents = async () => [{key:'claude'},{key:'new-agent'}];
+  now += 60001; tick(updates); owner.render(updates);
+  while (pending.length) await pending.shift()(updates);
+  assert.equal(picker.items().some(a=>a.address==='new-child'),true,'registered program is refreshed after the first lookup');
+  const retry = new Tabs(); sandbox.knownAgents = async () => {throw new Error('offline');};
+  retry.loadAgentPrograms(terminals,updates); await pending.shift()(updates);
+  retry.loadAgentPrograms(terminals,updates); assert.equal(pending.length,0,'failed lookup waits before retrying');
+  now += 60001; sandbox.knownAgents = async () => [{key:'claude'}];
+  retry.loadAgentPrograms(terminals,updates); assert.equal(pending.length,1); await pending.shift()(updates);
 }
 verifySharedUpdates().then(()=>console.log('task agents tests passed')).catch(error=>{console.error(error);process.exitCode=1;});

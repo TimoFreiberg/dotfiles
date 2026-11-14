@@ -1,8 +1,8 @@
 import { View, div, image, svg } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input, v_virtual_list, VirtualListScrollHandle, Scrollbar } from "gpui-base";
-import { spaces, panes, agents, terminals, machines, knownAgents, theme, run, openOverlay, closeOverlay, window, props, home, nextCommand, commands, exec, notify, writeTextFile, shared, setShared } from "herdr";
+import { spaces, panes, agents, terminals, machines, theme, run, openOverlay, closeOverlay, window, props, home, nextCommand, commands, exec, notify, writeTextFile, shared, setShared } from "herdr";
 import { artifactKey, addArtifact, artifactSpace, hasArtifactBackgroundWebView, openArtifact } from "./artifact-logic.js";
-import { taskAgents, taskAgentStatus, observeTaskAgents } from "./agent-logic.js";
+import { taskAgents, taskAgentStatus } from "./agent-logic.js";
 
 function artifactAckPath(path) {
   // os.tmpdir() may use a per-user or configured root; only accept the CLI's
@@ -133,12 +133,9 @@ export default class TaskTree extends View {
       return;
     }
     if (props()?.taskMenu || props()?.projectMenu) return;
-    if (!props()?.header) {
-      cx.timer?.every(60000, cx => cx.notify());
-      cx.spawn(async cx => {
-        for (;;) { const command = await nextCommand(); this.command(command, cx); cx.notify(); }
-      });
-    }
+    if (!props()?.header) cx.spawn(async cx => {
+      for (;;) { const command = await nextCommand(); this.command(command, cx); cx.notify(); }
+    });
   }
   groups() {
     if (!this.persistGroups) return groupSpaces(spaces(), this.assignments);
@@ -449,46 +446,6 @@ export default class TaskTree extends View {
       finally { this.creating = false; cx.notify(); }
     });
   }
-  syncAgentObservation(cx) {
-    this.agentObservation ??= shared("task-agent-observation") ?? {};
-    const list = spaces(), live = terminals();
-    // The initial snapshots can arrive separately; don't erase saved observations while loading.
-    if (!list.length || !live.length) return;
-    const next = observeTaskAgents(list, panes(), live, this.agentObservation, Boolean(window()?.active));
-    if (JSON.stringify(next) === JSON.stringify(this.agentObservation)) return;
-    this.agentObservation = next;
-    if (this.agentObservationPending) return;
-    this.agentObservationPending = true;
-    cx.spawn(async cx => {
-      this.agentObservationPending = false;
-      if (this.closed) return;
-      if (JSON.stringify(shared("task-agent-observation") ?? {}) !== JSON.stringify(this.agentObservation))
-        setShared("task-agent-observation", this.agentObservation);
-      cx.notify();
-    });
-  }
-  loadAgentPrograms(all, cx) {
-    this.agentProgramRequests ??= new Set(); this.agentProgramRetry ??= {};
-    const candidates = new Set(all.filter(t => t.state === "live" && t.program && !t.program.agent && !t.program.shell)
-      .map(t => t.address.includes("/") ? t.address.split("/")[0] : ""));
-    for (const machine of machines()) {
-      const name = machine.name ?? "";
-      if (machine.layout !== "ready" || !candidates.has(name) || this.agentProgramRequests.has(name) || Date.now() < (this.agentProgramRetry[name] ?? 0)) continue;
-      this.agentProgramRequests.add(name);
-      cx.spawn(async cx => {
-        try {
-          const keys = (await knownAgents({on:machine.name})).map(agent => agent.key).filter(Boolean);
-          if (this.closed) return;
-          const old = shared("task-agent-programs") ?? {};
-          if (JSON.stringify(old[name]) !== JSON.stringify(keys)) setShared("task-agent-programs", {...old, [name]:keys});
-        } catch (error) {
-          this.agentProgramRequests.delete(name); this.agentProgramRetry[name] = Date.now() + 60000;
-          console.log(`Could not load agent programs: ${error}`);
-        }
-        cx.notify();
-      });
-    }
-  }
   status(status, t) {
     if (status === "working") return svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900);
     if (status === "blocked" || status === "done") return div().size(7).flex_none().rounded_full().bg(t[status]);
@@ -535,8 +492,6 @@ export default class TaskTree extends View {
     const update = shared("task-project-update"); if (update && update !== this.projectUpdate) { this.projectUpdate = update; this.assignments = load("assignments"); }
     if (props()?.header) { const t = theme(); return h_flex().size_full().items_center().pl(window()?.platform === "macos" && !window()?.fullscreen ? 76 : 14).text_color(t.foreground).font_semibold().child("Herdr"); }
     const t = theme(), all = agents(), list = spaces(), current = list.find(s => s.active);
-    this.loadAgentPrograms(terminals(), cx);
-    this.syncAgentObservation(cx);
     this.resolve(list, panes(), cx);
     // Popup copies have separate localStorage; only the owning sidebar may remove its saved group.
     const removal = shared("task-project-remove");
