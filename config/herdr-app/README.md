@@ -122,6 +122,7 @@ Install these targets after checking for existing files of the same names. The k
 
 ```sh
 chmod +x "$HOME/dotfiles/bin/herdr-artifact"
+mkdir -p "$HOME/.config/herdr-app/mods/task-agents"
 chezmoi apply "$HOME/.config/herdr-app/keys.json" \
   "$HOME/.config/herdr-app/layouts/workspace-tasks.json" \
   "$HOME/.config/herdr-app/mods/task-tree/main.js" "$HOME/.config/herdr-app/mods/task-tree/mod.json" \
