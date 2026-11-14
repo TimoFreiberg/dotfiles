@@ -137,19 +137,20 @@ With Herdr installed, `tasks.cjs`, `task-groups.cjs`, and `project-picker.cjs` a
 
 ## Lavish review pages
 
-[lavish-kit](https://github.com/TimoFreiberg/lavish-kit) is an unofficial add-on for [Lavish](https://github.com/kunchenguid/lavish-axi). It opens HTML, Markdown, and jj/git diffs as review pages, and adds editable task and PR draft pages. Every command returns once the page's background worker has started, and the worker keeps the page up to date until the Lavish session ends.
+[lavish-kit](https://github.com/TimoFreiberg/lavish-kit) is an unofficial add-on for [Lavish](https://github.com/kunchenguid/lavish-axi). It opens HTML files, editable Markdown, jj/git diffs, and PR drafts as review pages. Every command returns once the page's background worker has started, and the worker keeps the page up to date until the Lavish session ends.
 
 Inside herdr, lavish-kit lists pages under the task's Artifacts and delivers feedback to the agent session that opened the page, so agents don't poll those pages. A worker started outside herdr only watches, and the agent polls. Reopening a page outside herdr keeps a worker that's already delivering, so agents follow the feedback line lavish-kit prints rather than assuming. The project's README and `lavish-kit --help` cover requirements, commands, recovery, and tests.
 
-Clone the checkout that the chezmoi symlink points at. lavish-kit needs Node.js 22 or newer, npm, and `lavish-axi` on `PATH`.
+mise installs lavish-kit from its GitHub `main` branch (`config/mise/config.toml`, next to `lavish-axi`). lavish-kit needs Node.js 22 or newer and npm, which mise also provides. `mise install` fetches `main` once; run `mise install -f http:lavish-kit` to pick up newer pushes (`mise up` doesn't). To try unpushed changes, run `bin/lavish-kit` from a checkout directly.
 
 ```sh
-mkdir -p "$HOME/src"
-git clone https://github.com/TimoFreiberg/lavish-kit.git "$HOME/src/lavish-kit"
-chezmoi diff "$HOME/.local/bin/lavish-kit" "$HOME/.config/lavish-kit/config.json"
-chezmoi apply "$HOME/.local/bin/lavish-kit" "$HOME/.config/lavish-kit/config.json" \
+mise install http:lavish-kit
+chezmoi diff "$HOME/.config/lavish-kit/config.json"
+chezmoi apply "$HOME/.config/lavish-kit/config.json" \
   "$HOME/.config/polytoken/hooks.json" "$HOME/.config/fish/functions"
 ```
+
+Earlier setups linked `~/.local/bin/lavish-kit` to a checkout. chezmoi no longer manages that link and won't remove it; delete it with `rm "$HOME/.local/bin/lavish-kit"`.
 
 The managed `lavish-kit/config.json` sets `createPr` to `["fish", "-c", "jprc $argv", "--"]`. lavish-kit appends `-r REV --body-file FILE`, so the fish `jprc` function (`config/fish/functions/jprc.fish`) must keep its `--body-file` option. A PR page's Create PR button saves the draft, then runs that command in a new herdr tab in the recorded repository. Generated pages default to `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-kit/pages/`.
 
