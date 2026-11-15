@@ -1,7 +1,7 @@
 import { View, div, svg, image } from "gpui-kit";
 import { h_flex } from "gpui-base";
 import { spaces, panes, agents, terminals, machines, knownAgents, focused, run, openOverlay, theme, window, shared, setShared, layout, settings, nextCommand } from "herdr";
-import { taskAgents, taskAgentStatus, observeTaskAgents } from "./agent-logic.js";
+import { taskAgents, taskAgentStatus, observeTaskAgents, isTaskAgent } from "./agent-logic.js";
 
 function find(node, id) {
   if (node?.id === id) return node;
@@ -15,8 +15,8 @@ function find(node, id) {
 export default class Tabs extends View {
   init(_props, cx) {
     this.pressed = null;
-    const chord = window()?.platform === "macos" ? "cmd-shift-escape" : "ctrl-shift-escape";
-    cx.bind_keys([{keystroke:chord, action:"overlay.close:terminal-peek", context:"layout == workspace-tasks > Terminal"}]);
+    if (window()?.platform !== "macos")
+      cx.bind_keys([{keystroke:"ctrl-shift-escape", action:"overlay.close:terminal-peek", context:"layout == workspace-tasks > Terminal"}]);
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
     cx.spawn(async cx => {
       for (;;) {
@@ -75,17 +75,10 @@ export default class Tabs extends View {
   backgroundTarget(space, tab) {
     if (!space?.active || !space.tabs.some(t => t.id === tab)) return null;
     const live = new Map(terminals().filter(t => t.state === "live").map(t => [t.address, t]));
-    const known = new Set(agents().filter(a => a.space === space.id).map(a => a.address));
     const programs = shared("task-agent-programs") ?? {};
-    const candidates = panes().filter(p => {
-      const terminal = live.get(p.terminal), program = terminal?.program;
-      const machine = p.terminal?.includes("/") ? p.terminal.split("/")[0] : "";
-      const report = typeof terminal?.report === "string" ? terminal.report : terminal?.report?.state;
-      return p.tab === tab && terminal && (p.program?.agent || program?.agent || known.has(p.terminal) ||
-        (programs[machine] ?? []).includes(program?.key) ||
-        (!program?.shell && ["working", "blocked", "error", "done", "idle"].includes(report)));
-    });
-    if (candidates.length === 1) return candidates[0];
+    const tabPanes = panes().filter(p => p.tab === tab);
+    const candidates = tabPanes.filter(p => isTaskAgent(live.get(p.terminal), programs));
+    if (tabPanes.length === 1 && candidates.length === 1) return candidates[0];
     const focus = focused();
     if (!focus?.pane || (focus.shown && focus.shown !== focus.terminal)) return null;
     return candidates.find(p => p.pane === focus.pane && p.terminal === focus.terminal) ?? null;

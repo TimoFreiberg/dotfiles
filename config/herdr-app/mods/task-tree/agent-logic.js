@@ -3,44 +3,54 @@ const machineOf = address => address?.includes("/") ? address.split("/")[0] : nu
 const qualify = (id, machine) => machine ? `${machine}/${id}` : id;
 
 // Undefined means unresolved; a present label remains authoritative even if its task is gone.
-function ownership(spaces, panes, terminals) {
+function ownership(spaces, panes, terminals, observed = {}) {
   const byAddress = new Map(terminals.map(t => [t.address, t]));
   const paneSpace = new Map();
   for (const pane of panes) {
     const owner = spaces.find(s => s.tabs.some(t => t.id === pane.tab));
     if (pane.terminal && owner) paneSpace.set(pane.terminal, owner.id);
   }
-  return terminal => {
-    const machine = machineOf(terminal.address), seen = new Set();
-    let address = terminal.address;
+  const direct = terminal => paneSpace.get(terminal.address) ??
+    (terminal.labels?.["herdr.space"] ? qualify(terminal.labels["herdr.space"], machineOf(terminal.address)) : undefined);
+  const inherited = terminal => {
+    const machine = machineOf(terminal.address), seen = new Set([terminal.address]);
+    let address = terminal.parent;
     while (address && !seen.has(address) && machineOf(address) === machine) {
       seen.add(address);
-      if (paneSpace.has(address)) return paneSpace.get(address);
-      const record = byAddress.get(address), label = record?.labels?.["herdr.space"];
-      if (label) return qualify(label, machine);
+      const record = byAddress.get(address);
+      const owner = direct(record ?? {address});
+      if (owner) return owner;
       address = record?.parent;
     }
     return undefined;
+  };
+  return terminal => {
+    const directOwner = direct(terminal);
+    const cached = cachedOwner(terminal, observed);
+    // A parked terminal keeps its own last task before falling back to its parent's task.
+    return directOwner ?? (observed[terminal.address]?.direct && spaces.some(s => s.id === cached) ? cached : undefined) ?? inherited(terminal) ?? cached;
   };
 }
 function cachedOwner(terminal, observed) {
   const cached = observed[terminal.address];
   return cached?.parent === (terminal.parent ?? null) ? cached.space : undefined;
 }
+export function isTaskAgent(terminal, programs = {}) {
+  const program = terminal?.program;
+  const registered = (programs[machineOf(terminal?.address) ?? ""] ?? []).includes(program?.key);
+  const report = typeof terminal?.report === "string" ? terminal.report : terminal?.report?.state;
+  return terminal?.state === "live" && (program?.agent || registered || (!program?.shell && ["working", "blocked", "error", "done", "idle"].includes(report)));
+}
 export function taskAgents(space, listed, panes, allSpaces, terminals, programs = {}, observed = {}) {
   if (!space) return [];
-  const ownerOf = ownership(allSpaces, panes, terminals);
+  const ownerOf = ownership(allSpaces, panes, terminals, observed);
   const belongs = terminal => machineOf(terminal.address) === (space.machine ?? null) &&
-    (ownerOf(terminal) ?? cachedOwner(terminal, observed)) === space.id;
+    ownerOf(terminal) === space.id;
   const result = listed.filter(a => a.space === space.id).map(a => ({...a, hidden:false}));
   const visible = new Set(panes.map(p => p.terminal));
   const known = new Set(result.map(a => a.address));
   for (const terminal of terminals) {
-    const program = terminal.program;
-    const registered = (programs[machineOf(terminal.address) ?? ""] ?? []).includes(program?.key);
-    const report = typeof terminal.report === "string" ? terminal.report : terminal.report?.state;
-    const reported = !program?.shell && ["working", "blocked", "error", "done", "idle"].includes(report);
-    if (terminal.state !== "live" || !(program?.agent || registered || reported) || visible.has(terminal.address) || known.has(terminal.address) || !belongs(terminal)) continue;
+    if (!isTaskAgent(terminal, programs) || visible.has(terminal.address) || known.has(terminal.address) || !belongs(terminal)) continue;
     const status = terminal.status === "error" ? "blocked" :
       (terminal.status === "idle" || terminal.status === "done") && observed[terminal.address]?.unseen ? "done" :
       terminal.status === "done" ? "idle" : terminal.status;
@@ -52,7 +62,7 @@ export function taskAgents(space, listed, panes, allSpaces, terminals, programs 
 // label wins over the cached owner. An absent task cannot receive cached terminals.
 export function observeTaskAgents(spaces, panes, terminals, previous = {}, windowActive = false, focus = null) {
   const spaceIds = new Set(spaces.map(s => s.id));
-  const ownerOf = ownership(spaces, panes, terminals);
+  const ownerOf = ownership(spaces, panes, terminals, previous);
   // Layout terminal blocks have no model pane and are outside this observation.
   const shown = windowActive && focus?.pane && panes.some(p => p.pane === focus.pane && p.focused)
     ? focus.shown ?? focus.terminal : null;
@@ -74,7 +84,9 @@ export function observeTaskAgents(spaces, panes, terminals, previous = {}, windo
     if (looking && Number.isSafeInteger(turn)) seenTurn = Math.max(seenTurn ?? 0, turn);
     if (Number.isSafeInteger(turn) && seenTurn !== null && !busy(word)) unseen = turn > seenTurn;
     if (looking) unseen = false;
-    state[terminal.address] = {space:owner, parent:terminal.parent ?? null, word:word ?? null, unseen, seenTurn};
+    const direct = Boolean(owner && (terminal.labels?.["herdr.space"] || panes.some(p => p.terminal === terminal.address && spaces.some(s => s.id === owner && s.tabs.some(t => t.id === p.tab))) ||
+      (old.direct && old.space === owner && old.parent === (terminal.parent ?? null))));
+    state[terminal.address] = {space:owner, parent:terminal.parent ?? null, word:word ?? null, unseen, seenTurn, direct};
   }
   return state;
 }

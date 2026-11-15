@@ -69,6 +69,7 @@ herdr-app/mods/task-agents/*
 herdr-app/mods/task-tabs/*
 !herdr-app/mods/task-tabs/main.js
 !herdr-app/mods/task-tabs/mod.json
+!herdr-app/mods/task-tabs/keys.linux.json
 !herdr-app/tests
 herdr-app/tests/*
 !herdr-app/tests/workspace-ui.cjs

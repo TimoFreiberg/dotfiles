@@ -28,9 +28,9 @@ function lookup(node, id) {
   return null;
 }
 const agentLogic = fs.readFileSync(path.join(__dirname, "../mods/task-tree/agent-logic.js"), "utf8").replace(/^export /gm, "");
-const {taskAgents, taskAgentStatus, observeTaskAgents} = vm.runInNewContext(agentLogic + "\n({taskAgents, taskAgentStatus, observeTaskAgents})");
+const {taskAgents, taskAgentStatus, observeTaskAgents, isTaskAgent} = vm.runInNewContext(agentLogic + "\n({taskAgents, taskAgentStatus, observeTaskAgents, isTaskAgent})");
 const sandbox = {
-  taskAgents, taskAgentStatus, observeTaskAgents, agents: () => [], terminals: () => [],
+  taskAgents, taskAgentStatus, observeTaskAgents, isTaskAgent, agents: () => [], terminals: () => [],
   View: class {}, div: () => el("div"), svg: source => el("svg", source), image: source => el("image", source), h_flex: () => el("h_flex"), v_flex: () => el("v_flex"),
   spaces: () => modelSpaces, panes: () => modelPanes, machines: () => modelMachines,
   home: () => { homeCalls++; return modelHome; },

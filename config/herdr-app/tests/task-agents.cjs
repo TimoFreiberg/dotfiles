@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const base = 'config/herdr-app/mods/';
 const logic = fs.readFileSync(base + 'task-tree/agent-logic.js', 'utf8').replace(/^export /gm, '');
-const {taskAgents, taskAgentStatus, observeTaskAgents} = vm.runInNewContext(logic + '\n({taskAgents, taskAgentStatus, observeTaskAgents})');
+const {taskAgents, taskAgentStatus, observeTaskAgents, isTaskAgent} = vm.runInNewContext(logic + '\n({taskAgents, taskAgentStatus, observeTaskAgents, isTaskAgent})');
 const local = {id:'s', machine:null, active:true, tabs:[{id:'t'}]};
 const remote = {id:'box/s', machine:'box', active:false, tabs:[{id:'box/t'}]};
 let spaces = [local, remote], panes = [{tab:'t',terminal:'root'}, {tab:'box/t',terminal:'box/root'}];
@@ -86,6 +86,22 @@ assert.equal(state.parked.space,'s','parking clears the label but retains observ
 state = observeTaskAgents(spaces,[],[{...parked,parent:'unknown',labels:{}}],state);
 assert.equal(state.parked.space,null,'a changed parent invalidates an unverified owner');
 assert.equal(observeTaskAgents(spaces,[],[agent('unknown','missing','idle')]).unknown.space,null);
+// A child explicitly kept in B remains there when parked, even while its parent lives in A.
+const taskA = {id:'A',machine:null,tabs:[{id:'ta'}]}, taskB = {id:'B',machine:null,tabs:[{id:'tb'}]};
+const parentA = agent('parent-A',null,'working'), childB = agent('child-B','parent-A','idle',{labels:{'herdr.space':'B'}});
+const bothTasks = [taskA,taskB], bothPanes = [{tab:'ta',terminal:'parent-A'},{tab:'tb',terminal:'child-B'}];
+let childState = observeTaskAgents(bothTasks,bothPanes,[parentA,childB]);
+const parkedChild = {...childB,labels:{'herdr.space':''}};
+childState = observeTaskAgents(bothTasks,[bothPanes[0]],[parentA,parkedChild],childState);
+assert.equal(childState['child-B'].space,'B');
+assert.equal(taskAgents(taskB,[],[bothPanes[0]],bothTasks,[parentA,parkedChild],{},childState).map(a=>a.address).join(','),'child-B');
+assert.equal(taskAgents(taskA,[],[bothPanes[0]],bothTasks,[parentA,parkedChild],{},childState).length,0);
+assert.equal(observeTaskAgents(bothTasks,[{tab:'tb',terminal:'parent-A'}],[parentA,parkedChild],childState)['child-B'].space,'B','parent moves do not change a parked child');
+assert.equal(observeTaskAgents(bothTasks,[bothPanes[0],{tab:'ta',terminal:'child-B'}],[parentA,parkedChild],childState)['child-B'].space,'A','a direct pane move wins');
+const movedChild = {...parkedChild,labels:{'herdr.space':'A'}};
+assert.equal(observeTaskAgents(bothTasks,[bothPanes[0]],[parentA,movedChild],childState)['child-B'].space,'A');
+assert.equal(observeTaskAgents(bothTasks,[bothPanes[0]],[parentA,{...parkedChild,parent:'missing'}],childState)['child-B'].space,null);
+assert.equal(observeTaskAgents([taskA],[bothPanes[0]],[parentA,parkedChild],childState)['child-B'].space,'A');
 const staleOwner = {work:{space:'s',parent:'root',word:'idle',unseen:false}};
 const explicitElsewhere = {...work,labels:{'herdr.space':'removed'}};
 assert.equal(taskAgents(local,[],[],spaces,[explicitElsewhere],{},staleOwner).length,0,'an explicit label must not use a cached owner');
@@ -114,7 +130,7 @@ const cx = {focus_handle:()=>({}), bind_keys:x=>binds.push(...x), notify(){}, st
 const sandbox = {Date:TestDate, View:class {}, div:()=>el(), svg:()=>el('svg'), image:()=>el('image'), h_flex:()=>el(), v_flex:()=>el(),
   InputState:{new:()=>filter}, Input:{new:()=>el()}, VirtualListScrollHandle:{new:()=>({scroll_to_item:i=>scrolled.push(i)})},
   Scrollbar:{vertical:()=>el()}, v_virtual_list:(_id,_n,_h,_key,render)=>{const x=el();x.id=_id;x.children(render({start:0,end:_n}));return x;},
-  spaces:()=>spaces, panes:()=>panes, agents:()=>listed, terminals:()=>terminals, taskAgents, taskAgentStatus, observeTaskAgents,
+  spaces:()=>spaces, panes:()=>panes, agents:()=>listed, terminals:()=>terminals, taskAgents, taskAgentStatus, observeTaskAgents, isTaskAgent,
   props:()=>props, theme:()=>({blocked:'blocked',done:'done',working:'working',dim:'dim'}), run:(...args)=>actions.push(args), closeOverlay:id=>actions.push(['close',id]),
   openOverlay:x=>overlays.push(x), shared:key=>sharedData[key], setShared:(key,value)=>{sharedData[key]=value;},
   machines:()=>[{name:null,layout:'ready'}], knownAgents:async()=>[{key:'claude'}], focused:()=>null,
@@ -148,10 +164,13 @@ remote.active=false; local.active=true; props = {space:'s',overlay:'overlay'};
 terminals.push(agent('child','root','error'));
 const Tabs = load('task-tabs','Tabs'); const tabs = new Tabs(); tabs.panels={};
 // Bind only the dedicated chord in this layout, without changing the platform key files.
-for (const [platform,chord] of [['macos','cmd-shift-escape'],['linux','ctrl-shift-escape']]) {
+for (const [platform,chord,file] of [['macos','cmd-shift-escape','config/herdr-app/keys.json'],['linux','ctrl-shift-escape',base+'task-tabs/keys.linux.json']]) {
+  const keys = JSON.parse(fs.readFileSync(file,'utf8'));
+  assert.deepEqual(keys['layout:workspace-tasks'][chord],{command:'overlay.close',args:{id:'terminal-peek'}});
+  assert.ok(!keys['layout:workspace-tasks'].escape);
   sandbox.window = () => ({active:true,platform}); const before=binds.length;
   new Tabs().init({},cx);
-  assert.deepEqual(JSON.parse(JSON.stringify(binds.slice(before))), [{keystroke:chord,action:'overlay.close:terminal-peek',context:'layout == workspace-tasks > Terminal'}]);
+  assert.deepEqual(JSON.parse(JSON.stringify(binds.slice(before))), platform === 'linux' ? [{keystroke:chord,action:'overlay.close:terminal-peek',context:'layout == workspace-tasks > Terminal'}] : []);
 }
 sandbox.window = () => ({active:true});
 const tabRoot = tabs.render(cx), button=find(tabRoot,'agents-open'); assert.ok(button); assert.ok(button.nodes.some(n => n?.calls?.some(c => c[0]==='bg' && c[1] === 'blocked')));
@@ -185,7 +204,23 @@ panes = [{pane:'p4',tab:'t',terminal:'registered',program:{agent:false}}];
 terminals = [{address:'registered',state:'live',program:{key:'claude',agent:false,shell:false}}];
 assert.equal(tabs.backgroundTarget(local,'t').terminal,'registered');
 terminals = [{address:'registered',state:'live',program:{key:'shell',shell:true},report:'working'}];
-assert.equal(tabs.backgroundTarget(local,'t'),null,'ordinary shells are not agents');
+listed = [{address:'registered',space:'s',status:'working'}];
+assert.equal(tabs.backgroundTarget(local,'t'),null,'a status-bearing ordinary shell is not recoverable as an agent');
+listed = [];
+panes = [{pane:'pa',tab:'t',terminal:'a'},{pane:'ps',tab:'t',terminal:'shell'}];
+terminals = [agent('a',null,'working'),{address:'shell',state:'live',program:{shell:true},report:'working'}];
+sandbox.focused = () => ({pane:'ps',terminal:'shell'});
+assert.equal(tabs.backgroundTarget(local,'t'),null,'a focused shell must not park the other pane');
+sandbox.focused = () => ({pane:'pa',terminal:'a'}); control = find(tabs.render(cx),'background-t'); assert.ok(control);
+sandbox.focused = () => ({pane:'ps',terminal:'shell'}); control.events.on_click(null,cx);
+assert.equal(actions.length,0,'a changed focus invalidates the split target');
+const activeB = {...taskB,active:true}; spaces = [taskA,activeB]; panes = bothPanes;
+terminals = [parentA,childB]; sharedData = {}; tabs.agentObservation = undefined;
+tabs.backgroundAgent('B','tb','child-B');
+assert.deepEqual(JSON.parse(JSON.stringify(actions.splice(0))), [['terminal.park',{terminal:'child-B'}]]);
+const afterBackground = observeTaskAgents(spaces,[bothPanes[0]],[parentA,parkedChild],sharedData['task-agent-observation']);
+assert.equal(afterBackground['child-B'].space,'B','backgrounding a kept child retains B despite its live parent in A');
+assert.equal(taskAgents(activeB,[],[bothPanes[0]],spaces,[parentA,parkedChild],{},afterBackground)[0].address,'child-B');
 local.tabs = [{id:'t'}]; ({spaces,panes,terminals,listed} = saved); sandbox.focused = () => null; sharedData = {};
 const Tree = load('task-tree','TaskTree'); const sidebar = new Tree(); let rowStatus; sidebar.status = status => {rowStatus=status;return el();};
 sidebar.row({},local,listed,{}); assert.equal(rowStatus,taskAgentStatus(get(local))); assert.equal(rowStatus,'blocked');
