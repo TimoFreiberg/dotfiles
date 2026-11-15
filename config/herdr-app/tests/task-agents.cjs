@@ -102,6 +102,39 @@ const movedChild = {...parkedChild,labels:{'herdr.space':'A'}};
 assert.equal(observeTaskAgents(bothTasks,[bothPanes[0]],[parentA,movedChild],childState)['child-B'].space,'A');
 assert.equal(observeTaskAgents(bothTasks,[bothPanes[0]],[parentA,{...parkedChild,parent:'missing'}],childState)['child-B'].space,null);
 assert.equal(observeTaskAgents([taskA],[bothPanes[0]],[parentA,parkedChild],childState)['child-B'].space,'A');
+// Descendants inherit the direct association retained for a parked live ancestor.
+const grandB = agent('grand-B','child-B','blocked'), greatB = agent('great-B','grand-B','working');
+const initialTree = [parentA,childB,grandB,greatB];
+const treeBeforePark = observeTaskAgents(bothTasks,bothPanes,initialTree);
+for (const tree of [[parentA,parkedChild,grandB,greatB],[greatB,grandB,parkedChild,parentA]]) {
+  const beforeRefresh = taskAgents(taskB,[],[bothPanes[0]],bothTasks,tree,{},treeBeforePark);
+  assert.deepEqual([...beforeRefresh.map(a=>a.address)].sort(),['child-B','grand-B','great-B'],'the picker uses the retained ancestor immediately');
+  const next = observeTaskAgents(bothTasks,[bothPanes[0]],tree,treeBeforePark);
+  for (const address of ['child-B','grand-B','great-B']) assert.equal(next[address].space,'B',`${address} stays in B`);
+  const inB = taskAgents(taskB,[],[bothPanes[0]],bothTasks,tree,{},next);
+  assert.deepEqual([...inB.map(a=>a.address)].sort(),['child-B','grand-B','great-B']);
+  assert.equal(taskAgentStatus(inB),'blocked');
+  assert.equal(taskAgents(taskA,[],[bothPanes[0]],bothTasks,tree,{},next).length,0);
+  const directA = {...parkedChild,labels:{'herdr.space':'A'}};
+  const moved = tree.map(t=>t.address === 'child-B' ? directA : t);
+  const afterMove = observeTaskAgents(bothTasks,[bothPanes[0]],moved,next);
+  assert.equal(afterMove['grand-B'].space,'A','current ancestor label wins over its old cached task');
+  assert.equal(afterMove['great-B'].space,'A');
+  const staleLabel = tree.map(t=>t.address === 'child-B' ? childB : t);
+  const paneMoved = observeTaskAgents(bothTasks,[bothPanes[0],{tab:'ta',terminal:'child-B'}],staleLabel,next);
+  assert.equal(paneMoved['grand-B'].space,'A','the current pane wins over both label and cache');
+  const reparented = tree.map(t=>t.address === 'child-B' ? {...parkedChild,parent:'other-parent'} : t);
+  const otherParent = agent('other-parent',null,'working',{labels:{'herdr.space':'A'}});
+  const reparentedState = observeTaskAgents(bothTasks,[bothPanes[0]],[...reparented,otherParent],next);
+  assert.equal(reparentedState['grand-B'].space,'A','a changed parent invalidates the ancestor cache');
+  const deleted = observeTaskAgents([taskA],[bothPanes[0]],tree,next);
+  assert.equal(deleted['grand-B'].space,'A','deleted cached tasks cannot own descendants');
+}
+const remoteChild = agent('box/child','parent-A','working');
+const cross = observeTaskAgents([taskA,remote],[bothPanes[0]],[parentA,remoteChild]);
+assert.equal(cross['box/child'].space,null,'inheritance does not cross machines');
+const cycle = [agent('one','two','idle'),agent('two','one','idle'),agent('leaf','one','idle')];
+assert.equal(observeTaskAgents(bothTasks,[],cycle).leaf.space,null,'cycles without a direct owner terminate');
 const staleOwner = {work:{space:'s',parent:'root',word:'idle',unseen:false}};
 const explicitElsewhere = {...work,labels:{'herdr.space':'removed'}};
 assert.equal(taskAgents(local,[],[],spaces,[explicitElsewhere],{},staleOwner).length,0,'an explicit label must not use a cached owner');
@@ -166,8 +199,9 @@ const Tabs = load('task-tabs','Tabs'); const tabs = new Tabs(); tabs.panels={};
 // Bind only the dedicated chord in this layout, without changing the platform key files.
 for (const [platform,chord,file] of [['macos','cmd-shift-escape','config/herdr-app/keys.json'],['linux','ctrl-shift-escape',base+'task-tabs/keys.linux.json']]) {
   const keys = JSON.parse(fs.readFileSync(file,'utf8'));
-  assert.deepEqual(keys['layout:workspace-tasks'][chord],{command:'overlay.close',args:{id:'terminal-peek'}});
-  assert.ok(!keys['layout:workspace-tasks'].escape);
+  assert.deepEqual(keys['layout:workspace-tasks > Terminal'][chord],{command:'overlay.close',args:{id:'terminal-peek'}});
+  assert.ok(!keys['layout:workspace-tasks > Terminal'].escape);
+  assert.ok(!keys['layout:workspace-tasks']?.[chord]);
   sandbox.window = () => ({active:true,platform}); const before=binds.length;
   new Tabs().init({},cx);
   assert.deepEqual(JSON.parse(JSON.stringify(binds.slice(before))), platform === 'linux' ? [{keystroke:chord,action:'overlay.close:terminal-peek',context:'layout == workspace-tasks > Terminal'}] : []);
@@ -240,6 +274,10 @@ if (process.argv.includes('--native')) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(),'herdr-task-agents-check-'));
     try {
       let source = fs.readFileSync(base+mod+'/main.js','utf8');
+      if (mod === 'task-tabs') {
+        assert.ok(source.includes('if (window()?.platform !== "macos")'));
+        source = source.replace('if (window()?.platform !== "macos")', 'if (true)');
+      }
       if (mod === 'task-agents') {
         source = source.replaceAll('props()', '({space:"s",overlay:"picker"})')
           .replaceAll('spaces()', '([{id:"s",active:true,machine:null,tabs:[{id:"t"}]}])')

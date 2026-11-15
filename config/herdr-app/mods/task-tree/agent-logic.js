@@ -12,13 +12,17 @@ function ownership(spaces, panes, terminals, observed = {}) {
   }
   const direct = terminal => paneSpace.get(terminal.address) ??
     (terminal.labels?.["herdr.space"] ? qualify(terminal.labels["herdr.space"], machineOf(terminal.address)) : undefined);
+  const cachedDirect = terminal => {
+    const cached = cachedOwner(terminal, observed);
+    return observed[terminal.address]?.direct && spaces.some(s => s.id === cached && (s.machine ?? null) === machineOf(terminal.address)) ? cached : undefined;
+  };
   const inherited = terminal => {
     const machine = machineOf(terminal.address), seen = new Set([terminal.address]);
     let address = terminal.parent;
     while (address && !seen.has(address) && machineOf(address) === machine) {
       seen.add(address);
       const record = byAddress.get(address);
-      const owner = direct(record ?? {address});
+      const owner = direct(record ?? {address}) ?? (record?.state === "live" ? cachedDirect(record) : undefined);
       if (owner) return owner;
       address = record?.parent;
     }
@@ -27,8 +31,8 @@ function ownership(spaces, panes, terminals, observed = {}) {
   return terminal => {
     const directOwner = direct(terminal);
     const cached = cachedOwner(terminal, observed);
-    // A parked terminal keeps its own last task before falling back to its parent's task.
-    return directOwner ?? (observed[terminal.address]?.direct && spaces.some(s => s.id === cached) ? cached : undefined) ?? inherited(terminal) ?? cached;
+    // A cached direct task takes precedence over inheritance while it exists and the parent is unchanged.
+    return directOwner ?? cachedDirect(terminal) ?? inherited(terminal) ?? cached;
   };
 }
 function cachedOwner(terminal, observed) {

@@ -85,8 +85,10 @@
     "cmd-right": "send:\u0005",
     "cmd-backspace": "send:\u0015"
   },
+  "layout:workspace-tasks > Terminal": {
+    "cmd-shift-escape": {"command": "overlay.close", "args": {"id": "terminal-peek"}}
+  },
   "layout:workspace-tasks": {
-    "cmd-shift-escape": {"command": "overlay.close", "args": {"id": "terminal-peek"}},
     "ctrl-tab": "tab.next",
     "ctrl-shift-tab": "tab.prev",
     "cmd-down": "task-tree.next",
