@@ -241,7 +241,7 @@ data.set("panels", JSON.stringify({ "artifact-space": "artifacts" }));
 tree = { id: "root", children: [{ id: "sidebar", hidden: false, size: { px: 320 } }, { id: "panel", hidden: true, children: [{ id: "panel-body", active: "files" }] }] };
 let resolveTabsCommand, tabsListener, tabsNotifications = 0;
 sandbox.nextCommand = () => new Promise(resolve => { resolveTabsCommand = resolve; });
-const tabsCx = { notify() { tabsNotifications++; }, spawn(fn) { tabsListener = fn(this); } };
+const tabsCx = { bind_keys() {}, notify() { tabsNotifications++; }, spawn(fn) { tabsListener = fn(this); } };
 const tabs = new Tabs(); tabs.init(undefined, tabsCx); calls.length = 0; overlays.length = 0;
 assert.ok(tabsListener, "task-tabs starts the command listener");
 async function sendTabsCommand(command) {
@@ -266,20 +266,20 @@ data.delete("panels");
 const legacySpace = { ...artifactSpace, id: "legacy-artifact-space" };
 modelSpaces = [legacySpace];
 tree = { id: "root", children: [{ id: "sidebar", hidden: false }, { id: "panel", hidden: false, children: [{ id: "panel-body", active: "artifacts" }] }] };
-const legacyTabs = new Tabs(); legacyTabs.init(undefined, { spawn() {} }); calls.length = 0; legacyTabs.render();
+const legacyTabs = new Tabs(); legacyTabs.init(undefined, { bind_keys() {}, spawn() {} }); calls.length = 0; legacyTabs.render();
 assert.deepEqual(calls.splice(0), [["layout.hide", {id:"panel"}]], "a visible unsupported Artifacts panel is hidden before per-space restore");
 assert.equal(data.has("panels"), false, "hiding the old panel does not invent a saved preference");
 for (const active of ["files","changes"]) {
   data.delete("panels"); modelSpaces = [{ ...legacySpace, id: `visible-${active}` }];
   tree = { id: "root", children: [{ id: "sidebar", hidden: false }, { id: "panel", hidden: false, children: [{ id: "panel-body", active }] }] };
-  const supportedTabs = new Tabs(); supportedTabs.init(undefined, { spawn() {} }); calls.length = 0; supportedTabs.render();
+  const supportedTabs = new Tabs(); supportedTabs.init(undefined, { bind_keys() {}, spawn() {} }); calls.length = 0; supportedTabs.render();
   assert.deepEqual(calls, [], `an already visible ${active} panel is left alone`);
 }
 for (const active of ["files", "changes"]) {
   const sidebarSpace = { ...legacySpace, id: `sidebar-${active}`, active: true };
   modelSpaces = [sidebarSpace]; data.delete("panels");
   tree = { id: "root", children: [{ id: "sidebar", hidden: true }, { id: "panel", hidden: false, children: [{ id: "panel-body", active }] }] };
-  const sidebarTabs = new Tabs(); sidebarTabs.init(undefined, { spawn() {} }); calls.length = 0;
+  const sidebarTabs = new Tabs(); sidebarTabs.init(undefined, { bind_keys() {}, spawn() {} }); calls.length = 0;
   const hiddenSidebarRender = sidebarTabs.render(), showSidebar = lookup(hiddenSidebarRender, "sidebar-show");
   assert.ok(showSidebar, `a hidden sidebar offers Show sidebar with ${active} selected`);
   assert.deepEqual(showSidebar.nodes, ['→'], 'the reveal button uses a right-arrow icon without a text label');

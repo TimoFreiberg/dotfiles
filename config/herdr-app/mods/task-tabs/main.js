@@ -15,6 +15,8 @@ function find(node, id) {
 export default class Tabs extends View {
   init(_props, cx) {
     this.pressed = null;
+    const chord = window()?.platform === "macos" ? "cmd-shift-escape" : "ctrl-shift-escape";
+    cx.bind_keys([{keystroke:chord, action:"overlay.close:terminal-peek", context:"layout == workspace-tasks > Terminal"}]);
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
     cx.spawn(async cx => {
       for (;;) {
@@ -68,6 +70,34 @@ export default class Tabs extends View {
         cx.notify();
       });
     }
+  }
+
+  backgroundTarget(space, tab) {
+    if (!space?.active || !space.tabs.some(t => t.id === tab)) return null;
+    const live = new Map(terminals().filter(t => t.state === "live").map(t => [t.address, t]));
+    const known = new Set(agents().filter(a => a.space === space.id).map(a => a.address));
+    const programs = shared("task-agent-programs") ?? {};
+    const candidates = panes().filter(p => {
+      const terminal = live.get(p.terminal), program = terminal?.program;
+      const machine = p.terminal?.includes("/") ? p.terminal.split("/")[0] : "";
+      const report = typeof terminal?.report === "string" ? terminal.report : terminal?.report?.state;
+      return p.tab === tab && terminal && (p.program?.agent || program?.agent || known.has(p.terminal) ||
+        (programs[machine] ?? []).includes(program?.key) ||
+        (!program?.shell && ["working", "blocked", "error", "done", "idle"].includes(report)));
+    });
+    if (candidates.length === 1) return candidates[0];
+    const focus = focused();
+    if (!focus?.pane || (focus.shown && focus.shown !== focus.terminal)) return null;
+    return candidates.find(p => p.pane === focus.pane && p.terminal === focus.terminal) ?? null;
+  }
+
+  backgroundAgent(spaceId, tab, address) {
+    const space = spaces().find(s => s.id === spaceId), target = this.backgroundTarget(space, tab);
+    if (!target || target.terminal !== address) return;
+    const previous = this.agentObservation ?? shared("task-agent-observation") ?? {};
+    this.agentObservation = observeTaskAgents(spaces(), panes(), terminals(), previous, Boolean(window()?.active), focused());
+    setShared("task-agent-observation", this.agentObservation);
+    run("terminal.park", {terminal:address});
   }
 
   openArtifacts() {
@@ -124,6 +154,7 @@ export default class Tabs extends View {
     const item = (c, i) => {
       const program = panes().find(p => p.tab === c.id && p.program?.agent)?.program ?? panes().find(p => p.tab === c.id)?.program;
       const name = /^tb\d+$/.test(c.name) ? program?.name ?? "Terminal" : c.name;
+      const background = this.backgroundTarget(space, c.id);
       return h_flex().id(`tab-${c.id}`).h(29).px(10).gap(7).rounded(7).items_center().flex_none().text_size(12.8)
         .border(1).border_color(c.active ? t.border : t.chrome).bg(c.active ? t.raised : t.chrome).text_color(c.active ? t.foreground : t.muted)
         .hover(s => s.bg(t.hover))
@@ -138,6 +169,8 @@ export default class Tabs extends View {
         .child(div().max_w(170).truncate().child(c.zoomed ? `${name} Z` : name))
         .when(c.status === "working", el => el.child(svg("mods/workspace-chrome/spinner.svg").size(12).flex_none().text_color(t.working).spin(900)))
         .when(c.status === "blocked" || c.status === "done", el => el.child(div().size(6).rounded(3).bg(t[c.status])))
+        .when(Boolean(background), el => el.child(div().id(`background-${c.id}`).text_color(t.dim).cursor_pointer().tooltip(`Background agent ${background.terminal}`)
+          .on_mouse_down("left", stop).on_mouse_up("left", stop).on_click((_e, cx) => { cx.stop_propagation(); this.backgroundAgent(space.id, c.id, background.terminal); }).child("↓")))
         .when(c.active, el => el.child(div().id(`close-${c.id}`).text_color(t.dim).on_mouse_down("left", stop).on_click((_e, cx) => { cx.stop_propagation(); run("tab.close", { id: c.id }); }).child(svg("mods/pane/close.svg").size(12))));
     };
     const root = layout(), sidebar = find(root, "sidebar"), w = window();

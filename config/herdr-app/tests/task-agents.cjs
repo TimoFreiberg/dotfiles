@@ -65,6 +65,10 @@ assert.equal(shownState.work.unseen,true,'covered terminal is not seen');
 assert.equal(shownState.work.seenTurn,null);
 assert.equal(shownState.replacement.unseen,false,'the replacement is seen');
 assert.equal(shownState.replacement.seenTurn,7);
+const peekState = observeTaskAgents(spaces,[...panes,{pane:'p',tab:'t',terminal:'work',focused:false}],
+  [root,covered,{...replacement,labels:{'herdr.seen':'7'}}],{},true,{pane:null,terminal:'replacement',shown:null});
+assert.equal(peekState.work.unseen,true,'an overlay does not mark the pane beneath it seen');
+assert.equal(peekState.replacement.unseen,false,'the native seen label clears the peeked agent');
 state = observeTaskAgents(spaces,[...panes,{pane:'p',tab:'t',terminal:'work',focused:true}],snapshots,state,true,{pane:'p',terminal:'work',shown:null});
 assert.equal(state.work.unseen,false,'viewing clears unseen');
 state = observeTaskAgents(spaces,panes,[snapshots[1]],state);
@@ -122,9 +126,12 @@ let picker = new Picker(); picker.init({},cx);
 assert.equal(binds.length,5); assert.equal(picker.items().length,4);
 let rendered = picker.render(cx); assert.ok(rendered.events['on_action:task-agent-next']);
 value='grand'; events.change(null,cx); assert.equal(picker.items()[0].address,'grand'); events.submit(null,cx);
-assert.equal(JSON.stringify(actions.splice(0)),JSON.stringify([['terminal.keep',{terminal:'grand',place:'tab'}],['close','overlay']]));
+assert.equal(JSON.stringify(actions.splice(0)),JSON.stringify([['close','overlay'],['terminal.peek',{terminal:'grand'}]]));
 value=''; picker = new Picker(); picker.init({},cx); picker.action('task-agent-next',cx); assert.equal(picker.selected,'grand'); picker.action('task-agent-prev',cx); assert.equal(picker.selected,'child');
-find(picker.render(cx),'agent-choices').events.on_item_click('child',cx); assert.equal(actions[0][0],'terminal.keep'); actions.length=0;
+find(picker.render(cx),'agent-choices').events.on_item_click('child',cx);
+assert.equal(JSON.stringify(actions.splice(0)),JSON.stringify([['close','overlay'],['terminal.peek',{terminal:'child'}]]));
+picker = new Picker(); picker.init({},cx); find(picker.render(cx),'agent-open-tab').events.on_click(null,cx);
+assert.equal(JSON.stringify(actions.splice(0)),JSON.stringify([['close','overlay'],['terminal.keep',{terminal:'child',place:'tab'}]]));
 // A visible layout terminal block may compete with the model pane for terminal-based focus.
 sandbox.layout = () => ({id:'root',children:[{id:'visible-block',type:'terminal',terminal:'child'}]});
 picker = new Picker(); picker.init({},cx); panes.push({pane:'model-pane',tab:'t',terminal:'child'}); picker.open('child',cx);
@@ -135,13 +142,51 @@ picker = new Picker(); picker.init({},cx); panes.push({tab:'box/t',terminal:'chi
 picker = new Picker(); picker.init({},cx); terminals = terminals.filter(t=>t.address !== 'child'); picker.open('child',cx); assert.equal(actions.length,0); assert.match(picker.error,/no longer/);
 props = {space:'box/s',overlay:'remote-overlay'}; local.active=false; remote.active=true;
 picker = new Picker(); picker.init({},cx); picker.open('box/child',cx);
-assert.equal(JSON.stringify(actions.splice(0)),JSON.stringify([['terminal.keep',{terminal:'box/child',place:'tab'}],['close','remote-overlay']]));
+assert.equal(JSON.stringify(actions.splice(0)),JSON.stringify([['close','remote-overlay'],['terminal.peek',{terminal:'box/child'}]]));
 remote.active=false; local.active=true; props = {space:'s',overlay:'overlay'};
 // The task row and the top button render the same shared status result.
 terminals.push(agent('child','root','error'));
 const Tabs = load('task-tabs','Tabs'); const tabs = new Tabs(); tabs.panels={};
+// Bind only the dedicated chord in this layout, without changing the platform key files.
+for (const [platform,chord] of [['macos','cmd-shift-escape'],['linux','ctrl-shift-escape']]) {
+  sandbox.window = () => ({active:true,platform}); const before=binds.length;
+  new Tabs().init({},cx);
+  assert.deepEqual(JSON.parse(JSON.stringify(binds.slice(before))), [{keystroke:chord,action:'overlay.close:terminal-peek',context:'layout == workspace-tasks > Terminal'}]);
+}
+sandbox.window = () => ({active:true});
 const tabRoot = tabs.render(cx), button=find(tabRoot,'agents-open'); assert.ok(button); assert.ok(button.nodes.some(n => n?.calls?.some(c => c[0]==='bg' && c[1] === 'blocked')));
 button.events.on_click(); assert.equal(overlays[0].mod,'task-agents'); assert.equal(overlays[0].props.space,'s');
+// The control acts on its own tab, never a different selected tab or every split.
+const saved = {spaces,panes,terminals,listed};
+local.tabs = [{id:'t',name:'one',active:true},{id:'t2',name:'two',active:false}];
+panes = [{pane:'p1',tab:'t',terminal:'a',program:{agent:true},focused:true}, {pane:'p2',tab:'t2',terminal:'b',program:{agent:true}}];
+terminals = [agent('a',null,'working'),agent('b',null,'working')]; listed = [];
+sandbox.focused = () => ({pane:'p1',terminal:'a'}); sharedData = {}; tabs.agentObservation = undefined;
+let control = find(tabs.render(cx),'background-t2'); assert.ok(control);
+let stopped = false; control.events['on_mouse_up:left'](null,{stop_propagation(){stopped=true;}}); assert.equal(stopped,true);
+control.events.on_click(null,cx);
+assert.deepEqual(JSON.parse(JSON.stringify(actions.splice(0))), [['terminal.park',{terminal:'b'}]]);
+assert.equal(sharedData['task-agent-observation'].b.space,'s');
+const parkedB = {...terminals[1],status:'done',labels:{'herdr.space':''}};
+let afterPark = observeTaskAgents(spaces,[panes[0]],[terminals[0],parkedB],sharedData['task-agent-observation']);
+assert.equal(taskAgents(local,[],[panes[0]],spaces,[terminals[0],parkedB],{},afterPark)[0].address,'b');
+assert.equal(afterPark.b.unseen,true);
+// A stale button does nothing after switching tasks.
+local.active=false; control.events.on_click(null,cx); assert.equal(actions.length,0); local.active=true;
+panes.push({pane:'p3',tab:'t',terminal:'c',program:{agent:true}}); terminals.push(agent('c',null,'working'));
+assert.equal(tabs.backgroundTarget(local,'t').terminal,'a');
+sandbox.focused = () => null; assert.equal(tabs.backgroundTarget(local,'t'),null);
+sandbox.focused = () => ({pane:'p3',terminal:'c'});
+control = find(tabs.render(cx),'background-t'); assert.ok(control); control.events.on_click(null,cx);
+assert.deepEqual(JSON.parse(JSON.stringify(actions.splice(0))), [['terminal.park',{terminal:'c'}]]);
+sandbox.focused = () => ({pane:'p3',terminal:'c',shown:'other'}); assert.equal(tabs.backgroundTarget(local,'t'),null);
+sharedData['task-agent-programs'] = {'':['claude']};
+panes = [{pane:'p4',tab:'t',terminal:'registered',program:{agent:false}}];
+terminals = [{address:'registered',state:'live',program:{key:'claude',agent:false,shell:false}}];
+assert.equal(tabs.backgroundTarget(local,'t').terminal,'registered');
+terminals = [{address:'registered',state:'live',program:{key:'shell',shell:true},report:'working'}];
+assert.equal(tabs.backgroundTarget(local,'t'),null,'ordinary shells are not agents');
+local.tabs = [{id:'t'}]; ({spaces,panes,terminals,listed} = saved); sandbox.focused = () => null; sharedData = {};
 const Tree = load('task-tree','TaskTree'); const sidebar = new Tree(); let rowStatus; sidebar.status = status => {rowStatus=status;return el();};
 sidebar.row({},local,listed,{}); assert.equal(rowStatus,taskAgentStatus(get(local))); assert.equal(rowStatus,'blocked');
 for (const status of ['blocked','done','working','idle',null]) {
@@ -178,7 +223,7 @@ if (process.argv.includes('--native')) {
 }
 async function verifySharedUpdates() {
   const pending = []; let tick;
-  const updates = {spawn:fn=>pending.push(fn),notify(){},timer:{after:(ms,fn)=>{assert.equal(ms,60000); tick=fn;}}};
+  const updates = {bind_keys(){},spawn:fn=>pending.push(fn),notify(){},timer:{after:(ms,fn)=>{assert.equal(ms,60000); tick=fn;}}};
   const owner = new Tabs(); sharedData = {}; sandbox.layout = () => ({id:'root',children:[{id:'sidebar',hidden:true}]});
   spaces = [local]; panes = [{tab:'t',terminal:'root'}]; terminals = shapes.slice(0,2); listed = [];
   owner.init({},updates); pending.shift(); // command listener is not run by this harness

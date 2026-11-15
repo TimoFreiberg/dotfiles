@@ -39,7 +39,7 @@ export default class TaskAgents extends View {
     }
     this.filter.focus(); cx.notify();
   }
-  open(address, cx) {
+  open(address, cx, place = "peek") {
     if (this.closed) return;
     const list = spaces(), space = list.find(s => s.id === this.space), allPanes = panes();
     if (!space?.active) { this.error = "Select this task before opening an agent"; cx.notify(); return; }
@@ -50,7 +50,10 @@ export default class TaskAgents extends View {
     } else {
       const item = taskAgents(space, agents(), allPanes, list, terminals(), shared("task-agent-programs") ?? {}, shared("task-agent-observation") ?? {}).find(a => a.hidden && a.address === address);
       if (!item) { this.error = "Agent is no longer available in this task"; cx.notify(); return; }
-      run("terminal.keep", {terminal:address, place:"tab"});
+      this.closed = true; closeOverlay(this.overlay);
+      if (place === "tab") run("terminal.keep", {terminal:address, place:"tab"});
+      else run("terminal.peek", {terminal:address});
+      return;
     }
     this.closed = true; closeOverlay(this.overlay);
   }
@@ -82,6 +85,8 @@ export default class TaskAgents extends View {
         .child(Scrollbar.vertical("agent-choices").absolute().inset_0())
         .when(!list.length, el => el.child(v_flex().absolute().inset_0().p(8).items_center().justify_center().text_color(t.dim)
           .child(this.filter.value().trim() ? "No matching agents" : "No hidden agents for this task"))))
-      .child(div().text_size(11).text_color(t.dim).child("↑/↓ or Tab/Shift-Tab to select · Enter to open · Esc to close"));
+      .when(Boolean(selected), el => el.child(div().id("agent-open-tab").px(8).py(5).rounded(5).cursor_pointer().hover(s => s.bg(t.hover))
+        .on_click((_e,cx) => this.open(selected.address,cx,"tab")).child("Open in tab")))
+      .child(div().text_size(11).text_color(t.dim).child("↑/↓ or Tab/Shift-Tab to select · Enter to peek · Esc to close"));
   }
 }
