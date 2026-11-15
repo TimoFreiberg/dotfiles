@@ -18,21 +18,26 @@ function ownership(spaces, panes, terminals, observed = {}) {
   };
   const inherited = terminal => {
     const machine = machineOf(terminal.address), seen = new Set([terminal.address]);
-    let address = terminal.parent;
+    let address = terminal.parent, changed = false;
     while (address && !seen.has(address) && machineOf(address) === machine) {
       seen.add(address);
-      const record = byAddress.get(address);
+      const record = byAddress.get(address), old = observed[address];
+      if (record?.state === "live" && old && old.parent !== (record.parent ?? null)) changed = true;
       const owner = direct(record ?? {address}) ?? (record?.state === "live" ? cachedDirect(record) : undefined);
-      if (owner) return owner;
+      if (owner) return {owner, changed};
       address = record?.parent;
     }
-    return undefined;
+    return {changed};
   };
   return terminal => {
     const directOwner = direct(terminal);
     const cached = cachedOwner(terminal, observed);
     // A cached direct task takes precedence over inheritance while it exists and the parent is unchanged.
-    return directOwner ?? cachedDirect(terminal) ?? inherited(terminal) ?? cached;
+    const own = directOwner ?? cachedDirect(terminal);
+    if (own !== undefined) return own;
+    const ancestry = inherited(terminal);
+    // An unresolved changed chain cannot justify an inherited cached owner.
+    return ancestry.owner ?? (ancestry.changed ? undefined : cached);
   };
 }
 function cachedOwner(terminal, observed) {
@@ -74,7 +79,7 @@ export function observeTaskAgents(spaces, panes, terminals, previous = {}, windo
   for (const terminal of terminals) {
     if (terminal.state !== "live" || !terminal.address) continue;
     const old = previous[terminal.address] ?? {};
-    let owner = ownerOf(terminal) ?? cachedOwner(terminal, previous);
+    let owner = ownerOf(terminal);
     if (!spaceIds.has(owner)) owner = null;
     const word = terminal.status, busy = s => s === "working" || s === "blocked" || s === "error";
     let unseen = Boolean(old.unseen);

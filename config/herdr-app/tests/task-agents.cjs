@@ -130,6 +130,52 @@ for (const tree of [[parentA,parkedChild,grandB,greatB],[greatB,grandB,parkedChi
   const deleted = observeTaskAgents([taskA],[bothPanes[0]],tree,next);
   assert.equal(deleted['grand-B'].space,'A','deleted cached tasks cannot own descendants');
 }
+// Invalidate inherited caches on any observed live ancestor's unresolved reparenting.
+const parkedTree = [parentA,parkedChild,grandB,greatB];
+const parkedState = observeTaskAgents(bothTasks,[bothPanes[0]],parkedTree,treeBeforePark);
+for (const [name,newParent] of [['missing','unknown'],['cross-machine','box/unknown'],['cycle','grand-B']]) {
+  let old = parkedState;
+  const changedTree = [parentA,{...parkedChild,parent:newParent},grandB,greatB];
+  assert.equal(taskAgents(taskB,[],[bothPanes[0]],bothTasks,changedTree,{},old).length,0,`${name}: no stale picker entries before refresh`);
+  for (let n=0;n<3;n++) {
+    const tree = n % 2 ? [...changedTree].reverse() : changedTree;
+    old = observeTaskAgents(bothTasks,[bothPanes[0]],tree,old);
+    for (const address of ['child-B','grand-B','great-B']) assert.equal(old[address].space,null,`${name}: ${address} stays unresolved at refresh ${n}`);
+    assert.equal(taskAgents(taskB,[],[bothPanes[0]],bothTasks,tree,{},old).length,0);
+    assert.equal(taskAgentStatus(taskAgents(taskB,[],[bothPanes[0]],bothTasks,tree,{},old)),null);
+  }
+  old = observeTaskAgents(bothTasks,[bothPanes[0]],[parentA,grandB,greatB],old);
+  assert.equal(old['grand-B'].space,null,`${name}: removing the changed ancestor does not restore stale ownership`);
+  old = observeTaskAgents(bothTasks,[bothPanes[0]],changedTree,old);
+  assert.equal(old['great-B'].space,null,`${name}: its reappearance does not restore stale ownership`);
+}
+let missingAncestor = parkedState;
+for (let n=0;n<3;n++) {
+  missingAncestor = observeTaskAgents(bothTasks,[bothPanes[0]],[parentA,grandB,greatB],missingAncestor);
+  assert.equal(missingAncestor['grand-B'].space,'B','an absent unchanged ancestor preserves observed ownership');
+  assert.equal(missingAncestor['great-B'].space,'B');
+}
+const paneChild = {...parkedChild,parent:'unknown'};
+let paneState = parkedState;
+for (let n=0;n<3;n++) {
+  paneState = observeTaskAgents(bothTasks,bothPanes,[parentA,paneChild,grandB,greatB],paneState);
+  assert.equal(paneState['grand-B'].space,'B','a current direct pane overrides unresolved ancestry');
+  assert.equal(paneState['great-B'].space,'B');
+}
+const directGrand = {...grandB,labels:{'herdr.space':'B'}};
+let directState = observeTaskAgents(bothTasks,[bothPanes[0]],[parentA,parkedChild,directGrand,greatB],parkedState);
+for (let n=0;n<2;n++) {
+  directState = observeTaskAgents(bothTasks,[bothPanes[0]],[parentA,{...parkedChild,parent:'unknown'},directGrand,greatB],directState);
+  assert.equal(directState['grand-B'].space,'B','a current direct label remains authoritative');
+  assert.equal(directState['great-B'].space,'B');
+}
+let movedState = parkedState;
+const parentMoved = agent('new-root',null,'working',{labels:{'herdr.space':'A'}});
+for (let n=0;n<3;n++) {
+  movedState = observeTaskAgents(bothTasks,[bothPanes[0]],[greatB,grandB,{...parkedChild,parent:'new-root'},parentMoved,parentA],movedState);
+  assert.equal(movedState['grand-B'].space,'A','resolvable reparenting updates inherited ownership');
+  assert.equal(movedState['great-B'].space,'A');
+}
 const remoteChild = agent('box/child','parent-A','working');
 const cross = observeTaskAgents([taskA,remote],[bothPanes[0]],[parentA,remoteChild]);
 assert.equal(cross['box/child'].space,null,'inheritance does not cross machines');
@@ -258,6 +304,19 @@ assert.equal(taskAgents(activeB,[],[bothPanes[0]],spaces,[parentA,parkedChild],{
 local.tabs = [{id:'t'}]; ({spaces,panes,terminals,listed} = saved); sandbox.focused = () => null; sharedData = {};
 const Tree = load('task-tree','TaskTree'); const sidebar = new Tree(); let rowStatus; sidebar.status = status => {rowStatus=status;return el();};
 sidebar.row({},local,listed,{}); assert.equal(rowStatus,taskAgentStatus(get(local))); assert.equal(rowStatus,'blocked');
+// The picker and both task-status surfaces reject stale descendants before the next shared update.
+spaces = [taskA,activeB]; panes = [bothPanes[0]]; terminals = [parentA,{...parkedChild,parent:'unknown'},grandB,greatB]; listed = [];
+sharedData = {'task-agent-observation':parkedState}; props = {space:'B',overlay:'stale'};
+const staleTabs = new Tabs(); staleTabs.panels = {}; staleTabs.agentObservation = parkedState;
+for (let n=0;n<3;n++) {
+  picker = new Picker(); picker.init({},cx); assert.equal(picker.items().length,0);
+  picker.open('grand-B',cx); assert.equal(actions.length,0); assert.match(picker.error,/no longer/);
+  const staleButton = find(staleTabs.render(cx),'agents-open');
+  assert.equal(staleButton.nodes.length,1,'the tab bar does not attribute the stale blocked agent to B');
+  sidebar.row({},activeB,[],{}); assert.equal(rowStatus,null,'the task row does not attribute the stale blocked agent to B');
+  sharedData['task-agent-observation'] = observeTaskAgents(spaces,panes,terminals,sharedData['task-agent-observation']);
+}
+props = {space:'s',overlay:'overlay'}; sharedData = {}; ({spaces,panes,terminals,listed} = saved);
 for (const status of ['blocked','done','working','idle',null]) {
   listed = status ? [{address:'root',space:'s',status}] : [];
   terminals = []; panes = []; sidebar.row({},local,listed,{});
