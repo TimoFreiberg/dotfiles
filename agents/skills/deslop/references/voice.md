@@ -26,7 +26,7 @@ sentence that drops an "only when" or an exception is a bug.
   triplets for rhythm.
 - Parentheses are common and welcome for caveats and qualifiers.
 - Length follows the content. A detailed causal chain or a caveat is worth the
-  words; a one-line subject with no body is often enough.
+  words; a one-line subject with no body is fine for trivial changes.
 - Hedges are fine when they're honest ("I haven't checked whether this helps
   with an empty store"). Never invent certainty, test results, or follow-ups.
 - Still no em dashes, and avoid semicolons.
@@ -37,9 +37,10 @@ Subject: imperative verb, specific, usually well under 72 characters, no
 trailing period. "Fix expiry after a widget is replaced", not "Enhance widget
 lifecycle management".
 
-Body only when the why isn't obvious. A few plain sentences: what went wrong,
-why, what the fix does, and any limit. A flat fact can close it ("This saves
-one allocation."). No bullet scaffolding for a single change.
+For non-trivial changes, add a few plain sentences: a bird's-eye view of what
+changed, why (when not obvious), the high-level approach if relevant, and any
+limit. A flat fact can close it ("This saves one allocation."). No file lists,
+detailed change lists, or bullet scaffolding for a single change.
 
 ```
 Fix expiry after a widget is replaced
