@@ -1,5 +1,0 @@
-{
-  "layout:workspace-tasks > Terminal": {
-    "ctrl-shift-escape": {"command": "overlay.close", "args": {"id": "terminal-peek"}}
-  }
-}

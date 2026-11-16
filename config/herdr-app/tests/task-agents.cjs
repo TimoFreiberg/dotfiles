@@ -242,15 +242,13 @@ remote.active=false; local.active=true; props = {space:'s',overlay:'overlay'};
 // The task row and the top button render the same shared status result.
 terminals.push(agent('child','root','error'));
 const Tabs = load('task-tabs','Tabs'); const tabs = new Tabs(); tabs.panels={};
-// Bind only the dedicated chord in this layout, without changing the platform key files.
-for (const [platform,chord,file] of [['macos','cmd-shift-escape','config/herdr-app/keys.json'],['linux','ctrl-shift-escape',base+'task-tabs/keys.linux.json']]) {
-  const keys = JSON.parse(fs.readFileSync(file,'utf8'));
-  assert.deepEqual(keys['layout:workspace-tasks > Terminal'][chord],{command:'overlay.close',args:{id:'terminal-peek'}});
-  assert.ok(!keys['layout:workspace-tasks > Terminal'].escape);
-  assert.ok(!keys['layout:workspace-tasks']?.[chord]);
+// Leave peek dismissal to Herdr's native bindings on both platforms.
+const keys = JSON.parse(fs.readFileSync('config/herdr-app/keys.json','utf8'));
+assert.ok(!Object.values(keys).some(context => Object.values(context).some(binding => binding?.command === 'overlay.close' && binding.args?.id === 'terminal-peek')));
+for (const platform of ['macos','linux']) {
   sandbox.window = () => ({active:true,platform}); const before=binds.length;
   new Tabs().init({},cx);
-  assert.deepEqual(JSON.parse(JSON.stringify(binds.slice(before))), platform === 'linux' ? [{keystroke:chord,action:'overlay.close:terminal-peek',context:'layout == workspace-tasks > Terminal'}] : []);
+  assert.ok(!binds.slice(before).some(binding => binding.action === 'overlay.close:terminal-peek'));
 }
 sandbox.window = () => ({active:true});
 const tabRoot = tabs.render(cx), button=find(tabRoot,'agents-open'); assert.ok(button); assert.ok(button.nodes.some(n => n?.calls?.some(c => c[0]==='bg' && c[1] === 'blocked')));
@@ -333,10 +331,6 @@ if (process.argv.includes('--native')) {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(),'herdr-task-agents-check-'));
     try {
       let source = fs.readFileSync(base+mod+'/main.js','utf8');
-      if (mod === 'task-tabs') {
-        assert.ok(source.includes('if (window()?.platform !== "macos")'));
-        source = source.replace('if (window()?.platform !== "macos")', 'if (true)');
-      }
       if (mod === 'task-agents') {
         source = source.replaceAll('props()', '({space:"s",overlay:"picker"})')
           .replaceAll('spaces()', '([{id:"s",active:true,machine:null,tabs:[{id:"t"}]}])')

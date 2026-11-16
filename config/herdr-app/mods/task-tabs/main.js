@@ -15,8 +15,6 @@ function find(node, id) {
 export default class Tabs extends View {
   init(_props, cx) {
     this.pressed = null;
-    if (window()?.platform !== "macos")
-      cx.bind_keys([{keystroke:"ctrl-shift-escape", action:"overlay.close:terminal-peek", context:"layout == workspace-tasks > Terminal"}]);
     this.panels = JSON.parse(localStorage.getItem("panels") ?? "{}");
     cx.spawn(async cx => {
       for (;;) {
