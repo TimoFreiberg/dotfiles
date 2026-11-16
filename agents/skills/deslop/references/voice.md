@@ -11,10 +11,17 @@ consequence, not the value of the change. Confidence tracks evidence: use
 a fix doesn't cover. Contractions, "we", and parentheses are normal. Stop when
 the useful information ends; no wrap-up.
 
+Cut what the reader doesn't need in order to act: context they already have,
+how a result was found, reassurance. Keep conditions and limits. A shorter
+sentence that drops an "only when" or an exception is a bug.
+
 ## Overrides to deslop
 
 - Passive voice is fine when the affected thing is the subject that matters:
   "The widget is removed when its timer expires."
+- Naming the actor doesn't mean inventing one. If no person did it, describe
+  the result ("The test fails with an empty store"), and don't claim "I
+  tested" for checks you didn't run yourself.
 - A list of three is fine when there are three separate items. Don't build
   triplets for rhythm.
 - Parentheses are common and welcome for caveats and qualifiers.
