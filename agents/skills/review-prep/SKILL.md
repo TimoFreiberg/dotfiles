@@ -21,9 +21,8 @@ stated intent:
   change doesn't need. Each finding has `file:line`, quoted code, a severity
   (critical/high/medium/low), and a draft review comment the operator could
   post.
-- **Brief:** one agent with `model_override: "mg:docs"`, writing for a
-  reader who knows the product but not this change. Skip any section with
-  nothing to say.
+- **Brief:** written through @skill:polish-prose for a reader who knows the
+  product but not this change. Skip any section with nothing to say.
   1. What the change does, and where it conflicts with the stated intent.
   2. What the codebase now contains: new structure and flow, the
      assumptions it makes, and what someone will have to maintain.

@@ -27,7 +27,6 @@ tickets, stop and work out with the operator (see `grill-me`):
 
 Propose the slices as child tickets. Tickets are shared with colleagues:
 create or edit them only when the operator asks. Make description edits
-through a subagent with `model_override: "mg:docs"`, passing it the ticket,
-the update, and the necessary context. At the final handoff, if the work
-changed scope or design, propose the exact ticket update in your final
-message.
+through @skill:polish-prose, passing the ticket, the update, and the
+necessary context. At the final handoff, if the work changed scope or design,
+propose the exact ticket update in your final message.
