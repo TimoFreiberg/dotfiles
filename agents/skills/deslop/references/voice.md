@@ -15,6 +15,11 @@ Cut what the reader doesn't need in order to act: context they already have,
 how a result was found, reassurance. Keep conditions and limits. A shorter
 sentence that drops an "only when" or an exception is a bug.
 
+Know what the reader can already see. A code comment sits next to the code, a
+commit message next to its diff, a review comment next to the author's own
+code. Don't restate that. Spend the words on what they can't see from there:
+why, the condition that triggers it, the consequence.
+
 ## Overrides to deslop
 
 - Passive voice is fine when the affected thing is the subject that matters:
@@ -67,8 +72,9 @@ result, a question.
 
 ## Code comments
 
-Explain why: the invariant, the edge case, the surprising choice. Ordinary
-inline comments may start lowercase and skip the period; doc comments use
+Explain why: the invariant, the edge case, the surprising choice. Match the
+casing and punctuation of the comments around yours. In new code, ordinary
+inline comments may start lowercase and skip the period, and doc comments use
 normal sentence case. Use "we" and backticked identifiers. Flag open questions
 with `TODO:` rather than glossing over them.
 
