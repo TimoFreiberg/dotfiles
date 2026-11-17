@@ -156,7 +156,7 @@ def test_report_and_label(harness, state):
                               "--agent-session-id", "a.B_9-z", "--", "polytoken", "continue", "other",
                               extra={"HPT_SESSIONS_DIR": "/space dir/sessions"})
     assert rc == 0, output
-    assert output == f"\x1b]7501;state={state}:app=polytoken\x1b\\".encode()
+    assert output == b""
     assert wait_labels(tmp) == ["label", "t1", "polytoken.session=a.B_9-z",
                                 "polytoken.sessions_dir=/space dir/sessions"]
 
@@ -177,10 +177,10 @@ def test_reject_bad_reports(harness, args):
 @pytest.mark.parametrize("id_arg", [[], ["--agent-session-id", "-bad"],
                                      ["--agent-session-id", "bad/name"],
                                      ["--agent-session-id", "é"]])
-def test_missing_or_invalid_id_keeps_osc_without_label(harness, id_arg):
+def test_missing_or_invalid_id_does_not_label(harness, id_arg):
     tmp, _, _ = harness
     rc, output, _ = callback(harness, "report-agent", "--state", "idle", *id_arg)
-    assert rc == 0 and b"state=idle" in output
+    assert rc == 0 and output == b""
     assert not (tmp / "calls").exists()
 
 
@@ -193,13 +193,13 @@ def test_clear_default_directory(harness):
 @pytest.mark.parametrize("extra", [{"HC_SLOW": "1"}, {"HC_FAIL": "1"}])
 def test_label_writer_does_not_delay_or_change_status(harness, extra):
     rc, output, elapsed = callback(harness, "report-agent", "--state", "idle", "--agent-session-id", "abc", extra=extra)
-    assert rc == 0 and b"state=idle" in output and elapsed < 0.8
+    assert rc == 0 and output == b"" and elapsed < 0.8
 
 
-def test_osc_failure_preserves_status(harness):
+def test_label_callback_does_not_require_tty(harness):
     tmp, _, _ = harness
     rc, _, _ = callback(harness, "report-agent", "--state", "idle", "--agent-session-id", "abc", tty=False)
-    assert rc != 0
+    assert rc == 0
     assert wait_labels(tmp)[2] == "polytoken.session=abc"
 
 
@@ -208,7 +208,7 @@ def test_no_label_for_other_callbacks(harness, action):
     tmp, _, _ = harness
     rc, output, _ = callback(harness, action, "--agent-session-id", "abc")
     assert rc == 0
-    assert (b"state=clear" in output) == (action == "release-agent")
+    assert output == b""
     assert not (tmp / "calls").exists()
 
 

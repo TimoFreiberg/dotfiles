@@ -1,6 +1,6 @@
 # Polytoken in Herdr
 
-`herdr-polytoken` bridges Polytoken's built-in Herdr status reporter to `herdr-core` with OSC 7501. Outside a `herdr-core` terminal, it runs Polytoken without changing its environment. Inside one, it sets the Herdr reporter variables. It does not install hooks, change permissions, or manage session history. `hpt` remains a compatibility command for callbacks from sessions started under the old name.
+Polytoken 0.9.9 and later report status to `herdr-core` directly via experimental OSC 7501; the wrapper does not emit status sequences. `herdr-polytoken` retains the callback needed to label the terminal for its explicit restore command and enables Herdr compatibility mode. Outside a `herdr-core` terminal, it runs Polytoken without changing its environment. It does not install hooks, change permissions, or manage session history. `hpt` remains a compatibility command for callbacks from sessions started under the old name.
 
 Fish's `pt` abbreviation expands to `herdr-polytoken`. Start a new shell or run `abbr --add --global pt herdr-polytoken` in an existing Fish shell.
 
@@ -20,16 +20,16 @@ chezmoi apply "$HOME/.local/bin/herdr-polytoken" "$HOME/.local/bin/hpt" \
 
 Back up existing unmanaged files before replacing them; do not force a whole-home apply. Herdr reloads configuration live and writes `programs.error` or `keys.error` if it cannot load a file. The menu launcher needs `herdr-polytoken` and `polytoken` on its PATH.
 
-Check the bridge without launching a real model:
+Check the wrapper without launching a real model:
 
 ```sh
 bash -n bin/herdr-polytoken bin/hpt
 shellcheck bin/herdr-polytoken bin/hpt
 ```
 
-Status reporting is advisory; it doesn't prove that a task succeeded. Polytoken's status reporter sends a clear state when the TUI detaches or the agent exits, but doesn't include model, facet, or blocked-reason details. Terminals started by subagents aren't configured by this bridge.
+Status reporting is advisory; it doesn't prove that a task succeeded. Polytoken's [terminal status documentation](https://docs.polytoken.dev/using-polytoken/tui-orchestrators/#program-status-in-the-terminal) describes its working, blocked, done, error, and idle reports. Native status reporting also works without this wrapper. Terminals started by subagents aren't configured by the wrapper.
 
-To restore a session in the same Herdr terminal, explicitly run `herdr-polytoken restore` with no additional arguments. For each `working`, `idle`, or `blocked` status update with a valid session ID, the wrapper makes a best-effort write of the session ID and any explicit `--sessions-dir` to terminal labels. If a write fails, a later status update tries again for the same session. If every label write for a new session fails, or you start Polytoken without `herdr-polytoken`, the terminal may still have labels for an earlier session. Stopping or detaching doesn't clear the labels. Restore requires `hc` and `jq` on `PATH` and uses the same data-root environment as the original session, including any `POLYTOKEN_DATA_PATH` or XDG overrides; it doesn't save those settings. If the label or session is unavailable, use `polytoken continue` instead.
+Herdr Core does not automatically resume Polytoken after a core restart. To restore a session in the same Herdr terminal, explicitly run `herdr-polytoken restore` with no additional arguments. For each `working`, `idle`, or `blocked` status update with a valid session ID, the wrapper makes a best-effort write of the session ID and any explicit `--sessions-dir` to terminal labels. If a write fails, a later status update tries again for the same session. If every label write for a new session fails, or you start Polytoken without `herdr-polytoken`, the terminal may still have labels for an earlier session. Stopping or detaching doesn't clear the labels. Restore requires `hc` and `jq` on `PATH` and uses the same data-root environment as the original session, including any `POLYTOKEN_DATA_PATH` or XDG overrides; it doesn't save those settings. If the label or session is unavailable, use `polytoken continue` instead.
 
 ## Default shell
 
