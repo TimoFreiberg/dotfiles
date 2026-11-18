@@ -187,13 +187,19 @@ function __jprc_open_or_create_pr --argument-names branch_name base rev body_fil
         return $status
     end
 
-    set -l commit_messages (jj log -r "$base..$rev" --no-graph -T 'description ++ "\n\n"' 2>&1 | string collect)
+    set -l description_template '
+        if(description.first_line(),
+            "## " ++ description.first_line() ++
+            if(description.remove_prefix(description.first_line() ++ "\n"),
+                if(description.remove_prefix(description.first_line()).starts_with("\n\n"), "", "\n"),
+                "") ++
+            description.remove_prefix(description.first_line()) ++ "\n")'
+    set -l commit_messages (jj log -r "$base..$rev" --no-graph -T "$description_template" 2>&1 | string collect)
     if test $pipestatus[1] -ne 0
         echo "Error: failed to read commit descriptions between $base and $rev" >&2
         echo $commit_messages >&2
         return 1
     end
-    set commit_messages (string trim --right -- "$commit_messages")
 
     # Read the default PR template from the target revision, matching gh's search order.
     set -l base_files (jj file list -r "$base" 2>&1)
