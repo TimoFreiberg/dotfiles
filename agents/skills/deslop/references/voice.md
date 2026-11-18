@@ -70,6 +70,25 @@ result, a question.
 > I left the old cleanup path in place for now. Should we remove it in a
 > separate PR?
 
+Reviewers read the description next to the diff. Describe behavior, risk, and
+what's blocking the merge, not the code:
+
+- No lists of added functions, types, or files. "Adds FFI accessors for the
+  new claims" beats naming all ten. Design reasons (a lifetime invariant, why
+  a union) go in code comments, not the PR.
+- Put blockers and release holds (dependencies, "don't release beyond canary
+  until…") near the top, and state each fact once, not again in a later
+  section.
+- Delete template sections that don't apply instead of filling them with
+  "None, because…".
+- Report only testing the reviewer can't see: perf runs, manual checks,
+  canaries. CI and the test files already show which tests exist and pass.
+- Don't answer checklist items in advance ("Adds no `unwrap` on input
+  paths") or tell reviewers where to focus ("X is the main thing to check:").
+  State the fact itself.
+- Skip reasons the reader can work out. "Depends on #11, which has to merge
+  first" needs no "because we pin its head (full SHA)".
+
 ## Code comments
 
 Explain why: the invariant, the edge case, the surprising choice. Match the

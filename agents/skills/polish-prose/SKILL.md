@@ -15,6 +15,6 @@ docs, and commit messages. Their reader knows the product but not this work.
 
 Then a reviewer (`model_override: "mg:review_thorough"`) checks the result: is
 each piece self-contained for its reader, does it use the codebase's own
-terms, and is anything false? Send its findings back to the writer with
-`resume_from`. Stop when the reviewer has nothing material, or after two
-rounds.
+terms, is anything false, and what could the reader do without? Send its
+findings back to the writer with `resume_from`. Stop when the reviewer has
+nothing material, or after two rounds.
