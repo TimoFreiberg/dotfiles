@@ -24,13 +24,14 @@ if missing, where `<repo>` is the current repository's directory name:
 
   Extract one succinct next action with enough task context to read later, not
   a handoff. Keep uncertainty or a paused idea open instead of turning it into
-  a commitment. Draft `<next action>` through @skill:polish-prose, passing the
-  verified session context and this one-line constraint, for the operator
-  scanning their TODO inbox later (one line overrides `polish-prose`'s
-  open-ended length because the session holds the rest). `<id>` is the
-  originating Polytoken session ID from verified context (`Session:` in the
-  main session's prompt, or the parent ID passed explicitly when delegated,
-  never a subagent's own ID or a guess). Omit ` ·session:<id>` if unavailable.
+  a commitment. Draft `<next action>` in one `model_override: "mg:docs"` writer
+  pass following `polish-prose`'s writer instructions with no reviewer: pass
+  the verified session context and this one-line constraint, write for the
+  operator scanning their TODO inbox later, follow `deslop` (and its voice
+  file), and check kept claims against the code. `<id>` is the originating
+  Polytoken session ID from verified context (`Session:` in the main session's
+  prompt, or the parent ID passed explicitly when delegated, never a subagent's
+  own ID or a guess). Omit ` ·session:<id>` if unavailable.
 
 Don't commit, touch neighboring files, or act on the note; morning grooming
 triages the inbox. Reply only with the line written.
