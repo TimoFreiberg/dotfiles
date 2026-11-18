@@ -20,7 +20,7 @@ just = "latest"
 neovim = "latest"
 node = "latest"
 "npm:lavish-axi" = "latest"
-"npm:https://github.com/TimoFreiberg/lavish-kit/releases/latest/download/lavish-kit.tgz" = "latest"
+"npm:https://github.com/TimoFreiberg/lavish-kit/releases/latest/download/lavish-kit.tgz" = { version = "latest", minimum_release_age = "0s" }
 ripgrep = "latest"
 ripgrep-all = "latest"
 rust = "stable"
