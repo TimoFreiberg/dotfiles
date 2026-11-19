@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+# File-backed message board for subagents working on one task.
+# Posts are numbered files; each agent has a read cursor. `check` is
+# side-effect free so `shell_monitor` can poll it while an agent waits.
+set -euo pipefail
+
+usage() {
+	cat <<'EOF'
+usage:
+  board init [name]            create a run directory under ./.swarm and print its absolute path
+  board post DIR FROM MESSAGE  post MESSAGE as FROM; @name mentions an agent, @all mentions everyone
+  board check DIR ME           exit 0 if unread posts mention ME or @all (changes nothing)
+  board read DIR ME [--all]    print unread posts (every post with --all) and mark them read
+EOF
+	exit 2
+}
+
+die() {
+	echo "board: $*" >&2
+	exit 1
+}
+
+valid_name() {
+	[[ $1 =~ ^[A-Za-z0-9_-]+$ ]] || die "invalid agent name '$1' (use letters, digits, - and _)"
+}
+
+run_dir() {
+	[[ -d $1/posts && -f $1/seq ]] || die "'$1' is not a board directory (run 'board init' first)"
+}
+
+seq_of() {
+	local base=${1##*/}
+	echo $((10#${base%%-*}))
+}
+
+# Posts after ME's cursor that ME did not write, oldest first.
+unread() {
+	local dir=$1 me=$2 cursor=0 f
+	[[ -f $dir/cursors/$me ]] && cursor=$(<"$dir/cursors/$me")
+	for f in "$dir"/posts/*.md; do
+		[[ -e $f ]] || continue
+		(($(seq_of "$f") > cursor)) || continue
+		[[ $(head -n 1 "$f") == *" from:$me to:"* ]] && continue
+		echo "$f"
+	done
+}
+
+mentions_me() {
+	local header to
+	header=$(head -n 1 "$1")
+	to=${header#* to:}
+	to=${to%% *}
+	[[ ,$to, == *,"$2",* || ,$to, == *,all,* ]]
+}
+
+cmd_init() {
+	local name=${1:-run} root dir
+	valid_name "$name"
+	root=$PWD/.swarm
+	dir=$root/$(date +%Y%m%d-%H%M%S)-$name
+	mkdir -p "$dir/posts" "$dir/artifacts" "$dir/cursors"
+	[[ -f $root/.gitignore ]] || echo '*' >"$root/.gitignore"
+	echo 0 >"$dir/seq"
+	echo "$dir"
+}
+
+cmd_post() {
+	(($# == 3)) || usage
+	local dir=$1 from=$2 msg=$3 to tries=0 seq tmp
+	run_dir "$dir"
+	valid_name "$from"
+	to=$(grep -oE '@[A-Za-z0-9_-]+' <<<"$msg" | sed 's/^@//' | sort -u | paste -sd, - || true)
+
+	until mkdir "$dir/.lock" 2>/dev/null; do
+		((++tries < 200)) || die "board is locked; remove $dir/.lock if no post is in progress"
+		sleep 0.05
+	done
+	LOCK=$dir/.lock
+	trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+
+	seq=$(($(<"$dir/seq") + 1))
+	tmp=$(mktemp "$dir/.post.XXXXXX")
+	{
+		echo "#$seq from:$from to:${to:-} at:$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+		echo "$msg"
+	} >"$tmp"
+	mv "$tmp" "$dir/posts/$(printf %06d "$seq")-$from.md"
+	echo "$seq" >"$dir/seq.tmp"
+	mv "$dir/seq.tmp" "$dir/seq"
+	rmdir "$LOCK"
+	trap - EXIT
+	echo "posted #$seq"
+}
+
+cmd_check() {
+	(($# == 2)) || usage
+	local dir=$1 me=$2 n=0 f
+	run_dir "$dir"
+	valid_name "$me"
+	while read -r f; do
+		[[ -n $f ]] && mentions_me "$f" "$me" && n=$((n + 1))
+	done < <(unread "$dir" "$me")
+	((n > 0)) || {
+		echo "no unread mentions for $me"
+		exit 1
+	}
+	echo "$n unread mention(s) for $me"
+}
+
+cmd_read() {
+	(($# == 2 || $# == 3)) || usage
+	local dir=$1 me=$2 all=${3:-} files f last
+	run_dir "$dir"
+	valid_name "$me"
+	[[ -z $all || $all == --all ]] || usage
+	if [[ -n $all ]]; then
+		files=$(ls "$dir"/posts/*.md 2>/dev/null || true)
+	else
+		files=$(unread "$dir" "$me")
+	fi
+	[[ -n $files ]] || {
+		echo "no unread posts for $me"
+		return 0
+	}
+	while read -r f; do
+		cat "$f"
+		echo
+	done <<<"$files"
+	last=$(seq_of "$(tail -n 1 <<<"$files")")
+	local cursor=0
+	[[ -f $dir/cursors/$me ]] && cursor=$(<"$dir/cursors/$me")
+	((last > cursor)) && echo "$last" >"$dir/cursors/$me"
+	return 0
+}
+
+(($# >= 1)) || usage
+cmd=$1
+shift
+case $cmd in
+init) cmd_init "$@" ;;
+post) cmd_post "$@" ;;
+check) cmd_check "$@" ;;
+read) cmd_read "$@" ;;
+*) usage ;;
+esac
