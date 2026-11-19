@@ -11,11 +11,12 @@ carries short messages between agents that are still running.
 
 ## Setup
 
-Run `<this skill's directory>/board init <task-name>`. It prints the run
-directory (`DIR`), which sits under `.swarm/` in the project and is ignored
-by version control. You are `lead`. Give each subagent a short kebab-case
-name, and use `general-purpose` or `general-purpose-mini`, since workers need
-shell, `shell_monitor`, and file tools.
+Run `<this skill's directory>/board init <session ID> <task-name>`, with
+the session ID from your system prompt. It prints the run directory (`DIR`),
+inside the session's directory under `swarm/`. You are `lead`. Give each
+subagent a short kebab-case name, and use `general-purpose` or
+`general-purpose-mini`, since workers need shell, `shell_monitor`, and file
+tools.
 
 Agents that edit the same files at the same time need separate workspaces
 (@skill:jj-workspaces).

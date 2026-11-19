@@ -7,7 +7,7 @@ set -euo pipefail
 usage() {
 	cat <<'EOF'
 usage:
-  board init [name]            create a run directory under ./.swarm and print its absolute path
+  board init SESSION [name]    create a run directory in Polytoken session SESSION's directory and print its path
   board post DIR FROM MESSAGE  post MESSAGE as FROM; @name mentions an agent, @all mentions everyone
   board check DIR ME           exit 0 if unread posts mention ME or @all (changes nothing)
   board read DIR ME [--all]    print unread posts (every post with --all) and mark them read
@@ -54,12 +54,15 @@ mentions_me() {
 }
 
 cmd_init() {
-	local name=${1:-run} root dir
+	(($# == 1 || $# == 2)) || usage
+	local session=$1 name=${2:-run} data session_dir dir
+	valid_name "$session"
 	valid_name "$name"
-	root=$PWD/.swarm
-	dir=$root/$(date +%Y%m%d-%H%M%S)-$name
+	data=${POLYTOKEN_DATA_PATH:-${XDG_DATA_HOME:-$HOME/.local/share}/polytoken}
+	session_dir=$data/sessions-v1/$session
+	[[ -d $session_dir ]] || die "no Polytoken session directory at $session_dir"
+	dir=$session_dir/swarm/$(date +%Y%m%d-%H%M%S)-$name
 	mkdir -p "$dir/posts" "$dir/artifacts" "$dir/cursors"
-	[[ -f $root/.gitignore ]] || echo '*' >"$root/.gitignore"
 	echo 0 >"$dir/seq"
 	echo "$dir"
 }
