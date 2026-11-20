@@ -7,8 +7,13 @@ license: MIT
 
 lavish-axi opens agent-written HTML in the browser so the operator can
 annotate it and send feedback. Before building, read `lavish-axi --help`,
-`lavish-axi design`, and each matching `lavish-axi playbook <id>`. Build what
-you were asked for; otherwise infer it from the conversation.
+`lavish-axi design`, each matching `lavish-axi playbook <id>`, and
+`lavish-kit theme`. Build what you were asked for; otherwise infer it from the
+conversation.
+
+Use the Orangebox page and code/diff themes described by `lavish-kit theme`
+by default, even if `lavish-axi design` suggests another theme. Follow an
+existing project design system or an explicitly requested design instead.
 
 Write the artifact in a directory of its own outside the repository, holding
 only the artifact and its assets: Lavish serves sibling files to the browser.
