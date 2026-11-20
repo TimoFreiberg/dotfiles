@@ -74,43 +74,12 @@ echo "           Daily System Update"
 echo "========================================"
 echo ""
 
-# ──────────────────────────────────────────────
-# 1. mise-managed tools
-# ──────────────────────────────────────────────
-echo "──────────────────────────────────────────"
-echo " 1/4  mise tools"
-echo "──────────────────────────────────────────"
-if type -q mise
-    if test (uname -s) = Darwin
-        echo "  mise is managed by Homebrew; it will update with brew upgrade"
-    else
-        mise self-update --yes; or begin
-            echo "  ⚠ mise self-update failed (exit $status)"
-            set had_errors 1
-        end
-    end
-
-    # Run from HOME so a scheduled invocation from another repo cannot select
-    # that repo's project-specific tool versions instead of the global defaults.
-    mise --cd "$HOME" install; or begin
-        echo "  ⚠ mise install failed (exit $status)"
-        set had_errors 1
-    end
-    mise --cd "$HOME" upgrade; or begin
-        echo "  ⚠ mise upgrade failed (exit $status)"
-        set had_errors 1
-    end
-else
-    echo "  ⚠ mise not found — install the global tool set manually"
-    set had_errors 1
-end
-echo ""
 
 # ──────────────────────────────────────────────
-# 2. macOS native updates
+# 1. macOS native updates
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 2/4  macOS updates"
+echo " 1/4  macOS updates"
 echo "──────────────────────────────────────────"
 if test (uname -s) = Darwin
     if type -q brew
@@ -157,6 +126,38 @@ if test (uname -s) = Darwin
     rm -f $swupd_tmp
 else
     echo "  Skipping native OS updates (not macOS; manage Linux updates with the host)."
+end
+echo ""
+
+# ──────────────────────────────────────────────
+# 2. mise-managed tools
+# ──────────────────────────────────────────────
+echo "──────────────────────────────────────────"
+echo " 2/4  mise tools"
+echo "──────────────────────────────────────────"
+if type -q mise
+    if test (uname -s) = Darwin
+        echo "  mise is managed by Homebrew; it will update with brew upgrade"
+    else
+        mise self-update --yes; or begin
+            echo "  ⚠ mise self-update failed (exit $status)"
+            set had_errors 1
+        end
+    end
+
+    # Run from HOME so a scheduled invocation from another repo cannot select
+    # that repo's project-specific tool versions instead of the global defaults.
+    mise --cd "$HOME" install; or begin
+        echo "  ⚠ mise install failed (exit $status)"
+        set had_errors 1
+    end
+    mise --cd "$HOME" upgrade; or begin
+        echo "  ⚠ mise upgrade failed (exit $status)"
+        set had_errors 1
+    end
+else
+    echo "  ⚠ mise not found — install the global tool set manually"
+    set had_errors 1
 end
 echo ""
 
