@@ -10,9 +10,12 @@ afterwards. Don't post comments, edit code, or give a merge verdict.
 Settle the scope first (PR URL, branch, or revset); ask if it's unclear.
 Check out someone else's PR in a jj workspace per @skill:jj-workspaces so
 references point at real code, and remove the workspace when done. Read the
-stated intent if there is one: the PR description, ticket, or plan. Then
-dispatch two jobs in parallel, giving both the scope, the checkout, and any
-stated intent:
+stated intent if there is one (PR description, ticket, or plan), then
+dispatch two jobs in parallel with the scope, checkout, and stated intent.
+Both must reconstruct what the change does from the diff and checkout,
+treating the stated intent as claims to check rather than facts. Separate
+what code and tests establish from what is assumed or unverified; never
+imply that passing tests or reading the diff proves safety.
 
 - **Findings:** reviewers with `model_override: "mg:review_thorough"`, one
   per role. Correctness: does it do what it claims, is it wired up and
@@ -29,16 +32,20 @@ stated intent:
   3. Sharp edges: surprises, new failure modes, behavior that changed
      silently.
   4. Anything beyond the stated intent.
-  5. The few hunks worth reading yourself, ranked, with why.
+  5. The few hunks worth reading yourself, ranked, each with the specific
+     question the operator should answer from it (plus any open sign-off
+     question not tied to a hunk).
 
 Before presenting, note in the brief where a finding contradicts it. Present
-it as HTML using @skill:lavish : the brief first, then the findings by severity,
-ending with the questions the operator still has to answer before signing off.
+it as HTML using @skill:lavish : the brief first, then the findings by severity.
 Keep source references, quoted code, and draft review comments in the page.
 Write the artifact under `$HOME/.local/share/polytoken/artifacts/`, outside
 any checkout, so it neither changes the reviewed revision nor disappears with
-a temporary workspace. Use feedback to clarify or correct the report, not
-change reviewed code or post comments. Offer @skill:review-quiz for any part
-the operator wants to understand themselves. In-session, give the artifact
-path and review URL rather than repeating the report. If Lavish cannot open,
-say why and present the report in-session instead.
+a temporary workspace. Use feedback to clarify, correct, or drill into the
+report—never to change reviewed code or post comments; treat brief
+annotations like "why?", "expand", "show callers", or "justify lifetime" as
+requests to inspect the checkout and update the artifact in place with
+concrete code evidence. Offer @skill:review-quiz for any part the operator
+wants to understand themselves. In-session, give the artifact path and
+review URL rather than repeating the report. If Lavish cannot open, say why
+and present the report in-session instead.
