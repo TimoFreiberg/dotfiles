@@ -13,10 +13,16 @@ Choose a review level per @skill:review-levels, and open the plan with exactly
 with `@`.
 
 Plan the simplest correct design that serves the task's goals, including the
-operator's stated ambition, operational constraints, and reviewability needs.
-Carry any stated priorities into the plan so implementers and reviewers
-preserve them. Ask when competing priorities would materially change the
-approach.
+operator's stated ambition, operational constraints, and cheap human
+verification—prefer changes whose correctness a human can establish easily,
+which does not mean minimizing diff size. For meaningful changes, state the
+invariants, the verification evidence, and an independently reviewable
+sequence. If the project's `AGENTS.md` opts out of human code-review
+preparation, skip review-oriented staging and human code-review artifacts
+while keeping planning, tests, correctness review, and product/architecture
+artifacts. Carry any stated priorities into the plan so implementers and
+reviewers preserve them. Ask when competing priorities would materially change
+the approach.
 
 Complexity must earn its place through a requirement, a concrete risk, or a
 simplification. Prefer what the codebase and its dependencies already provide.
