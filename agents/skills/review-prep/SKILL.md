@@ -36,16 +36,19 @@ imply that passing tests or reading the diff proves safety.
      question the operator should answer from it (plus any open sign-off
      question not tied to a hunk).
 
-Before presenting, note in the brief where a finding contradicts it. Present
-it as HTML using @skill:lavish : the brief first, then the findings by severity.
-Keep source references, quoted code, and draft review comments in the page.
-Write the artifact under `$HOME/.local/share/polytoken/artifacts/`, outside
-any checkout, so it neither changes the reviewed revision nor disappears with
-a temporary workspace. Use feedback to clarify, correct, or drill into the
-report—never to change reviewed code or post comments; treat brief
-annotations like "why?", "expand", "show callers", or "justify lifetime" as
-requests to inspect the checkout and update the artifact in place with
-concrete code evidence. Offer @skill:review-quiz for any part the operator
-wants to understand themselves. In-session, give the artifact path and
-review URL rather than repeating the report. If Lavish cannot open, say why
-and present the report in-session instead.
+Before presenting, note in the brief where a finding contradicts it or raises
+a sign-off question. Present it as HTML using @skill:lavish : the brief first,
+then the findings by severity. Keep source references, quoted code, and draft
+review comments in the page. Write the artifact under
+`$HOME/.local/share/polytoken/artifacts/<review-id>/`, outside any checkout,
+so it neither changes the reviewed revision nor disappears with a temporary
+workspace. Use feedback to clarify, correct, or drill into the report—never to
+change reviewed code or post comments. Treat brief annotations like "why?",
+"expand", "show callers", or "justify lifetime" as requests to inspect the
+checkout and update the artifact in place with concrete code evidence: answer
+directly (resuming the brief's writer with `resume_from` if available) without
+re-running the prose review loop unless the addition is substantial. Offer
+@skill:review-quiz for any part the operator wants to understand themselves.
+In-session, give the artifact path and review URL rather than repeating the
+report. If Lavish cannot open, say why and present the report in-session
+instead.

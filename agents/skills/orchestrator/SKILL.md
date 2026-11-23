@@ -28,21 +28,21 @@ Launch implementers with `model_override: "mg:implementer"` and reviewers with
 
 ## 1. Implement
 
-One fresh implementer gets the whole plan. Split into
-sequential phases (fresh implementer each, never concurrent) only when the
-plan defines phases or would exhaust one context. Implementers verify each
-acceptance criterion with tests or one-off checks, commit at a verified state,
-and report changed files, verification per acceptance criterion, commands run
-with results, assumptions, blockers, and out-of-scope observations.
-Implementers must not independently expand safeguards in ways that change
-scope, useful behavior, or operational prerequisites. If an uncovered risk
-requires such a change, stop and return the tradeoff to the operator. Routine
-correctness within the approved design does not require renewed approval.
-When part of the plan hits a consequential unapproved decision, stop on the
-blocked work—do not add speculative abstractions, workarounds, or
-unauthorized scope changes—and complete and verify any genuinely independent
-work within the plan and its approved deferral bounds. If no independent
-work was committed, skip to the report.
+One fresh implementer gets the whole plan. Split into sequential phases (fresh
+implementer each, never concurrent) only when the plan defines phases or would
+exhaust one context. Implementers verify each acceptance criterion with tests
+or one-off checks, commit at a verified state (following any commit sequence
+the plan defines), and report changed files, verification per acceptance
+criterion, commands run with results, assumptions, blockers, and out-of-scope
+observations. Implementers must not independently expand safeguards in ways
+that change scope, useful behavior, or operational prerequisites; treat an
+uncovered risk requiring such a change as a blocking decision below. Routine
+correctness within the approved design does not require renewed approval. When
+part of the plan hits a consequential unapproved decision, stop on the blocked
+work (leaving it unstarted or backed out)—do not add speculative abstractions,
+workarounds, or unauthorized scope changes—and complete and verify any
+genuinely independent work within the plan and its approved deferral bounds.
+If no independent work was committed, skip to the report.
 
 ## 2. Review round 1
 
@@ -83,7 +83,9 @@ Then resume each reviewer (`resume_from`) with the repair delta
 (`<previous>..<repair>`) and the implementer's fixes and rebuttals: confirm
 fixes, check the blast radius, and don't re-open rebutted findings without
 new evidence. A rebuttal-only round needs no re-review. Stop when no blocking
-finding is open.
+finding is open. When the plan defines a commit sequence, keep repair fixes
+as separate commits during the loop so `<previous>..<repair>` stays valid,
+then squash them into the commits they fix once the loop ends.
 
 At the round cap (round 1 counts), or when findings oscillate or keep
 appearing on unchanged code, stop and mark the remainder `unresolved`. Never
@@ -102,8 +104,9 @@ removed. Otherwise, defer cleanup and report why.
 ## 5. Prose
 
 Once cleanup is complete or deferred, run @skill:polish-prose on
-`<base>..<latest>` and commit its file edits. Record the final commit ID after
-this step.
+`<base>..<latest>` and commit its file edits (squashing them into the commits
+they change when the plan defines a commit sequence). Record the final commit
+ID after this step.
 
 ## 6. Report
 
@@ -122,7 +125,8 @@ Final message, omitting empty sections:
    temporary tests or artifacts removed, and cleanup deferred with the reason.
 6. **Rebuttals:** each with one-line evidence, so the operator can overrule.
 7. **Unresolved findings**, as a block pasteable into a fresh session: plan
-   path, final and base commit IDs, review level, then per finding its id,
+   path, final and base commit IDs, review level, any blocked decision and
+   remaining scope, then per finding its id,
    severity, location, why unresolved, what to do, and evidence.
 8. **Follow-up opportunities:** include only incidental out-of-scope issues
    reported by implementers or reviewers. Do not search for, investigate, or fix
