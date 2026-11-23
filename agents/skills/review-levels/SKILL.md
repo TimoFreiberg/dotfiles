@@ -10,7 +10,8 @@ Judge the review level by risk, not size.
   `review_routine`; one reviewer covering everything; 2 rounds.
 - **thorough**: everything else, including public interfaces, persisted or
   wire formats, concurrency, security, and error-handling policy. Model group
-  `review_thorough`; one reviewer per role; 4 rounds.
+  `review_thorough`; correctness reviewed in parallel with the first two models
+  in the group (`count: 2`), other roles once; 4 rounds.
 - **critical**: only when the operator explicitly asks. Model group
   `review_critical`; correctness reviewed once per model in the group
   (`count` = number of candidates), other roles once; 4 rounds.

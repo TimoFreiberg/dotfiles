@@ -19,11 +19,12 @@ state it with a one-line reason in your first message.
 
 Record the base commit ID (not the jj change ID) before any implementation.
 
-## Review levels
+## Review levels and models
 
 Choose and apply the level per @skill:review-levels .
 
-Launch reviewers with `model_override: "mg:<group>"`.
+Launch implementers with `model_override: "mg:implementer"` and reviewers with
+`model_override: "mg:<group>"`.
 
 ## 1. Implement
 
