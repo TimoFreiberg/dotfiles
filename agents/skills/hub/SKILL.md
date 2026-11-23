@@ -1,6 +1,6 @@
 ---
 name: hub
-description: Use when the operator asks to start the Lavish workspace hub (`lavish-kit hub listen`) for a jj workspace in a Polytoken session.
+description: Use when starting the Lavish workspace hub (`lavish-kit hub listen`) for a jj workspace in a Polytoken session, whether requested directly or needed by the lavish skill.
 ---
 
 The hub is a long-running `lavish-kit` process that owns one jj workspace's
