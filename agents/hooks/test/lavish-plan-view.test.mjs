@@ -16,6 +16,7 @@ async function fixture(t, script = 'printf "%s\\n" "$@" > "$HOME/args"') {
   await writeFile(join(bin, 'lavish-kit'), `#!/bin/sh\n${script}\n`, { mode: 0o755 });
   const env = { ...process.env, HOME: home, XDG_STATE_HOME: join(home, 'state'), PATH: `${bin}:${process.env.PATH}` };
   delete env.POLYTOKEN_SESSION_ID;
+  delete env.LAVISH_HUB_WORKSPACE;
   return { home, env };
 }
 
@@ -49,7 +50,7 @@ async function plan(home, session, name) {
   return file;
 }
 
-test('detaches startup and opens the newest plan under Polytoken artifacts', async t => {
+test('detaches startup and publishes the newest plan to the hub without --open', async t => {
   const { home, env } = await fixture(t, 'printf "%s\\n" "$@" > "$HOME/args"; sleep 2; echo done > "$HOME/done"');
   env.POLYTOKEN_SESSION_ID = 'session with spaces';
   const newest = await plan(home, env.POLYTOKEN_SESSION_ID, 'plan-010.md');
@@ -59,10 +60,21 @@ test('detaches startup and opens the newest plan under Polytoken artifacts', asy
   run(env);
   assert.ok(performance.now() - start < 1500, 'hook must not wait for command startup');
   assert.deepEqual((await waitFor(join(home, 'args'))).trimEnd().split('\n'), [
-    newest, '--out', join(home, '.local/share/polytoken/artifacts/plan', env.POLYTOKEN_SESSION_ID, 'index.html'),
+    'hub', 'publish', newest, '--id', 'plan', '--title', 'Plan',
   ]);
-  assert.match(await readFile(join(home, 'state/lavish-kit/plan-hook.log'), 'utf8'), /lavish-kit .* --out /);
+  assert.match(await readFile(join(home, 'state/lavish-kit/plan-hook.log'), 'utf8'), /lavish-kit hub publish .* --id plan --title Plan/);
   await waitFor(join(home, 'done'));
+});
+
+test('passes --workspace when LAVISH_HUB_WORKSPACE is set', async t => {
+  const { home, env } = await fixture(t);
+  env.POLYTOKEN_SESSION_ID = 'session-ws';
+  env.LAVISH_HUB_WORKSPACE = '/tmp/my workspace';
+  const newest = await plan(home, env.POLYTOKEN_SESSION_ID, 'plan-001.md');
+  run(env);
+  assert.deepEqual((await waitFor(join(home, 'args'))).trimEnd().split('\n'), [
+    'hub', 'publish', newest, '--id', 'plan', '--title', 'Plan', '--workspace', '/tmp/my workspace',
+  ]);
 });
 
 test('no session or missing plan exits silently without invoking lavish-kit', async t => {

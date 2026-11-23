@@ -166,7 +166,7 @@ Earlier setups linked `~/.local/bin/lavish-kit` to a checkout. chezmoi no longer
 
 The managed `lavish-kit/config.json` sets `createPr` to `["fish", "-c", "jprc $argv", "--"]`. lavish-kit appends `-r REV --body-file FILE`, so the fish `jprc` function (`config/fish/functions/jprc.fish`) must keep its `--body-file` option. A PR page's Create PR button saves the draft, then runs that command in a new herdr tab in the recorded repository. Generated pages default to `${XDG_DATA_HOME:-$HOME/.local/share}/lavish-kit/pages/`.
 
-The `lavish-plan-view` hook in `config/polytoken/hooks.json` runs before `handoff_plan` and opens the session's newest `plan-NNN.md`. It starts lavish-kit in the background, so a first run that installs dependencies doesn't hold up the handoff, and passes `--out` to keep the page at `$HOME/.local/share/polytoken/artifacts/plan/<session>/index.html`. Output and failures go to `${XDG_STATE_HOME:-$HOME/.local/state}/lavish-kit/plan-hook.log`. `just test-lavish-plan-view` tests the hook against a stub `lavish-kit` without opening a Lavish session; lavish-kit's own tests live in its checkout.
+The `lavish-plan-view` hook in `config/polytoken/hooks.json` runs before `handoff_plan` and publishes the session's newest `plan-NNN.md` to the running workspace hub via `lavish-kit hub publish --id plan --title "Plan"` (without `--open`, passing `--workspace "$LAVISH_HUB_WORKSPACE"` when set). It runs detached in the background so it doesn't hold up the handoff; output and failures go to `${XDG_STATE_HOME:-$HOME/.local/state}/lavish-kit/plan-hook.log`. `just test-lavish-plan-view` tests the hook against a stub `lavish-kit` without opening a Lavish session; lavish-kit's own tests live in its checkout.
 
 ## Herdr compatibility mode
 
