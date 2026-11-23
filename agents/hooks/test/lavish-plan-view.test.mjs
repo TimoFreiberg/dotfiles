@@ -13,7 +13,7 @@ async function fixture(t, script = 'printf "%s\\n" "$@" > "$HOME/args"') {
   t.after(() => rm(home, { recursive: true, force: true }));
   const bin = join(home, 'bin');
   await mkdir(bin);
-  await writeFile(join(bin, 'lavish-kit'), `#!/bin/sh\n${script}\n`, { mode: 0o755 });
+  await writeFile(join(bin, 'lavish-hub'), `#!/bin/sh\n${script}\n`, { mode: 0o755 });
   const env = { ...process.env, HOME: home, XDG_STATE_HOME: join(home, 'state'), PATH: `${bin}:${process.env.PATH}` };
   delete env.POLYTOKEN_SESSION_ID;
   delete env.LAVISH_HUB_WORKSPACE;
@@ -60,9 +60,9 @@ test('detaches startup and publishes the newest plan to the hub without --open',
   run(env);
   assert.ok(performance.now() - start < 1500, 'hook must not wait for command startup');
   assert.deepEqual((await waitFor(join(home, 'args'))).trimEnd().split('\n'), [
-    'hub', 'publish', newest, '--id', 'plan', '--title', 'Plan',
+    'publish', newest, '--id', 'plan', '--title', 'Plan',
   ]);
-  assert.match(await readFile(join(home, 'state/lavish-kit/plan-hook.log'), 'utf8'), /lavish-kit hub publish .* --id plan --title Plan/);
+  assert.match(await readFile(join(home, 'state/lavish-hub/plan-hook.log'), 'utf8'), /lavish-hub publish .* --id plan --title Plan/);
   await waitFor(join(home, 'done'));
 });
 
@@ -73,11 +73,11 @@ test('passes --workspace when LAVISH_HUB_WORKSPACE is set', async t => {
   const newest = await plan(home, env.POLYTOKEN_SESSION_ID, 'plan-001.md');
   run(env);
   assert.deepEqual((await waitFor(join(home, 'args'))).trimEnd().split('\n'), [
-    'hub', 'publish', newest, '--id', 'plan', '--title', 'Plan', '--workspace', '/tmp/my workspace',
+    'publish', newest, '--id', 'plan', '--title', 'Plan', '--workspace', '/tmp/my workspace',
   ]);
 });
 
-test('no session or missing plan exits silently without invoking lavish-kit', async t => {
+test('no session or missing plan exits silently without invoking lavish-hub', async t => {
   const { home, env } = await fixture(t);
   run(env);
   env.POLYTOKEN_SESSION_ID = 'missing';
@@ -90,5 +90,5 @@ test('command failure is logged without failing the hook', async t => {
   env.POLYTOKEN_SESSION_ID = 'session-1';
   await plan(home, env.POLYTOKEN_SESSION_ID, 'plan-001.md');
   run(env);
-  assert.match(await waitFor(join(home, 'state/lavish-kit/plan-hook.log'), text => text.includes('failure')), /failure/);
+  assert.match(await waitFor(join(home, 'state/lavish-hub/plan-hook.log'), text => text.includes('failure')), /failure/);
 });

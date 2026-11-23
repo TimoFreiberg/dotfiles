@@ -8,10 +8,10 @@ license: MIT
 Lavish presents agent-written HTML and Markdown in the workspace hub so the
 operator can annotate it and send feedback without popping up standalone
 browser tabs. Before building HTML, read `lavish-axi design`, each matching
-`lavish-axi playbook <id>`, and `lavish-kit theme`. Build what you were asked
+`lavish-axi playbook <id>`, and `lavish-hub theme`. Build what you were asked
 for; otherwise infer it from the conversation.
 
-Use the Orangebox page and code/diff themes described by `lavish-kit theme`
+Use the Orangebox page and code/diff themes described by `lavish-hub theme`
 by default, even if `lavish-axi design` suggests another theme. Follow an
 existing project design system or an explicitly requested design instead.
 
@@ -22,7 +22,7 @@ Quote paths in shell commands. Don't share outside Lavish unless asked.
 ## Hub routing
 
 Always publish through the workspace hub. Never open standalone pages with
-`lavish-axi "<file>"` and never pass `--open` to `lavish-kit hub publish`:
+`lavish-axi "<file>"` and never pass `--open` to `lavish-hub publish`:
 artifacts should update the single hub review rather than popping up new
 browser tabs.
 
@@ -50,7 +50,7 @@ Set `LAVISH_HUB_WORKSPACE` to the selected service's workspace, using the
 startup line or its feedback's `workspace` field. Quote it safely for the shell.
 
 ```sh
-lavish-kit hub publish "<file>" --id <id> --title "<title>" --workspace "$LAVISH_HUB_WORKSPACE"
+lavish-hub publish "<file>" --id <id> --title "<title>" --workspace "$LAVISH_HUB_WORKSPACE"
 ```
 
 Leave out `--open` so publishing updates the hub without popping up a browser
@@ -64,6 +64,6 @@ reload after saving their edits; the reload warning can miss custom editors.
 Markdown updates automatically and can be edited from the page, so reread it
 before changing it.
 
-Feedback and replies go through the `hub` skill. Use `lavish-kit` for hub
+Feedback and replies go through the `hub` skill. Use `lavish-hub` for hub
 pages — never standalone `lavish-axi`, which runs a different server and opens
 a separate browser tab. Ending the hub's review stops the hub.

@@ -13,13 +13,13 @@ for candidate in "$plan_dir"/plan-[0-9][0-9][0-9].md; do
 done
 [ -n "$plan" ] || exit 0
 
-log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/lavish-kit"
+log_dir="${XDG_STATE_HOME:-$HOME/.local/state}/lavish-hub"
 mkdir -p "$log_dir" 2>/dev/null || exit 0
 log="$log_dir/plan-hook.log"
-args=(hub publish "$plan" --id plan --title "Plan")
+args=(publish "$plan" --id plan --title "Plan")
 if [ -n "${LAVISH_HUB_WORKSPACE:-}" ]; then
   args+=(--workspace "$LAVISH_HUB_WORKSPACE")
 fi
-printf '%s lavish-kit %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${args[*]}" >>"$log" 2>/dev/null
-(nohup lavish-kit "${args[@]}" </dev/null >>"$log" 2>&1 &)
+printf '%s lavish-hub %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${args[*]}" >>"$log" 2>/dev/null
+(nohup lavish-hub "${args[@]}" </dev/null >>"$log" 2>&1 &)
 exit 0
