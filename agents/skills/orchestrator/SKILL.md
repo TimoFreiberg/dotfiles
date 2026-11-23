@@ -80,12 +80,14 @@ findings; it fixes each or rebuts it with evidence. Medium and low findings
 are handled in the same pass and never open a round by themselves.
 
 Then resume each reviewer (`resume_from`) with the repair delta
-(`<previous>..<repair>`) and the implementer's fixes and rebuttals: confirm
-fixes, check the blast radius, and don't re-open rebutted findings without
-new evidence. A rebuttal-only round needs no re-review. Stop when no blocking
-finding is open. When the plan defines a commit sequence, keep repair fixes
-as separate commits during the loop so `<previous>..<repair>` stays valid,
-then squash them into the commits they fix once the loop ends.
+(`jj diff --git --from <previous> --to <repair>`) and the implementer's fixes
+and rebuttals: confirm fixes, check the blast radius, and don't re-open
+rebutted findings without new evidence. A rebuttal-only round needs no
+re-review. Stop when no blocking finding is open. When the plan defines a
+commit sequence, keep repair fixes as separate commits during the loop, then
+squash them into the commits they fix once the loop ends (or keep a fix
+separate if it depends on a later commit) and re-verify each affected commit
+so intermediate steps stay buildable and independently reviewable.
 
 At the round cap (round 1 counts), or when findings oscillate or keep
 appearing on unchanged code, stop and mark the remainder `unresolved`. Never
@@ -104,9 +106,9 @@ removed. Otherwise, defer cleanup and report why.
 ## 5. Prose
 
 Once cleanup is complete or deferred, run @skill:polish-prose on
-`<base>..<latest>` and commit its file edits (squashing them into the commits
-they change when the plan defines a commit sequence). Record the final commit
-ID after this step.
+`<base>..<latest>` and commit its file edits. When the plan defines a commit
+sequence, squash edits into the commits they change and re-verify each
+affected commit. Record the final commit ID after this step.
 
 ## 6. Report
 
