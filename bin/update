@@ -157,6 +157,27 @@ if type -q nix
         end
     end
 
+    if test -f "$HOME/.config/nix/local/flake.nix"
+        echo "  Updating local flake inputs..."
+        nix flake update --flake "path:$HOME/.config/nix/local"; or begin
+            echo "  ⚠ local nix flake update failed (exit $status)"
+            set had_errors 1
+        end
+        if nix profile list --json 2>/dev/null | grep -q '"local"'
+            echo "  Upgrading local profile..."
+            nix profile upgrade local; or begin
+                echo "  ⚠ local nix profile upgrade failed (exit $status)"
+                set had_errors 1
+            end
+        else
+            echo "  Installing local profile..."
+            nix profile add "path:$HOME/.config/nix/local"; or begin
+                echo "  ⚠ local nix profile add failed (exit $status)"
+                set had_errors 1
+            end
+        end
+    end
+
     set -l after_profile (readlink -f "$HOME/.nix-profile" 2>/dev/null)
     if test -n "$before_profile"; and test -n "$after_profile"; and test "$before_profile" != "$after_profile"
         set -l diff_output (nix store diff-closures "$before_profile" "$after_profile" 2>/dev/null)
