@@ -1,0 +1,8 @@
+{
+  "name": "lavish-axi-wrapper",
+  "version": "0.1.98",
+  "private": true,
+  "dependencies": {
+    "lavish-axi": "0.1.98"
+  }
+}

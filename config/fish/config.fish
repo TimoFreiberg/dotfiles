@@ -9,20 +9,15 @@ fish_add_path ~/.cargo/bin
 fish_add_path ~/bin
 fish_add_path ~/bin/nogit
 fish_add_path ~/.bun/bin
+fish_add_path /nix/var/nix/profiles/default/bin
+fish_add_path --move ~/.nix-profile/bin
 fish_add_path --move ~/dotfiles/bin
 
 set -x EDITOR nvim
 set -x VISUAL nvim
 set -x XDG_CONFIG_HOME $HOME/.config
-
-# Keep mise-managed global tools available to interactive and scripted Fish.
-if type -q mise
-    if status is-interactive
-        mise activate fish | source
-    else
-        mise activate fish --shims | source
-    end
-end
+set -x LAVISH_AXI_HOST 127.0.0.1
+set -x LAVISH_AXI_TELEMETRY off
 
 set -l local_functions_dir $XDG_CONFIG_HOME/fish/functions/local
 if test -d $local_functions_dir

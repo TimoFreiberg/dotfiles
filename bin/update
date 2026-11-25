@@ -1,6 +1,6 @@
 #!/usr/bin/env fish
 
-# Update mise-managed tools and user-level development tools. Native OS updates
+# Update Nix-managed tools and user-level development tools. Native OS updates
 # are kept separate so this can run unattended on Linux without sudo.
 
 set -l had_errors 0
@@ -130,33 +130,29 @@ end
 echo ""
 
 # ──────────────────────────────────────────────
-# 2. mise-managed tools
+# 2. Nix-managed tools
 # ──────────────────────────────────────────────
 echo "──────────────────────────────────────────"
-echo " 2/4  mise tools"
+echo " 2/4  nix tools"
 echo "──────────────────────────────────────────"
-if type -q mise
-    if test (uname -s) = Darwin
-        echo "  mise is managed by Homebrew; it will update with brew upgrade"
+if type -q nix
+    nix flake update --flake "$HOME/dotfiles"; or begin
+        echo "  ⚠ nix flake update failed (exit $status)"
+        set had_errors 1
+    end
+    if nix profile list --json 2>/dev/null | grep -q '"dotfiles"'
+        nix profile upgrade dotfiles; or begin
+            echo "  ⚠ nix profile upgrade failed (exit $status)"
+            set had_errors 1
+        end
     else
-        mise self-update --yes; or begin
-            echo "  ⚠ mise self-update failed (exit $status)"
+        nix profile add "$HOME/dotfiles"; or begin
+            echo "  ⚠ nix profile add failed (exit $status)"
             set had_errors 1
         end
     end
-
-    # Run from HOME so a scheduled invocation from another repo cannot select
-    # that repo's project-specific tool versions instead of the global defaults.
-    mise --cd "$HOME" install; or begin
-        echo "  ⚠ mise install failed (exit $status)"
-        set had_errors 1
-    end
-    mise --cd "$HOME" upgrade; or begin
-        echo "  ⚠ mise upgrade failed (exit $status)"
-        set had_errors 1
-    end
 else
-    echo "  ⚠ mise not found — install the global tool set manually"
+    echo "  ⚠ nix not found — install the global tool set manually"
     set had_errors 1
 end
 echo ""
@@ -174,7 +170,7 @@ end
 
 if test -d "$HOME/src"
     echo "  Cleaning old Cargo build artifacts under $HOME/src..."
-    mise --cd "$HOME" exec -- cargo sweep --time 3 -r "$HOME/src"; or begin
+    cargo sweep --time 3 -r "$HOME/src"; or begin
         echo "  ⚠ cargo sweep failed (exit $status)"
         set had_errors 1
     end
@@ -182,7 +178,7 @@ else
     echo "  ℹ  $HOME/src not found — skipping cargo sweep"
 end
 
-mise --cd "$HOME" exec -- nvim +PlugClean +PlugInstall +PlugUpdate +qall; or begin
+nvim +PlugClean +PlugInstall +PlugUpdate +qall; or begin
     echo "  ⚠ nvim plugin update failed (exit $status)"
     set had_errors 1
 end
@@ -214,14 +210,14 @@ end
 rm -f $chezmoi_tmp
 echo ""
 
-# Presence check: mise-managed tools plus commands provisioned outside mise.
+# Presence check: Nix-managed tools plus commands provisioned outside Nix.
 echo "──────────────────────────────────────────"
 echo " Tool presence check"
 echo "──────────────────────────────────────────"
 
 set -l tools_to_check \
     atuin bat bun cargo cargo-binstall cargo-nextest cargo-sweep \
-    crit curl direnv eza fd fzf gh git jj just mise nvim pi polytoken rg \
+    curl direnv eza fd fzf gh git jcw jj just lavish-axi lavish-hub nix nvim pi polytoken rg \
     rustc rustup shellcheck ssh starship tig tmux tokei trash uv zoxide zstd
 
 if test (uname -s) = Darwin
