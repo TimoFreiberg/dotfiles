@@ -139,19 +139,34 @@ if type -q nix
     set -l before_profile (readlink -f "$HOME/.nix-profile" 2>/dev/null)
 
     echo "  Updating flake inputs..."
-    nix flake update --flake "$HOME/dotfiles"; or begin
+    nix flake update --flake "path:$HOME/dotfiles/nix"; or begin
         echo "  ⚠ nix flake update failed (exit $status)"
         set had_errors 1
     end
-    if nix profile list --json 2>/dev/null | grep -q '"dotfiles"'
+    if nix profile list --json 2>/dev/null | grep -q '"dotfiles":'
+        echo "  Migrating legacy dotfiles profile entry..."
+        if nix build --no-link "path:$HOME/dotfiles/nix"
+            nix profile remove dotfiles; or begin
+                echo "  ⚠ nix profile remove dotfiles failed (exit $status)"
+                set had_errors 1
+            end
+            nix profile add "path:$HOME/dotfiles/nix"; or begin
+                echo "  ⚠ nix profile add failed (exit $status)"
+                set had_errors 1
+            end
+        else
+            echo "  ⚠ nix build failed (exit $status); keeping existing dotfiles profile"
+            set had_errors 1
+        end
+    else if nix profile list --json 2>/dev/null | grep -q '"nix":'
         echo "  Upgrading dotfiles profile..."
-        nix profile upgrade dotfiles; or begin
+        nix profile upgrade nix; or begin
             echo "  ⚠ nix profile upgrade failed (exit $status)"
             set had_errors 1
         end
     else
         echo "  Installing dotfiles profile..."
-        nix profile add "$HOME/dotfiles"; or begin
+        nix profile add "path:$HOME/dotfiles/nix"; or begin
             echo "  ⚠ nix profile add failed (exit $status)"
             set had_errors 1
         end

@@ -37,8 +37,8 @@
         let
           lavish-axi = pkgs.buildNpmPackage {
             pname = "lavish-axi";
-            version = (builtins.fromJSON (builtins.readFile ./nix/lavish-axi/package.json)).version;
-            src = ./nix/lavish-axi;
+            version = (builtins.fromJSON (builtins.readFile ./lavish-axi/package.json)).version;
+            src = ./lavish-axi;
 
             npmDepsHash = "sha256-Avn2nXfCvNOxttokkHN8JRpzXJ4TLIX9xFmnmDBdhYw=";
             npmFlags = [ "--ignore-scripts" ];
