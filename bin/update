@@ -136,20 +136,39 @@ echo "────────────────────────�
 echo " 2/4  nix tools"
 echo "──────────────────────────────────────────"
 if type -q nix
+    set -l before_profile (readlink -f "$HOME/.nix-profile" 2>/dev/null)
+
+    echo "  Updating flake inputs..."
     nix flake update --flake "$HOME/dotfiles"; or begin
         echo "  ⚠ nix flake update failed (exit $status)"
         set had_errors 1
     end
     if nix profile list --json 2>/dev/null | grep -q '"dotfiles"'
+        echo "  Upgrading dotfiles profile..."
         nix profile upgrade dotfiles; or begin
             echo "  ⚠ nix profile upgrade failed (exit $status)"
             set had_errors 1
         end
     else
+        echo "  Installing dotfiles profile..."
         nix profile add "$HOME/dotfiles"; or begin
             echo "  ⚠ nix profile add failed (exit $status)"
             set had_errors 1
         end
+    end
+
+    set -l after_profile (readlink -f "$HOME/.nix-profile" 2>/dev/null)
+    if test -n "$before_profile"; and test -n "$after_profile"; and test "$before_profile" != "$after_profile"
+        set -l diff_output (nix store diff-closures "$before_profile" "$after_profile" 2>/dev/null)
+        if set -q diff_output[1]
+            printf "  %s\n" $diff_output
+        else
+            echo "  ✓ Nix profile updated (no package closure changes)"
+        end
+    else if test -z "$before_profile"; and test -n "$after_profile"
+        echo "  ✓ Installed dotfiles Nix profile"
+    else
+        echo "  ✓ Nix profile already up to date"
     end
 else
     echo "  ⚠ nix not found — install the global tool set manually"
