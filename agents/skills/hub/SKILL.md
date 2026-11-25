@@ -11,10 +11,11 @@ tab.
 
 Sessions often start in the repo's default workspace on `main` while the real
 work lives in another workspace or change. So default to a session-scoped hub
-(`--session`, `--title`, `--rev`): the review tracks the actual work instead of
-an empty `main` diff, and stays addressable from any workspace of the repo.
-Pass `--rev` explicitly (change ID, bookmark, or revset) and a nonempty
-`--title` (required for session-scoped `listen`). `--base` defaults to
+(`--session`, `--rev`): the review tracks the actual work instead of an empty
+`main` diff, and stays addressable from any workspace of the repo. Pass
+`--rev` explicitly (change ID, bookmark, or revset). Omit `--title` by
+default so `lavish-hub` looks up the Polytoken session title automatically;
+pass `--title <text>` only when overriding it. `--base` defaults to
 `trunk()`; pass `--base <rev>` if the work is based elsewhere.
 
 If all work stays in one dedicated workspace and the operator wants to track
@@ -61,17 +62,17 @@ unused `env` keys below.
 3. Start the service with `shell_service` (`action: "start"`):
    - `name`: `hub-1`, or the next unused number (names are permanent for the
      session).
-   - `env`: `LAVISH_HUB_WORKSPACE`, `LAVISH_HUB_SESSION`, `LAVISH_HUB_TITLE`,
-     and `LAVISH_HUB_REV` (plus `LAVISH_HUB_BASE` if used), as exact literal
+   - `env`: `LAVISH_HUB_WORKSPACE`, `LAVISH_HUB_SESSION`, and `LAVISH_HUB_REV`
+     (plus `LAVISH_HUB_BASE` or `LAVISH_HUB_TITLE` if used), as exact literal
      JSON strings. `shell_service` doesn't shell-expand `env` values, so never
      pass placeholders or shell expressions. Only `LAVISH_HUB_SESSION` is read
      by `lavish-hub` itself; the rest are shell variables that spare you
      manual quoting in `command` and `health_check`, so keep every CLI flag
      below.
    - `command`:
-     `lavish-hub listen --workspace "$LAVISH_HUB_WORKSPACE" --session "$LAVISH_HUB_SESSION" --title "$LAVISH_HUB_TITLE" --rev "$LAVISH_HUB_REV"`
-     (add `--base "$LAVISH_HUB_BASE"` when set). Omit `--open`; `copy_url`
-     replaces the browser tab.
+     `lavish-hub listen --workspace "$LAVISH_HUB_WORKSPACE" --session "$LAVISH_HUB_SESSION" --rev "$LAVISH_HUB_REV"`
+     (add `--base "$LAVISH_HUB_BASE"` or `--title "$LAVISH_HUB_TITLE"` when
+     set). Omit `--open`; `copy_url` replaces the browser tab.
    - `copy_url`: the exact URL from step 2.
    - `health_check`:
      `{"command": "lavish-hub --workspace \"$LAVISH_HUB_WORKSPACE\" --session \"$LAVISH_HUB_SESSION\""}`
