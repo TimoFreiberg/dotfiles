@@ -27,5 +27,49 @@
     "handler": {
       "bash": "\"$HOME/dotfiles/agents/hooks/lavish-plan-view\""
     }
+  },
+  {
+    "name": "ensure-plan-task-on-turn",
+    "event": "pre_model_turn",
+    "handler": {
+      "bash": "python3 \"$HOME/dotfiles/agents/hooks/ensure-plan-task-skill.py\""
+    }
+  },
+  {
+    "name": "track-plan-task-skill-load",
+    "event": "pre_tool_use",
+    "matcher": "skill",
+    "handler": {
+      "bash": "python3 \"$HOME/dotfiles/agents/hooks/ensure-plan-task-skill.py\""
+    }
+  },
+  {
+    "name": "require-plan-task-before-write-plan",
+    "event": "pre_tool_use",
+    "matcher": "write_plan",
+    "handler": {
+      "bash": "python3 \"$HOME/dotfiles/agents/hooks/ensure-plan-task-skill.py\""
+    }
+  },
+  {
+    "name": "track-plan-task-user-ref",
+    "event": "pre_user_prompt",
+    "handler": {
+      "bash": "python3 \"$HOME/dotfiles/agents/hooks/ensure-plan-task-skill.py\""
+    }
+  },
+  {
+    "name": "reset-plan-task-after-clear",
+    "event": "post_clear",
+    "handler": {
+      "bash": "python3 \"$HOME/dotfiles/agents/hooks/ensure-plan-task-skill.py\""
+    }
+  },
+  {
+    "name": "reset-plan-task-after-compaction",
+    "event": "post_compaction",
+    "handler": {
+      "bash": "python3 \"$HOME/dotfiles/agents/hooks/ensure-plan-task-skill.py\""
+    }
   }
 ]

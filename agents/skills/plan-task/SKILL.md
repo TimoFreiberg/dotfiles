@@ -1,6 +1,6 @@
 ---
 name: plan-task
-description: "Use when planning implementation work in plan facet"
+description: "How to operate in the plan facet"
 ---
 
 Run `grill-me` before writing the plan, even when the request sounds
