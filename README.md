@@ -70,7 +70,7 @@ its old copy. Do not overwrite an existing `machine.fish` without merging it
 locally.
 
 ## MacOS notes
-- `brew install scroll-reverser maccy` 
+- [Vorssaint](https://github.com/vorssaint/vorssaint-utils) (installed via the `.dmg` package from releases)
 
 # Windows notes
 
