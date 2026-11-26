@@ -1,5 +1,5 @@
 ---
-name: review-levels
+name: review-tiers
 description: "Review level rubric (routine, thorough, critical) shared by planning and orchestration."
 ---
 

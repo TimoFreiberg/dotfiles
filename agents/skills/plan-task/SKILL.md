@@ -8,7 +8,7 @@ specific. In-scope work that isn't planned needs an operator-approved
 deferral with bounds: what execution may do meanwhile and what it must not
 decide.
 
-Choose a review level per @skill:review-levels, and open the plan with exactly
+Choose a review level per @skill:review-tiers, and open the plan with exactly
 "Execute with AT-skill:orchestrator(review level: <level>).", replacing `AT-`
 with `@`.
 
