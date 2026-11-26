@@ -1,16 +1,23 @@
+import base64
+import hashlib
 import json
 import os
 import pty
 import shutil
+import stat
 import subprocess
 import time
 from pathlib import Path
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "bin/herdr-polytoken"
+BIN_DIR = Path(__file__).resolve().parents[1] / "bin"
+SCRIPT = BIN_DIR / "polytoken-wrap"
+HERDR_SHIM = BIN_DIR / "herdr-polytoken"
+HPT_SHIM = BIN_DIR / "hpt"
 JQ = shutil.which("jq")
 PTY_HANDLES = []
+TEST_TOKEN = "dummy-token-replace-me"
 
 
 @pytest.fixture
@@ -36,13 +43,18 @@ env > "$ENV_FILE"
         path.chmod(0o755)
     if JQ:
         (commands / "jq").symlink_to(JQ)
-    for tool in ("env", "sleep"):
-        (commands / tool).symlink_to(shutil.which(tool))
+    for tool in ("env", "sleep", "base64", "tr", "date", "cut", "mktemp", "rm",
+                 "shasum", "sha256sum"):
+        resolved = shutil.which(tool)
+        if resolved:
+            (commands / tool).symlink_to(resolved)
     env = {**os.environ, "PATH": str(commands), "CALLS": str(log),
            "ARGS": str(tmp_path / "args"), "ENV_FILE": str(tmp_path / "env"),
-           "HC_JSON": '{}'}
+           "HC_JSON": '{}', "TMPDIR": str(tmp_path)}
     for key in ("HC_TERMINAL_ID", "HPT_REPORTER", "HPT_SESSIONS_DIR", "HERDR_ENV",
-                "HERDR_BIN_PATH", "HERDR_PANE_ID"):
+                "HERDR_BIN_PATH", "HERDR_PANE_ID", "OSC7577_TOKEN", "REX_BLOCK",
+                "PT_WRAP_TOKEN_FILE", "PT_WRAP_TUI_PID", "PT_WRAP_CWD",
+                "XDG_RUNTIME_DIR"):
         env.pop(key, None)
     yield tmp_path, commands, env
     import signal
@@ -53,17 +65,17 @@ env > "$ENV_FILE"
     PTY_HANDLES.clear()
 
 
-def run(harness, *args, extra=None, cwd=None):
+def run(harness, *args, extra=None, cwd=None, script=SCRIPT):
     tmp, _, env = harness
-    return subprocess.run([str(SCRIPT), *args], env={**env, **(extra or {})},
+    return subprocess.run([str(script), *args], env={**env, **(extra or {})},
                           cwd=cwd or tmp, capture_output=True, timeout=5)
 
 
-def callback(harness, *args, extra=None, tty=True):
+def callback(harness, *args, extra=None, tty=True, script=SCRIPT):
     tmp, _, env = harness
     env = {**env, "HPT_REPORTER": "1", "HC_TERMINAL_ID": "t1", **(extra or {})}
     if not tty:
-        proc = subprocess.run([str(SCRIPT), "pane", *args], env=env, cwd=tmp,
+        proc = subprocess.run([str(script), "pane", *args], env=env, cwd=tmp,
                               stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                               stderr=subprocess.DEVNULL, start_new_session=True, timeout=3)
         return proc.returncode, b"", 0
@@ -78,7 +90,7 @@ def callback(harness, *args, extra=None, tty=True):
             null = os.open(os.devnull, os.O_RDWR)
             for fd in (0, 1, 2):
                 os.dup2(null, fd)
-            os.execve(str(SCRIPT), [str(SCRIPT), "pane", *args], env)
+            os.execve(str(script), [str(script), "pane", *args], env)
         _, status = os.waitpid(child, 0)
         os.write(1, f"\nCALLBACK_STATUS={os.waitstatus_to_exitcode(status)}\n".encode())
         os.read(0, 1)
@@ -110,11 +122,34 @@ def fields(path):
     return path.read_bytes().decode().rstrip('\0').split('\0')
 
 
+def parse_env(path):
+    parsed = {}
+    for line in path.read_text().splitlines():
+        if "=" in line:
+            k, v = line.split("=", 1)
+            parsed[k] = v
+    return parsed
+
+
 def wait_labels(tmp):
     deadline = time.monotonic() + 3
     while not (tmp / "calls").exists() and time.monotonic() < deadline:
         time.sleep(0.01)
     return fields(tmp / "calls")
+
+
+def parse_osc7577(raw: bytes, token: str):
+    assert raw.startswith(b"\x1b]7577;") and raw.endswith(b"\x1b\\"), raw
+    body_and_mac = raw[len(b"\x1b]7577;"):-len(b"\x1b\\")].decode("ascii")
+    body, mac = body_and_mac.rsplit(":mac=", 1)
+    expected_mac = hashlib.sha256(f"{body}:{token}".encode("utf-8")).hexdigest()
+    assert mac == expected_mac
+    pairs = {}
+    for pair in body.split(":"):
+        k, v = pair.split("=", 1)
+        assert k not in pairs
+        pairs[k] = v
+    return pairs
 
 
 @pytest.mark.parametrize("extra", [{}, {"HERDR_ENV": "legacy", "HERDR_PANE_ID": "old"}])
@@ -126,6 +161,18 @@ def test_standalone_passthrough(harness, extra):
     assert "HPT_REPORTER=1" not in env
     if extra:
         assert "HERDR_ENV=legacy" in env and "HERDR_PANE_ID=old" in env
+
+
+@pytest.mark.parametrize("shim", [HERDR_SHIM, HPT_SHIM])
+def test_compat_shims_forward_to_polytoken_wrap(harness, shim):
+    tmp, _, _ = harness
+    result = run(harness, "new", extra={"OSC7577_TOKEN": TEST_TOKEN, "REX_BLOCK": "block:abc"},
+                 script=shim)
+    assert result.returncode == 0
+    env = parse_env(tmp / "env")
+    assert env["HERDR_BIN_PATH"] == str(SCRIPT)
+    assert env["HERDR_PANE_ID"] == "block:abc"
+    assert "OSC7577_TOKEN" not in env
 
 
 @pytest.mark.parametrize("args,expected", [
@@ -146,6 +193,102 @@ def test_launch_environment(harness, args, expected):
         assert f"HPT_SESSIONS_DIR={tmp / expected}" in env
     else:
         assert "HPT_SESSIONS_DIR=" not in env
+
+
+def test_osc7577_launch_stores_private_token_and_unsets_env(harness):
+    tmp, _, _ = harness
+    result = run(harness, "new", "--working-dir", "subdir",
+                 extra={"OSC7577_TOKEN": TEST_TOKEN, "REX_BLOCK": "block:123"})
+    assert result.returncode == 0
+    assert fields(tmp / "args") == ["new", "--working-dir", "subdir"]
+    env = parse_env(tmp / "env")
+    assert "OSC7577_TOKEN" not in env
+    assert env["HPT_REPORTER"] == "1"
+    assert env["HERDR_ENV"] == "1"
+    assert env["HERDR_BIN_PATH"] == str(SCRIPT)
+    assert env["HERDR_PANE_ID"] == "block:123"
+    assert env["PT_WRAP_CWD"] == str(tmp / "subdir")
+    assert env["PT_WRAP_TUI_PID"].isdigit() and int(env["PT_WRAP_TUI_PID"]) > 0
+    token_path = Path(env["PT_WRAP_TOKEN_FILE"])
+    assert token_path.exists()
+    assert stat.S_IMODE(token_path.stat().st_mode) == 0o600
+    assert token_path.read_text() == TEST_TOKEN
+
+
+@pytest.mark.parametrize("sessions_dir", [None, "/space dir/sessions"])
+def test_osc7577_report_agent_emits_valid_sequence(harness, sessions_dir):
+    tmp, _, _ = harness
+    token_file = tmp / "tok"
+    token_file.write_text(TEST_TOKEN)
+    token_file.chmod(0o600)
+    extra = {
+        "HC_TERMINAL_ID": "",
+        "PT_WRAP_TOKEN_FILE": str(token_file),
+        "PT_WRAP_TUI_PID": "74877",
+        "PT_WRAP_CWD": str(tmp),
+    }
+    if sessions_dir:
+        extra["HPT_SESSIONS_DIR"] = sessions_dir
+    rc, output, _ = callback(harness, "report-agent", "--state", "working",
+                             "--agent-session-id", "0h2xmb-ebay", extra=extra)
+    assert rc == 0
+    pairs = parse_osc7577(output, TEST_TOKEN)
+    assert pairs["pid"] == "74877"
+    assert abs(int(pairs["time"]) - int(time.time())) <= 5
+    decoded_argv = [base64.b64decode(a).decode("utf-8") for a in pairs["argv"].split(",")]
+    expected_argv = ["polytoken", "continue", "0h2xmb-ebay"]
+    if sessions_dir:
+        expected_argv += ["--sessions-dir", sessions_dir]
+    assert decoded_argv == expected_argv
+    assert base64.b64decode(pairs["cwd"]).decode("utf-8") == str(tmp)
+    assert not (tmp / "calls").exists()
+
+
+def test_osc7577_report_agent_skips_control_chars_and_headless_tty(harness):
+    tmp, _, _ = harness
+    token_file = tmp / "tok"
+    token_file.write_text(TEST_TOKEN)
+    extra = {
+        "HC_TERMINAL_ID": "",
+        "PT_WRAP_TOKEN_FILE": str(token_file),
+        "PT_WRAP_TUI_PID": "74877",
+        "PT_WRAP_CWD": str(tmp),
+        "HPT_SESSIONS_DIR": "/bad\ndir",
+    }
+    rc, output, _ = callback(harness, "report-agent", "--state", "idle",
+                             "--agent-session-id", "0h2xmb-ebay", extra=extra)
+    assert rc == 0 and output == b""
+
+    extra["HPT_SESSIONS_DIR"] = "/ok/dir"
+    rc, output, _ = callback(harness, "report-agent", "--state", "idle",
+                             "--agent-session-id", "0h2xmb-ebay", extra=extra, tty=False)
+    assert rc == 0 and output == b""
+
+
+def test_osc7577_release_agent_cleans_token_without_clear(harness):
+    tmp, _, _ = harness
+    token_file = tmp / "tok"
+    token_file.write_text(TEST_TOKEN)
+    rc, output, _ = callback(harness, "release-agent", "--agent-session-id", "0h2xmb-ebay",
+                             extra={"HC_TERMINAL_ID": "", "PT_WRAP_TOKEN_FILE": str(token_file),
+                                    "PT_WRAP_TUI_PID": "74877"})
+    assert rc == 0 and output == b""
+    assert not token_file.exists()
+
+
+def test_combined_herdr_and_osc7577(harness):
+    tmp, _, _ = harness
+    token_file = tmp / "tok"
+    token_file.write_text(TEST_TOKEN)
+    rc, output, _ = callback(harness, "report-agent", "--state", "idle",
+                             "--agent-session-id", "abc-1",
+                             extra={"PT_WRAP_TOKEN_FILE": str(token_file),
+                                    "PT_WRAP_TUI_PID": "4242",
+                                    "PT_WRAP_CWD": str(tmp)})
+    assert rc == 0
+    assert wait_labels(tmp)[2] == "polytoken.session=abc-1"
+    pairs = parse_osc7577(output, TEST_TOKEN)
+    assert pairs["pid"] == "4242"
 
 
 @pytest.mark.parametrize("state", ["working", "idle", "blocked"])

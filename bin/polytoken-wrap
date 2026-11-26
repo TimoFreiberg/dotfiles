@@ -1,0 +1,233 @@
+#!/bin/bash
+# Provide OSC 7577 program resume and Herdr compatibility for Polytoken.
+
+valid_session_id() {
+    local LC_ALL=C
+    [[ -n $1 && $1 != -* && $1 != *[!A-Za-z0-9._-]* ]]
+}
+
+valid_pid() {
+    local LC_ALL=C
+    [[ $1 =~ ^[1-9][0-9]*$ ]]
+}
+
+has_control_chars() {
+    local LC_ALL=C
+    [[ $1 == *[[:cntrl:]]* || $1 == *$'\xc2'[$'\x80'-$'\x9f']* ]]
+}
+
+b64_encode() {
+    printf '%s' "$1" | base64 | tr -d '\r\n'
+}
+
+sha256_hex() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | cut -c1-64
+    else
+        shasum -a 256 | cut -c1-64
+    fi
+}
+
+emit_osc7577() {
+    local session_id=$1
+    local token_file=${PT_WRAP_TOKEN_FILE:-}
+    local tui_pid=${PT_WRAP_TUI_PID:-}
+    local cwd=${PT_WRAP_CWD:-}
+    local sessions_dir=${HPT_SESSIONS_DIR:-}
+
+    [[ -n $token_file && -r $token_file ]] || return 0
+    valid_pid "$tui_pid" || return 0
+
+    local token
+    token=$(<"$token_file") || return 0
+    [[ -n $token ]] || return 0
+
+    local -a cmd=(polytoken continue "$session_id")
+    if [[ -n $sessions_dir ]]; then
+        cmd+=(--sessions-dir "$sessions_dir")
+    fi
+
+    local arg encoded argv=''
+    for arg in "${cmd[@]}"; do
+        has_control_chars "$arg" && return 0
+        encoded=$(b64_encode "$arg") || return 0
+        argv+="${argv:+,}$encoded"
+    done
+
+    local now
+    now=$(date +%s) || return 0
+    local body="pid=${tui_pid}:time=${now}:argv=${argv}"
+
+    if [[ -n $cwd && $cwd == /* ]] && ! has_control_chars "$cwd"; then
+        local encoded_cwd
+        encoded_cwd=$(b64_encode "$cwd") || return 0
+        body+=":cwd=${encoded_cwd}"
+    fi
+
+    local mac
+    mac=$(printf '%s:%s' "$body" "$token" | sha256_hex) || return 0
+    [[ ${#mac} == 64 ]] || return 0
+
+    # Best-effort write to the controlling terminal; ignore if detached.
+    { printf '\033]7577;%s:mac=%s\033\134' "$body" "$mac" > /dev/tty; } 2>/dev/null || true
+}
+
+# Keep HPT_REPORTER for callbacks from sessions started with older names.
+if [[ ${HPT_REPORTER:-} == 1 && ${1:-} == pane ]]; then
+    case ${2:-} in
+        report-agent)
+            shift 2
+            state='' session_id='' seen_state='' seen_id=''
+            while (($#)); do
+                case $1 in
+                    --) break ;;
+                    --source|--agent|--state|--message|--seq|--agent-session-id)
+                        flag=$1
+                        [[ $# -ge 2 && $2 != -- ]] || exit 2
+                        # Message text may itself look like an option.
+                        if [[ $flag != --message && $2 == --* ]]; then exit 2; fi
+                        case $flag in
+                            --state)
+                                [[ -z $seen_state && -n $2 ]] || exit 2
+                                seen_state=1; state=$2 ;;
+                            --agent-session-id)
+                                [[ -z $seen_id && -n $2 ]] || exit 2
+                                seen_id=1; session_id=$2 ;;
+                        esac
+                        shift 2 ;;
+                    *) shift ;;
+                esac
+            done
+            case $state in
+                working|idle|blocked)
+                    if [[ -n $seen_id ]] && valid_session_id "$session_id"; then
+                        if [[ -n ${HC_TERMINAL_ID:-} ]]; then
+                            ( hc label "$HC_TERMINAL_ID" "polytoken.session=$session_id" \
+                                "polytoken.sessions_dir=${HPT_SESSIONS_DIR:-}" >/dev/null 2>&1 </dev/null & )
+                        fi
+                        if [[ -n ${PT_WRAP_TOKEN_FILE:-} ]]; then
+                            emit_osc7577 "$session_id"
+                        fi
+                    fi
+                    exit 0 ;;
+                *) exit 2 ;;
+            esac
+            ;;
+        release-agent)
+            # Do not send OSC 7577 clear=1 here: Polytoken may invoke release-agent
+            # on SIGHUP/SIGTERM during a terminal restart, when the record must stay.
+            # Terminals clear the record automatically when the owning pid exits.
+            if [[ -n ${PT_WRAP_TOKEN_FILE:-} ]]; then
+                rm -f -- "$PT_WRAP_TOKEN_FILE" 2>/dev/null || true
+            fi
+            ;;
+        report-metadata)
+            # Native terminal reporting handles status and its lifecycle.
+            ;;
+        *) exit 2 ;;
+    esac
+    exit 0
+fi
+
+if [[ ${1:-} == restore ]]; then
+    if [[ $# != 1 ]]; then
+        echo 'Usage: polytoken-wrap restore' >&2
+        exit 2
+    fi
+    if [[ -z ${HC_TERMINAL_ID:-} ]]; then
+        echo 'polytoken-wrap: restore requires a Herdr terminal' >&2
+        exit 1
+    fi
+    for tool in hc jq; do
+        if ! command -v "$tool" >/dev/null 2>&1; then
+            echo "polytoken-wrap: restore requires $tool" >&2
+            exit 1
+        fi
+    done
+    if ! terminal_json=$(hc get --json "$HC_TERMINAL_ID"); then
+        echo 'polytoken-wrap: could not read terminal labels' >&2
+        exit 1
+    fi
+    if ! session_id=$(printf '%s' "$terminal_json" | jq -er '
+        .labels["polytoken.session"] as $id |
+        if ($id | type) == "string" and ($id | test("\\A[A-Za-z0-9._-]+\\z")) and
+           ($id | startswith("-") | not)
+        then $id else error("missing or malformed session label") end' 2>/dev/null) || ! valid_session_id "$session_id"; then
+        echo 'polytoken-wrap: missing or invalid Polytoken session label' >&2
+        exit 1
+    fi
+    # Appending a dot prevents command substitution from trimming trailing newlines.
+    if ! sessions_dir=$(printf '%s' "$terminal_json" | jq -je '
+        if (.labels | has("polytoken.sessions_dir") | not) then ""
+        elif (.labels["polytoken.sessions_dir"] | type) == "string" and
+             (.labels["polytoken.sessions_dir"] | startswith("/")) and
+             (.labels["polytoken.sessions_dir"] | contains("\u0000") | not)
+        then .labels["polytoken.sessions_dir"] else error("invalid sessions directory label") end' 2>/dev/null && printf '.'); then
+        echo 'polytoken-wrap: invalid Polytoken sessions directory label' >&2
+        exit 1
+    fi
+    sessions_dir=${sessions_dir%.}
+    echo "polytoken-wrap: restoring session $session_id" >&2
+    if [[ -n $sessions_dir ]]; then
+        set -- continue "$session_id" --sessions-dir "$sessions_dir"
+    else
+        set -- continue "$session_id"
+    fi
+fi
+
+# Preserve standalone Polytoken and legacy environments without Herdr or OSC 7577.
+if [[ -z ${HC_TERMINAL_ID:-} && -z ${OSC7577_TOKEN:-} ]]; then
+    exec polytoken "$@"
+fi
+
+# Save only this Polytoken command's --sessions-dir and --working-dir for restoration.
+unset HPT_SESSIONS_DIR PT_WRAP_TOKEN_FILE PT_WRAP_TUI_PID PT_WRAP_CWD
+launch_cwd=$PWD
+args=("$@")
+for ((i=0; i<${#args[@]}; i++)); do
+    case ${args[i]} in
+        --) break ;;
+        --sessions-dir)
+            ((i++))
+            if ((i < ${#args[@]})) && [[ -n ${args[i]} && ${args[i]} != --* ]]; then
+                HPT_SESSIONS_DIR=${args[i]}
+            fi ;;
+        --sessions-dir=*) HPT_SESSIONS_DIR=${args[i]#--sessions-dir=} ;;
+        --working-dir)
+            ((i++))
+            if ((i < ${#args[@]})) && [[ -n ${args[i]} && ${args[i]} != --* ]]; then
+                launch_cwd=${args[i]}
+            fi ;;
+        --working-dir=*) launch_cwd=${args[i]#--working-dir=} ;;
+        --log-dir|--config-dir|--global-config-dir|--skills-dir|--facets-dir|--subagents-dir|--prompt|--model|--facet)
+            ((i++)) ;;
+    esac
+done
+if [[ -n ${HPT_SESSIONS_DIR:-} ]]; then
+    [[ $HPT_SESSIONS_DIR == /* ]] || HPT_SESSIONS_DIR=$PWD/$HPT_SESSIONS_DIR
+    export HPT_SESSIONS_DIR
+else
+    unset HPT_SESSIONS_DIR
+fi
+[[ $launch_cwd == /* ]] || launch_cwd=$PWD/$launch_cwd
+
+if [[ -n ${OSC7577_TOKEN:-} ]]; then
+    token_dir=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}
+    if token_file=$(umask 077 && mktemp "${token_dir%/}/polytoken-osc7577.XXXXXX" 2>/dev/null); then
+        printf '%s' "$OSC7577_TOKEN" > "$token_file"
+        export PT_WRAP_TOKEN_FILE="$token_file"
+        export PT_WRAP_TUI_PID="$$"
+        export PT_WRAP_CWD="$launch_cwd"
+    fi
+    unset OSC7577_TOKEN
+fi
+
+# An absolute path keeps callbacks working after a project changes directory.
+script_path=${BASH_SOURCE[0]}
+[[ $script_path == */* ]] || script_path=./$script_path
+script_path=$(CDPATH='' cd -P -- "${script_path%/*}" >/dev/null && printf '%s/%s' "$PWD" "${script_path##*/}") || exit 1
+export HPT_REPORTER=1
+export HERDR_ENV=1
+export HERDR_BIN_PATH="$script_path"
+export HERDR_PANE_ID="${HC_TERMINAL_ID:-${REX_BLOCK:-osc7577-$$}}"
+exec polytoken "$@"
