@@ -1,0 +1,127 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEFAULT_SUMMARY="🤖 Details"
+
+usage() {
+    cat <<'EOF'
+Usage: wrap-details [OPTIONS] [SUMMARY...]
+
+Wrap clipboard (or piped/redirected stdin) in an HTML <details> collapsible block
+and write the result back to the clipboard (or stdout with --stdout).
+
+Options:
+  --stdin     Read input from stdin instead of the clipboard
+  --stdout    Write output to stdout instead of the clipboard
+  -h, --help  Show this help message
+
+Examples:
+  wrap-details                  Wrap clipboard with summary "🤖 Details"
+  wrap-details "Build output"   Wrap clipboard with a custom summary
+  cmd | wrap-details            Wrap command output and copy to clipboard
+EOF
+}
+
+read_clipboard() {
+    if command -v pbpaste >/dev/null 2>&1; then
+        pbpaste
+    elif command -v wl-paste >/dev/null 2>&1; then
+        wl-paste --no-newline
+    elif command -v xclip >/dev/null 2>&1; then
+        xclip -selection clipboard -o
+    elif command -v xsel >/dev/null 2>&1; then
+        xsel --clipboard --output
+    else
+        echo "wrap-details: no clipboard read tool found (pbpaste, wl-paste, xclip, xsel)" >&2
+        exit 1
+    fi
+}
+
+write_clipboard() {
+    if command -v pbcopy >/dev/null 2>&1; then
+        pbcopy
+    elif command -v wl-copy >/dev/null 2>&1; then
+        wl-copy
+    elif command -v xclip >/dev/null 2>&1; then
+        xclip -selection clipboard
+    elif command -v xsel >/dev/null 2>&1; then
+        xsel --clipboard --input
+    else
+        echo "wrap-details: no clipboard write tool found (pbcopy, wl-copy, xclip, xsel)" >&2
+        exit 1
+    fi
+}
+
+use_stdin=0
+use_stdout=0
+summary_parts=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --stdin)
+            use_stdin=1
+            shift
+            ;;
+        --stdout)
+            use_stdout=1
+            shift
+            ;;
+        --)
+            shift
+            summary_parts+=("$@")
+            break
+            ;;
+        -*)
+            echo "wrap-details: unknown option: $1" >&2
+            usage >&2
+            exit 2
+            ;;
+        *)
+            summary_parts+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [[ ${#summary_parts[@]} -gt 0 ]]; then
+    summary="${summary_parts[*]}"
+else
+    summary="$DEFAULT_SUMMARY"
+fi
+
+# Detect piped or file-redirected stdin, ignoring /dev/null (character device)
+# and empty pipes so GUI launchers like Vorssaint or Shortcuts still read from
+# the clipboard.
+if [[ $use_stdin -eq 1 ]]; then
+    body="$(cat)"
+elif [[ -p /dev/stdin || -f /dev/stdin ]]; then
+    body="$(cat)"
+    if [[ -z "$body" ]]; then
+        body="$(read_clipboard)"
+    fi
+else
+    body="$(read_clipboard)"
+fi
+
+if [[ -z "${body//[[:space:]]/}" ]]; then
+    echo "wrap-details: input is empty" >&2
+    exit 1
+fi
+
+trimmed="${body#"${body%%[![:space:]]*}"}"
+trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+if [[ ( "$trimmed" == "<details>"* || "$trimmed" == "<details "* ) && "$trimmed" == *"</details>" ]]; then
+    output="$body"
+else
+    output=$(printf '<details>\n<summary>%s</summary>\n\n%s\n\n</details>' "$summary" "$body")
+fi
+
+if [[ $use_stdout -eq 1 ]]; then
+    printf '%s\n' "$output"
+else
+    printf '%s\n' "$output" | write_clipboard
+fi
