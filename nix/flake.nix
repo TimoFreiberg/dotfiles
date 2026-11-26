@@ -3,24 +3,12 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-
-    jcw = {
-      url = "github:TimoFreiberg/jj-conflict-workspace";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
-    lavish-hub = {
-      url = "github:TimoFreiberg/lavish-hub";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
     {
       self,
       nixpkgs,
-      jcw,
-      lavish-hub,
     }:
     let
       systems = [
@@ -30,11 +18,89 @@
         "x86_64-linux"
       ];
       forAllSystems = f: nixpkgs.lib.genAttrs systems (system: f system nixpkgs.legacyPackages.${system});
+
+      releasesFile =
+        if builtins.pathExists ./releases.lock.json then ./releases.lock.json else ./releases.json;
+      releases = builtins.fromJSON (builtins.readFile releasesFile);
+
+      jcwTargets = {
+        aarch64-darwin = "aarch64-apple-darwin";
+        x86_64-darwin = "x86_64-apple-darwin";
+        aarch64-linux = "aarch64-unknown-linux-gnu";
+        x86_64-linux = "x86_64-unknown-linux-gnu";
+      };
     in
     {
       packages = forAllSystems (
         system: pkgs:
         let
+          jcw = pkgs.stdenvNoCC.mkDerivation {
+            pname = "jcw";
+            version = releases.jcw.version;
+
+            src = pkgs.fetchurl {
+              url = "https://github.com/TimoFreiberg/jj-conflict-workspace/releases/download/v${releases.jcw.version}/jcw-v${releases.jcw.version}-${jcwTargets.${system}}.tar.gz";
+              sha256 = releases.jcw.sha256.${system};
+            };
+
+            dontUnpack = true;
+
+            nativeBuildInputs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+              pkgs.autoPatchelfHook
+            ];
+
+            buildInputs = pkgs.lib.optionals pkgs.stdenv.hostPlatform.isLinux [
+              pkgs.stdenv.cc.cc.lib
+            ];
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p "$out/bin"
+              tar -xzf "$src" -C "$out/bin" jcw
+              chmod 755 "$out/bin/jcw"
+              runHook postInstall
+            '';
+
+            meta = {
+              description = "CLI tool that offers coding agents a more convenient view on jj conflicts";
+              homepage = "https://github.com/TimoFreiberg/jj-conflict-workspace";
+              license = pkgs.lib.licenses.mit;
+              mainProgram = "jcw";
+            };
+          };
+
+          lavish-hub = pkgs.stdenvNoCC.mkDerivation {
+            pname = "lavish-hub";
+            version = releases."lavish-hub".version;
+
+            src = pkgs.fetchurl {
+              url = "https://github.com/TimoFreiberg/lavish-hub/releases/download/v${releases."lavish-hub".version}/lavish-hub.tgz";
+              sha256 = releases."lavish-hub".sha256;
+            };
+
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+
+            dontConfigure = true;
+            dontBuild = true;
+            dontFixup = true;
+
+            installPhase = ''
+              runHook preInstall
+              mkdir -p "$out/lib/lavish-hub" "$out/bin"
+              cp -r . "$out/lib/lavish-hub/"
+              makeWrapper "${pkgs.nodejs}/bin/node" "$out/bin/lavish-hub" \
+                --add-flags "$out/lib/lavish-hub/bin/lavish-hub"
+              runHook postInstall
+            '';
+
+            meta = {
+              description = "Workspace review hub for Lavish artifacts and jj diffs";
+              homepage = "https://github.com/TimoFreiberg/lavish-hub";
+              license = pkgs.lib.licenses.mit;
+              mainProgram = "lavish-hub";
+            };
+          };
+
           lavish-axi = pkgs.buildNpmPackage {
             pname = "lavish-axi";
             version = (builtins.fromJSON (builtins.readFile ./lavish-axi/package.json)).version;
@@ -63,7 +129,7 @@
           };
         in
         {
-          inherit lavish-axi;
+          inherit jcw lavish-hub lavish-axi;
 
           default = pkgs.buildEnv {
             name = "dotfiles-tools";
@@ -95,8 +161,8 @@
               pkgs.tokei
               pkgs.uv
               pkgs.zoxide
-              jcw.packages.${system}.default
-              lavish-hub.packages.${system}.default
+              jcw
+              lavish-hub
               lavish-axi
             ];
           };

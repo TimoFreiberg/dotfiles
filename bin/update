@@ -138,9 +138,31 @@ echo "────────────────────────�
 if type -q nix
     set -l before_profile (readlink -f "$HOME/.nix-profile" 2>/dev/null)
 
-    echo "  Updating flake inputs..."
-    nix flake update --flake "path:$HOME/dotfiles/nix"; or begin
-        echo "  ⚠ nix flake update failed (exit $status)"
+    echo "  Updating GitHub release pins..."
+    "$HOME/dotfiles/nix/update-releases"; or begin
+        echo "  ⚠ release pin update failed (exit $status)"
+        set had_errors 1
+    end
+
+    echo "  Updating nixpkgs (24h cooldown)..."
+    set -l nixpkgs_cutoff (jq -rn '(now - 86400) | strftime("%Y-%m-%dT%H:%M:%SZ")' 2>/dev/null)
+    set -l nixpkgs_rev ""
+    if test -n "$nixpkgs_cutoff"
+        set -l api_path "repos/NixOS/nixpkgs/commits?sha=nixpkgs-unstable&until=$nixpkgs_cutoff&per_page=1"
+        if type -q gh
+            set nixpkgs_rev (gh api "$api_path" --jq '.[0].sha' 2>/dev/null)
+        end
+        if not string match -qr '^[0-9a-f]{40}$' -- "$nixpkgs_rev"
+            set nixpkgs_rev (curl -fsSL "https://api.github.com/$api_path" 2>/dev/null | jq -r '.[0].sha // empty' 2>/dev/null)
+        end
+    end
+    if string match -qr '^[0-9a-f]{40}$' -- "$nixpkgs_rev"
+        nix flake lock "path:$HOME/dotfiles/nix" --override-input nixpkgs "github:NixOS/nixpkgs/$nixpkgs_rev"; or begin
+            echo "  ⚠ nix flake lock failed (exit $status)"
+            set had_errors 1
+        end
+    else
+        echo "  ⚠ failed to resolve nixpkgs-unstable commit older than 24h; keeping existing flake.lock"
         set had_errors 1
     end
     if nix profile list --json 2>/dev/null | grep -q '"dotfiles":'

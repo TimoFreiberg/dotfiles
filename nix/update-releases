@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Refresh pinned GitHub release versions and SHA-256 checksums for pre-built
+# tools consumed by nix/flake.nix. Writes to nix/releases.lock.json by default
+# (gitignored, like nix/flake.lock) so bin/update does not dirty the repo.
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+out_file="${1:-$script_dir/releases.lock.json}"
+
+latest_tag() {
+  local repo="$1"
+  local url tag
+  url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$repo/releases/latest")"
+  tag="${url##*/}"
+  if [[ -z "$tag" || "$tag" == "releases" || "$tag" == "latest" ]]; then
+    echo "Failed to resolve latest release tag for $repo (got URL: $url)" >&2
+    return 1
+  fi
+  printf '%s\n' "$tag"
+}
+
+lookup_sha256() {
+  local sums="$1"
+  local filename="$2"
+  local hash
+  hash="$(awk -v f="$filename" '$2 == f || $2 == "*" f { print $1; exit }' <<<"$sums")"
+  if [[ ! "$hash" =~ ^[0-9a-fA-F]{64}$ ]]; then
+    echo "Missing or invalid sha256 for $filename" >&2
+    return 1
+  fi
+  printf '%s\n' "$hash"
+}
+
+jcw_repo="TimoFreiberg/jj-conflict-workspace"
+jcw_tag="$(latest_tag "$jcw_repo")"
+jcw_ver="${jcw_tag#v}"
+jcw_sums="$(curl -fsSL "https://github.com/$jcw_repo/releases/download/$jcw_tag/SHA256SUMS")"
+
+jcw_aarch64_darwin="$(lookup_sha256 "$jcw_sums" "jcw-$jcw_tag-aarch64-apple-darwin.tar.gz")"
+jcw_x86_64_darwin="$(lookup_sha256 "$jcw_sums" "jcw-$jcw_tag-x86_64-apple-darwin.tar.gz")"
+jcw_aarch64_linux="$(lookup_sha256 "$jcw_sums" "jcw-$jcw_tag-aarch64-unknown-linux-gnu.tar.gz")"
+jcw_x86_64_linux="$(lookup_sha256 "$jcw_sums" "jcw-$jcw_tag-x86_64-unknown-linux-gnu.tar.gz")"
+
+lh_repo="TimoFreiberg/lavish-hub"
+lh_tag="$(latest_tag "$lh_repo")"
+lh_ver="${lh_tag#v}"
+lh_sums="$(curl -fsSL "https://github.com/$lh_repo/releases/download/$lh_tag/SHA256SUMS")"
+lh_sha256="$(lookup_sha256 "$lh_sums" "lavish-hub.tgz")"
+
+tmp_file="$(mktemp "$out_file.XXXXXX")"
+trap 'rm -f "$tmp_file"' EXIT
+
+jq -n \
+  --arg jcw_ver "$jcw_ver" \
+  --arg jcw_ad "$jcw_aarch64_darwin" \
+  --arg jcw_xd "$jcw_x86_64_darwin" \
+  --arg jcw_al "$jcw_aarch64_linux" \
+  --arg jcw_xl "$jcw_x86_64_linux" \
+  --arg lh_ver "$lh_ver" \
+  --arg lh_sha "$lh_sha256" \
+  '{
+    jcw: {
+      version: $jcw_ver,
+      sha256: {
+        "aarch64-darwin": $jcw_ad,
+        "x86_64-darwin": $jcw_xd,
+        "aarch64-linux": $jcw_al,
+        "x86_64-linux": $jcw_xl
+      }
+    },
+    "lavish-hub": {
+      version: $lh_ver,
+      sha256: $lh_sha
+    }
+  }' >"$tmp_file"
+
+mv "$tmp_file" "$out_file"
+trap - EXIT

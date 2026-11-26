@@ -1,0 +1,15 @@
+{
+  "jcw": {
+    "version": "0.4.0",
+    "sha256": {
+      "aarch64-darwin": "ec27642139b448b957fa8d130c79cb91dba7ab8cd186919ee78cabc93c234403",
+      "x86_64-darwin": "ba57d99b92aa90f26c1cdc0b509dd610f68e120364af8fb4e00899ec1330e867",
+      "aarch64-linux": "a1114c90befcb5d1a710b01d0231fbc1e6d476114f4c6c1908bef0f58bc17ef4",
+      "x86_64-linux": "865da5d02302f07b832f1cdc8921d0b63444534e5d4dd77514e5d62e5f084d73"
+    }
+  },
+  "lavish-hub": {
+    "version": "0.2.3",
+    "sha256": "ae3ba031a7e94c1f82b0721180fb9a11293243f52ea894061ed7f0c301d099b6"
+  }
+}
