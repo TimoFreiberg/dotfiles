@@ -42,7 +42,8 @@ emit_osc7577() {
     token=$(<"$token_file") || return 0
     [[ -n $token ]] || return 0
 
-    local -a cmd=(polytoken continue "$session_id")
+    local encoded_id=${session_id//-/_}
+    local -a cmd=(polytoken-wrap continue "$encoded_id")
     if [[ -n $sessions_dir ]]; then
         cmd+=(--sessions-dir "$sessions_dir")
     fi
@@ -175,6 +176,25 @@ if [[ ${1:-} == restore ]]; then
     fi
 fi
 
+# Translate underscores back to hyphens on the positional session ID of `continue`
+# so Rex's rex.match.id (which disallows hyphens) can match OSC 7577 resume commands.
+if [[ ${1:-} == continue && $# -ge 2 ]]; then
+    rewritten=("$@")
+    for ((i=1; i<${#rewritten[@]}; i++)); do
+        case ${rewritten[i]} in
+            --) break ;;
+            --sessions-dir|--log-dir|--config-dir|--working-dir)
+                ((i++)) ;;
+            --sessions-dir=*|--log-dir=*|--config-dir=*|--working-dir=*|-*)
+                ;;
+            *)
+                rewritten[i]=${rewritten[i]//_/-}
+                break ;;
+        esac
+    done
+    set -- "${rewritten[@]}"
+fi
+
 # Preserve standalone Polytoken and legacy environments without Herdr or OSC 7577.
 if [[ -z ${HC_TERMINAL_ID:-} && -z ${OSC7577_TOKEN:-} ]]; then
     exec polytoken "$@"
@@ -230,4 +250,10 @@ export HPT_REPORTER=1
 export HERDR_ENV=1
 export HERDR_BIN_PATH="$script_path"
 export HERDR_PANE_ID="${HC_TERMINAL_ID:-${REX_BLOCK:-osc7577-$$}}"
+if [[ -n ${PT_WRAP_TOKEN_FILE:-} ]]; then
+    polytoken "$@"
+    rc=$?
+    rm -f -- "$PT_WRAP_TOKEN_FILE" 2>/dev/null || true
+    exit "$rc"
+fi
 exec polytoken "$@"

@@ -38,18 +38,25 @@ fi
     (commands / "polytoken").write_text('''#!/bin/bash
 printf '%s\\0' "$@" > "$ARGS"
 env > "$ENV_FILE"
+if [[ -n ${PT_WRAP_TOKEN_FILE:-} && -f $PT_WRAP_TOKEN_FILE ]]; then
+    cp "$PT_WRAP_TOKEN_FILE" "$TOKEN_COPY"
+    stat -f '%Lp' "$PT_WRAP_TOKEN_FILE" 2>/dev/null > "$TOKEN_MODE" || \
+        stat -c '%a' "$PT_WRAP_TOKEN_FILE" > "$TOKEN_MODE"
+fi
 ''')
     for path in commands.iterdir():
         path.chmod(0o755)
     if JQ:
         (commands / "jq").symlink_to(JQ)
     for tool in ("env", "sleep", "base64", "tr", "date", "cut", "mktemp", "rm",
-                 "shasum", "sha256sum"):
+                 "cp", "stat", "shasum", "sha256sum"):
         resolved = shutil.which(tool)
         if resolved:
             (commands / tool).symlink_to(resolved)
     env = {**os.environ, "PATH": str(commands), "CALLS": str(log),
            "ARGS": str(tmp_path / "args"), "ENV_FILE": str(tmp_path / "env"),
+           "TOKEN_COPY": str(tmp_path / "token_copy"),
+           "TOKEN_MODE": str(tmp_path / "token_mode"),
            "HC_JSON": '{}', "TMPDIR": str(tmp_path)}
     for key in ("HC_TERMINAL_ID", "HPT_REPORTER", "HPT_SESSIONS_DIR", "HERDR_ENV",
                 "HERDR_BIN_PATH", "HERDR_PANE_ID", "OSC7577_TOKEN", "REX_BLOCK",
@@ -210,9 +217,16 @@ def test_osc7577_launch_stores_private_token_and_unsets_env(harness):
     assert env["PT_WRAP_CWD"] == str(tmp / "subdir")
     assert env["PT_WRAP_TUI_PID"].isdigit() and int(env["PT_WRAP_TUI_PID"]) > 0
     token_path = Path(env["PT_WRAP_TOKEN_FILE"])
-    assert token_path.exists()
-    assert stat.S_IMODE(token_path.stat().st_mode) == 0o600
-    assert token_path.read_text() == TEST_TOKEN
+    assert not token_path.exists()  # cleaned up on exit
+    assert (tmp / "token_mode").read_text().strip() == "600"
+    assert (tmp / "token_copy").read_text() == TEST_TOKEN
+
+
+def test_continue_translates_underscores_in_session_id_only(harness):
+    tmp, _, _ = harness
+    result = run(harness, "continue", "--sessions-dir", "/my_dir/sessions", "0h2xmb_ebay")
+    assert result.returncode == 0
+    assert fields(tmp / "args") == ["continue", "--sessions-dir", "/my_dir/sessions", "0h2xmb-ebay"]
 
 
 @pytest.mark.parametrize("sessions_dir", [None, "/space dir/sessions"])
@@ -236,7 +250,7 @@ def test_osc7577_report_agent_emits_valid_sequence(harness, sessions_dir):
     assert pairs["pid"] == "74877"
     assert abs(int(pairs["time"]) - int(time.time())) <= 5
     decoded_argv = [base64.b64decode(a).decode("utf-8") for a in pairs["argv"].split(",")]
-    expected_argv = ["polytoken", "continue", "0h2xmb-ebay"]
+    expected_argv = ["polytoken-wrap", "continue", "0h2xmb_ebay"]
     if sessions_dir:
         expected_argv += ["--sessions-dir", sessions_dir]
     assert decoded_argv == expected_argv
