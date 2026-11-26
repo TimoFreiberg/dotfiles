@@ -48,8 +48,7 @@ fi
         path.chmod(0o755)
     if JQ:
         (commands / "jq").symlink_to(JQ)
-    for tool in ("env", "sleep", "base64", "tr", "date", "cut", "mktemp", "rm",
-                 "cp", "stat", "shasum", "sha256sum"):
+    for tool in ("env", "node", "sleep", "cp", "stat"):
         resolved = shutil.which(tool)
         if resolved:
             (commands / tool).symlink_to(resolved)
@@ -374,7 +373,7 @@ def test_restore_requires_terminal_and_no_extra_args(harness):
     assert run(harness, "restore", "--help", extra={"HC_TERMINAL_ID": "t1"}).returncode == 2
 
 
-@pytest.mark.parametrize("tool", ["hc", "jq"])
+@pytest.mark.parametrize("tool", ["hc"])
 def test_restore_requires_tools(harness, tool):
     _, commands, _ = harness
     (commands / tool).unlink(missing_ok=True)

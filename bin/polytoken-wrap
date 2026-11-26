@@ -1,259 +1,353 @@
-#!/bin/bash
-# Provide OSC 7577 program resume and Herdr compatibility for Polytoken.
+#!/usr/bin/env node
+"use strict";
 
-valid_session_id() {
-    local LC_ALL=C
-    [[ -n $1 && $1 != -* && $1 != *[!A-Za-z0-9._-]* ]]
+// Provide OSC 7577 program resume and Herdr compatibility for Polytoken.
+// Implemented in Node so Rex's program_differs check unwraps `node <script>`
+// to `polytoken-wrap` (Rex does not unwrap bash scripts).
+
+const { spawn, spawnSync } = require("node:child_process");
+const crypto = require("node:crypto");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+
+function validSessionId(id) {
+  return typeof id === "string" && id.length > 0 && !id.startsWith("-") && /^[A-Za-z0-9._-]+$/.test(id);
 }
 
-valid_pid() {
-    local LC_ALL=C
-    [[ $1 =~ ^[1-9][0-9]*$ ]]
+function validPid(pid) {
+  return typeof pid === "string" && /^[1-9][0-9]*$/.test(pid);
 }
 
-has_control_chars() {
-    local LC_ALL=C
-    [[ $1 == *[[:cntrl:]]* || $1 == *$'\xc2'[$'\x80'-$'\x9f']* ]]
+function hasControlChars(str) {
+  return /[\x00-\x1f\x7f\u0080-\u009f]/.test(str);
 }
 
-b64_encode() {
-    printf '%s' "$1" | base64 | tr -d '\r\n'
+function b64Encode(str) {
+  return Buffer.from(str, "utf8").toString("base64");
 }
 
-sha256_hex() {
-    if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum | cut -c1-64
-    else
-        shasum -a 256 | cut -c1-64
-    fi
+function emitOsc7577(sessionId) {
+  const tokenFile = process.env.PT_WRAP_TOKEN_FILE || "";
+  const tuiPid = process.env.PT_WRAP_TUI_PID || "";
+  const cwd = process.env.PT_WRAP_CWD || "";
+  const sessionsDir = process.env.HPT_SESSIONS_DIR || "";
+
+  if (!tokenFile || !validPid(tuiPid)) return;
+
+  let token;
+  try {
+    token = fs.readFileSync(tokenFile, "utf8");
+  } catch {
+    return;
+  }
+  if (!token) return;
+
+  const encodedId = sessionId.replace(/-/g, "_");
+  const cmd = ["polytoken-wrap", "continue", encodedId];
+  if (sessionsDir) {
+    cmd.push("--sessions-dir", sessionsDir);
+  }
+
+  const encodedArgs = [];
+  for (const arg of cmd) {
+    if (hasControlChars(arg)) return;
+    encodedArgs.push(b64Encode(arg));
+  }
+
+  const now = Math.floor(Date.now() / 1000);
+  let body = `pid=${tuiPid}:time=${now}:argv=${encodedArgs.join(",")}`;
+
+  if (cwd && cwd.startsWith("/") && !hasControlChars(cwd)) {
+    body += `:cwd=${b64Encode(cwd)}`;
+  }
+
+  const mac = crypto.createHash("sha256").update(`${body}:${token}`, "utf8").digest("hex");
+  if (mac.length !== 64) return;
+
+  try {
+    fs.writeFileSync("/dev/tty", `\x1b]7577;${body}:mac=${mac}\x1b\\`);
+  } catch {
+    // Best-effort write to the controlling terminal; ignore if detached.
+  }
 }
 
-emit_osc7577() {
-    local session_id=$1
-    local token_file=${PT_WRAP_TOKEN_FILE:-}
-    local tui_pid=${PT_WRAP_TUI_PID:-}
-    local cwd=${PT_WRAP_CWD:-}
-    local sessions_dir=${HPT_SESSIONS_DIR:-}
+function handleCallback(args) {
+  const action = args[1] || "";
+  if (action === "report-agent") {
+    let state = "";
+    let sessionId = "";
+    let seenState = false;
+    let seenId = false;
+    const opts = new Set(["--source", "--agent", "--state", "--message", "--seq", "--agent-session-id"]);
 
-    [[ -n $token_file && -r $token_file ]] || return 0
-    valid_pid "$tui_pid" || return 0
+    let i = 2;
+    while (i < args.length) {
+      const arg = args[i];
+      if (arg === "--") break;
+      if (opts.has(arg)) {
+        if (i + 1 >= args.length || args[i + 1] === "--") process.exit(2);
+        const val = args[i + 1];
+        // Message text may itself look like an option.
+        if (arg !== "--message" && val.startsWith("--")) process.exit(2);
+        if (arg === "--state") {
+          if (seenState || !val) process.exit(2);
+          seenState = true;
+          state = val;
+        } else if (arg === "--agent-session-id") {
+          if (seenId || !val) process.exit(2);
+          seenId = true;
+          sessionId = val;
+        }
+        i += 2;
+      } else {
+        i += 1;
+      }
+    }
 
-    local token
-    token=$(<"$token_file") || return 0
-    [[ -n $token ]] || return 0
+    if (state !== "working" && state !== "idle" && state !== "blocked") {
+      process.exit(2);
+    }
 
-    local encoded_id=${session_id//-/_}
-    local -a cmd=(polytoken-wrap continue "$encoded_id")
-    if [[ -n $sessions_dir ]]; then
-        cmd+=(--sessions-dir "$sessions_dir")
-    fi
+    if (seenId && validSessionId(sessionId)) {
+      const hcId = process.env.HC_TERMINAL_ID || "";
+      if (hcId) {
+        try {
+          const child = spawn(
+            "hc",
+            ["label", hcId, `polytoken.session=${sessionId}`, `polytoken.sessions_dir=${process.env.HPT_SESSIONS_DIR || ""}`],
+            { detached: true, stdio: "ignore" }
+          );
+          child.on("error", () => {});
+          child.unref();
+        } catch {
+          // Best-effort label write.
+        }
+      }
+      if (process.env.PT_WRAP_TOKEN_FILE) {
+        emitOsc7577(sessionId);
+      }
+    }
+    process.exit(0);
+  }
 
-    local arg encoded argv=''
-    for arg in "${cmd[@]}"; do
-        has_control_chars "$arg" && return 0
-        encoded=$(b64_encode "$arg") || return 0
-        argv+="${argv:+,}$encoded"
-    done
+  if (action === "release-agent") {
+    // Do not send OSC 7577 clear=1 here: Polytoken may invoke release-agent
+    // on SIGHUP/SIGTERM during a terminal restart, when the record must stay.
+    // Terminals clear the record automatically when the owning pid exits.
+    if (process.env.PT_WRAP_TOKEN_FILE) {
+      try {
+        fs.unlinkSync(process.env.PT_WRAP_TOKEN_FILE);
+      } catch {
+        // Ignore cleanup errors.
+      }
+    }
+    process.exit(0);
+  }
 
-    local now
-    now=$(date +%s) || return 0
-    local body="pid=${tui_pid}:time=${now}:argv=${argv}"
+  if (action === "report-metadata") {
+    process.exit(0);
+  }
 
-    if [[ -n $cwd && $cwd == /* ]] && ! has_control_chars "$cwd"; then
-        local encoded_cwd
-        encoded_cwd=$(b64_encode "$cwd") || return 0
-        body+=":cwd=${encoded_cwd}"
-    fi
-
-    local mac
-    mac=$(printf '%s:%s' "$body" "$token" | sha256_hex) || return 0
-    [[ ${#mac} == 64 ]] || return 0
-
-    # Best-effort write to the controlling terminal; ignore if detached.
-    { printf '\033]7577;%s:mac=%s\033\134' "$body" "$mac" > /dev/tty; } 2>/dev/null || true
+  process.exit(2);
 }
 
-# Keep HPT_REPORTER for callbacks from sessions started with older names.
-if [[ ${HPT_REPORTER:-} == 1 && ${1:-} == pane ]]; then
-    case ${2:-} in
-        report-agent)
-            shift 2
-            state='' session_id='' seen_state='' seen_id=''
-            while (($#)); do
-                case $1 in
-                    --) break ;;
-                    --source|--agent|--state|--message|--seq|--agent-session-id)
-                        flag=$1
-                        [[ $# -ge 2 && $2 != -- ]] || exit 2
-                        # Message text may itself look like an option.
-                        if [[ $flag != --message && $2 == --* ]]; then exit 2; fi
-                        case $flag in
-                            --state)
-                                [[ -z $seen_state && -n $2 ]] || exit 2
-                                seen_state=1; state=$2 ;;
-                            --agent-session-id)
-                                [[ -z $seen_id && -n $2 ]] || exit 2
-                                seen_id=1; session_id=$2 ;;
-                        esac
-                        shift 2 ;;
-                    *) shift ;;
-                esac
-            done
-            case $state in
-                working|idle|blocked)
-                    if [[ -n $seen_id ]] && valid_session_id "$session_id"; then
-                        if [[ -n ${HC_TERMINAL_ID:-} ]]; then
-                            ( hc label "$HC_TERMINAL_ID" "polytoken.session=$session_id" \
-                                "polytoken.sessions_dir=${HPT_SESSIONS_DIR:-}" >/dev/null 2>&1 </dev/null & )
-                        fi
-                        if [[ -n ${PT_WRAP_TOKEN_FILE:-} ]]; then
-                            emit_osc7577 "$session_id"
-                        fi
-                    fi
-                    exit 0 ;;
-                *) exit 2 ;;
-            esac
-            ;;
-        release-agent)
-            # Do not send OSC 7577 clear=1 here: Polytoken may invoke release-agent
-            # on SIGHUP/SIGTERM during a terminal restart, when the record must stay.
-            # Terminals clear the record automatically when the owning pid exits.
-            if [[ -n ${PT_WRAP_TOKEN_FILE:-} ]]; then
-                rm -f -- "$PT_WRAP_TOKEN_FILE" 2>/dev/null || true
-            fi
-            ;;
-        report-metadata)
-            # Native terminal reporting handles status and its lifecycle.
-            ;;
-        *) exit 2 ;;
-    esac
-    exit 0
-fi
+function handleRestore(args) {
+  if (args.length !== 1) {
+    process.stderr.write("Usage: polytoken-wrap restore\n");
+    process.exit(2);
+  }
+  const hcId = process.env.HC_TERMINAL_ID || "";
+  if (!hcId) {
+    process.stderr.write("polytoken-wrap: restore requires a Herdr terminal\n");
+    process.exit(1);
+  }
 
-if [[ ${1:-} == restore ]]; then
-    if [[ $# != 1 ]]; then
-        echo 'Usage: polytoken-wrap restore' >&2
-        exit 2
-    fi
-    if [[ -z ${HC_TERMINAL_ID:-} ]]; then
-        echo 'polytoken-wrap: restore requires a Herdr terminal' >&2
-        exit 1
-    fi
-    for tool in hc jq; do
-        if ! command -v "$tool" >/dev/null 2>&1; then
-            echo "polytoken-wrap: restore requires $tool" >&2
-            exit 1
-        fi
-    done
-    if ! terminal_json=$(hc get --json "$HC_TERMINAL_ID"); then
-        echo 'polytoken-wrap: could not read terminal labels' >&2
-        exit 1
-    fi
-    if ! session_id=$(printf '%s' "$terminal_json" | jq -er '
-        .labels["polytoken.session"] as $id |
-        if ($id | type) == "string" and ($id | test("\\A[A-Za-z0-9._-]+\\z")) and
-           ($id | startswith("-") | not)
-        then $id else error("missing or malformed session label") end' 2>/dev/null) || ! valid_session_id "$session_id"; then
-        echo 'polytoken-wrap: missing or invalid Polytoken session label' >&2
-        exit 1
-    fi
-    # Appending a dot prevents command substitution from trimming trailing newlines.
-    if ! sessions_dir=$(printf '%s' "$terminal_json" | jq -je '
-        if (.labels | has("polytoken.sessions_dir") | not) then ""
-        elif (.labels["polytoken.sessions_dir"] | type) == "string" and
-             (.labels["polytoken.sessions_dir"] | startswith("/")) and
-             (.labels["polytoken.sessions_dir"] | contains("\u0000") | not)
-        then .labels["polytoken.sessions_dir"] else error("invalid sessions directory label") end' 2>/dev/null && printf '.'); then
-        echo 'polytoken-wrap: invalid Polytoken sessions directory label' >&2
-        exit 1
-    fi
-    sessions_dir=${sessions_dir%.}
-    echo "polytoken-wrap: restoring session $session_id" >&2
-    if [[ -n $sessions_dir ]]; then
-        set -- continue "$session_id" --sessions-dir "$sessions_dir"
-    else
-        set -- continue "$session_id"
-    fi
-fi
+  const res = spawnSync("hc", ["get", "--json", hcId], { encoding: "utf8" });
+  if (res.error && res.error.code === "ENOENT") {
+    process.stderr.write("polytoken-wrap: restore requires hc\n");
+    process.exit(1);
+  }
+  if (res.status !== 0) {
+    process.stderr.write("polytoken-wrap: could not read terminal labels\n");
+    process.exit(1);
+  }
 
-# Translate underscores back to hyphens on the positional session ID of `continue`
-# so Rex's rex.match.id (which disallows hyphens) can match OSC 7577 resume commands.
-if [[ ${1:-} == continue && $# -ge 2 ]]; then
-    rewritten=("$@")
-    for ((i=1; i<${#rewritten[@]}; i++)); do
-        case ${rewritten[i]} in
-            --) break ;;
-            --sessions-dir|--log-dir|--config-dir|--working-dir)
-                ((i++)) ;;
-            --sessions-dir=*|--log-dir=*|--config-dir=*|--working-dir=*|-*)
-                ;;
-            *)
-                rewritten[i]=${rewritten[i]//_/-}
-                break ;;
-        esac
-    done
-    set -- "${rewritten[@]}"
-fi
+  let data;
+  try {
+    data = JSON.parse(res.stdout);
+  } catch {
+    process.stderr.write("polytoken-wrap: missing or invalid Polytoken session label\n");
+    process.exit(1);
+  }
 
-# Preserve standalone Polytoken and legacy environments without Herdr or OSC 7577.
-if [[ -z ${HC_TERMINAL_ID:-} && -z ${OSC7577_TOKEN:-} ]]; then
-    exec polytoken "$@"
-fi
+  const labels = data && typeof data === "object" && data.labels && typeof data.labels === "object" ? data.labels : null;
+  const sessionId = labels ? labels["polytoken.session"] : null;
+  if (!validSessionId(sessionId)) {
+    process.stderr.write("polytoken-wrap: missing or invalid Polytoken session label\n");
+    process.exit(1);
+  }
 
-# Save only this Polytoken command's --sessions-dir and --working-dir for restoration.
-unset HPT_SESSIONS_DIR PT_WRAP_TOKEN_FILE PT_WRAP_TUI_PID PT_WRAP_CWD
-launch_cwd=$PWD
-args=("$@")
-for ((i=0; i<${#args[@]}; i++)); do
-    case ${args[i]} in
-        --) break ;;
-        --sessions-dir)
-            ((i++))
-            if ((i < ${#args[@]})) && [[ -n ${args[i]} && ${args[i]} != --* ]]; then
-                HPT_SESSIONS_DIR=${args[i]}
-            fi ;;
-        --sessions-dir=*) HPT_SESSIONS_DIR=${args[i]#--sessions-dir=} ;;
-        --working-dir)
-            ((i++))
-            if ((i < ${#args[@]})) && [[ -n ${args[i]} && ${args[i]} != --* ]]; then
-                launch_cwd=${args[i]}
-            fi ;;
-        --working-dir=*) launch_cwd=${args[i]#--working-dir=} ;;
-        --log-dir|--config-dir|--global-config-dir|--skills-dir|--facets-dir|--subagents-dir|--prompt|--model|--facet)
-            ((i++)) ;;
-    esac
-done
-if [[ -n ${HPT_SESSIONS_DIR:-} ]]; then
-    [[ $HPT_SESSIONS_DIR == /* ]] || HPT_SESSIONS_DIR=$PWD/$HPT_SESSIONS_DIR
-    export HPT_SESSIONS_DIR
-else
-    unset HPT_SESSIONS_DIR
-fi
-[[ $launch_cwd == /* ]] || launch_cwd=$PWD/$launch_cwd
+  let sessionsDir = "";
+  if (Object.prototype.hasOwnProperty.call(labels, "polytoken.sessions_dir")) {
+    const dir = labels["polytoken.sessions_dir"];
+    if (typeof dir !== "string" || !dir.startsWith("/") || dir.includes("\0")) {
+      process.stderr.write("polytoken-wrap: invalid Polytoken sessions directory label\n");
+      process.exit(1);
+    }
+    sessionsDir = dir;
+  }
 
-if [[ -n ${OSC7577_TOKEN:-} ]]; then
-    token_dir=${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}
-    if token_file=$(umask 077 && mktemp "${token_dir%/}/polytoken-osc7577.XXXXXX" 2>/dev/null); then
-        printf '%s' "$OSC7577_TOKEN" > "$token_file"
-        export PT_WRAP_TOKEN_FILE="$token_file"
-        export PT_WRAP_TUI_PID="$$"
-        export PT_WRAP_CWD="$launch_cwd"
-    fi
-    unset OSC7577_TOKEN
-fi
+  process.stderr.write(`polytoken-wrap: restoring session ${sessionId}\n`);
+  return sessionsDir ? ["continue", sessionId, "--sessions-dir", sessionsDir] : ["continue", sessionId];
+}
 
-# An absolute path keeps callbacks working after a project changes directory.
-script_path=${BASH_SOURCE[0]}
-[[ $script_path == */* ]] || script_path=./$script_path
-script_path=$(CDPATH='' cd -P -- "${script_path%/*}" >/dev/null && printf '%s/%s' "$PWD" "${script_path##*/}") || exit 1
-export HPT_REPORTER=1
-export HERDR_ENV=1
-export HERDR_BIN_PATH="$script_path"
-export HERDR_PANE_ID="${HC_TERMINAL_ID:-${REX_BLOCK:-osc7577-$$}}"
-if [[ -n ${PT_WRAP_TOKEN_FILE:-} ]]; then
-    polytoken "$@"
-    rc=$?
-    rm -f -- "$PT_WRAP_TOKEN_FILE" 2>/dev/null || true
-    exit "$rc"
-fi
-exec polytoken "$@"
+function createPrivateTokenFile(token) {
+  const dir = process.env.XDG_RUNTIME_DIR || process.env.TMPDIR || os.tmpdir();
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const name = `polytoken-osc7577.${crypto.randomBytes(8).toString("hex")}`;
+    const filePath = path.join(dir, name);
+    try {
+      const fd = fs.openSync(filePath, "wx", 0o600);
+      try {
+        fs.writeFileSync(fd, token, "utf8");
+      } finally {
+        fs.closeSync(fd);
+      }
+      return filePath;
+    } catch (err) {
+      if (err && err.code === "EEXIST") continue;
+      return "";
+    }
+  }
+  return "";
+}
+
+function runPolytoken(args, env, tokenFile) {
+  // Let the foreground child receive SIGINT directly from the terminal.
+  process.on("SIGINT", () => {});
+
+  const child = spawn("polytoken", args, { stdio: "inherit", env });
+  child.on("error", (err) => {
+    if (tokenFile) {
+      try {
+        fs.unlinkSync(tokenFile);
+      } catch {}
+    }
+    process.stderr.write(`polytoken-wrap: failed to launch polytoken: ${err.message}\n`);
+    process.exit(err.code === "ENOENT" ? 127 : 126);
+  });
+  child.on("exit", (code, signal) => {
+    if (tokenFile) {
+      try {
+        fs.unlinkSync(tokenFile);
+      } catch {}
+    }
+    if (signal) {
+      process.kill(process.pid, signal);
+    } else {
+      process.exit(code ?? 1);
+    }
+  });
+}
+
+let args = process.argv.slice(2);
+
+// Keep HPT_REPORTER for callbacks from sessions started with older names.
+if (process.env.HPT_REPORTER === "1" && args[0] === "pane") {
+  handleCallback(args);
+}
+
+if (args[0] === "restore") {
+  args = handleRestore(args);
+}
+
+// Translate underscores back to hyphens on the positional session ID of `continue`
+// so Rex's rex.match.id (which disallows hyphens) can match OSC 7577 resume commands.
+if (args[0] === "continue" && args.length >= 2) {
+  const skipValue = new Set(["--sessions-dir", "--log-dir", "--config-dir", "--working-dir"]);
+  for (let i = 1; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--") break;
+    if (skipValue.has(arg)) {
+      i += 1;
+      continue;
+    }
+    if (arg.startsWith("-")) continue;
+    args[i] = arg.replace(/_/g, "-");
+    break;
+  }
+}
+
+const hcId = process.env.HC_TERMINAL_ID || "";
+const oscToken = process.env.OSC7577_TOKEN || "";
+
+// Preserve standalone Polytoken and legacy environments without Herdr or OSC 7577.
+if (!hcId && !oscToken) {
+  runPolytoken(args, process.env, "");
+} else {
+  const childEnv = { ...process.env };
+  delete childEnv.HPT_SESSIONS_DIR;
+  delete childEnv.PT_WRAP_TOKEN_FILE;
+  delete childEnv.PT_WRAP_TUI_PID;
+  delete childEnv.PT_WRAP_CWD;
+
+  let sessionsDir = "";
+  let launchCwd = process.cwd();
+  const skipOther = new Set([
+    "--log-dir", "--config-dir", "--global-config-dir", "--skills-dir",
+    "--facets-dir", "--subagents-dir", "--prompt", "--model", "--facet",
+  ]);
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg === "--") break;
+    if (arg === "--sessions-dir") {
+      i += 1;
+      if (i < args.length && args[i] && !args[i].startsWith("--")) {
+        sessionsDir = args[i];
+      }
+    } else if (arg.startsWith("--sessions-dir=")) {
+      sessionsDir = arg.slice("--sessions-dir=".length);
+    } else if (arg === "--working-dir") {
+      i += 1;
+      if (i < args.length && args[i] && !args[i].startsWith("--")) {
+        launchCwd = args[i];
+      }
+    } else if (arg.startsWith("--working-dir=")) {
+      launchCwd = arg.slice("--working-dir=".length);
+    } else if (skipOther.has(arg)) {
+      i += 1;
+    }
+  }
+
+  if (sessionsDir) {
+    childEnv.HPT_SESSIONS_DIR = sessionsDir.startsWith("/") ? sessionsDir : path.join(process.cwd(), sessionsDir);
+  }
+  launchCwd = launchCwd.startsWith("/") ? launchCwd : path.join(process.cwd(), launchCwd);
+
+  let tokenFile = "";
+  if (oscToken) {
+    tokenFile = createPrivateTokenFile(oscToken);
+    if (tokenFile) {
+      childEnv.PT_WRAP_TOKEN_FILE = tokenFile;
+      childEnv.PT_WRAP_TUI_PID = String(process.pid);
+      childEnv.PT_WRAP_CWD = launchCwd;
+    }
+    delete childEnv.OSC7577_TOKEN;
+  }
+
+  let scriptPath = __filename;
+  try {
+    scriptPath = fs.realpathSync(__filename);
+  } catch {
+    // Keep __filename if realpath fails.
+  }
+
+  childEnv.HPT_REPORTER = "1";
+  childEnv.HERDR_ENV = "1";
+  childEnv.HERDR_BIN_PATH = scriptPath;
+  childEnv.HERDR_PANE_ID = hcId || process.env.REX_BLOCK || `osc7577-${process.pid}`;
+
+  runPolytoken(args, childEnv, tokenFile);
+}
